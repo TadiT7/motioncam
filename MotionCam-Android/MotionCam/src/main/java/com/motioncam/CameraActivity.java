@@ -131,7 +131,7 @@ public class CameraActivity extends AppCompatActivity implements
         void load(SharedPreferences prefs) {
             this.jpegQuality = prefs.getInt(SettingsViewModel.PREFS_KEY_JPEG_QUALITY, CameraProfile.DEFAULT_JPEG_QUALITY);
             this.contrast = prefs.getFloat(SettingsViewModel.PREFS_KEY_UI_PREVIEW_CONTRAST, CameraProfile.DEFAULT_CONTRAST / 100.0f);
-            this.saturation = prefs.getFloat(SettingsViewModel.PREFS_KEY_UI_PREVIEW_COLOUR, 1.05f);
+            this.saturation = prefs.getFloat(SettingsViewModel.PREFS_KEY_UI_PREVIEW_COLOUR, 1.10f);
             this.temperatureOffset = prefs.getFloat(SettingsViewModel.PREFS_KEY_UI_PREVIEW_TEMPERATURE_OFFSET, 0);
             this.tintOffset = prefs.getFloat(SettingsViewModel.PREFS_KEY_UI_PREVIEW_TINT_OFFSET, 0);
             this.saveDng = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_SAVE_RAW, false);
@@ -395,6 +395,11 @@ public class CameraActivity extends AppCompatActivity implements
         mSensorEventManager = new SensorEventManager(this, this);
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
+
+
+
+        //        ProcessCameraProvider.getInstance(this).get().bin;
+
         requestPermissions();
     }
 
@@ -473,14 +478,14 @@ public class CameraActivity extends AppCompatActivity implements
         mPostProcessSettings.shadows = 1.0f;
         mPostProcessSettings.contrast = mSettings.contrast;
         mPostProcessSettings.saturation = mSettings.saturation;
-        mPostProcessSettings.greens = 3.0f;
+        mPostProcessSettings.greens = 4.0f;
         mPostProcessSettings.blues = 6.0f;
         mPostProcessSettings.sharpen0 = 3.0f;
-        mPostProcessSettings.sharpen1 = 1.5f;
-        mPostProcessSettings.pop = 1.125f;
+        mPostProcessSettings.sharpen1 = 2.5f;
+        mPostProcessSettings.pop = 1.35f;
         mPostProcessSettings.whitePoint = -1;
         mPostProcessSettings.blacks = -1;
-        mPostProcessSettings.tonemapVariance = 0.30f;
+        mPostProcessSettings.tonemapVariance = 0.27f;
         mPostProcessSettings.jpegQuality = mSettings.jpegQuality;
 
         mTemperatureOffset = mSettings.temperatureOffset;

@@ -715,12 +715,7 @@ void ForwardTransformGenerator::schedule_for_cpu() {
 class InverseTransformGenerator : public Generator<InverseTransformGenerator> {
 public:
     Input<Buffer<float>[]> input{"input", 4};
-
     Input<float> noiseSigma{"noiseSigma"};
-    Input<bool> softThresholding{"softThresholding"};
-
-    Input<int> numFrames{"numFrames", 1};
-    Input<float> denoiseAggressiveness{"denoiseAggressiveness", 1.0f};
     
     Output<Buffer<uint16_t>> output{"output", 2};
     
@@ -752,7 +747,8 @@ public:
     vector<Func> denoisedOutput;
     vector<Func> inverseOutput;
 
-    void threshold(Expr& outReal, Expr& outImag, Func in, int realIdx, int imagIdx);
+    void threshold(Func& out, Func in, Func parent, Expr Nsig);
+    void threshold(Func& out, Func in, Expr Nsig);
 
     void inverseStep(Expr& out0, Expr& out1, Func in, int idx0, int idx1, int idx, const vector<float>& H0, const vector<float>& H1);
     void inverse(Func& inverseOutput, Func& intermediateOutput, Func wavelet, const vector<float> real[2], const vector<float> imag[2]);
@@ -839,17 +835,41 @@ void InverseTransformGenerator::inverse(Func& inverseOutput, Func& intermediateO
                                                     rowsExpr[3]);
 }
 
-void InverseTransformGenerator::threshold(Expr& outReal, Expr& outImag, Func in, int realIdx, int imagIdx) {
-    Expr xr = in(v_x, v_y, v_c, realIdx);
-    Expr yi = in(v_x, v_y, v_c, imagIdx);
-    
-    Expr mag = sqrt(xr*xr + yi*yi);
+void InverseTransformGenerator::threshold(Func& out, Func in, Expr Nsig) {
+    Expr y1 = in(v_x, v_y, v_c, v_i);
+    Expr P = abs(in(v_x, v_y, v_c, v_i));        
+    Expr w = P / (P + Nsig + 1e-5f);
 
-    Expr Y = max(mag - noiseSigma, 0);
-    Expr w = mag / (mag + noiseSigma + 1e-5f);
+    out(v_x, v_y, v_c, v_i) = select(v_c > 0, w * y1, y1);
+}
 
-    outReal = select(v_c > 0, select(softThresholding, Y * (xr / mag), w * xr), xr);
-    outImag = select(v_c > 0, select(softThresholding, Y * (yi / mag), w * yi), yi);
+void InverseTransformGenerator::threshold(Func& out, Func in, Func parent, Expr Nsig) {
+    Expr y1 = in(v_x, v_y, v_c, v_i);
+    Expr y2 = parent(v_x/2, v_y/2, v_c, v_i);
+
+    const int win = 5;
+    Expr sum = 0.0f;
+
+    for(int y = -win/2; y <= win/2; y++) {
+        for(int x = -win/2; x <= win/2; x++) {
+            sum += in(v_x + x, v_y + y, v_c, v_i)*in(v_x + x, v_y + y, v_c, v_i);
+        }
+    }
+
+    Func Wsig{"Wsig"};
+    Func Ssig{"Ssig"};
+
+    Wsig(v_x, v_y, v_c, v_i) = 1.0f/(win*win) * sum;
+    Ssig(v_x, v_y, v_c, v_i) = sqrt(max(Wsig(v_x, v_y, v_c, v_i) - Nsig*Nsig, 2.2204e-16f));
+
+    Wsig.compute_root().parallel(v_y, 32).vectorize(v_x, 8);
+
+    Expr T = sqrt(3.0f)*(Nsig*Nsig) / Ssig(v_x, v_y, v_c, v_i);
+    Expr R = max(sqrt(y1*y1 + y2*y2) - T, 0);
+
+    Expr w = R/(R+T);
+
+    out(v_x, v_y, v_c, v_i) = select(v_c > 0, w * y1, y1);    
 }
 
 void InverseTransformGenerator::generate() {
@@ -864,21 +884,12 @@ void InverseTransformGenerator::generate() {
         Expr real1, imag1;
 
         Func spatialDenoise("spatialDenoiseLvl" + std::to_string(level));
-
         Func in = BoundaryConditions::repeat_image(input.at(level));
-        Func thresholded, normalized;
 
-        normalized(v_x, v_y, v_c, v_i) = in(v_x, v_y, v_c, v_i) / max(numFrames - 1.0f, 1.0f);
+        Expr T = noiseSigma / pow(2.0f, (float) level);
 
-
-        threshold(real0, imag0, normalized, 0, 2);
-        threshold(real1, imag1, normalized, 1, 3);
-
-        denoiseTmp(v_x, v_y, v_c, v_i) = select(v_i == 0, real0,
-                                                v_i == 1, real1,
-                                                v_i == 2, imag0,
-                                                          imag1);
-
+        threshold(denoiseTmp, in, T);
+        
         // Oriented wavelets
         spatialDenoise(v_x, v_y, v_c, v_i) = select(v_c == 0,  denoiseTmp(v_x, v_y, v_c, v_i),
                                              select(v_i == 0, (denoiseTmp(v_x, v_y, v_c, 0) + denoiseTmp(v_x, v_y, v_c, 3)) * sqrtf(0.5f),

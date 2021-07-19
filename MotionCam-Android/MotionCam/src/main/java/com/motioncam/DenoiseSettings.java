@@ -42,28 +42,27 @@ public class DenoiseSettings {
             mergeImages             = 6;
         }
         else if(ev > 0) {
-            spatialDenoiseWeight    = 1.0f;
+            spatialDenoiseWeight    = 1.5f;
             mergeImages             = 9;
         }
         else {
-            spatialDenoiseWeight    = 1.0f;
+            spatialDenoiseWeight    = 2.0f;
             mergeImages             = 12;
         }
 
         if(shadows > 3.99) {
             mergeImages             += 2;
-            spatialDenoiseWeight    = Math.max(0.5f, spatialDenoiseWeight);
         }
 
         if(shadows > 7.99) {
             mergeImages             += 2;
-            spatialDenoiseWeight    = Math.max(1.0f, spatialDenoiseWeight);
+            spatialDenoiseWeight    = Math.max(0.25f, spatialDenoiseWeight);
         }
 
-        // Limit capture to 5 seconds
-//        if(mergeImages * (exposure / 1.0e9) > 5.0f) {
-//            mergeImages = (int) Math.round(5.0f / (exposure / 1.0e9));
-//        }
+        if(shadows > 15.99) {
+            mergeImages             += 2;
+            spatialDenoiseWeight    = Math.max(0.5f, spatialDenoiseWeight);
+        }
 
         this.numMergeImages     = mergeImages;
         this.spatialWeight      = spatialDenoiseWeight;

@@ -191,6 +191,7 @@
 		4511F7BA225FCCEA001F0A37 /* libHalide.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libHalide.a; path = ../../halide/lib/libHalide.a; sourceTree = "<group>"; };
 		4513AFA326332A7B002C3BED /* libzstd.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libzstd.a; path = ../../../../../usr/local/lib/libzstd.a; sourceTree = "<group>"; };
 		45242CC41FFD7BE50064A6AE /* libtbb.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.dylib; path = ../../../../usr/local/Cellar/tbb/2018_U2/lib/libtbb.dylib; sourceTree = "<group>"; };
+		452B6CC126A02FD100992FB4 /* BlueNoiseLUT.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BlueNoiseLUT.h; sourceTree = "<group>"; };
 		453868642076ADEE004BFF65 /* libopencv_xphoto.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libopencv_xphoto.dylib; path = ../../../../../usr/local/Cellar/opencv/3.4.1_2/lib/libopencv_xphoto.dylib; sourceTree = "<group>"; };
 		453ACC2720E42F250083620E /* libopencv_ximgproc.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libopencv_ximgproc.a; path = "../../opencv-x86/lib/libopencv_ximgproc.a"; sourceTree = "<group>"; };
 		453ACC2820E42F250083620E /* libopencv_xobjdetect.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libopencv_xobjdetect.a; path = "../../opencv-x86/lib/libopencv_xobjdetect.a"; sourceTree = "<group>"; };
@@ -864,6 +865,7 @@
 				450E1E65214D290300C1B27A /* Temperature.h */,
 				450E1E69214D290300C1B27A /* Types.h */,
 				450E1E5E214D290200C1B27A /* Util.h */,
+				452B6CC126A02FD100992FB4 /* BlueNoiseLUT.h */,
 			);
 			path = motioncam;
 			sourceTree = "<group>";

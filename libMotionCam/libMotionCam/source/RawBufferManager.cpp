@@ -152,6 +152,10 @@ namespace motioncam {
             auto typedBuffers = FindNearestBuffers(mReadyBuffers, type, referenceTimestampNs, numSaveBuffers);
             numSaveBuffers = numSaveBuffers - (int) typedBuffers.size();
             
+            // Find the rest of the buffers as close as possible to the typed buffer
+            if(!typedBuffers.empty())
+                referenceTimestampNs = typedBuffers[0]->metadata.timestampNs;
+            
             auto zslBuffers = FindNearestBuffers(mReadyBuffers, RawType::ZSL, referenceTimestampNs, numSaveBuffers);
 
             // Set reference timestamp

@@ -18,9 +18,9 @@ fi
 rm -rf tmp
 mkdir -p tmp
 
-g++ DenoiseGenerator.cpp ${HALIDE_PATH}/share/tools/GenGen.cpp -v -g -o3 -std=c++17 -I ${HALIDE_PATH}/include -L ${HALIDE_PATH}/lib -lHalide -lpthread -ldl -o ./tmp/denoise_generator
-g++ PostProcessGenerator.cpp ${HALIDE_PATH}/share/tools/GenGen.cpp -v -g -o3 -std=c++17 -Wall -I ${HALIDE_PATH}/include -L ${HALIDE_PATH}/lib -lHalide -lpthread -ldl -o ./tmp/postprocess_generator
-g++ CameraPreviewGenerator.cpp ${HALIDE_PATH}/share/tools/GenGen.cpp -v -g -o3 -std=c++17 -Wall -I ${HALIDE_PATH}/include -L ${HALIDE_PATH}/lib -lHalide -lpthread -ldl -o ./tmp/camera_preview_generator
+g++ DenoiseGenerator.cpp ${HALIDE_PATH}/share/tools/GenGen.cpp -g -o3 -std=c++17 -Wall -pedantic -I ${HALIDE_PATH}/include -L ${HALIDE_PATH}/lib -lHalide -lpthread -ldl -o ./tmp/denoise_generator
+g++ PostProcessGenerator.cpp ${HALIDE_PATH}/share/tools/GenGen.cpp -g -o3 -std=c++17 -Wall -pedantic -I ${HALIDE_PATH}/include -L ${HALIDE_PATH}/lib -lHalide -lpthread -ldl -o ./tmp/postprocess_generator
+g++ CameraPreviewGenerator.cpp ${HALIDE_PATH}/share/tools/GenGen.cpp -g -o3 -std=c++17 -Wall -pedantic -I ${HALIDE_PATH}/include -L ${HALIDE_PATH}/lib -lHalide -lpthread -ldl -o ./tmp/camera_preview_generator
 
 function build_denoise() {
 	TARGET=$1

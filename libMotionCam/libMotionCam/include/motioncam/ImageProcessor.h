@@ -56,35 +56,14 @@ namespace motioncam {
 
         static float getShadowKeyValue(const RawImageBuffer& rawBuffer, const RawCameraMetadata& cameraMetadata, bool nightMode);
         
-        static void estimateBasicSettings(const RawImageBuffer& rawBuffer,
-                                          const RawCameraMetadata& cameraMetadata,
-                                          PostProcessSettings& outSettings);
-        
         static void estimateSettings(const RawImageBuffer& rawBuffer,
                                      const RawCameraMetadata& cameraMetadata,
                                      PostProcessSettings& outSettings);
         
         static float estimateShadows(const cv::Mat& histogram, float keyValue=0.22f);
         static float estimateExposureCompensation(const cv::Mat& histogram, float threshold=1e-4f);
-        static void estimateWhiteBalance(const RawImageBuffer& rawBuffer,
-                                         const RawCameraMetadata& cameraMetadata,
-                                         float& outR,
-                                         float& outG,
-                                         float& outB);
 
         static float estimateChromaEps(const RawImageBuffer& rawBuffer, const RawCameraMetadata& cameraMetadata);
-
-        static cv::Mat estimateBlacks(const RawImageBuffer& rawBuffer,
-                                      const RawCameraMetadata& cameraMetadata,
-                                      float shadows,
-                                      float& outBlacks);
-        
-        static cv::Mat estimateWhitePoint(const RawImageBuffer& rawBuffer,
-                                          const RawCameraMetadata& cameraMetadata,
-                                          float shadows,
-                                          float blacks,
-                                          float threshold,
-                                          float& outWhitePoint);
 
         static double measureSharpness(const RawImageBuffer& rawBuffer);
 

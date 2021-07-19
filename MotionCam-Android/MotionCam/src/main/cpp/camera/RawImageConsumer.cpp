@@ -259,7 +259,7 @@ namespace motioncam {
             // Keep previous value
             mPreviewShadows = mEstimatedSettings.shadows;
 
-            motioncam::ImageProcessor::estimateBasicSettings(*buffer, mCameraDesc->metadata, mEstimatedSettings);
+            motioncam::ImageProcessor::estimateSettings(*buffer, mCameraDesc->metadata, mEstimatedSettings);
 
             // Update shadows to include user selected boost
             float userShadows = std::pow(2.0f, std::log(mEstimatedSettings.shadows) / std::log(2.0f) + mShadowBoost);

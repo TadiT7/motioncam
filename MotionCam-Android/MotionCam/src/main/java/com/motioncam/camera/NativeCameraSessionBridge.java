@@ -282,10 +282,10 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         return GetAvailableImages(mNativeCameraHandle);
     }
 
-    public PostProcessSettings estimatePostProcessSettings(boolean basicSettings, float shadowsBias) throws IOException {
+    public PostProcessSettings estimatePostProcessSettings(float shadowsBias) throws IOException {
         ensureValidHandle();
 
-        String settingsJson = EstimatePostProcessSettings(mNativeCameraHandle, basicSettings, shadowsBias);
+        String settingsJson = EstimatePostProcessSettings(mNativeCameraHandle, shadowsBias);
         if(settingsJson == null) {
             return null;
         }
@@ -463,5 +463,5 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native double MeasureSharpness(long handle, long bufferHandle);
 
     private native float EstimateShadows(long handle, float bias);
-    private native String EstimatePostProcessSettings(long bufferHandle, boolean basicSettings, float shadowsBias);
+    private native String EstimatePostProcessSettings(long bufferHandle, float shadowsBias);
 }

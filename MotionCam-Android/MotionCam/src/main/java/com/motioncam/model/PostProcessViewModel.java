@@ -119,7 +119,7 @@ public class PostProcessViewModel extends ViewModel {
     }
 
     public float getBlacksSetting() {
-        return getSetting(blacks, 0) / 400.0f;
+        return getSetting(blacks, 0) / 800.0f;
     }
 
     public float getExposureSetting() {
@@ -203,7 +203,7 @@ public class PostProcessViewModel extends ViewModel {
         final int iso = images.get(0).iso;
         final long shutterSpeed = images.get(0).exposureTime;
 
-        asyncNativeCameraOps.estimateSettings(false, 12.0f, (settings) -> {
+        asyncNativeCameraOps.estimateSettings(16.0f, (settings) -> {
             // Load user settings
             load(context);
 
@@ -238,7 +238,7 @@ public class PostProcessViewModel extends ViewModel {
         shadows.setValue((int)Math.ceil(Math.log(settings.shadows)/Math.log(1.85f) / 6.0f * 100.0f));
         whitePoint.setValue(Math.round(-200.0f * settings.whitePoint + 250.0f));
         contrast.setValue(Math.round(settings.contrast * 100));
-        blacks.setValue(Math.round(settings.blacks * 400));
+        blacks.setValue(Math.round(settings.blacks * 800));
         exposure.setValue(Math.round(settings.exposure * 4 + 16));
 
         // Saturation
