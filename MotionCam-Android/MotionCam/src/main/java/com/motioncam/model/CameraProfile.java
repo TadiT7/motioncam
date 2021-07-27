@@ -47,6 +47,6 @@ public class CameraProfile {
     public static final int DEFAULT_BLUES = 50;
 
     // Detail
-    public static final int DEFAULT_SHARPNESS = 40;
+    public static final int DEFAULT_SHARPNESS = 20;
     public static final int DEFAULT_DETAIL = 25;
 }

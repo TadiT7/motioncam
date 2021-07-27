@@ -60,6 +60,12 @@ namespace motioncam {
                                      const RawCameraMetadata& cameraMetadata,
                                      PostProcessSettings& outSettings);
         
+        static void estimateBlackWhitePoint(const RawImageBuffer& rawBuffer,
+                                            const RawCameraMetadata& cameraMetadata,
+                                            const PostProcessSettings& postProcessSettings,
+                                            float& outBlackPoint,
+                                            float& outWhitePoint);
+        
         static float estimateShadows(const cv::Mat& histogram, float keyValue=0.22f);
         static float estimateExposureCompensation(const cv::Mat& histogram, float threshold=1e-4f);
 

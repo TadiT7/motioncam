@@ -149,7 +149,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/blacks"
+                android:text="@string/black_point"
                 android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold" />
 
             <LinearLayout

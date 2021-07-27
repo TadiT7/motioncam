@@ -66,68 +66,6 @@ using std::vector;
 using std::to_string;
 using std::pair;
 
-extern "C" int extern_estimate_settings(halide_buffer_t *in, int width, int height, halide_buffer_t *out) {
-    if (in->is_bounds_query()) {
-        in->dim[0].min = 0;
-        in->dim[1].min = 0;
-        
-        in->dim[0].extent = width;
-        in->dim[1].extent = height;
-    }
-    else {
-        Halide::Runtime::Buffer<uint16_t> inBuf(*in);
-        Halide::Runtime::Buffer<float> outBuf(*out);
-        
-        cv::Mat histogramInput(inBuf.height(), inBuf.width(), CV_16U, inBuf.data());
-        cv::Mat histogram;
-
-        vector<cv::Mat> inputImages     = { histogramInput };
-        const vector<int> channels      = { 0 };
-        const vector<int> histBins      = { 1024 };
-        const vector<float> histRange   = { 0, 65536 };
-
-        cv::calcHist(inputImages, channels, cv::Mat(), histogram, histBins, histRange);
-        
-        histogram = histogram / (histogramInput.rows * histogramInput.cols);
-
-        // Estimate black point
-        const float maxDehazePercent = 0.005f;
-        const int maxBin = 18;
-
-        int endBin = 0;
-        float sum = 0;
-
-        while(true) {
-            float p = histogram.at<float>(endBin);
-            sum += p;
-
-            if( sum > maxDehazePercent || endBin >= maxBin )
-                break;
-
-            ++endBin;
-        }
-
-        float blackPoint = endBin / (float) (histogram.rows - 1);
-
-        // Estimate white point
-        sum = 0;
-
-        for(endBin = histogram.rows - 1; endBin >= 192; endBin--) {
-            sum += histogram.at<float>(endBin);
-
-            if(sum >= 1e-5)
-                break;
-        }
-
-        float whitePoint = static_cast<float>(endBin + 1) / ((float) histogram.rows);
-        
-        outBuf.begin()[0] = blackPoint;
-        outBuf.begin()[1] = whitePoint;
-    }
-    
-    return 0;
-}
-
 static std::vector<Halide::Runtime::Buffer<float>> createWaveletBuffers(int width, int height) {
     std::vector<Halide::Runtime::Buffer<float>> buffers;
     
@@ -139,6 +77,51 @@ static std::vector<Halide::Runtime::Buffer<float>> createWaveletBuffers(int widt
     }
     
     return buffers;
+}
+
+extern "C" int extern_denoise(halide_buffer_t *in, int32_t width, int32_t height, int c, float weight, halide_buffer_t *out) {
+    if (in->is_bounds_query()) {
+        in->dim[0].min = 0;
+        in->dim[1].min = 0;
+        in->dim[2].min = 0;
+        
+        in->dim[0].extent = width;
+        in->dim[1].extent = height;
+        in->dim[2].extent = 2;
+    }
+    else {
+        auto inputBuffers = createWaveletBuffers(width, height);
+        
+        forward_transform(in,
+                          width,
+                          height,
+                          c,
+                          inputBuffers[0],
+                          inputBuffers[1],
+                          inputBuffers[2],
+                          inputBuffers[3],
+                          inputBuffers[4],
+                          inputBuffers[5]);
+
+        cv::Mat hh(inputBuffers[0].height(),
+                   inputBuffers[0].width(),
+                   CV_32F,
+                   inputBuffers[0].data() + 3*inputBuffers[0].stride(2));
+
+        float noiseSigma = motioncam::estimateNoise(hh);
+        
+        inverse_transform(inputBuffers[0],
+                          inputBuffers[1],
+                          inputBuffers[2],
+                          inputBuffers[3],
+                          inputBuffers[4],
+                          inputBuffers[5],
+                          weight*noiseSigma,
+                          true,
+                          out);
+    }
+    
+    return 0;
 }
 
 namespace motioncam {
@@ -365,8 +348,6 @@ namespace motioncam {
             hdrInput = hdrMetadata->hdrInput;
             hdrMask = hdrMetadata->mask;
             hdrScale = hdrMetadata->exposureScale / 2;
-            
-            tonemapVariance = -0.05f * std::log2(hdrMetadata->exposureScale) / 3.0f + 0.25f;
         }
         else {
             // Don't apply underexposed image when error is too high
@@ -376,10 +357,7 @@ namespace motioncam {
             hdrMask = ToHalideBuffer<uint8_t>(blankMask);
             hdrInput = Halide::Runtime::Buffer<uint16_t>((uint16_t*) blankInput.data, blankInput.cols, blankInput.rows, 3);
         }
-                
-        // Linearly adjust sharpen threshold based on exposure
-        double sharpenThreshold = 400;
-
+        
         postprocess(inputBuffers[0],
                     inputBuffers[1],
                     inputBuffers[2],
@@ -400,7 +378,6 @@ namespace motioncam {
                     shadingMapBuffer[3],
                     EXPANDED_RANGE,
                     static_cast<int>(cameraMetadata.sensorArrangment),
-                    settings.gamma,
                     shadows,
                     tonemapVariance,
                     settings.blacks,
@@ -413,7 +390,6 @@ namespace motioncam {
                     settings.sharpen0,
                     settings.sharpen1,
                     settings.pop,
-                    sharpenThreshold,
                     chromaEps,
                     outputBuffer);
 
@@ -421,6 +397,75 @@ namespace motioncam {
         outputBuffer.copy_to_host();
 
         return output;
+    }
+
+    void ImageProcessor::estimateBlackWhitePoint(const RawImageBuffer& rawBuffer,
+                                                 const RawCameraMetadata& cameraMetadata,
+                                                 const PostProcessSettings& postProcessSettings,
+                                                 float& outBlackPoint,
+                                                 float& outWhitePoint)
+    {
+        PostProcessSettings settings = postProcessSettings;
+            
+        settings.blacks     = 0;
+        settings.whitePoint = 1;
+        settings.sharpen0   = 1;
+        settings.sharpen1   = 1;
+        settings.pop        = 1;
+        
+        auto previewBuffer = createPreview(rawBuffer, 4, cameraMetadata, settings);
+        
+        cv::Mat preview(previewBuffer.height(), previewBuffer.width(), CV_8UC4, previewBuffer.data());
+        cv::Mat histogram;
+        
+        cv::cvtColor(preview, preview, cv::COLOR_BGRA2GRAY);
+        
+        vector<cv::Mat> inputImages     = { preview };
+        const vector<int> channels      = { 0 };
+        const vector<int> histBins      = { 255 };
+        const vector<float> histRange   = { 0, 256 };
+
+        cv::calcHist(inputImages, channels, cv::Mat(), histogram, histBins, histRange);
+        
+        histogram = histogram / (preview.rows * preview.cols);
+        
+        // Cumulative histogram
+        for(int i = 1; i < histogram.rows; i++) {
+            histogram.at<float>(i) += histogram.at<float>(i - 1);
+        }
+                
+        // Estimate black point
+        const float minDehazePercent = 0.0f;
+        const float maxDehazePercent = 0.001f;
+        const int maxBlackPointBin = 0.07f * histBins[0] + 0.5f;
+
+        int endBin = 1;
+        
+        while(true) {
+            float p = histogram.at<float>(endBin);
+            
+            if( p > maxDehazePercent || (p > minDehazePercent && endBin >= maxBlackPointBin) )
+                break;
+            
+            ++endBin;
+        }
+
+        outBlackPoint = (endBin - 1) / (float) (histogram.rows - 1);
+        
+        // Estimate white point
+        float sum = 0;
+
+        const int maxWhitePointBin = 0.9f * histBins[0] + 0.5f;
+        
+        for(endBin = histogram.rows - 1; endBin >= maxWhitePointBin; endBin--) {
+            sum += histogram.at<float>(endBin);
+
+            if(sum >= 1e-5)
+                break;
+        }
+
+        outWhitePoint = static_cast<float>(endBin + 1) / ((float) histogram.rows);
+
     }
 
     float ImageProcessor::estimateShadows(const cv::Mat& histogram, float keyValue) {
@@ -472,28 +517,9 @@ namespace motioncam {
     float ImageProcessor::estimateChromaEps(const RawImageBuffer& rawBuffer,
                                             const RawCameraMetadata& cameraMetadata)
     {
-        PostProcessSettings settings;
-        
-        settings.shadows = 1.0f;
-        settings.blacks = 0;
-        settings.contrast = 0.0f;
-        settings.sharpen0 = 0;
-        settings.sharpen1 = 0;
-        
-        auto previewBuffer = createPreview(rawBuffer, 4, cameraMetadata, settings);
-        cv::Mat preview(previewBuffer.height(), previewBuffer.width(), CV_8UC4, previewBuffer.data());
-        
-        cv::cvtColor(preview, preview, cv::COLOR_BGRA2GRAY);
-        
-        preview.convertTo(preview, CV_32F, 1.0/255.0);
-        cv::log(preview + 1.0/255.0, preview);
-        
-        float mean = exp(cv::mean(preview)[0]);
-        
         auto ev = calcEv(cameraMetadata, rawBuffer.metadata);
-        float w = -ev / 16 + 2;
         
-        return std::fminf(0.2f, w * (0.01f + std::exp(-24.0f*mean)));
+        return std::fmaxf(4.0f, std::fminf(32.0f, -2.0f*ev + 32));
     }
 
     float ImageProcessor::getShadowKeyValue(const RawImageBuffer& rawBuffer, const RawCameraMetadata& cameraMetadata, bool nightMode) {
@@ -689,7 +715,6 @@ namespace motioncam {
             cameraMetadata.blackLevel[2],
             cameraMetadata.blackLevel[3],
             static_cast<uint16_t>(cameraMetadata.whiteLevel),
-            settings.gamma,
             settings.shadows,
             settings.whitePoint,
             settings.tonemapVariance,
@@ -1102,6 +1127,15 @@ namespace motioncam {
             cv::Mat histogram = calcHistogram(rawContainer.getCameraMetadata(), *referenceRawBuffer, false, 4);
             
             settings.shadows = estimateShadows(histogram, keyValue);
+        }
+        
+        if(settings.blacks < 0 || settings.whitePoint < 0) {
+            float blackPoint, whitePoint;
+            
+            ImageProcessor::estimateBlackWhitePoint(*referenceRawBuffer, rawContainer.getCameraMetadata(), settings, blackPoint, whitePoint);
+            
+            settings.blacks = blackPoint;
+            settings.whitePoint = whitePoint;
         }
         
         //
@@ -1578,6 +1612,7 @@ namespace motioncam {
                                   wavelet[4],
                                   wavelet[5],
                                   spatialDenoiseWeight*noiseSigma,
+                                  false,
                                   outputBuffer);
 
                 denoiseOutput.push_back(outputBuffer);

@@ -154,6 +154,13 @@ namespace motioncam {
             cameraDescription.lensFacing = static_cast<acamera_metadata_enum_android_lens_facing_t> (entry.data.u8[0]);
         }
 
+        // ACAMERA_LENS_INFO_AVAILABLE_FOCAL_LENGTHS
+        if(ACameraMetadata_getConstEntry(cameraChars.get(), ACAMERA_LENS_INFO_AVAILABLE_FOCAL_LENGTHS, &entry) == ACAMERA_OK) {
+            for (int cnt = 0; cnt < entry.count; cnt++) {
+                cameraDescription.focalLength.push_back(entry.data.f[cnt]);
+            }
+        }
+
         // ACAMERA_CONTROL_AE_COMPENSATION_RANGE
         if(ACameraMetadata_getConstEntry(cameraChars.get(), ACAMERA_CONTROL_AE_COMPENSATION_RANGE, &entry) == ACAMERA_OK) {
             cameraDescription.exposureCompensationRange[0] = entry.data.i32[0];
@@ -355,21 +362,35 @@ namespace motioncam {
 
         LOGI("Device has %d exposed camera", safeCameraIds->numCameras);
 
-        // Go through all the cameras on this device
+        std::set<std::string> guessCameraIds;
+
+        // Set up a list of guessed camera ids. Sometimes they're not listed
+        // but work.
         for (int i = 0; i < safeCameraIds->numCameras; i++) {
-            const char *id = safeCameraIds->cameraIds[i];
+            guessCameraIds.insert(safeCameraIds->cameraIds[i]);
+        }
+
+        for(int i = 0; i < 5; i++) {
+            guessCameraIds.insert(std::to_string(i));
+        }
+
+        // Go through all the cameras on this device
+        auto it = guessCameraIds.begin();
+        while(it != guessCameraIds.end()) {
             ACameraMetadata* cameraChars = nullptr;
 
             // Get camera characteristics
-            if(ACameraManager_getCameraCharacteristics(mCameraManager.get(), id, &cameraChars) == ACAMERA_OK) {
+            if(ACameraManager_getCameraCharacteristics(mCameraManager.get(), it->c_str(), &cameraChars) == ACAMERA_OK) {
                 std::shared_ptr<ACameraMetadata> safeCameraChars(cameraChars, ACameraMetadata_free);
                 std::shared_ptr<CameraDescription> cameraDescription = std::make_shared<CameraDescription>();
 
-                cameraDescription->id = id;
+                cameraDescription->id = it->c_str();
 
                 updateCameraMetadata(safeCameraChars, *cameraDescription);
                 mCameras.push_back(cameraDescription);
             }
+
+            ++it;
         }
     }
 

@@ -403,17 +403,23 @@ jobject JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GetMetadata(
     jclass nativeCameraMetadataClass = env->FindClass("com/motioncam/camera/NativeCameraMetadata");
 
     jfloatArray apertures = env->NewFloatArray(cameraDesc->metadata.apertures.size());
-
     env->SetFloatArrayRegion(
             apertures,
             0,
             cameraDesc->metadata.apertures.size(),
             &cameraDesc->metadata.apertures[0]);
 
+    jfloatArray focalLengths = env->NewFloatArray(cameraDesc->metadata.focalLengths.size());
+    env->SetFloatArrayRegion(
+            focalLengths,
+            0,
+            cameraDesc->metadata.focalLengths.size(),
+            &cameraDesc->metadata.focalLengths[0]);
+
     jobject obj =
         env->NewObject(
                 nativeCameraMetadataClass,
-                env->GetMethodID(nativeCameraMetadataClass, "<init>", "(IIIJJII[F)V"),
+                env->GetMethodID(nativeCameraMetadataClass, "<init>", "(IIIJJII[F[F)V"),
                 cameraDesc->sensorOrientation,
                 cameraDesc->isoRange[0],
                 cameraDesc->isoRange[1],
@@ -421,7 +427,8 @@ jobject JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GetMetadata(
                 cameraDesc->exposureRange[1],
                 cameraDesc->maxAfRegions,
                 cameraDesc->maxAeRegions,
-                apertures);
+                apertures,
+                focalLengths);
 
     return obj;
 }

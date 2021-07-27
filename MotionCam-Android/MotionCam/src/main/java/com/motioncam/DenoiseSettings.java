@@ -3,6 +3,8 @@ package com.motioncam;
 public class DenoiseSettings {
     public float spatialWeight;
     public int numMergeImages;
+    public float sharpen0;
+    public float sharpen1;
 
     double log2(double v) {
         return Math.log(v) / Math.log(2);
@@ -13,6 +15,8 @@ public class DenoiseSettings {
         return "DenoiseSettings{" +
                 "spatialWeight=" + spatialWeight +
                 ", numMergeImages=" + numMergeImages +
+                ", sharpen0=" + sharpen0 +
+                ", sharpen1=" + sharpen1 +
                 '}';
     }
 
@@ -21,16 +25,19 @@ public class DenoiseSettings {
         float chromaBlendWeight;
         float spatialDenoiseWeight;
 
+        sharpen0 = 1.75f;
+        sharpen1 = 2.0f;
+
         if(ev > 11.99) {
             spatialDenoiseWeight    = 0.0f;
             mergeImages             = 2;
         }
         else if(ev > 9.99) {
-            spatialDenoiseWeight    = 0.0f;
+            spatialDenoiseWeight    = 0.5f;
             mergeImages             = 4;
         }
         else if(ev > 7.99) {
-            spatialDenoiseWeight    = 0.5f;
+            spatialDenoiseWeight    = 1.0f;
             mergeImages             = 4;
         }
         else if(ev > 5.99) {
@@ -44,10 +51,12 @@ public class DenoiseSettings {
         else if(ev > 0) {
             spatialDenoiseWeight    = 1.5f;
             mergeImages             = 9;
+            sharpen1                = 2.5f;
         }
         else {
-            spatialDenoiseWeight    = 2.0f;
+            spatialDenoiseWeight    = 1.5f;
             mergeImages             = 12;
+            sharpen1                = 2.5f;
         }
 
         if(shadows > 3.99) {

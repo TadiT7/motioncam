@@ -186,6 +186,7 @@ Func DenoiseGenerator::registeredInput() {
         .dim(2).set_stride(1);
 
     Func clamped = BoundaryConditions::repeat_edge(input1, { {0, width}, {0, height}, {0, 4} } );
+
     inputF32(v_x, v_y, v_c) = cast<float>(clamped(v_x, v_y, v_c));
     
     Expr flowX = clamp(v_x, 0, flowMap.width() - 1);
@@ -349,7 +350,7 @@ public:
     Expr forwardStep0(Func in, int i, const vector<float>& H);
     Expr forwardStep1(Func in, int c, int i, const vector<float>& H);
     
-    Func rawChannel, clamped, inputF32, denoised;
+    Func rawChannel{"rawChannel"}, clamped{"clamped"};
 
     vector<Func> funcsStage0;
     vector<Func> funcsStage1;
@@ -503,24 +504,24 @@ void ForwardTransformGenerator::generate() {
             clamped = BoundaryConditions::repeat_image(input, { {0, width}, {0, height} } );
             
             // Select input channel
-            rawChannel(v_x, v_y) = clamped(v_x, v_y, channel);
+            rawChannel(v_x, v_y) = cast<float>(clamped(v_x, v_y, channel));
 
-            // Suppress hot pixels
-            Expr a0 = rawChannel(v_x - 1, v_y);
-            Expr a1 = rawChannel(v_x + 1, v_y);
-            Expr a2 = rawChannel(v_x, v_y + 1);
-            Expr a3 = rawChannel(v_x, v_y - 1);
-            Expr a4 = rawChannel(v_x + 1, v_y + 1);
-            Expr a5 = rawChannel(v_x + 1, v_y - 1);
-            Expr a6 = rawChannel(v_x - 1, v_y + 1);
-            Expr a7 = rawChannel(v_x - 1, v_y - 1);
+            // // Suppress hot pixels
+            // Expr a0 = rawChannel(v_x - 1, v_y);
+            // Expr a1 = rawChannel(v_x + 1, v_y);
+            // Expr a2 = rawChannel(v_x, v_y + 1);
+            // Expr a3 = rawChannel(v_x, v_y - 1);
+            // Expr a4 = rawChannel(v_x + 1, v_y + 1);
+            // Expr a5 = rawChannel(v_x + 1, v_y - 1);
+            // Expr a6 = rawChannel(v_x - 1, v_y + 1);
+            // Expr a7 = rawChannel(v_x - 1, v_y - 1);
 
-            Expr threshold = max(a0, a1, a2, a3, a4, a5, a6, a7);
+            // Expr threshold = max(a0, a1, a2, a3, a4, a5, a6, a7);
 
-            denoised(v_x, v_y) = clamp(rawChannel(v_x, v_y), 0, threshold);
-            inputF32(v_x, v_y) = cast<float>(denoised(v_x, v_y));
+            // denoised(v_x, v_y) = clamp(rawChannel(v_x, v_y), 0, threshold);
+            // inputF32(v_x, v_y) = cast<float>(denoised(v_x, v_y));
             
-            forward0(forwardOutput, intermediateOutput, inputF32);
+            forward0(forwardOutput, intermediateOutput, rawChannel);
         }
         // Use previous level as input
         else {
@@ -566,73 +567,10 @@ void ForwardTransformGenerator::schedule() {
 }
 
 void ForwardTransformGenerator::schedule_for_gpu() {
-    inputF32
-        .reorder(v_x, v_y)
-        .compute_at(output[0], tile_idx)
-        .gpu_threads(v_x, v_y);
-
-    for(int level = 0; level < levels; level++) {
-        if(level < 3) {
-            output[level]
-                .compute_root()
-                .bound(v_i, 0, 4)
-                .reorder(v_i, v_x, v_y)
-                .tile(v_x, v_y, v_xo, v_yo, v_xi, v_yi, 4, 8)
-                .fuse(v_xo, v_yo, tile_idx)
-                .tile(v_xi, v_yi, v_xio, v_yio, v_xii, v_yii, 2, 4)
-                .fuse(v_xio, v_yio, subtile_idx)
-                .unroll(v_i)
-                .gpu_blocks(tile_idx)
-                .gpu_threads(subtile_idx);
-
-        // Forward
-        funcsStage1[level]
-            .bound(v_c, 0, 4)
-            .reorder(v_c, v_i, v_x, v_y)
-            .reorder_storage(v_y, v_x, v_c, v_i)
-            .compute_at(output[level], tile_idx)
-            .store_at(output[level], tile_idx)
-            .unroll(v_c)
-            .unroll(v_i)
-            .gpu_threads(v_x, v_y);
-        
-        // Intermediate
-        funcsStage0[level]
-            .bound(v_c, 0, 4)
-            .reorder(v_c, v_i, v_x, v_y)
-            .reorder_storage(v_y, v_x, v_c, v_i)
-            .compute_at(output[level], tile_idx)
-            .store_at(output[level], tile_idx)
-            .unroll(v_c)
-            .unroll(v_i)
-            .gpu_threads(v_x, v_y);
-        }
-        else {
-            output[level]
-                .compute_root()
-                .bound(v_i, 0, 4)
-                .reorder(v_i, v_x, v_y)
-                .gpu_tile(v_x, v_y, v_xi, v_yi, 8, 8);
-
-            // Forward
-            funcsStage1[level]
-                .bound(v_c, 0, 4)
-                .reorder(v_c, v_i, v_x, v_y)
-                .compute_at(output[level], v_x)
-                .gpu_threads(v_x, v_y);
-            
-            // Intermediate
-            funcsStage0[level]
-                .bound(v_c, 0, 4)
-                .reorder(v_c, v_i, v_x, v_y)
-                .compute_at(output[level], v_x)
-                .gpu_threads(v_x, v_y);
-        }        
-    }
 }
 
 void ForwardTransformGenerator::schedule_for_cpu() {
-    inputF32
+    rawChannel
         .reorder(v_x, v_y)
         .compute_at(output[0], tile_idx)
         .vectorize(v_x, 4);
@@ -716,6 +654,7 @@ class InverseTransformGenerator : public Generator<InverseTransformGenerator> {
 public:
     Input<Buffer<float>[]> input{"input", 4};
     Input<float> noiseSigma{"noiseSigma"};
+    Input<bool> softThreshold{"softThreshold"};
     
     Output<Buffer<uint16_t>> output{"output", 2};
     
@@ -748,7 +687,8 @@ public:
     vector<Func> inverseOutput;
 
     void threshold(Func& out, Func in, Func parent, Expr Nsig);
-    void threshold(Func& out, Func in, Expr Nsig);
+    void threshold(Func& out, Func in, Expr Nsig, Expr softThreshold);
+    void threshold(Expr& outReal, Expr& outImag, Func in, int realIdx, int imagIdx, Expr T, Expr softThreshold);
 
     void inverseStep(Expr& out0, Expr& out1, Func in, int idx0, int idx1, int idx, const vector<float>& H0, const vector<float>& H1);
     void inverse(Func& inverseOutput, Func& intermediateOutput, Func wavelet, const vector<float> real[2], const vector<float> imag[2]);
@@ -835,12 +775,28 @@ void InverseTransformGenerator::inverse(Func& inverseOutput, Func& intermediateO
                                                     rowsExpr[3]);
 }
 
-void InverseTransformGenerator::threshold(Func& out, Func in, Expr Nsig) {
+void InverseTransformGenerator::threshold(Expr& outReal, Expr& outImag, Func in, int realIdx, int imagIdx, Expr T, Expr softThreshold) {
+    Expr xr = in(v_x, v_y, v_c, realIdx);
+    Expr xi = in(v_x, v_y, v_c, imagIdx);
+
+    // Soft threshold    
+    Expr mag = sqrt(xr*xr + xi*xi);
+    Expr Y = max(mag - T, 0);
+
+    Expr w = mag / (mag + T + 1e-5f);
+
+    outReal = select(v_c > 0, select(softThreshold, Y / (Y + T) * xr, w * xr), xr);
+    outImag = select(v_c > 0, select(softThreshold, Y / (Y + T) * xi, w * xi), xi);
+}
+
+void InverseTransformGenerator::threshold(Func& out, Func in, Expr Nsig, Expr softThreshold) {
     Expr y1 = in(v_x, v_y, v_c, v_i);
     Expr P = abs(in(v_x, v_y, v_c, v_i));        
-    Expr w = P / (P + Nsig + 1e-5f);
 
-    out(v_x, v_y, v_c, v_i) = select(v_c > 0, w * y1, y1);
+    Expr w = P / (P + Nsig + 1e-5f);
+    Expr S = max(y1 - noiseSigma, 0) + min(y1 + noiseSigma, 0);
+
+    out(v_x, v_y, v_c, v_i) = select(v_c > 0, select(softThreshold, S, w * y1), y1);
 }
 
 void InverseTransformGenerator::threshold(Func& out, Func in, Func parent, Expr Nsig) {
@@ -874,8 +830,6 @@ void InverseTransformGenerator::threshold(Func& out, Func in, Func parent, Expr 
 
 void InverseTransformGenerator::generate() {
     const int levels = (int) input.size();
-    const int W = 4656;
-    const int H = 3496;
     
     // Threshold coefficients
     for(int level = 0; level < levels; level++) {
@@ -886,9 +840,15 @@ void InverseTransformGenerator::generate() {
         Func spatialDenoise("spatialDenoiseLvl" + std::to_string(level));
         Func in = BoundaryConditions::repeat_image(input.at(level));
 
-        Expr T = noiseSigma / pow(2.0f, (float) level);
+        Expr T = noiseSigma;
 
-        threshold(denoiseTmp, in, T);
+        threshold(real0, imag0, in, 0, 2, T, softThreshold);
+        threshold(real1, imag1, in, 1, 3, T, softThreshold);
+
+        denoiseTmp(v_x, v_y, v_c, v_i) = select(v_i == 0, real0,
+                                                v_i == 1, real1,
+                                                v_i == 2, imag0,
+                                                          imag1);
         
         // Oriented wavelets
         spatialDenoise(v_x, v_y, v_c, v_i) = select(v_c == 0,  denoiseTmp(v_x, v_y, v_c, v_i),

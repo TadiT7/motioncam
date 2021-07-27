@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
 import android.graphics.PointF;
@@ -19,6 +20,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.util.Size;
+import android.util.TypedValue;
 import android.view.Display;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -39,6 +41,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.motion.widget.MotionLayout;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.widget.ImageViewCompat;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.bumptech.glide.Glide;
@@ -68,10 +71,16 @@ import org.apache.commons.io.FileUtils;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 public class CameraActivity extends AppCompatActivity implements
         SensorEventManager.SensorEventHandler,
@@ -131,7 +140,7 @@ public class CameraActivity extends AppCompatActivity implements
         void load(SharedPreferences prefs) {
             this.jpegQuality = prefs.getInt(SettingsViewModel.PREFS_KEY_JPEG_QUALITY, CameraProfile.DEFAULT_JPEG_QUALITY);
             this.contrast = prefs.getFloat(SettingsViewModel.PREFS_KEY_UI_PREVIEW_CONTRAST, CameraProfile.DEFAULT_CONTRAST / 100.0f);
-            this.saturation = prefs.getFloat(SettingsViewModel.PREFS_KEY_UI_PREVIEW_COLOUR, 1.10f);
+            this.saturation = prefs.getFloat(SettingsViewModel.PREFS_KEY_UI_PREVIEW_COLOUR, 1.05f);
             this.temperatureOffset = prefs.getFloat(SettingsViewModel.PREFS_KEY_UI_PREVIEW_TEMPERATURE_OFFSET, 0);
             this.tintOffset = prefs.getFloat(SettingsViewModel.PREFS_KEY_UI_PREVIEW_TINT_OFFSET, 0);
             this.saveDng = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_SAVE_RAW, false);
@@ -207,7 +216,6 @@ public class CameraActivity extends AppCompatActivity implements
     private AsyncNativeCameraOps mAsyncNativeCameraOps;
     private List<NativeCameraInfo> mCameraInfos;
     private NativeCameraInfo mSelectedCamera;
-    private int mSelectedCameraIdx;
     private NativeCameraMetadata mCameraMetadata;
     private SensorEventManager mSensorEventManager;
     private FusedLocationProviderClient mFusedLocationClient;
@@ -233,6 +241,37 @@ public class CameraActivity extends AppCompatActivity implements
         }
     };
 
+    private final SeekBar.OnSeekBarChangeListener mSeekBarChangeListener = new SeekBar.OnSeekBarChangeListener() {
+
+        @Override
+        public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+            if(seekBar == mBinding.shadowsSeekBar) {
+                onShadowsSeekBarChanged(progress);
+            }
+            else if(seekBar == mBinding.exposureSeekBar) {
+                onExposureCompSeekBarChanged(progress);
+            }
+            else if(seekBar == mBinding.previewFrame.previewSeekBar) {
+                if (fromUser)
+                    updatePreviewControlsParam(progress);
+            }
+            else if(seekBar == findViewById(R.id.manualControlIsoSeekBar)) {
+                onManualControlSettingsChanged(progress, fromUser);
+            }
+            else if(seekBar == findViewById(R.id.manualControlShutterSpeedSeekBar)) {
+                onManualControlSettingsChanged(progress, fromUser);
+            }
+        }
+
+        @Override
+        public void onStartTrackingTouch(SeekBar seekBar) {
+        }
+
+        @Override
+        public void onStopTrackingTouch(SeekBar seekBar) {
+        }
+    };
+
     private PostProcessSettings mPostProcessSettings = new PostProcessSettings();
 
     private float mTemperatureOffset;
@@ -252,38 +291,6 @@ public class CameraActivity extends AppCompatActivity implements
     private float mShadowOffset;
     private AtomicBoolean mImageCaptureInProgress = new AtomicBoolean(false);
     private long mFocusRequestedTimestampMs;
-
-    private final SeekBar.OnSeekBarChangeListener mManualControlsSeekBar = new SeekBar.OnSeekBarChangeListener() {
-        @Override
-        public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-            if (mManualControlsEnabled && mNativeCamera != null && fromUser) {
-                int shutterSpeedIdx = ((SeekBar) findViewById(R.id.manualControlShutterSpeedSeekBar)).getProgress();
-                int isoIdx = ((SeekBar) findViewById(R.id.manualControlIsoSeekBar)).getProgress();
-
-                CameraManualControl.SHUTTER_SPEED shutterSpeed = mExposureValues.get(shutterSpeedIdx);
-                CameraManualControl.ISO iso = mIsoValues.get(isoIdx);
-
-                mNativeCamera.setManualExposureValues(iso.getIso(), shutterSpeed.getExposureTime());
-
-                ((TextView) findViewById(R.id.manualControlIsoText)).setText(iso.toString());
-                ((TextView) findViewById(R.id.manualControlShutterSpeedText)).setText(shutterSpeed.toString());
-
-                mManualControlsSet = true;
-
-                // Don't allow night mode
-                if (mCaptureMode == CaptureMode.NIGHT)
-                    setCaptureMode(CaptureMode.ZSL);
-            }
-        }
-
-        @Override
-        public void onStartTrackingTouch(SeekBar seekBar) {
-        }
-
-        @Override
-        public void onStopTrackingTouch(SeekBar seekBar) {
-        }
-    };
 
     @Override
     public void onBackPressed() {
@@ -327,52 +334,14 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.onBackFromPreviewBtn.setOnClickListener(v -> mBinding.main.transitionToStart());
         mBinding.main.setTransitionListener(this);
 
-        mBinding.shadowsSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                onShadowsSeekBarChanged(progress);
-            }
+        mBinding.shadowsSeekBar.setOnSeekBarChangeListener(mSeekBarChangeListener);
+        mBinding.exposureSeekBar.setOnSeekBarChangeListener(mSeekBarChangeListener);
+        mBinding.previewFrame.previewSeekBar.setOnSeekBarChangeListener(mSeekBarChangeListener);
 
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-            }
+        ((SeekBar) findViewById(R.id.manualControlIsoSeekBar)).setOnSeekBarChangeListener(mSeekBarChangeListener);
+        ((SeekBar) findViewById(R.id.manualControlShutterSpeedSeekBar)).setOnSeekBarChangeListener(mSeekBarChangeListener);
 
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-            }
-        });
-
-        mBinding.exposureSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                onExposureCompSeekBarChanged(progress);
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-            }
-        });
-
-        // Preview settings
-        mBinding.previewFrame.previewSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (fromUser)
-                    updatePreviewControlsParam(progress);
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-            }
-        });
+        ((Switch) findViewById(R.id.manualControlSwitch)).setOnCheckedChangeListener((buttonView, isChecked) -> onCameraManualControlEnabled(isChecked));
 
         // Buttons
         mBinding.captureBtn.setOnClickListener(v -> onCaptureClicked());
@@ -387,18 +356,8 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.previewFrame.tintBtn.setOnClickListener(this::onPreviewModeClicked);
         mBinding.previewFrame.warmthBtn.setOnClickListener(this::onPreviewModeClicked);
 
-        ((SeekBar) findViewById(R.id.manualControlIsoSeekBar)).setOnSeekBarChangeListener(mManualControlsSeekBar);
-        ((SeekBar) findViewById(R.id.manualControlShutterSpeedSeekBar)).setOnSeekBarChangeListener(mManualControlsSeekBar);
-
-        ((Switch) findViewById(R.id.manualControlSwitch)).setOnCheckedChangeListener((buttonView, isChecked) -> onCameraManualControlEnabled(isChecked));
-
         mSensorEventManager = new SensorEventManager(this, this);
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-
-
-
-
-        //        ProcessCameraProvider.getInstance(this).get().bin;
 
         requestPermissions();
     }
@@ -480,12 +439,12 @@ public class CameraActivity extends AppCompatActivity implements
         mPostProcessSettings.saturation = mSettings.saturation;
         mPostProcessSettings.greens = 4.0f;
         mPostProcessSettings.blues = 6.0f;
-        mPostProcessSettings.sharpen0 = 3.0f;
-        mPostProcessSettings.sharpen1 = 2.5f;
-        mPostProcessSettings.pop = 1.35f;
+        mPostProcessSettings.sharpen0 = 1.75f;
+        mPostProcessSettings.sharpen1 = 2.0f;
+        mPostProcessSettings.pop = 1.25f;
         mPostProcessSettings.whitePoint = -1;
         mPostProcessSettings.blacks = -1;
-        mPostProcessSettings.tonemapVariance = 0.27f;
+        mPostProcessSettings.tonemapVariance = 0.25f;
         mPostProcessSettings.jpegQuality = mSettings.jpegQuality;
 
         mTemperatureOffset = mSettings.temperatureOffset;
@@ -601,7 +560,70 @@ public class CameraActivity extends AppCompatActivity implements
         }
     }
 
+    private void onCameraSelectionChanged(View view) {
+        setActiveCamera((String) view.getTag());
+    }
+
+    private void setActiveCamera(String cameraId) {
+        if(cameraId.equals(mSelectedCamera.cameraId))
+            return;
+
+        mSelectedCamera = null;
+
+        for(NativeCameraInfo cameraInfo : mCameraInfos) {
+            if(cameraId.equals(cameraInfo.cameraId)) {
+                mSelectedCamera = cameraInfo;
+            }
+        }
+
+        // Fade out current preview
+        mBinding.cameraFrame.animate()
+                .alpha(0)
+                .setDuration(250)
+                .start();
+
+        // Update selection
+        ViewGroup cameraSelectionFrame = findViewById(R.id.cameraSelection);
+        for(int i = 0; i < cameraSelectionFrame.getChildCount(); i++) {
+            View cameraSelection = cameraSelectionFrame.getChildAt(i);
+
+            if(cameraSelection.getTag().equals(cameraId)) {
+                ImageViewCompat.setImageTintList(
+                        cameraSelection.findViewById(R.id.cameraZoomImage),
+                        ColorStateList.valueOf(ContextCompat.getColor(this, R.color.colorAccent)));
+            }
+            else {
+                ImageViewCompat.setImageTintList(
+                        cameraSelection.findViewById(R.id.cameraZoomImage),
+                        ColorStateList.valueOf(ContextCompat.getColor(this, R.color.white)));
+            }
+        }
+
+        // Stop the camera in the background then start the new camera
+        CompletableFuture
+                .runAsync(() -> mNativeCamera.stopCapture())
+                .thenRun(() -> runOnUiThread(() -> {
+                    mBinding.cameraFrame.removeView(mTextureView);
+                    mTextureView = null;
+                    ((BitmapDrawView) findViewById(R.id.rawCameraPreview)).setBitmap(null);
+
+                    if(mSurface != null) {
+                        mSurface.release();
+                        mSurface = null;
+                    }
+
+                    mBinding.cameraFrame.setAlpha(1.0f);
+                    initCamera();
+                }));
+    }
+
     private void onSwitchCameraClicked() {
+        if(mCameraInfos == null || mCameraInfos.isEmpty()) {
+            return;
+        }
+
+        boolean currentFrontFacing = mSelectedCamera == null ? false : mSelectedCamera.isFrontFacing;
+
         // Rotate switch camera button
         mBinding.switchCameraBtn.setEnabled(false);
 
@@ -613,32 +635,16 @@ public class CameraActivity extends AppCompatActivity implements
                 .setDuration(250)
                 .start();
 
-        // Fade out current preview
-        mTextureView.animate()
-                .alpha(0)
-                .setDuration(250)
-                .start();
-
-        // Select next camera if possible
-        if(mCameraInfos != null) {
-            mSelectedCameraIdx = (mSelectedCameraIdx + 1) % mCameraInfos.size();
-            mSelectedCamera = mCameraInfos.get(mSelectedCameraIdx);
+        if(currentFrontFacing) {
+            setActiveCamera(mCameraInfos.get(0).cameraId);
         }
-
-        // Stop the camera in the background then start the new camera
-        CompletableFuture
-                .runAsync(() -> mNativeCamera.stopCapture())
-                .thenRun(() -> runOnUiThread(() -> {
-                    mBinding.cameraFrame.removeView(mTextureView);
-                    mTextureView = null;
-
-                    if(mSurface != null) {
-                        mSurface.release();
-                        mSurface = null;
-                    }
-
-                    initCamera();
-                }));
+        else {
+            for (int i = 0; i < mCameraInfos.size(); i++) {
+                if (mCameraInfos.get(i).isFrontFacing) {
+                    setActiveCamera(mCameraInfos.get(i).cameraId);
+                }
+            }
+        }
     }
 
     private void updatePreviewTabUi(boolean updateModeSelection) {
@@ -652,7 +658,6 @@ public class CameraActivity extends AppCompatActivity implements
 
         int saturationProgress;
 
-        //(0.1*20)/20*100
         if(mPostProcessSettings.saturation <= 1.0f) {
             saturationProgress = Math.round(mPostProcessSettings.saturation * 50);
         }
@@ -811,6 +816,27 @@ public class CameraActivity extends AppCompatActivity implements
         updatePreviewTabUi(false);
     }
 
+    private void onManualControlSettingsChanged(int progress, boolean fromUser) {
+        if (mManualControlsEnabled && mNativeCamera != null && fromUser) {
+            int shutterSpeedIdx = ((SeekBar) findViewById(R.id.manualControlShutterSpeedSeekBar)).getProgress();
+            int isoIdx = ((SeekBar) findViewById(R.id.manualControlIsoSeekBar)).getProgress();
+
+            CameraManualControl.SHUTTER_SPEED shutterSpeed = mExposureValues.get(shutterSpeedIdx);
+            CameraManualControl.ISO iso = mIsoValues.get(isoIdx);
+
+            mNativeCamera.setManualExposureValues(iso.getIso(), shutterSpeed.getExposureTime());
+
+            ((TextView) findViewById(R.id.manualControlIsoText)).setText(iso.toString());
+            ((TextView) findViewById(R.id.manualControlShutterSpeedText)).setText(shutterSpeed.toString());
+
+            mManualControlsSet = true;
+
+            // Don't allow night mode
+            if (mCaptureMode == CaptureMode.NIGHT)
+                setCaptureMode(CaptureMode.ZSL);
+        }
+    }
+
     private void capture(CaptureMode mode) {
         if(mNativeCamera == null)
             return;
@@ -911,6 +937,8 @@ public class CameraActivity extends AppCompatActivity implements
             settings.exposure = 0.0f;
             settings.temperature = estimatedSettings.temperature + mTemperatureOffset;
             settings.tint = estimatedSettings.tint + mTintOffset;
+            settings.sharpen0 = denoiseSettings.sharpen0;
+            settings.sharpen1 = denoiseSettings.sharpen1;
 
             long exposure = baseExposure.shutterSpeed.getExposureTime();
             int iso = baseExposure.iso.getIso();
@@ -1032,56 +1060,118 @@ public class CameraActivity extends AppCompatActivity implements
         finish();
     }
 
-    private void initCamera() {
-        if (mNativeCamera == null) {
-            // Load our native camera library
-            if(mSettings.useDualExposure) {
-                try {
-                    System.loadLibrary("native-camera-opencl");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    System.loadLibrary("native-camera-host");
-                }
-            }
-            else {
+    private void createCamera() {
+        // Load our native camera library
+        if(mSettings.useDualExposure) {
+            try {
+                System.loadLibrary("native-camera-opencl");
+            } catch (Exception e) {
+                e.printStackTrace();
                 System.loadLibrary("native-camera-host");
             }
+        }
+        else {
+            System.loadLibrary("native-camera-host");
+        }
 
-            mNativeCamera = new NativeCameraSessionBridge(this, mSettings.memoryUseBytes, null);
-            mAsyncNativeCameraOps = new AsyncNativeCameraOps(mNativeCamera);
+        mNativeCamera = new NativeCameraSessionBridge(this, mSettings.memoryUseBytes, null);
+        mAsyncNativeCameraOps = new AsyncNativeCameraOps(mNativeCamera);
 
-            // Get supported cameras and filter out ignored ones
-            NativeCameraInfo[] cameraInfos = mNativeCamera.getSupportedCameras();
-//            Set<String> ignoreCameraIds = sharedPrefs.getStringSet(SettingsViewModel.PREFS_KEY_IGNORE_CAMERA_IDS, new HashSet<>());
-//            if(ignoreCameraIds == null)
-//                ignoreCameraIds = new HashSet<>();
+        mCameraInfos = Arrays.asList(mNativeCamera.getSupportedCameras());
 
-            mCameraInfos = new ArrayList<>();
-            for(NativeCameraInfo cameraInfo : cameraInfos) {
-//                if(ignoreCameraIds.contains(cameraInfo.cameraId))
-//                    continue;
+        if(mCameraInfos.isEmpty()) {
+            // No supported cameras. Display message to user and exist
+            AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(this, R.style.BasicDialog)
+                    .setCancelable(false)
+                    .setTitle(R.string.error)
+                    .setMessage(R.string.not_supported_error)
+                    .setPositiveButton(R.string.ok, (dialog, which) -> finish());
 
-                mCameraInfos.add(cameraInfo);
+            dialogBuilder.show();
+            return;
+        }
+
+        // Pick first camera if none selected
+        if(mSelectedCamera == null) {
+            mSelectedCamera = mCameraInfos.get(0);
+        }
+    }
+
+    private void setupCameraSwitchButtons() {
+        ViewGroup cameraSelectionFrame = findViewById(R.id.cameraSelection);
+
+        Map<String, Float> cameraMetadataMap = new HashMap<>();
+        Set<String> seenFocalLength = new HashSet<>();
+
+        // Get metadata for all available cameras
+        for(NativeCameraInfo cameraInfo : mCameraInfos) {
+            if(cameraInfo.isFrontFacing)
+                continue;
+
+            NativeCameraMetadata metadata = mNativeCamera.getMetadata(cameraInfo);
+            float focalLength = 0.0f;
+            if(metadata.focalLength != null && metadata.focalLength.length > 0) {
+                focalLength = metadata.focalLength[0];
             }
 
-            if(mCameraInfos.size() == 0) {
-                mNativeCamera.destroy();
-                mNativeCamera = null;
+            if(!seenFocalLength.contains(String.valueOf(focalLength)))
+                cameraMetadataMap.put(cameraInfo.cameraId, focalLength);
 
-                // No supported cameras. Display message to user and exist
-                AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(this, R.style.BasicDialog)
-                        .setCancelable(false)
-                        .setTitle(R.string.error)
-                        .setMessage(R.string.not_supported_error)
-                        .setPositiveButton(R.string.ok, (dialog, which) -> finish());
+            if(focalLength > 0)
+                seenFocalLength.add(String.valueOf(focalLength));
+        }
 
-                dialogBuilder.show();
-                return;
+        List<String> cameraList = cameraMetadataMap
+                .entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+
+        int dp = 10;
+
+        // Add camera to view
+        for(int i = 0; i < cameraList.size(); i++) {
+            View cameraSelection =
+                    getLayoutInflater().inflate(R.layout.camera_selector, cameraSelectionFrame, false);
+
+            float px = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, getResources().getDisplayMetrics());
+            ViewGroup.LayoutParams layoutParams = cameraSelection.findViewById(R.id.cameraZoomImage).getLayoutParams();
+
+            layoutParams.width = Math.round(px);
+
+            cameraSelection.findViewById(R.id.cameraZoomImage).setLayoutParams(layoutParams);
+
+            if(cameraList.get(i).equals(mCameraInfos.get(0).cameraId)) {
+                ImageViewCompat.setImageTintList(
+                        cameraSelection.findViewById(R.id.cameraZoomImage),
+                        ColorStateList.valueOf(ContextCompat.getColor(this, R.color.colorAccent)));
+            }
+
+            cameraSelection.setTag(cameraList.get(i));
+            cameraSelection.setOnClickListener(this::onCameraSelectionChanged);
+
+            if (i == 0) {
+                ((TextView) cameraSelection.findViewById(R.id.cameraZoomIndicator)).setText("-");
+            }
+            else if (i == cameraList.size() - 1) {
+                ((TextView) cameraSelection.findViewById(R.id.cameraZoomIndicator)).setText("+");
             }
             else {
-                mSelectedCameraIdx = Math.min(mSelectedCameraIdx, mCameraInfos.size() - 1);
-                mSelectedCamera = mCameraInfos.get(mSelectedCameraIdx);
+                cameraSelection.findViewById(R.id.cameraZoomIndicator).setVisibility(View.GONE);
             }
+
+            cameraSelectionFrame.addView(cameraSelection);
+
+            dp += 5;
+        }
+    }
+
+    private void initCamera() {
+        if (mNativeCamera == null) {
+            createCamera();
+
+            setupCameraSwitchButtons();
         }
 
         // Exposure compensation frame
@@ -1100,11 +1190,6 @@ public class CameraActivity extends AppCompatActivity implements
                 Math.min(MAX_EXPOSURE_TIME.getExposureTime(), mCameraMetadata.exposureTimeMax));
 
         ((SeekBar) findViewById(R.id.manualControlShutterSpeedSeekBar)).setMax(mExposureValues.size() - 1);
-
-        if(mCameraInfos.size() < 2)
-            mBinding.switchCameraBtn.setVisibility(View.GONE);
-        else
-            mBinding.switchCameraBtn.setVisibility(View.VISIBLE);
 
         int numEvSteps = mSelectedCamera.exposureCompRangeMax - mSelectedCamera.exposureCompRangeMin;
         mBinding.exposureSeekBar.setMax(numEvSteps);
@@ -1315,20 +1400,6 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void displayUnsupportedCameraError() {
-//        // Add camera id to ignore list
-//        SharedPreferences sharedPrefs = getSharedPreferences(SettingsViewModel.CAMERA_SHARED_PREFS, Context.MODE_PRIVATE);
-//        Set<String> ignoreCameraIds = sharedPrefs.getStringSet(SettingsViewModel.PREFS_KEY_IGNORE_CAMERA_IDS, new HashSet<>());
-//        if(ignoreCameraIds == null)
-//            ignoreCameraIds = new HashSet<>();
-//
-//        HashSet<String> updatedIgnoreCameraIds = new HashSet<>(ignoreCameraIds);
-//
-//        updatedIgnoreCameraIds.add(mSelectedCamera.cameraId);
-//
-//        sharedPrefs.edit()
-//                .putStringSet(SettingsViewModel.PREFS_KEY_IGNORE_CAMERA_IDS, updatedIgnoreCameraIds)
-//                .apply();
-
         AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(this, R.style.BasicDialog)
                 .setCancelable(false)
                 .setTitle(R.string.error)

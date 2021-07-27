@@ -4,7 +4,7 @@
     <string name="shadows">Shadows</string>
     <string name="highlights">Highlights</string>
     <string name="contrast">Contrast</string>
-    <string name="blacks">Blacks</string>
+    <string name="black_point">Black Point</string>
     <string name="exposure">Exposure</string>
     <string name="saturation">Saturation</string>
     <string name="white_balance">White Balance</string>

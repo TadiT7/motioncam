@@ -9,6 +9,7 @@ public class NativeCameraMetadata {
     public final int maxAfRegions;
     public final int maxAeRegions;
     public final float[] cameraApertures;
+    public final float[] focalLength;
 
     public NativeCameraMetadata(int sensorOrientation,
                                 int isoMin,
@@ -17,7 +18,8 @@ public class NativeCameraMetadata {
                                 long exposureTimeMax,
                                 int maxAfRegions,
                                 int maxAeRegions,
-                                float[] cameraApertures) {
+                                float[] cameraApertures,
+                                float[] focalLength) {
         this.sensorOrientation = sensorOrientation;
         this.isoMin = isoMin;
         this.isoMax = isoMax;
@@ -26,5 +28,6 @@ public class NativeCameraMetadata {
         this.maxAfRegions = maxAfRegions;
         this.maxAeRegions = maxAeRegions;
         this.cameraApertures = cameraApertures;
+        this.focalLength = focalLength;
     }
 }
