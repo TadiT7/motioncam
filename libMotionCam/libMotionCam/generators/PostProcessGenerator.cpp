@@ -1346,7 +1346,7 @@ void Demosaic::generate() {
                 // BGGR
                 combinedInput(v_x - 1, v_y - 1));
 
-    calculateGreen3(green, bayerInput);
+    calculateGreen(green, bayerInput);
     calculateRed(red, bayerInput, green);
     calculateBlue(blue, bayerInput, green);
 
@@ -3114,21 +3114,7 @@ void DeinterleaveRawGenerator::generate() {
     Expr x = v_x - offsetX;
     Expr y = v_y - offsetY;
 
-    // Suppress hot pixels
-    Expr a0 = clamped(x - 1, y, v_c);
-    Expr a1 = clamped(x + 1, y, v_c);
-    Expr a2 = clamped(x,     y + 1, v_c);
-    Expr a3 = clamped(x,     y - 1, v_c);
-
-    cmpSwap(a0, a1);
-    cmpSwap(a2, a3);
-    cmpSwap(a0, a2);
-    cmpSwap(a1, a3);
-    cmpSwap(a1, a2);
-
-    Expr threshold = 3*(a1 + a2) / 4;
-
-    output(v_x, v_y, v_c) = clamp(clamped(x, y, v_c), 0, threshold);
+    output(v_x, v_y, v_c) = clamped(x, y, v_c);
 
     Expr P = 0.25f * (clamped(x, y, 0) +
                       clamped(x, y, 1) +
