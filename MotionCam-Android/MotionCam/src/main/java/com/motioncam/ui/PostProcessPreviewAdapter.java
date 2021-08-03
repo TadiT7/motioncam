@@ -139,7 +139,10 @@ public class PostProcessPreviewAdapter extends
         if(index >= mItems.size())
             return;
 
-        mAsyncNativeCameraOps.generatePreview(mItems.get(index).buffer, settings, previewSize, mItems.get(index).preview, this, true);
+        boolean canSkip = previewSize != AsyncNativeCameraOps.PreviewSize.LARGE;
+
+        mAsyncNativeCameraOps.generatePreview(
+                mItems.get(index).buffer, settings, previewSize, mItems.get(index).preview, this, canSkip);
     }
 
     @Override

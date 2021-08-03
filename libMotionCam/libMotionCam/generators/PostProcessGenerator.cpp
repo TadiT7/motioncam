@@ -2070,7 +2070,10 @@ public:
     Input<Func> input{"input", 3 };
     Output<Func> output{ "enhanceOutput", 3 };
 
-    GeneratorParam<bool> denoiseChroma{"denoiseChroma", false};
+    GeneratorParam<int> popRadius{"popRadius", 25};
+
+    GeneratorParam<bool> denoiseChroma{"denoiseChroma", true};
+    GeneratorParam<bool> enableSharpen{"enableSharpen", true};
 
     Input<int> width{"width"};
     Input<int> height{"height"};
@@ -2136,8 +2139,14 @@ private:
 };
 
 void EnhanceGenerator::sharpen(Func& output, Func input) {
-    blur2(blurOutput, blurOutputTmp, input);
-    blur3(blurOutput2, blurOutput2Tmp, blurOutput);
+    if(popRadius < 11) {
+        blur(blurOutput, blurOutputTmp, input);
+        blur(blurOutput2, blurOutput2Tmp, blurOutput);
+    }
+    else {
+        blur2(blurOutput, blurOutputTmp, input);
+        blur3(blurOutput2, blurOutput2Tmp, blurOutput);        
+    }
 
     gaussianDiff0(v_x, v_y) = cast<int32_t>(input(v_x, v_y)) - blurOutput(v_x, v_y);
     gaussianDiff1(v_x, v_y) = cast<int32_t>(blurOutput(v_x, v_y))  - blurOutput2(v_x, v_y);
@@ -2254,26 +2263,31 @@ void EnhanceGenerator::generate() {
     // Sharpen/Local contrast
     //
 
-    sharpenInput(v_x, v_y) = saturating_cast<uint16_t>(hsvOutput(v_x, v_y, 2) * 65535.0f);
+    if(enableSharpen) {
+        sharpenInput(v_x, v_y) = saturating_cast<uint16_t>(hsvOutput(v_x, v_y, 2) * 65535.0f);
 
-    sharpen(sharpened, sharpenInput);
-    
-    downsampled(v_x, v_y, v_c) = select(v_c == 0, downsample(sharpened, downsampledTmp)(v_x, v_y), 0);
+        sharpen(sharpened, sharpenInput);
+        
+        downsampled(v_x, v_y, v_c) = select(v_c == 0, downsample(sharpened, downsampledTmp)(v_x, v_y), 0);
 
-    auto gf = create<GuidedFilter>();
+        auto gf = create<GuidedFilter>();
 
-    gf->radius.set(25);
-    gf->output_type.set(UInt(16));
-    gf->apply(downsampled, 0.2f*0.2f*65535.0f*65535.0f, cast<uint16_t>(width), cast<uint16_t>(height), cast<uint16_t>(0));
+        gf->radius.set(popRadius);
+        gf->output_type.set(UInt(16));
+        gf->apply(downsampled, 0.2f*0.2f*65535.0f*65535.0f, cast<uint16_t>(width), cast<uint16_t>(height), cast<uint16_t>(0));
 
-    upsampled = upsample(gf->output, upsampleTmp);
+        upsampled = upsample(gf->output, upsampleTmp);
 
-    localContrast(v_x, v_y) = saturating_cast<uint16_t>(0.5f + cast<float>(upsampled(v_x, v_y)) + pop*(cast<float>(sharpened(v_x, v_y)) - upsampled(v_x, v_y)));
+        localContrast(v_x, v_y) = saturating_cast<uint16_t>(0.5f + cast<float>(upsampled(v_x, v_y)) + pop*(cast<float>(sharpened(v_x, v_y)) - upsampled(v_x, v_y)));
 
-    bgrInput(v_x, v_y, v_c) = select(
-        v_c == 0, saturationApplied(v_x, v_y, 0),
-        v_c == 1, saturationApplied(v_x, v_y, 1),
-                  localContrast(v_x, v_y) / 65535.0f);
+        bgrInput(v_x, v_y, v_c) = select(
+            v_c == 0, saturationApplied(v_x, v_y, 0),
+            v_c == 1, saturationApplied(v_x, v_y, 1),
+                      localContrast(v_x, v_y) / 65535.0f);
+    }
+    else {
+        bgrInput(v_x, v_y, v_c) = saturationApplied(v_x, v_y, v_c);
+    }
 
     hsvToBgr(finalRgb, bgrInput);
 
@@ -2321,69 +2335,71 @@ void EnhanceGenerator::schedule_for_cpu() {
         .vectorize(v_x, 8)
         .parallel(v_yo);
 
-    sharpenInput
-        .compute_at(sharpened, tile_idx)
-        .vectorize(v_x, 8);
+    if(enableSharpen) {
+        sharpenInput
+            .compute_at(sharpened, tile_idx)
+            .vectorize(v_x, 8);
 
-    blurOutputTmp
-        .compute_at(sharpened, tile_idx)
-        .vectorize(v_x, 8);
+        blurOutputTmp
+            .compute_at(sharpened, tile_idx)
+            .vectorize(v_x, 8);
 
-    blurOutput
-        .compute_at(sharpened, tile_idx)
-        .vectorize(v_x, 8);
+        blurOutput
+            .compute_at(sharpened, tile_idx)
+            .vectorize(v_x, 8);
 
-    blurOutput2Tmp
-        .compute_at(sharpened, tile_idx)
-        .vectorize(v_x, 8);
+        blurOutput2Tmp
+            .compute_at(sharpened, tile_idx)
+            .vectorize(v_x, 8);
 
-    blurOutput2
-        .compute_at(sharpened, tile_idx)
-        .vectorize(v_x, 8);
+        blurOutput2
+            .compute_at(sharpened, tile_idx)
+            .vectorize(v_x, 8);
 
-    gaussianDiff0
-        .compute_at(sharpened, tile_idx)
-        .vectorize(v_x, 8);
+        gaussianDiff0
+            .compute_at(sharpened, tile_idx)
+            .vectorize(v_x, 8);
 
-    gaussianDiff1
-        .compute_at(sharpened, tile_idx)
-        .vectorize(v_x, 8);
+        gaussianDiff1
+            .compute_at(sharpened, tile_idx)
+            .vectorize(v_x, 8);
 
-    sharpenInput
-        .compute_at(sharpened, tile_idx)
-        .vectorize(v_x, 8);
+        sharpenInput
+            .compute_at(sharpened, tile_idx)
+            .vectorize(v_x, 8);
 
-    sharpened
-        .compute_root()
-        .reorder(v_x, v_y)
-        .tile(v_x, v_y, v_xo, v_yo, v_xi, v_yi, 128, 128)
-        .fuse(v_xo, v_yo, tile_idx)
-        .parallel(tile_idx)
-        .vectorize(v_xi, 8);
+        sharpened
+            .compute_root()
+            .reorder(v_x, v_y)
+            .tile(v_x, v_y, v_xo, v_yo, v_xi, v_yi, 128, 128)
+            .fuse(v_xo, v_yo, tile_idx)
+            .parallel(tile_idx)
+            .vectorize(v_xi, 8);
 
-    downsampledTmp
-        .compute_at(downsampled, v_yi)
-        .vectorize(v_x, 8);
+        downsampledTmp
+            .compute_at(downsampled, v_yi)
+            .vectorize(v_x, 8);
 
-    downsampled
-        .compute_root()
-        .split(v_y, v_yo, v_yi, 64)
-        .vectorize(v_x, 8)
-        .parallel(v_yo);
+        downsampled
+            .compute_root()
+            .split(v_y, v_yo, v_yi, 64)
+            .vectorize(v_x, 8)
+            .parallel(v_yo);
 
-    upsampleTmp
-        .compute_at(localContrast, v_yi)
-        .vectorize(v_x, 8);
+        upsampleTmp
+            .compute_at(localContrast, v_yi)
+            .vectorize(v_x, 8);
 
-    upsampled
-        .compute_at(localContrast, v_yi)
-        .vectorize(v_x, 8);
+        upsampled
+            .compute_at(localContrast, v_yi)
+            .vectorize(v_x, 8);
 
-    localContrast
-        .compute_root()
-        .split(v_y, v_yo, v_yi, 64)
-        .vectorize(v_x, 8)
-        .parallel(v_yo);
+        localContrast
+            .compute_root()
+            .split(v_y, v_yo, v_yi, 64)
+            .vectorize(v_x, 8)
+            .parallel(v_yo);
+    }
 
     bgrInput
         .compute_at(output, v_yi)
@@ -2524,6 +2540,9 @@ void PostProcessGenerator::generate()
     enhance = create<EnhanceGenerator>();
 
     enhance->denoiseChroma.set(true);
+    enhance->enableSharpen.set(true);
+    enhance->popRadius.set(25);
+
     enhance->apply(
         enhanceInput,
         in0.width()*2,
@@ -2541,7 +2560,7 @@ void PostProcessGenerator::generate()
         chromaEps0,
         chromaEps1);
 
-    // Finish blue noise + gamma    
+    // Finish blue noise + gamma
     Expr h = v_i / 255.0f;
 
     gammaLut(v_i) = saturating_cast<uint8_t>(select(h < 0.0031308f, h * 12.92f, pow(h, 1.0f / 2.4f) * 1.055f - 0.055f) * 255.0f + 0.5f);
@@ -2667,6 +2686,8 @@ public:
     GeneratorParam<int> rotation{"rotation", 0};
     GeneratorParam<int> tonemap_levels{"tonemap_levels", 8};
     GeneratorParam<int> downscaleFactor{"downscale_factor", 1};
+    GeneratorParam<bool> enableSharpen{"enable_sharpen", true};
+    GeneratorParam<int> popRadius{"pop_radius", 25};
 
     Input<Buffer<uint8_t>> input{"input", 1};
 
@@ -2810,6 +2831,9 @@ void PreviewGenerator::generate() {
     enhance = create<EnhanceGenerator>();
     
     enhance->denoiseChroma.set(false);
+    enhance->enableSharpen.set(enableSharpen);
+    enhance->popRadius.set(popRadius);
+
     enhance->apply(
         enhanceInput,
         width,

@@ -70,6 +70,7 @@ public class PostProcessViewModel extends ViewModel {
     final public MutableLiveData<Integer> tint = new MutableLiveData<>();
     final public MutableLiveData<Integer> sharpness = new MutableLiveData<>();
     final public MutableLiveData<Integer> detail = new MutableLiveData<>();
+    final public MutableLiveData<Integer> pop = new MutableLiveData<>();
     final public MutableLiveData<Integer> numMergeImages = new MutableLiveData<>();
     final public MutableLiveData<Integer> spatialDenoiseAggressiveness = new MutableLiveData<>();
     final public MutableLiveData<Boolean> saveDng = new MutableLiveData<>();
@@ -158,11 +159,15 @@ public class PostProcessViewModel extends ViewModel {
     }
 
     public float getSharpnessSetting() {
-        return 1.0f + getSetting(sharpness, CameraProfile.DEFAULT_SHARPNESS) / 20.0f;
+        return 1.0f + getSetting(sharpness, CameraProfile.DEFAULT_SHARPNESS) / 50.0f;
     }
 
     public float getDetailSetting() {
-        return 1.0f + getSetting(detail, CameraProfile.DEFAULT_DETAIL) / 100.0f;
+        return 1.0f + getSetting(detail, CameraProfile.DEFAULT_DETAIL) / 50.0f;
+    }
+
+    public float getPopSetting() {
+        return 1.0f + getSetting(pop, CameraProfile.DEFAULT_POP) / 100.0f;
     }
 
     public SpatialDenoiseAggressiveness getSpatialDenoiseAggressivenessSetting() {
@@ -223,7 +228,8 @@ public class PostProcessViewModel extends ViewModel {
             postProcessSettings.greens = getGreensSetting();
 
             postProcessSettings.sharpen0 = getSharpnessSetting();
-            postProcessSettings.pop = getDetailSetting();
+            postProcessSettings.sharpen1 = getDetailSetting();
+            postProcessSettings.pop = getPopSetting();
 
             mPostProcessSettings.setValue(postProcessSettings);
 
@@ -256,8 +262,9 @@ public class PostProcessViewModel extends ViewModel {
         tint.setValue(Math.round(settings.tint + 150));
 
         // Detail
-        sharpness.setValue(Math.round((settings.sharpen0 - 1.0f) * 20.0f));
-        detail.setValue(Math.round((settings.pop - 1.0f) * 100.0f));
+        sharpness.setValue(Math.round((settings.sharpen0 - 1.0f) * 50.0f));
+        detail.setValue(Math.round((settings.sharpen1 - 1.0f) * 50.0f));
+        pop.setValue(Math.round((settings.pop - 1.0f) * 100.0f));
 
         // Denoise settings
         CameraManualControl.Exposure exposure = CameraManualControl.Exposure.Create(
@@ -302,7 +309,8 @@ public class PostProcessViewModel extends ViewModel {
 
         // Detail
         settings.sharpen0 = getSharpnessSetting();
-        settings.pop = getDetailSetting();
+        settings.sharpen1 = getDetailSetting();
+        settings.pop = getPopSetting();
 
         // Noise reduction
         settings.spatialDenoiseAggressiveness = getSpatialDenoiseAggressivenessSetting().getWeight();

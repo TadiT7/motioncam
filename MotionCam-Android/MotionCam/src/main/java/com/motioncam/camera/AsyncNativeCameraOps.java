@@ -9,10 +9,9 @@ import android.util.Size;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -29,15 +28,7 @@ public class AsyncNativeCameraOps implements Closeable {
         }
     }
 
-    private ExecutorService mQueuedBackgroundProcessor = Executors.newSingleThreadExecutor();
-
-    private ExecutorService mBackgroundProcessor =
-            new ThreadPoolExecutor(
-                1, 1, 500, TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(2),
-                Executors.defaultThreadFactory(),
-                new ThreadPoolExecutor.DiscardOldestPolicy());
-
+    private final ThreadPoolExecutor mBackgroundProcessor = new ThreadPoolExecutor( 1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>() );
     private final NativeCameraSessionBridge mCameraSessionBridge;
     private final Handler mMainHandler;
     private Size mUnscaledSize;
@@ -109,7 +100,7 @@ public class AsyncNativeCameraOps implements Closeable {
                 result.add(new Pair<>(buffer, sharpness));
             }
 
-            result.sort((l, r) -> l.second.compareTo(r.second));
+            result.sort(Comparator.comparing(l -> l.second));
 
             mMainHandler.post(() -> listener.onSharpnessMeasured(result));
         });
@@ -145,10 +136,12 @@ public class AsyncNativeCameraOps implements Closeable {
                                 PreviewListener listener,
                                 boolean canSkip)
     {
+        if(canSkip && mBackgroundProcessor.getQueue().size() != 0)
+            return;
+
         PostProcessSettings postProcessSettings = settings.clone();
 
-        ExecutorService p = canSkip ? mBackgroundProcessor : mQueuedBackgroundProcessor;
-        p.submit(() -> {
+        mBackgroundProcessor.submit(() -> {
             Bitmap preview = useBitmap;
             Size size = getPreviewSize(generateSize, buffer);
 

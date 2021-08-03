@@ -474,7 +474,6 @@ namespace motioncam {
                                             const RawCameraMetadata& cameraMetadata)
     {
         auto x = calcEv(cameraMetadata, rawBuffer.metadata);
-        std::cout << x;
         
         if(x > 15) {
             return 0.015f;
@@ -693,7 +692,7 @@ namespace motioncam {
             settings.greens,
             settings.saturation,
             settings.sharpen0,
-            1.0f,
+            settings.sharpen1,
             settings.pop,
             settings.flipped,
             outputBuffer);
@@ -1873,9 +1872,7 @@ namespace motioncam {
         
         // Match exposures
         float exposureScale, whitePoint;
-        
-//        matchExposures(cameraMetadata, reference, underexposed, exposureScale, whitePoint);
-        
+                        
         auto a = calcEv(cameraMetadata, reference.metadata);
         auto b = calcEv(cameraMetadata, underexposed.metadata);
 
@@ -1887,10 +1884,10 @@ namespace motioncam {
         //
         
         const bool extendEdges = true;
-        
+
         auto refImage = loadRawImage(reference, cameraMetadata, extendEdges, 1.0f);
         auto underexposedImage = loadRawImage(underexposed, cameraMetadata, extendEdges, exposureScale);
-                
+        
 //        auto warpMatrix = registerImage2(refImage->previewBuffer, underexposedImage->previewBuffer);
 //        if(warpMatrix.empty())
 //            return nullptr;
@@ -1903,10 +1900,23 @@ namespace motioncam {
         opticalFlow->setPatchSize(64);
         opticalFlow->setPatchStride(16);
         
-        cv::Mat referenceImage(refImage->previewBuffer.height(), refImage->previewBuffer.width(), CV_8U, (void*) refImage->previewBuffer.data());
-        cv::Mat toAlignImage(underexposedImage->previewBuffer.height(), underexposedImage->previewBuffer.width(), CV_8U, (void*) underexposedImage->previewBuffer.data());
+        cv::Mat referenceImage(refImage->previewBuffer.height(),
+                               refImage->previewBuffer.width(),
+                               CV_8U, (void*)
+                               refImage->previewBuffer.data());
+        
+        cv::Mat toAlignImage(underexposedImage->previewBuffer.height(),
+                             underexposedImage->previewBuffer.width(),
+                             CV_8U,
+                             (void*) underexposedImage->previewBuffer.data());
 
-        opticalFlow->calc(referenceImage, toAlignImage, flow);
+        try {
+            opticalFlow->calc(referenceImage, toAlignImage, flow);
+        }
+        catch(std::exception& e) {
+            logger::log(std::string("Failed to get optical flow: ") + e.what());
+            return nullptr;
+        }
         
         cv::Mat map(flow.size(), CV_32FC2);
         for (int y = 0; y < map.rows; ++y)

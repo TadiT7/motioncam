@@ -158,6 +158,12 @@ public class PostProcessFragment extends Fragment implements
             setPreviewDirty();
         });
 
+        // Pop
+        mViewModel.pop.observe(getViewLifecycleOwner(), (value) -> {
+            dataBinding.popText.setText(String.format(Locale.US, "%d%%", mViewModel.pop.getValue()));
+            setPreviewDirty();
+        });
+
         // Noise reduction
         mViewModel.numMergeImages.observe(getViewLifecycleOwner(), (value) -> dataBinding.numMergeImagesText.setText(String.format(Locale.US, "%d", value)));
 
@@ -290,6 +296,7 @@ public class PostProcessFragment extends Fragment implements
                 R.id.bluesSeekBar,
                 R.id.sharpnessSeekBar,
                 R.id.detailSeekBar,
+                R.id.popSeekBar,
                 R.id.temperatureSeekBar,
                 R.id.tintSeekBar
         };

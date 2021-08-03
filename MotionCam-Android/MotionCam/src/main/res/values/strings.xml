@@ -19,6 +19,7 @@
     <string name="denoise">Noise Reduction</string>
     <string name="detail">Detail</string>
     <string name="sharpness">Sharpness</string>
+    <string name="pop">Pop</string>
     <string name="info">Information</string>
     <string name="shutter_speed">Shutter Speed:</string>
     <string name="iso">ISO:</string>
