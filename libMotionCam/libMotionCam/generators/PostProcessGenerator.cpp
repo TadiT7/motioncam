@@ -280,9 +280,9 @@ void PostProcessBase::transform(Func& output, Func input, Func m) {
     Expr g = m(0, 1) * ir + m(1, 1) * ig + m(2, 1) * ib;
     Expr b = m(0, 2) * ir + m(1, 2) * ig + m(2, 2) * ib;
     
-    output(v_x, v_y, v_c) = select(v_c == 0, clamp(r, 0.0f, 1.0f),
-                                   v_c == 1, clamp(g, 0.0f, 1.0f),
-                                             clamp(b, 0.0f, 1.0f));
+    output(v_x, v_y, v_c) = select(v_c == 0, r,
+                                   v_c == 1, g,
+                                             b);
 }
 
 void PostProcessBase::rearrange(Func& output, Func in0, Func in1, Func in2, Func in3, Expr sensorArrangement) {
@@ -1325,7 +1325,21 @@ void Demosaic::generate() {
                 clamped2(v_x, v_y),
                 clamped3(v_x, v_y) });
 
-    shaded(v_x, v_y, v_c) = cast<int16_t>( clamp( input(v_x, v_y, v_c) * shadingMapArranged(v_x, v_y, v_c) + 0.5f, 0, range) );
+    // Suppress hot pixels
+    Expr a0 = input(v_x - 1, v_y,       v_c);
+    Expr a1 = input(v_x + 1, v_y,       v_c);
+    Expr a2 = input(v_x,     v_y + 1,   v_c);
+    Expr a3 = input(v_x,     v_y - 1,   v_c);
+
+    cmpSwap(a0, a1);
+    cmpSwap(a2, a3);
+    cmpSwap(a0, a2);
+    cmpSwap(a1, a3);
+    cmpSwap(a1, a2);
+
+    Expr threshold = 4*((cast<int32_t>(a1) + cast<int32_t>(a2)) / 2) / 2;
+
+    shaded(v_x, v_y, v_c) = cast<int16_t>( clamp( clamp(cast<int32_t>(input(v_x, v_y, v_c)), 0, threshold) * shadingMapArranged(v_x, v_y, v_c) + 0.5f, 0, range) );
 
     // Combined image
     combinedInput(v_x, v_y) =
@@ -2056,6 +2070,8 @@ public:
     Input<Func> input{"input", 3 };
     Output<Func> output{ "enhanceOutput", 3 };
 
+    GeneratorParam<bool> denoiseChroma{"denoiseChroma", false};
+
     Input<int> width{"width"};
     Input<int> height{"height"};
 
@@ -2070,6 +2086,8 @@ public:
     Input<float> sharpen0{"sharpen0"};
     Input<float> sharpen1{"sharpen1"};
     Input<float> pop{"pop"};
+    Input<float> chromaEps0{"chromaEps0"};
+    Input<float> chromaEps1{"chromaEps1"};
 
     Func in{"in"};
     Func tonemappedXYZ{"tonemappedXYZ"};
@@ -2164,7 +2182,65 @@ void EnhanceGenerator::generate() {
 
     gammaCorrected(v_x, v_y, v_c) = contrastLut(saturating_cast<uint16_t>(linearRgb(v_x, v_y, v_c) * 65535.0f + 0.5f));
 
-    hsvInput(v_x, v_y, v_c) = gammaCorrected(v_x, v_y, v_c) / 65535.0f;
+    // Denoise chroma
+    if(denoiseChroma) {
+        Func yuvInput{"yuvInput"};
+        Func yuv{"yuv"};
+        Func chromaInput{"chromaInput"};
+        Func chromaDenoised{"chromaDenoised"};
+
+        yuvInput(v_x, v_y, v_c) = gammaCorrected(v_x, v_y, v_c) / 65535.0f;
+
+        Func toYCbCr{"YCbCr"};
+
+        toYCbCr(v_x, v_y) = 0.0f;
+
+        toYCbCr(0, 0) = 0.2126f;    toYCbCr(1, 0) = 0.7152f;    toYCbCr(2, 0) = 0.0722f;
+        toYCbCr(0, 1) = -0.1146f;   toYCbCr(1, 1) = -0.3854f;   toYCbCr(2, 1) = 0.5f;
+        toYCbCr(0, 2) = 0.5f;       toYCbCr(1, 2) = -0.4542f;   toYCbCr(2, 2) = -0.0458f;
+
+        transform(yuv, yuvInput, toYCbCr);
+
+        chromaInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(
+            select( v_c == 0, yuv(v_x, v_y, v_c) * 65535.0f + 0.5f,
+                    v_c == 1, (yuv(v_x, v_y, v_c) + 0.5f) * 65535.0f + 0.5f,
+                              (yuv(v_x, v_y, v_c) + 0.5f) * 65535.0f + 0.5f));
+
+        chromaInput
+            .compute_root()
+            .parallel(v_y, 64)
+            .vectorize(v_x, 8)
+            .unroll(v_c);
+
+        auto gf0 = create<GuidedFilter>();
+        auto gf1 = create<GuidedFilter>();
+
+        gf0->radius.set(35);
+        gf0->output_type.set(UInt(16));
+        gf0->apply(chromaInput, chromaEps0*chromaEps0*65535.0f*65535.0f, cast<uint16_t>(width), cast<uint16_t>(height), cast<uint16_t>(1));
+
+        gf1->radius.set(35);
+        gf1->output_type.set(UInt(16));
+        gf1->apply(chromaInput, chromaEps1*chromaEps1*65535.0f*65535.0f, cast<uint16_t>(width), cast<uint16_t>(height), cast<uint16_t>(2));
+
+        chromaDenoised(v_x, v_y, v_c) = select(
+            v_c == 0, yuv(v_x, v_y, v_c),
+            v_c == 1, gf0->output(v_x, v_y) / 65535.0f - 0.5f,
+                      gf1->output(v_x, v_y) / 65535.0f - 0.5f);
+
+        Func toRgb{"toRgb"};
+
+        toRgb(v_x, v_y) = 0.0f;
+
+        toRgb(0, 0) = 1.0f; toRgb(1, 0) = 0.0f;     toRgb(2, 0) = 1.5748f;
+        toRgb(0, 1) = 1.0f; toRgb(1, 1) = -0.1873f; toRgb(2, 1) = -0.4681f;
+        toRgb(0, 2) = 1.0f; toRgb(1, 2) = 1.8556f;  toRgb(2, 2) = 0.0f;
+
+        transform(hsvInput, chromaDenoised, toRgb);
+    }
+    else {
+        hsvInput(v_x, v_y, v_c) = gammaCorrected(v_x, v_y, v_c) / 65535.0f;
+    }
 
     rgbToHsv(hsvOutput, hsvInput);
 
@@ -2361,7 +2437,8 @@ public:
     Input<float> sharpen0{"sharpen0"};
     Input<float> sharpen1{"sharpen1"};
     Input<float> pop{"pop"};
-    Input<float> chromaEps{"chromaEps"};
+    Input<float> chromaEps0{"chromaEps0"};
+    Input<float> chromaEps1{"chromaEps1"};
 
     Output<Buffer<uint8_t>> output{"output", 3};
     
@@ -2428,32 +2505,9 @@ void PostProcessGenerator::generate()
         select(
             v_c == 0, hdrXYZ(v_x, v_y, 0) / max(1e-5f, hdrXYZ(v_x, v_y, 0) + hdrXYZ(v_x, v_y, 1) + hdrXYZ(v_x, v_y, 2)),
             v_c == 1, hdrXYZ(v_x, v_y, 1) / max(1e-5f, hdrXYZ(v_x, v_y, 0) + hdrXYZ(v_x, v_y, 1) + hdrXYZ(v_x, v_y, 2)),
-                      hdrXYZ(v_x, v_y, 1));
+                      pow(2.0f, exposure) * hdrXYZ(v_x, v_y, 1));
 
     tonemapInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(hdrxyY(v_x, v_y, v_c) * 65535.0f + 0.5f);
-
-    // auto gf0 = create<GuidedFilter>();
-    // auto gf1 = create<GuidedFilter>();
-
-    Func chromaDenoiseInput = downsample(tonemapInput, downsampleTemp);
-
-    // gf0->radius.set(31);
-    // gf0->output_type.set(UInt(16));
-    // gf0->apply(chromaDenoiseInput, chromaEps*chromaEps*65535.0f*65535.0f, cast<uint16_t>(in0.width()*2), cast<uint16_t>(in0.height()*2), cast<uint16_t>(0));
-
-    // gf1->radius.set(31);
-    // gf1->output_type.set(UInt(16));
-    // gf1->apply(chromaDenoiseInput, chromaEps*chromaEps*65535.0f*65535.0f, cast<uint16_t>(in0.width()*2), cast<uint16_t>(in0.height()*2), cast<uint16_t>(1));
-
-    chromaDenoiseInput.compute_root().parallel(v_y, 32);
-
-    Func Udenoise{"Udenoise"}, Vdenoise{"Vdenoise"};
-    
-    Udenoise.define_extern("extern_denoise", { chromaDenoiseInput, in0.width(), in0.height(), 0, chromaEps}, UInt(16), 2);
-    Udenoise.compute_root();
-
-    Vdenoise.define_extern("extern_denoise", { chromaDenoiseInput, in0.width(), in0.height(), 1, chromaEps}, UInt(16), 2);
-    Vdenoise.compute_root();
 
     tonemap = create<TonemapGenerator>();
 
@@ -2462,13 +2516,14 @@ void PostProcessGenerator::generate()
     tonemap->apply(tonemapInput, in0.width() * 2, in0.height() * 2, 2, tonemapVariance, shadows);
     
     enhanceInput(v_x, v_y, v_c) = select(
-        v_c == 0, upsample(Udenoise, upsampleTemp0)(v_x, v_y),
-        v_c == 1, upsample(Vdenoise, upsampleTemp1)(v_x, v_y),
+        v_c == 0, tonemapInput(v_x, v_y, v_c),
+        v_c == 1, tonemapInput(v_x, v_y, v_c),
                   tonemap->output(v_x, v_y));
 
     // Finalize output
     enhance = create<EnhanceGenerator>();
 
+    enhance->denoiseChroma.set(true);
     enhance->apply(
         enhanceInput,
         in0.width()*2,
@@ -2482,7 +2537,9 @@ void PostProcessGenerator::generate()
         saturation,
         sharpen0,
         sharpen1,
-        pop);
+        pop,
+        chromaEps0,
+        chromaEps1);
 
     // Finish blue noise + gamma    
     Expr h = v_i / 255.0f;
@@ -2522,7 +2579,8 @@ void PostProcessGenerator::generate()
     greens.set_estimate(1.0f);
     sharpen0.set_estimate(2.0f);
     sharpen1.set_estimate(2.0f);
-    chromaEps.set_estimate(0.01f);
+    chromaEps0.set_estimate(0.01f);
+    chromaEps1.set_estimate(0.01f);
     
     cameraToSrgb.set_estimates({{0, 3}, {0, 3}});
     srgbToPcs.set_estimates({{0, 3}, {0, 3}});
@@ -2583,14 +2641,6 @@ void PostProcessGenerator::schedule_for_cpu() {
         .parallel(v_yo)
         .unroll(v_c)
         .vectorize(v_x, vector_size_u16);
-
-    upsampleTemp0
-        .compute_at(enhanceInput, v_x)
-        .vectorize(v_x, 8);
-
-    upsampleTemp1
-        .compute_at(enhanceInput, v_x)
-        .vectorize(v_x, 8);
 
     enhanceInput
         .compute_root()
@@ -2758,7 +2808,8 @@ void PreviewGenerator::generate() {
                   tonemap->output(v_x, v_y));
 
     enhance = create<EnhanceGenerator>();
-
+    
+    enhance->denoiseChroma.set(false);
     enhance->apply(
         enhanceInput,
         width,
@@ -2772,7 +2823,9 @@ void PreviewGenerator::generate() {
         saturation,
         sharpen0,
         sharpen1,
-        pop);
+        pop,
+        0.0f,
+        0.0f);
            
     //
     // Finalize output

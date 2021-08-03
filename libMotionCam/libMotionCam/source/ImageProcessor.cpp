@@ -79,51 +79,6 @@ static std::vector<Halide::Runtime::Buffer<float>> createWaveletBuffers(int widt
     return buffers;
 }
 
-extern "C" int extern_denoise(halide_buffer_t *in, int32_t width, int32_t height, int c, float weight, halide_buffer_t *out) {
-    if (in->is_bounds_query()) {
-        in->dim[0].min = 0;
-        in->dim[1].min = 0;
-        in->dim[2].min = 0;
-        
-        in->dim[0].extent = width;
-        in->dim[1].extent = height;
-        in->dim[2].extent = 2;
-    }
-    else {
-        auto inputBuffers = createWaveletBuffers(width, height);
-        
-        forward_transform(in,
-                          width,
-                          height,
-                          c,
-                          inputBuffers[0],
-                          inputBuffers[1],
-                          inputBuffers[2],
-                          inputBuffers[3],
-                          inputBuffers[4],
-                          inputBuffers[5]);
-
-        cv::Mat hh(inputBuffers[0].height(),
-                   inputBuffers[0].width(),
-                   CV_32F,
-                   inputBuffers[0].data() + 3*inputBuffers[0].stride(2));
-
-        float noiseSigma = motioncam::estimateNoise(hh);
-        
-        inverse_transform(inputBuffers[0],
-                          inputBuffers[1],
-                          inputBuffers[2],
-                          inputBuffers[3],
-                          inputBuffers[4],
-                          inputBuffers[5],
-                          weight*noiseSigma,
-                          true,
-                          out);
-    }
-    
-    return 0;
-}
-
 namespace motioncam {
     const int DENOISE_LEVELS            = 6;
     const int EXPANDED_RANGE            = 16384;
@@ -391,6 +346,7 @@ namespace motioncam {
                     settings.sharpen1,
                     settings.pop,
                     chromaEps,
+                    chromaEps,
                     outputBuffer);
 
         outputBuffer.device_sync();
@@ -517,9 +473,21 @@ namespace motioncam {
     float ImageProcessor::estimateChromaEps(const RawImageBuffer& rawBuffer,
                                             const RawCameraMetadata& cameraMetadata)
     {
-        auto ev = calcEv(cameraMetadata, rawBuffer.metadata);
+        auto x = calcEv(cameraMetadata, rawBuffer.metadata);
+        std::cout << x;
         
-        return std::fmaxf(4.0f, std::fminf(32.0f, -2.0f*ev + 32));
+        if(x > 15) {
+            return 0.015f;
+        }
+        else if(x > 7) {
+            return 0.02f;
+        }
+        else if(x > 0) {
+            return 0.05f;
+        }
+        else {
+            return 0.07f;
+        }
     }
 
     float ImageProcessor::getShadowKeyValue(const RawImageBuffer& rawBuffer, const RawCameraMetadata& cameraMetadata, bool nightMode) {
@@ -1584,6 +1552,9 @@ namespace motioncam {
         if(rawContainer.getPostProcessSettings().spatialDenoiseAggressiveness > 0) {
             float spatialDenoiseWeight = rawContainer.getPostProcessSettings().spatialDenoiseAggressiveness;
 
+            float weights[] = { 1, 1, 1, 1, 1, 1 };
+            auto weightsBuffer = Halide::Runtime::Buffer<float>(&weights[0], 6);
+            
             for(int c = 0; c < 4; c++) {
                 auto wavelet = createWaveletBuffers(denoiseInput.width(), denoiseInput.height());
 
@@ -1613,6 +1584,7 @@ namespace motioncam {
                                   wavelet[5],
                                   spatialDenoiseWeight*noiseSigma,
                                   false,
+                                  weightsBuffer,
                                   outputBuffer);
 
                 denoiseOutput.push_back(outputBuffer);

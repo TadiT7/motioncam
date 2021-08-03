@@ -655,6 +655,7 @@ public:
     Input<Buffer<float>[]> input{"input", 4};
     Input<float> noiseSigma{"noiseSigma"};
     Input<bool> softThreshold{"softThreshold"};
+    Input<Buffer<float>> weights{"weights", 1};
     
     Output<Buffer<uint16_t>> output{"output", 2};
     
@@ -840,7 +841,7 @@ void InverseTransformGenerator::generate() {
         Func spatialDenoise("spatialDenoiseLvl" + std::to_string(level));
         Func in = BoundaryConditions::repeat_image(input.at(level));
 
-        Expr T = noiseSigma;
+        Expr T = noiseSigma*weights(level);
 
         threshold(real0, imag0, in, 0, 2, T, softThreshold);
         threshold(real1, imag1, in, 1, 3, T, softThreshold);

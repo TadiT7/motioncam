@@ -25,7 +25,7 @@ public class DenoiseSettings {
         float chromaBlendWeight;
         float spatialDenoiseWeight;
 
-        sharpen0 = 1.75f;
+        sharpen0 = 2.25f;
         sharpen1 = 2.0f;
 
         if(ev > 11.99) {
