@@ -29,12 +29,12 @@ public class DenoiseSettings {
         sharpen1 = 2.0f;
 
         if(ev > 11.99) {
-            spatialDenoiseWeight    = 0.0f;
-            mergeImages             = 2;
+            spatialDenoiseWeight    = 0.25f;
+            mergeImages             = 0;
         }
         else if(ev > 9.99) {
             spatialDenoiseWeight    = 0.5f;
-            mergeImages             = 4;
+            mergeImages             = 0;
         }
         else if(ev > 7.99) {
             spatialDenoiseWeight    = 1.0f;
@@ -65,12 +65,10 @@ public class DenoiseSettings {
 
         if(shadows > 7.99) {
             mergeImages             += 2;
-            spatialDenoiseWeight    = Math.max(0.25f, spatialDenoiseWeight);
         }
 
         if(shadows > 15.99) {
             mergeImages             += 2;
-            spatialDenoiseWeight    = Math.max(0.5f, spatialDenoiseWeight);
         }
 
         this.numMergeImages     = mergeImages;

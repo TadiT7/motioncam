@@ -624,6 +624,14 @@ void CameraPreviewGenerator::generate() {
             .vectorize(v_c)
             .gpu_threads(v_x, v_y);
 
+        int tx = 8;
+        int ty = 8;
+
+        if(downscale_factor == 4) {
+            tx = 4;
+            ty = 4;
+        }
+
         downscaled
             .compute_root()
             .reorder(v_c, v_x, v_y)        
@@ -632,14 +640,15 @@ void CameraPreviewGenerator::generate() {
         yuvOutput
             .compute_root()
             .reorder(v_c, v_x, v_y)
-            .gpu_tile(v_x, v_y, v_xi, v_yi, 8, 8);
+            .gpu_tile(v_x, v_y, v_xi, v_yi, tx, ty);
+
 
         output
             .bound(v_c, 0, 4)
             .compute_root()
             .reorder(v_c, v_x, v_y)
             .unroll(v_c)
-            .gpu_tile(v_x, v_y, v_xi, v_yi, 8, 8);
+            .gpu_tile(v_x, v_y, v_xi, v_yi, tx, ty);
     }
     else {
         // TODO: Better schedule
