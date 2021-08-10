@@ -25,7 +25,7 @@ public class DenoiseSettings {
         float chromaBlendWeight;
         float spatialDenoiseWeight;
 
-        sharpen0 = 2.25f;
+        sharpen0 = 2.0f;
         sharpen1 = 2.0f;
 
         if(ev > 11.99) {
@@ -34,7 +34,7 @@ public class DenoiseSettings {
         }
         else if(ev > 9.99) {
             spatialDenoiseWeight    = 0.5f;
-            mergeImages             = 0;
+            mergeImages             = 2;
         }
         else if(ev > 7.99) {
             spatialDenoiseWeight    = 1.0f;
@@ -42,15 +42,15 @@ public class DenoiseSettings {
         }
         else if(ev > 5.99) {
             spatialDenoiseWeight    = 1.0f;
-            mergeImages             = 4;
+            mergeImages             = 6;
         }
         else if(ev > 3.99) {
             spatialDenoiseWeight    = 1.0f;
-            mergeImages             = 6;
+            mergeImages             = 8;
         }
         else if(ev > 0) {
             spatialDenoiseWeight    = 1.5f;
-            mergeImages             = 9;
+            mergeImages             = 10;
             sharpen1                = 2.5f;
         }
         else {

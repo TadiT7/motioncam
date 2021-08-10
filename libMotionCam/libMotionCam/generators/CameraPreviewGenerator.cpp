@@ -235,6 +235,13 @@ Func CameraPreviewGenerator::tonemap(Func input, Expr gain, Expr gamma, Expr var
     tonemapPyramid = buildPyramid(exposures, tonemap_levels);
     weightsPyramid = buildPyramid(weightsNormalized, tonemap_levels);
 
+    int tx = 8;
+    int ty = 4;
+
+    if(downscale_factor == 4) {
+        tx = ty = 4;
+    }
+
     if (get_target().has_gpu_feature()) {
         tonemapPyramid[0].first.in(tonemapPyramid[1].first)
             .compute_at(tonemapPyramid[1].second, v_x)
@@ -255,7 +262,7 @@ Func CameraPreviewGenerator::tonemap(Func input, Expr gain, Expr gamma, Expr var
             tonemapPyramid[level].second                
                 .compute_root()
                 .reorder(v_c, v_x, v_y)
-                .gpu_tile(v_x, v_y, v_xi, v_yi, 4, 4);
+                .gpu_tile(v_x, v_y, v_xi, v_yi, tx, ty);
 
             weightsPyramid[level].first
                 .reorder(v_c, v_x, v_y)
@@ -265,7 +272,7 @@ Func CameraPreviewGenerator::tonemap(Func input, Expr gain, Expr gamma, Expr var
             weightsPyramid[level].second
                 .compute_root()
                 .reorder(v_c, v_x, v_y)
-                .gpu_tile(v_x, v_y, v_xi, v_yi, 4, 4);
+                .gpu_tile(v_x, v_y, v_xi, v_yi, tx, ty);
         }
     }
     else {
@@ -310,7 +317,7 @@ Func CameraPreviewGenerator::tonemap(Func input, Expr gain, Expr gamma, Expr var
                 laplacian
                     .compute_root()
                     .reorder(v_c, v_x, v_y)
-                    .gpu_tile(v_x, v_y, v_xi, v_yi, 4, 4);
+                    .gpu_tile(v_x, v_y, v_xi, v_yi, tx, ty);
             }
         }
         else {
@@ -479,28 +486,24 @@ void CameraPreviewGenerator::generate() {
         select(sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
                 select( v_c == 0, rawInput(v_x, v_y, 0),
                         v_c == 1, rawInput(v_x, v_y, 1),
-                        v_c == 2, rawInput(v_x, v_y, 2),
                                   rawInput(v_x, v_y, 3) ),
 
             sensorArrangement == static_cast<int>(SensorArrangement::GRBG),
                 select( v_c == 0, rawInput(v_x, v_y, 1),
                         v_c == 1, rawInput(v_x, v_y, 0),
-                        v_c == 2, rawInput(v_x, v_y, 3),
                                   rawInput(v_x, v_y, 2) ),
 
             sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
                 select( v_c == 0, rawInput(v_x, v_y, 2),
                         v_c == 1, rawInput(v_x, v_y, 0),
-                        v_c == 2, rawInput(v_x, v_y, 3),
                                   rawInput(v_x, v_y, 1) ),
 
                 select( v_c == 0, rawInput(v_x, v_y, 3),
                         v_c == 1, rawInput(v_x, v_y, 1),
-                        v_c == 2, rawInput(v_x, v_y, 2),
                                   rawInput(v_x, v_y, 0) ) );
 
     shadingMapInput(v_x, v_y, v_c) =
-        mux(v_c, { scaledShadingMap[0](v_x, v_y), scaledShadingMap[1](v_x, v_y), scaledShadingMap[2](v_x, v_y), scaledShadingMap[3](v_x, v_y) } );
+        mux(v_c, { scaledShadingMap[0](v_x, v_y), scaledShadingMap[1](v_x, v_y), scaledShadingMap[3](v_x, v_y) } );
 
     downscaled = downscale(demosaicInput, downscaledTemp);
 
@@ -513,13 +516,11 @@ void CameraPreviewGenerator::generate() {
     blackLevelFunc(v_c) = cast<float16_t>(
                             select( v_c == 0, blackLevel[0],
                                     v_c == 1, blackLevel[1],
-                                    v_c == 2, blackLevel[2],
                                               blackLevel[3]) );
 
     linearFunc(v_c) = cast<float16_t>(
                       select(   v_c == 0, 1.0f / (whiteLevel - blackLevelFunc(v_c)),
                                 v_c == 1, 1.0f / (whiteLevel - blackLevelFunc(v_c)),
-                                v_c == 2, 1.0f / (whiteLevel - blackLevelFunc(v_c)),
                                           1.0f / (whiteLevel - blackLevelFunc(v_c))) );
 
     blackLevelFunc.compute_root().unroll(v_c);
@@ -533,7 +534,7 @@ void CameraPreviewGenerator::generate() {
     demosaiced(v_x, v_y, v_c) =
         select(
             v_c == 0, clamp(linear(v_x, v_y, 0), cast<float16_t>(0.0f), cast<float16_t>(asShotVector[0])),
-            v_c == 1, clamp((linear(v_x, v_y, 1) + linear(v_x, v_y, 2)) * cast<float16_t>(0.5f), cast<float16_t>(0.0f), cast<float16_t>(asShotVector[1])),
+            v_c == 1, clamp(linear(v_x, v_y, 1), cast<float16_t>(0.0f), cast<float16_t>(asShotVector[1])),
                       clamp(linear(v_x, v_y, 3), cast<float16_t>(0.0f), cast<float16_t>(asShotVector[2])));
 
     transform(colorCorrected, demosaiced, cameraToSrgb);
@@ -613,6 +614,13 @@ void CameraPreviewGenerator::generate() {
         .dim(2).set_stride(1);
 
     if (get_target().has_gpu_feature()) {
+        int tx = 8;
+        int ty = 4;
+
+        if(downscale_factor == 4) {
+            tx = ty = 4;
+        }
+
         rawInput
             .reorder(v_c, v_x, v_y)
             .compute_at(downscaled, v_x)            
@@ -622,20 +630,12 @@ void CameraPreviewGenerator::generate() {
             .reorder(v_c, v_x, v_y)
             .compute_at(downscaled, v_x)
             .vectorize(v_c)
-            .gpu_threads(v_x, v_y);
-
-        int tx = 8;
-        int ty = 8;
-
-        if(downscale_factor == 4) {
-            tx = 4;
-            ty = 4;
-        }
+            .gpu_threads(v_x, v_y);            
 
         downscaled
             .compute_root()
-            .reorder(v_c, v_x, v_y)        
-            .gpu_tile(v_x, v_y, v_xi, v_yi, 4, 4);
+            .reorder(v_c, v_x, v_y)
+            .gpu_tile(v_x, v_y, v_xi, v_yi, tx, ty);
      
         yuvOutput
             .compute_root()
