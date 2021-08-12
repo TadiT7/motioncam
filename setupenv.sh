@@ -14,10 +14,10 @@ fi
 NUM_CORES="$(python3 -c 'import multiprocessing as mp; print(mp.cpu_count())')"
 
 ANDROID_ABI="arm64-v8a"
-OPENCV_VERSION="4.5.2"
-LIBEXPAT_VERSION="2.2.10"
-LIBEXIV2_VERSION="0.27.3"
-ZSTD_VERSION="v1.4.9"
+OPENCV_VERSION="4.5.3"
+LIBEXPAT_VERSION="2.4.1"
+LIBEXIV2_VERSION="0.27.4"
+ZSTD_VERSION="v1.5.0"
 HALIDE_BRANCH=https://github.com/mirsadm/Halide
 
 mkdir -p tmp
@@ -66,7 +66,7 @@ build_opencv() {
 build_expat() {
 	LIBEXPAT_ARCHIVE="libexpat-${LIBEXPAT_VERSION}.tar.gz"
 
-	curl -L https://github.com/libexpat/libexpat/releases/download/R_2_2_10/expat-${LIBEXPAT_VERSION}.tar.gz --output ${LIBEXPAT_ARCHIVE}
+	curl -L https://github.com/libexpat/libexpat/releases/download/R_2_4_1/expat-${LIBEXPAT_VERSION}.tar.gz --output ${LIBEXPAT_ARCHIVE}
 
 	tar -xvf ${LIBEXPAT_ARCHIVE}
 

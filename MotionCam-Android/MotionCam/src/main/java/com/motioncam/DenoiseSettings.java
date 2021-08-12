@@ -26,7 +26,7 @@ public class DenoiseSettings {
         float spatialDenoiseWeight;
 
         sharpen0 = 2.0f;
-        sharpen1 = 2.0f;
+        sharpen1 = 1.5f;
 
         if(ev > 11.99) {
             spatialDenoiseWeight    = 0.25f;
