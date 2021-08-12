@@ -59,10 +59,6 @@ public class DenoiseSettings {
             sharpen1                = 2.5f;
         }
 
-        if(shadows > 3.99) {
-            mergeImages             += 2;
-        }
-
         if(shadows > 7.99) {
             mergeImages             += 2;
         }

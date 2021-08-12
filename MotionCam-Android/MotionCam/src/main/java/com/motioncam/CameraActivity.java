@@ -140,7 +140,7 @@ public class CameraActivity extends AppCompatActivity implements
         void load(SharedPreferences prefs) {
             this.jpegQuality = prefs.getInt(SettingsViewModel.PREFS_KEY_JPEG_QUALITY, CameraProfile.DEFAULT_JPEG_QUALITY);
             this.contrast = prefs.getFloat(SettingsViewModel.PREFS_KEY_UI_PREVIEW_CONTRAST, CameraProfile.DEFAULT_CONTRAST / 100.0f);
-            this.saturation = prefs.getFloat(SettingsViewModel.PREFS_KEY_UI_PREVIEW_COLOUR, 1.05f);
+            this.saturation = prefs.getFloat(SettingsViewModel.PREFS_KEY_UI_PREVIEW_COLOUR, 1.00f);
             this.temperatureOffset = prefs.getFloat(SettingsViewModel.PREFS_KEY_UI_PREVIEW_TEMPERATURE_OFFSET, 0);
             this.tintOffset = prefs.getFloat(SettingsViewModel.PREFS_KEY_UI_PREVIEW_TINT_OFFSET, 0);
             this.saveDng = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_SAVE_RAW, false);
@@ -976,12 +976,6 @@ public class CameraActivity extends AppCompatActivity implements
 
             Log.i(TAG, "Requested HDR capture (denoiseSettings=" + denoiseSettings.toString() + ")");
 
-            mBinding.cameraFrame
-                    .animate()
-                    .alpha(0.25f)
-                    .setDuration(250)
-                    .start();
-
             mNativeCamera.captureHdrImage(
                     denoiseSettings.numMergeImages,
                     iso,
@@ -1499,20 +1493,14 @@ public class CameraActivity extends AppCompatActivity implements
             mBinding.captureBtn.setEnabled(true);
             mBinding.captureProgressBar.setVisibility(View.INVISIBLE);
 
-            mBinding.cameraFrame
-                    .animate()
-                    .alpha(1.0f)
-                    .setDuration(250)
-                    .start();
+            // Tell user we didn't capture image
+            AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(this, R.style.BasicDialog)
+                    .setCancelable(false)
+                    .setTitle(R.string.error)
+                    .setMessage(R.string.capture_failed)
+                    .setPositiveButton(R.string.ok, (dialog, which) -> {});
 
-                // Tell user we didn't capture image
-                AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(this, R.style.BasicDialog)
-                        .setCancelable(false)
-                        .setTitle(R.string.error)
-                        .setMessage(R.string.capture_failed)
-                        .setPositiveButton(R.string.ok, (dialog, which) -> {});
-
-                dialogBuilder.show();
+            dialogBuilder.show();
         });
     }
 
@@ -1526,12 +1514,6 @@ public class CameraActivity extends AppCompatActivity implements
         {
             mBinding.captureBtn.setEnabled(true);
             mBinding.captureProgressBar.setVisibility(View.INVISIBLE);
-
-            mBinding.cameraFrame
-                    .animate()
-                    .alpha(1.0f)
-                    .setDuration(250)
-                    .start();
 
             startImageProcessor();
         });
