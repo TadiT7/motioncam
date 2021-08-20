@@ -28,39 +28,31 @@ public class DenoiseSettings {
         sharpen0 = 2.0f;
         sharpen1 = 1.5f;
 
-        if(ev > 11.99) {
-            spatialDenoiseWeight    = 0.25f;
-            mergeImages             = 0;
-        }
-        else if(ev > 9.99) {
-            spatialDenoiseWeight    = 0.5f;
-            mergeImages             = 2;
-        }
-        else if(ev > 7.99) {
+        if(ev > 7.99) {
             spatialDenoiseWeight    = 1.0f;
-            mergeImages             = 4;
+            mergeImages             = 1;
         }
         else if(ev > 5.99) {
             spatialDenoiseWeight    = 1.0f;
-            mergeImages             = 6;
+            mergeImages             = 4;
         }
         else if(ev > 3.99) {
             spatialDenoiseWeight    = 1.0f;
             mergeImages             = 8;
         }
         else if(ev > 0) {
-            spatialDenoiseWeight    = 1.5f;
-            mergeImages             = 10;
-            sharpen1                = 2.5f;
+            spatialDenoiseWeight    = 1.25f;
+            mergeImages             = 12;
+            sharpen1                = 2.0f;
         }
         else {
             spatialDenoiseWeight    = 1.5f;
             mergeImages             = 12;
-            sharpen1                = 2.5f;
+            sharpen1                = 2.0f;
         }
 
         if(shadows > 7.99) {
-            mergeImages             += 2;
+            mergeImages             += 4;
         }
 
         if(shadows > 15.99) {

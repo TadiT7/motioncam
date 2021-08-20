@@ -52,8 +52,7 @@ public:
     Input<int32_t> height{"height"};
     Input<int32_t> whiteLevel{"whiteLevel"};
     
-    Input<float> motionVectorsWeight{"motionVectorsWeight"};
-    Input<float> differenceWeight{"differenceWeight"};
+    Input<float> w{"w"};
 
     Output<Func> output{"output", 3};
 
@@ -128,13 +127,7 @@ void DenoiseGenerator::cmpSwap(Expr& a, Expr& b) {
 }
 
 Expr DenoiseGenerator::median(Expr A, Expr B, Expr C, Expr D) {
-    cmpSwap(A, B);
-    cmpSwap(C, D);
-    cmpSwap(A, C);
-    cmpSwap(B, D);
-    cmpSwap(B, C);
-
-    return (B + C) / 2;
+    return sqrt(0.25f * (A+B+C+D));
 }
 
 Func DenoiseGenerator::calcThreshold(Func inHigh) {
@@ -229,31 +222,19 @@ void DenoiseGenerator::generate() {
     inHigh1(v_x, v_y, v_c, v_i) = inSigned1(v_x, v_y, v_c) - inMean1(v_x, v_y, v_c, v_i);
 
     Func T = calcThreshold(inHigh0);
-
-    Expr D = abs(inMean0(v_x, v_y, v_c, v_i) - inMean1(v_x, v_y, v_c, v_i));
-    Expr M = flowMap(v_x, v_y, 0)*flowMap(v_x, v_y, 0) + flowMap(v_x, v_y, 1)*flowMap(v_x, v_y, 1);
     
-    Func w{"w"};
-    Func Mlut{"Mlut"};
-    Func Dlut{"Dlut"};
+    Expr Wh = w;
+    Expr Wm = max(1.0f, w / 2.0f);
 
-    Mlut(v_i) = cast<uint16_t>(clamp(exp(-v_i/motionVectorsWeight) * 32768, 0, 32768));
-    Dlut(v_i) = cast<uint16_t>(clamp(exp(-(256.0f*v_i)/whiteLevel) * 32768, 0, 32768));
-
-    Expr Mw = 1.0f/32768.0f*Mlut(saturating_cast<uint16_t>(M));
-    Expr Dw = differenceWeight/32768.0f*Dlut(saturating_cast<uint16_t>(D));
-
-    w(v_x, v_y, v_c, v_i) = 1.0f + Mw*Dw;
-    
     Func outMean{"outMean"}, outHigh{"outHigh"};
 
     Expr d0 = inHigh0(v_x, v_y, v_c, v_i) - inHigh1(v_x, v_y, v_c, v_i);
-    Expr m0 = abs(d0) / (1e-15f + abs(d0) + w(v_x, v_y, v_c, v_i)*T(v_x, v_y, v_c, v_i));
+    Expr m0 = abs(d0) / (1e-15f + abs(d0) + Wh*T(v_x, v_y, v_c, v_i));
 
     outHigh(v_x, v_y, v_c, v_i) = inHigh1(v_x, v_y, v_c, v_i) + m0*d0;
 
     Expr d1 = inMean0(v_x, v_y, v_c, v_i) - inMean1(v_x, v_y, v_c, v_i);
-    Expr m1 = abs(d1) / (1e-15f + abs(d1) + w(v_x, v_y, v_c, v_i)*T(v_x, v_y, v_c, v_i));
+    Expr m1 = abs(d1) / (1e-15f + abs(d1) + Wm*T(v_x, v_y, v_c, v_i));
 
     outMean(v_x, v_y, v_c, v_i) = inMean1(v_x, v_y, v_c, v_i) + m1*d1;
 
@@ -269,8 +250,6 @@ void DenoiseGenerator::generate() {
     width.set_estimate(2000);
     height.set_estimate(1500);
     whiteLevel.set_estimate(1023);
-    motionVectorsWeight.set_estimate(32);
-    differenceWeight.set_estimate(16);
     input1.set_estimates({{0, 2000}, {0, 1500}, {0, 4}});
     pendingOutput.set_estimates({{0, 2000}, {0, 1500}, {0, 4}});
     flowMap.set_estimates({{0, 2000}, {0, 1500}, {0, 4}});
@@ -278,9 +257,6 @@ void DenoiseGenerator::generate() {
     output.set_estimates({{0, 2000}, {0, 1500}, {0, 4}});
         
     if (!auto_schedule) {
-        Mlut.compute_root().vectorize(v_i, 8);
-        Dlut.compute_root().vectorize(v_i, 8);
-
         inSigned0
             .compute_at(output, v_yo)
             .store_in(MemoryType::Stack)

@@ -464,7 +464,7 @@ namespace motioncam {
     }
 
     float ImageProcessor::estimateChromaEps(const float noise) {
-        return 2.4880f*(noise*noise) + 0.0450f*noise + 0.0127f;
+        return std::max(0.0175f, 2.4880f*(noise*noise) + 0.0450f*noise + 0.0127f);
     }
 
     float ImageProcessor::getShadowKeyValue(const RawImageBuffer& rawBuffer, const RawCameraMetadata& cameraMetadata, bool nightMode) {
@@ -1448,14 +1448,11 @@ namespace motioncam {
         
         auto processFrames = rawContainer.getFrames();
         auto it = processFrames.begin();
-        
-        // Pixels that have moved a lot will contribute less since we are less certain about them
-        float motionVectorsWeight = 20*20;
-        
+                
         // Linearly increase difference threshold based on the exposure value
         float ev = calcEv(rawContainer.getCameraMetadata(), reference->metadata);
-        float differenceWeight = std::max(1.0f, std::min(32.0f, -ev + 16.0f));
-                
+        float w = std::max(2.0f, -ev + 12.0f);
+                        
         while(it != processFrames.end()) {
             if(rawContainer.getReferenceImage() == *it) {
                 ++it;
@@ -1470,18 +1467,19 @@ namespace motioncam {
                                      current->previewBuffer.width(),
                                      CV_8U,
                                      current->previewBuffer.data());
-
+            
             cv::Ptr<cv::DISOpticalFlow> opticalFlow =
                 cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_FAST);
             
             opticalFlow->setPatchSize(16);
             opticalFlow->setPatchStride(8);
+            opticalFlow->setUseMeanNormalization(false);
             
             opticalFlow->calc(referenceFlowImage, currentFlowImage, flow);
-                        
+            
             Halide::Runtime::Buffer<float> flowBuffer =
                 Halide::Runtime::Buffer<float>::make_interleaved((float*) flow.data, flow.cols, flow.rows, 2);
-                        
+                    
             fuse_denoise(reference->rawBuffer,
                          current->rawBuffer,
                          fuseOutput,
@@ -1489,8 +1487,7 @@ namespace motioncam {
                          reference->rawBuffer.width(),
                          reference->rawBuffer.height(),
                          rawContainer.getCameraMetadata().whiteLevel,
-                         motionVectorsWeight,
-                         differenceWeight,
+                         w,
                          fuseOutput);
             
             progressHelper.nextFusedImage();
@@ -1870,18 +1867,13 @@ namespace motioncam {
 
         auto refImage = loadRawImage(reference, cameraMetadata, extendEdges, 1.0f);
         auto underexposedImage = loadRawImage(underexposed, cameraMetadata, extendEdges, exposureScale);
-        
-//        auto warpMatrix = registerImage2(refImage->previewBuffer, underexposedImage->previewBuffer);
-//        if(warpMatrix.empty())
-//            return nullptr;
 
         cv::Mat flow;
         cv::Ptr<cv::DISOpticalFlow> opticalFlow =
             cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_FAST);
         
-        opticalFlow->setUseMeanNormalization(false);
         opticalFlow->setPatchSize(64);
-        opticalFlow->setPatchStride(16);
+        opticalFlow->setPatchStride(8);
         
         cv::Mat referenceImage(refImage->previewBuffer.height(),
                                refImage->previewBuffer.width(),
@@ -1901,7 +1893,22 @@ namespace motioncam {
             return nullptr;
         }
         
+        Halide::Runtime::Buffer<float> flowBuffer =
+            Halide::Runtime::Buffer<float>::make_interleaved((float*) flow.data, flow.cols, flow.rows, 2);
+                
+        //
+        // Create mask
+        //
+
+        cv::Mat underExposedExposure(
+            underexposedImage->previewBuffer.height(),
+            underexposedImage->previewBuffer.width(),
+            CV_8U,
+            underexposedImage->previewBuffer.data());
+        
+        cv::Mat alignedExposure;
         cv::Mat map(flow.size(), CV_32FC2);
+        
         for (int y = 0; y < map.rows; ++y)
         {
             for (int x = 0; x < map.cols; ++x)
@@ -1910,16 +1917,7 @@ namespace motioncam {
                 map.at<cv::Point2f>(y, x) = cv::Point2f(x + f.x, y + f.y);
             }
         }
-                
-        //
-        // Create mask
-        //
 
-        cv::Mat underExposedExposure(
-            underexposedImage->previewBuffer.height(), underexposedImage->previewBuffer.width(), CV_8U, underexposedImage->previewBuffer.data());
-        cv::Mat alignedExposure;
-
-        //cv::warpPerspective(underExposedExposure, alignedExposure, warpMatrix, underExposedExposure.size(), cv::INTER_LINEAR, cv::BORDER_REPLICATE);
         cv::remap(underExposedExposure, alignedExposure, map, cv::noArray(), cv::INTER_LINEAR);
         
         Halide::Runtime::Buffer<uint8_t> alignedBuffer = ToHalideBuffer<uint8_t>(alignedExposure);
@@ -1936,25 +1934,6 @@ namespace motioncam {
         logger::log("HDR error " + std::to_string(error));
         if(error > MAX_HDR_ERROR)
             return nullptr;
-                
-        //
-        // Create input image for post processing
-        //
-                        
-        // Warp the underexposed image
-        Halide::Runtime::Buffer<uint16_t> inputBuffers[4];
-
-        for(int c = 0; c < 4; c++) {
-            int offset = c * underexposedImage->rawBuffer.stride(2);
-
-            cv::Mat channel(underexposedImage->rawBuffer.height(), underexposedImage->rawBuffer.width(), CV_16U, underexposedImage->rawBuffer.data() + offset);
-            cv::Mat alignedChannel;
-
-//            cv::warpPerspective(channel, alignedChannel, warpMatrix, channel.size(), cv::INTER_CUBIC, cv::BORDER_REPLICATE);
-            cv::remap(channel, alignedChannel, map, cv::noArray(), cv::INTER_LINEAR);
-
-            inputBuffers[c] = ToHalideBuffer<uint16_t>(alignedChannel).copy();
-        }
         
         cv::Mat mask(maskBuffer.height(), maskBuffer.width(), CV_8U, maskBuffer.data());
         
@@ -1985,10 +1964,8 @@ namespace motioncam {
         Halide::Runtime::Buffer<float> colorTransformBuffer = ToHalideBuffer<float>(cameraToSrgb);
         Halide::Runtime::Buffer<uint16_t> outputBuffer(underexposedImage->rawBuffer.width()*2, underexposedImage->rawBuffer.height()*2, 3);
                 
-        linear_image(inputBuffers[0],
-                     inputBuffers[1],
-                     inputBuffers[2],
-                     inputBuffers[3],
+        linear_image(underexposedImage->rawBuffer,
+                     flowBuffer,
                      shadingMapBuffer[0],
                      shadingMapBuffer[1],
                      shadingMapBuffer[2],
@@ -1997,15 +1974,14 @@ namespace motioncam {
                      cameraWhite[1],
                      cameraWhite[2],
                      colorTransformBuffer,
-                     inputBuffers[0].width(),
-                     inputBuffers[0].height(),
+                     underexposedImage->rawBuffer.width(),
+                     underexposedImage->rawBuffer.height(),
                      static_cast<int>(cameraMetadata.sensorArrangment),
                      cameraMetadata.blackLevel[0],
                      cameraMetadata.blackLevel[1],
                      cameraMetadata.blackLevel[2],
                      cameraMetadata.blackLevel[3],
                      cameraMetadata.whiteLevel,
-                     whitePoint,
                      EXPANDED_RANGE,
                      outputBuffer);
         

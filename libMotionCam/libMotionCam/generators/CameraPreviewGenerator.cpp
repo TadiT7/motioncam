@@ -383,7 +383,7 @@ Func CameraPreviewGenerator::tonemap(Func input, Expr gain, Expr gamma, Expr var
                 .compute_root()
                 .reorder(v_c, v_x, v_y)
                 .unroll(v_c)
-                .gpu_tile(v_x, v_y, v_xi, v_yi, 8, 8);
+                .gpu_tile(v_x, v_y, v_xi, v_yi, tx, ty);
         }
         else {
             // TODO: Better schedule

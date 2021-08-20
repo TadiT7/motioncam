@@ -943,20 +943,20 @@ public class CameraActivity extends AppCompatActivity implements
             long exposure = baseExposure.shutterSpeed.getExposureTime();
             int iso = baseExposure.iso.getIso();
 
+            mBinding.cameraFrame
+                    .animate()
+                    .alpha(0.0f)
+                    .setDuration(125)
+                    .withEndAction(() -> mBinding.cameraFrame
+                            .animate()
+                            .alpha(1.0f)
+                            .setDuration(125)
+                            .start())
+                    .start();
+
             if(mCaptureMode == CaptureMode.ZSL) {
                 if(noHdr) {
                     Log.i(TAG, "Requested ZSL capture (denoiseSettings=" + denoiseSettings.toString() + ")");
-
-                    mBinding.cameraFrame
-                            .animate()
-                            .alpha(0.25f)
-                            .setDuration(125)
-                            .withEndAction(() -> mBinding.cameraFrame
-                                    .animate()
-                                    .alpha(1.0f)
-                                    .setDuration(125)
-                                    .start())
-                            .start();
 
                     mAsyncNativeCameraOps.captureImage(
                             -1,
