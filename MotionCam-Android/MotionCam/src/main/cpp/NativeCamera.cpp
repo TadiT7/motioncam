@@ -268,61 +268,6 @@ jobject JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GetPreviewOu
 }
 
 extern "C" JNIEXPORT
-jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_CaptureImage(
-        JNIEnv *env,
-        jobject instance,
-        jlong sessionHandle,
-        jlong bufferHandle,
-        jint saveNumImages,
-        jstring postProcessSettings_,
-        jstring outputPath_)
-{
-
-    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(sessionHandle);
-    if(!sessionManager) {
-        return JNI_FALSE;
-    }
-
-    const char *coutputPath = env->GetStringUTFChars(outputPath_, nullptr);
-    if(coutputPath == nullptr) {
-        LOGE("Failed to get output path");
-        return JNI_FALSE;
-    }
-
-    std::string outputPath(coutputPath);
-
-    env->ReleaseStringUTFChars(outputPath_, coutputPath);
-
-    const char* cjsonString = env->GetStringUTFChars(postProcessSettings_, nullptr);
-    if(cjsonString == nullptr) {
-        LOGE("Failed to get settings");
-        return JNI_FALSE;
-    }
-
-    std::string settingsJson(cjsonString);
-
-    env->ReleaseStringUTFChars(outputPath_, cjsonString);
-
-    // Parse post process settings
-    std::string err;
-    json11::Json json = json11::Json::parse(settingsJson, err);
-
-    // Can't parse the settings
-    if(!err.empty()) {
-        return JNI_FALSE;
-    }
-
-    auto cameraId = sessionManager->getSelectedCameraId();
-    auto metadata = sessionManager->getCameraDescription(cameraId)->metadata;
-
-    motioncam::PostProcessSettings settings(json);
-
-    RawBufferManager::get().save(metadata, bufferHandle, saveNumImages, settings, std::string(outputPath));
-
-    return JNI_TRUE;
-}
-
-extern "C" JNIEXPORT
 jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_PauseCapture(JNIEnv *env, jobject thiz, jlong sessionHandle) {
     std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(sessionHandle);
     if(!sessionManager) {
@@ -856,6 +801,115 @@ jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_SetRawPrevi
     return JNI_TRUE;
 }
 
+
+extern "C" JNIEXPORT
+jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_CaptureImage(
+        JNIEnv *env,
+        jobject instance,
+        jlong sessionHandle,
+        jlong bufferHandle,
+        jint saveNumImages,
+        jstring postProcessSettings_,
+        jstring outputPath_)
+{
+    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(sessionHandle);
+    if(!sessionManager) {
+        return JNI_FALSE;
+    }
+
+    const char *coutputPath = env->GetStringUTFChars(outputPath_, nullptr);
+    if(coutputPath == nullptr) {
+        LOGE("Failed to get output path");
+        return JNI_FALSE;
+    }
+
+    std::string outputPath(coutputPath);
+
+    env->ReleaseStringUTFChars(outputPath_, coutputPath);
+
+    const char* cjsonString = env->GetStringUTFChars(postProcessSettings_, nullptr);
+    if(cjsonString == nullptr) {
+        LOGE("Failed to get settings");
+        return JNI_FALSE;
+    }
+
+    std::string settingsJson(cjsonString);
+
+    env->ReleaseStringUTFChars(outputPath_, cjsonString);
+
+    // Parse post process settings
+    std::string err;
+    json11::Json json = json11::Json::parse(settingsJson, err);
+
+    // Can't parse the settings
+    if(!err.empty()) {
+        return JNI_FALSE;
+    }
+
+    auto cameraId = sessionManager->getSelectedCameraId();
+    auto metadata = sessionManager->getCameraDescription(cameraId)->metadata;
+
+    motioncam::PostProcessSettings settings(json);
+
+    RawBufferManager::get().save(metadata, bufferHandle, saveNumImages, settings, std::string(outputPath));
+
+    return JNI_TRUE;
+}
+
+
+extern "C" JNIEXPORT
+jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_CaptureZslHdrImage(
+        JNIEnv *env,
+        jobject instance,
+        jlong sessionHandle,
+        jint numImages,
+        jstring postProcessSettings_,
+        jstring outputPath_)
+{
+    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(sessionHandle);
+    if(!sessionManager) {
+        return JNI_FALSE;
+    }
+
+    const char *coutputPath = env->GetStringUTFChars(outputPath_, nullptr);
+    if(coutputPath == nullptr) {
+        LOGE("Failed to get output path");
+        return JNI_FALSE;
+    }
+
+    std::string outputPath(coutputPath);
+
+    env->ReleaseStringUTFChars(outputPath_, coutputPath);
+
+    const char* cjsonString = env->GetStringUTFChars(postProcessSettings_, nullptr);
+    if(cjsonString == nullptr) {
+        LOGE("Failed to get settings");
+        return JNI_FALSE;
+    }
+
+    std::string settingsJson(cjsonString);
+
+    env->ReleaseStringUTFChars(outputPath_, cjsonString);
+
+    // Parse post process settings
+    std::string err;
+    json11::Json json = json11::Json::parse(settingsJson, err);
+
+    // Can't parse the settings
+    if(!err.empty()) {
+        return JNI_FALSE;
+    }
+
+    auto cameraId = sessionManager->getSelectedCameraId();
+    auto metadata = sessionManager->getCameraDescription(cameraId)->metadata;
+
+    motioncam::PostProcessSettings settings(json);
+
+    sessionManager->captureHdrImage(numImages, settings, outputPath);
+
+    return JNI_TRUE;
+}
+
 extern "C" JNIEXPORT
 jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_CaptureHdrImage(
     JNIEnv *env,
@@ -927,4 +981,20 @@ jstring JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GetRawPrevie
 
     auto settingsJson = settings.toJson();
     return env->NewStringUTF(settingsJson.dump().c_str());
+}
+
+extern "C" JNIEXPORT
+void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_PrepareHdrCapture(
+        JNIEnv *env,
+        jobject thiz,
+        jlong handle,
+        jint iso,
+        jlong exposure)
+{
+    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
+    if(!sessionManager) {
+        return;
+    }
+
+    sessionManager->prepareHdrCapture(iso, exposure);
 }

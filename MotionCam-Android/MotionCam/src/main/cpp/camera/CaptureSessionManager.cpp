@@ -548,6 +548,21 @@ namespace motioncam {
             mCameraSession->captureHdr(numImages, baseIso, baseExposure, hdrIso, hdrExposure, settings, outputPath);
     }
 
+    void CaptureSessionManager::captureHdrImage(
+            const int numImages,
+            const motioncam::PostProcessSettings& settings,
+            const std::string& outputPath)
+    {
+        if(mCameraSession)
+            mCameraSession->captureHdr(numImages, settings, outputPath);
+    }
+
+    void CaptureSessionManager::prepareHdrCapture(const int iso, const int64_t exposure)
+    {
+        if(mCameraSession)
+            mCameraSession->prepareHdr(iso, exposure);
+    }
+
     void CaptureSessionManager::setManualExposure(int32_t iso, int64_t exposureTime) {
         if(mCameraSession)
             mCameraSession->setManualExposure(iso, exposureTime);

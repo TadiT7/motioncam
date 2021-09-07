@@ -2,6 +2,7 @@
 #include "motioncam/Util.h"
 #include "motioncam/Exceptions.h"
 #include "motioncam/Math.h"
+#include "motioncam/Logger.h"
 #include "motioncam/Measure.h"
 
 #include <zstd.h>

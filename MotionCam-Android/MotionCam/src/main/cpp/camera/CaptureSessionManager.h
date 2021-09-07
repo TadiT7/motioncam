@@ -70,6 +70,13 @@ namespace motioncam {
             const motioncam::PostProcessSettings& settings,
             const std::string& outputPath);
 
+        void captureHdrImage(
+                const int numImages,
+                const motioncam::PostProcessSettings& settings,
+                const std::string& outputPath);
+
+        void prepareHdrCapture(const int iso, const int64_t exposure);
+
     private:
         static bool isCameraSupported(const CameraDescription& cameraDescription);
         void enumerateCameras();

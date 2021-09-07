@@ -54,6 +54,7 @@ namespace motioncam {
         void setAutoExposure();
         void setManualExposure(int32_t iso, int64_t exposureTime);
         void setExposureCompensation(float value);
+
         void captureHdr(
                 int numImages,
                 int baseIso,
@@ -62,6 +63,9 @@ namespace motioncam {
                 int64_t hdrExposure,
                 const PostProcessSettings& postprocessSettings,
                 const std::string& outputPath);
+
+        void captureHdr(int numImages, const PostProcessSettings& postprocessSettings, const std::string& outputPath);
+        void prepareHdr(int iso, int64_t exposure);
 
         void updateOrientation(ScreenOrientation orientation);
 
@@ -114,7 +118,9 @@ namespace motioncam {
         void doSetFocusPoint(double focusX, double focusY, double exposureX, double exposureY);
         void doSetAutoFocus();
         void doSetExposureCompensation(float value);
+        void doSave(int numImages);
         void doAttemptSaveHdrData();
+        void doPrecaptureCaptureHdr(int iso, int64_t exposure);
         void doCaptureHdr(int numImages, int baseIso, int64_t baseExposure, int hdrIso, int64_t hdrExposure);
 
         void setupCallbacks();
@@ -133,15 +139,13 @@ namespace motioncam {
         CameraFocusState mLastFocusState;
         CameraExposureState mLastExposureState;
         std::atomic<ScreenOrientation> mScreenOrientation;
-        std::atomic<bool> mHdrCaptureInProgress;
+        std::atomic<bool> mLongHdrCaptureInProgress;
         std::atomic<bool> mHdrCaptureSequenceCompleted;
         std::chrono::steady_clock::time_point mHdrSequenceCompletedTimePoint;
         PostProcessSettings mHdrCaptureSettings;
         std::string mHdrCaptureOutputPath;
         int mRequestedHdrCaptures;
         int64_t mRequestHdrCaptureTimestamp;
-        int mSaveHdrCaptures;
-        bool mPartialHdrCapture;
 
         moodycamel::BlockingConcurrentQueue<EventLoopDataPtr> mEventLoopQueue;
         std::unique_ptr<std::thread> mEventLoopThread;

@@ -273,6 +273,7 @@ public class CameraActivity extends AppCompatActivity implements
     };
 
     private PostProcessSettings mPostProcessSettings = new PostProcessSettings();
+    private PostProcessSettings mEstimatedSettings = new PostProcessSettings();
 
     private float mTemperatureOffset;
     private float mTintOffset;
@@ -344,6 +345,7 @@ public class CameraActivity extends AppCompatActivity implements
         ((Switch) findViewById(R.id.manualControlSwitch)).setOnCheckedChangeListener((buttonView, isChecked) -> onCameraManualControlEnabled(isChecked));
 
         // Buttons
+        mBinding.captureBtn.setOnTouchListener((v, e) -> onCaptureTouched(e));
         mBinding.captureBtn.setOnClickListener(v -> onCaptureClicked());
         mBinding.switchCameraBtn.setOnClickListener(v -> onSwitchCameraClicked());
 
@@ -837,6 +839,50 @@ public class CameraActivity extends AppCompatActivity implements
         }
     }
 
+    private boolean onCaptureTouched(MotionEvent e) {
+        if(mNativeCamera == null)
+            return false;
+
+        try
+        {
+            mEstimatedSettings = mNativeCamera.getRawPreviewEstimatedPostProcessSettings();
+        }
+        catch (IOException exception) {
+            Log.e(TAG, "Failed to get estimated settings", exception);
+            return false;
+        }
+
+        if(e.getAction() == MotionEvent.ACTION_DOWN && mCaptureMode == CaptureMode.ZSL) {
+            float hdrEv = 1.0f;
+
+            if(mEstimatedSettings.exposure < 0) {
+                hdrEv = (float) Math.pow(2.0f, -mEstimatedSettings.exposure);
+            }
+
+            boolean useHdr = mSettings.hdr && hdrEv > 1.01f;
+            CameraManualControl.Exposure hdrExposure = null;
+
+            if(useHdr) {
+                hdrExposure = CameraManualControl.Exposure.Create(
+                        CameraManualControl.GetClosestShutterSpeed(Math.round(mExposureTime / hdrEv)),
+                        CameraManualControl.GetClosestIso(mIsoValues, mIso));
+
+                float a = 1.6f;
+                if (mCameraMetadata.cameraApertures.length > 0)
+                    a = mCameraMetadata.cameraApertures[0];
+
+                hdrExposure = CameraManualControl.MapToExposureLine(a, hdrExposure, CameraManualControl.HDR_EXPOSURE_LINE);
+            }
+
+            if(hdrExposure != null)
+                mNativeCamera.prepareHdrCapture(hdrExposure.iso.getIso(), hdrExposure.shutterSpeed.getExposureTime());
+            else
+                mNativeCamera.prepareHdrCapture(-1, -1);
+        }
+
+        return false;
+    }
+
     private void capture(CaptureMode mode) {
         if(mNativeCamera == null)
             return;
@@ -845,21 +891,6 @@ public class CameraActivity extends AppCompatActivity implements
             Log.e(TAG, "Aborting capture, one is already in progress");
             return;
         }
-
-        PostProcessSettings estimatedSettings;
-
-        try
-        {
-            estimatedSettings = mNativeCamera.getRawPreviewEstimatedPostProcessSettings();
-        }
-        catch (IOException e) {
-            Log.e(TAG, "Failed to get estimated settings", e);
-            estimatedSettings = new PostProcessSettings();
-
-        }
-
-        // Use estimated shadows
-        mPostProcessSettings.shadows = estimatedSettings.shadows;
 
         // Store capture mode
         mPostProcessSettings.captureMode = mCaptureMode.name();
@@ -876,7 +907,7 @@ public class CameraActivity extends AppCompatActivity implements
 
             startActivity(intent);
         }
-        else if(mode == CaptureMode.NIGHT || mode == CaptureMode.ZSL) {
+        else if(mode == CaptureMode.NIGHT){
             mBinding.captureBtn.setEnabled(false);
 
             mBinding.captureProgressBar.setVisibility(View.VISIBLE);
@@ -889,17 +920,19 @@ public class CameraActivity extends AppCompatActivity implements
             float hdrEv = 1.0f;
 
             // Use estimated underexposed image exposure
-            if(estimatedSettings.exposure < 0) {
-                hdrEv = (float) Math.pow(2.0f, -estimatedSettings.exposure);
-                estimatedSettings.exposure = 0;
+            if(mEstimatedSettings.exposure < 0) {
+                hdrEv = (float) Math.pow(2.0f, -mEstimatedSettings.exposure);
+                mEstimatedSettings.exposure = 0;
             }
 
-            if(!mManualControlsSet) {
-                cameraExposure = Math.round(mExposureTime * Math.pow(2.0f, estimatedSettings.exposure));
+            if(mManualControlsSet) {
+                settings.shadows = mEstimatedSettings.shadows;
+            }
+            else {
+                cameraExposure = Math.round(mExposureTime * Math.pow(2.0f, mEstimatedSettings.exposure));
 
                 // We'll estimate the shadows again since the exposure has been adjusted
-                if(mode == CaptureMode.NIGHT)
-                    settings.shadows = -1;
+                settings.shadows = -1;
             }
 
             CameraManualControl.Exposure baseExposure = CameraManualControl.Exposure.Create(
@@ -910,42 +943,70 @@ public class CameraActivity extends AppCompatActivity implements
                     CameraManualControl.GetClosestShutterSpeed(Math.round(cameraExposure / hdrEv)),
                     CameraManualControl.GetClosestIso(mIsoValues, mIso));
 
-            // If the user has not override the shutter speed/iso, pick our own
-            if(!mManualControlsSet) {
-                baseExposure = CameraManualControl.MapToExposureLine(1.0, baseExposure);
-            }
-
-            hdrExposure = CameraManualControl.MapToExposureLine(1.0, hdrExposure, CameraManualControl.HDR_EXPOSURE_LINE);
-
             float a = 1.6f;
             if(mCameraMetadata.cameraApertures.length > 0)
                 a = mCameraMetadata.cameraApertures[0];
 
+            baseExposure = CameraManualControl.MapToExposureLine(a, baseExposure, CameraManualControl.EXPOSURE_LINE);
+            hdrExposure = CameraManualControl.MapToExposureLine(a, hdrExposure, CameraManualControl.HDR_EXPOSURE_LINE);
+
             DenoiseSettings denoiseSettings = new DenoiseSettings(
-                    estimatedSettings.noiseSigma,
+                    mEstimatedSettings.noiseSigma,
                     (float) baseExposure.getEv(a),
                     settings.shadows);
 
-            // Don't bother with HDR if the scene is underexposed/few clipped pixels or the noise of the
-            // underexposed image will be too high
-            boolean noHdr = !mSettings.hdr || hdrEv <= 1.01f; // || estimatedSettings.exposure > 0.01f || hdrExposure.getEv(a) < 3.99f;
-            if(noHdr) {
-                hdrExposure = baseExposure;
-            }
+            mBinding.cameraFrame
+                    .animate()
+                    .alpha(0.5f)
+                    .setDuration(125)
+                    .start();
 
             settings.spatialDenoiseAggressiveness = denoiseSettings.spatialWeight;
             settings.exposure = 0.0f;
-            settings.temperature = estimatedSettings.temperature + mTemperatureOffset;
-            settings.tint = estimatedSettings.tint + mTintOffset;
+            settings.temperature = mEstimatedSettings.temperature + mTemperatureOffset;
+            settings.tint = mEstimatedSettings.tint + mTintOffset;
             settings.sharpen0 = denoiseSettings.sharpen0;
             settings.sharpen1 = denoiseSettings.sharpen1;
 
             long exposure = baseExposure.shutterSpeed.getExposureTime();
             int iso = baseExposure.iso.getIso();
 
+            mNativeCamera.captureHdrImage(
+                denoiseSettings.numMergeImages,
+                iso,
+                exposure,
+                hdrExposure.iso.getIso(),
+                hdrExposure.shutterSpeed.getExposureTime(),
+                settings,
+                CameraProfile.generateCaptureFile(this).getPath());
+        }
+        else {
+            PostProcessSettings settings = mPostProcessSettings.clone();
+            settings.shadows = mEstimatedSettings.shadows;
+
+            CameraManualControl.Exposure baseExposure = CameraManualControl.Exposure.Create(
+                    CameraManualControl.GetClosestShutterSpeed(mExposureTime),
+                    CameraManualControl.GetClosestIso(mIsoValues, mIso));
+
+            float a = 1.6f;
+            if(mCameraMetadata.cameraApertures.length > 0)
+                a = mCameraMetadata.cameraApertures[0];
+
+            DenoiseSettings denoiseSettings = new DenoiseSettings(
+                    0,
+                    (float) baseExposure.getEv(a),
+                    settings.shadows);
+
+            settings.spatialDenoiseAggressiveness = denoiseSettings.spatialWeight;
+            settings.exposure = 0.0f;
+            settings.temperature = mEstimatedSettings.temperature + mTemperatureOffset;
+            settings.tint = mEstimatedSettings.tint + mTintOffset;
+            settings.sharpen0 = denoiseSettings.sharpen0;
+            settings.sharpen1 = denoiseSettings.sharpen1;
+
             mBinding.cameraFrame
                     .animate()
-                    .alpha(0.0f)
+                    .alpha(0.5f)
                     .setDuration(125)
                     .withEndAction(() -> mBinding.cameraFrame
                             .animate()
@@ -954,34 +1015,8 @@ public class CameraActivity extends AppCompatActivity implements
                             .start())
                     .start();
 
-            if(mCaptureMode == CaptureMode.ZSL) {
-                if(noHdr) {
-                    Log.i(TAG, "Requested ZSL capture (denoiseSettings=" + denoiseSettings.toString() + ")");
-
-                    mAsyncNativeCameraOps.captureImage(
-                            -1,
-                            denoiseSettings.numMergeImages,
-                            settings,
-                            CameraProfile.generateCaptureFile(this).getPath(),
-                            this);
-
-                    return;
-                }
-                else {
-                    // Use a single underexposed image
-                    exposure = -1;
-                    iso = -1;
-                }
-            }
-
-            Log.i(TAG, "Requested HDR capture (denoiseSettings=" + denoiseSettings.toString() + ")");
-
-            mNativeCamera.captureHdrImage(
+            mNativeCamera.captureZslHdrImage(
                     denoiseSettings.numMergeImages,
-                    iso,
-                    exposure,
-                    hdrExposure.iso.getIso(),
-                    hdrExposure.shutterSpeed.getExposureTime(),
                     settings,
                     CameraProfile.generateCaptureFile(this).getPath());
         }
@@ -1514,6 +1549,12 @@ public class CameraActivity extends AppCompatActivity implements
         {
             mBinding.captureBtn.setEnabled(true);
             mBinding.captureProgressBar.setVisibility(View.INVISIBLE);
+
+            mBinding.cameraFrame
+                    .animate()
+                    .alpha(1.0f)
+                    .setDuration(125)
+                    .start();
 
             startImageProcessor();
         });

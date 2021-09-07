@@ -66,6 +66,20 @@ using std::vector;
 using std::to_string;
 using std::pair;
 
+extern "C" int extern_defringe(halide_buffer_t *in, int32_t width, int32_t height, halide_buffer_t *out) {
+    if (in->is_bounds_query()) {
+        std::memcpy(&in->dim, &out->dim, out->dimensions * sizeof(halide_dimension_t));
+    }
+    else {
+        Halide::Runtime::Buffer<uint16_t> inBuf(*in);
+        Halide::Runtime::Buffer<uint16_t> outBuf(*out);
+                
+        motioncam::defringe(outBuf, inBuf);
+    }
+    
+    return 0;
+}
+
 static std::vector<Halide::Runtime::Buffer<float>> createWaveletBuffers(int width, int height) {
     std::vector<Halide::Runtime::Buffer<float>> buffers;
     
@@ -836,14 +850,10 @@ namespace motioncam {
         return warpMatrix;
     }
 
-    cv::Mat ImageProcessor::registerImage(
-        const Halide::Runtime::Buffer<uint8_t>& referenceBuffer, const Halide::Runtime::Buffer<uint8_t>& toAlignBuffer)
+    cv::Mat ImageProcessor::registerImage(const cv::Mat& referenceImage, const cv::Mat& toAlignImage)
     {
         Measure measure("registerImage()");
         
-        cv::Mat referenceImage(referenceBuffer.height(), referenceBuffer.width(), CV_8U, (void*) referenceBuffer.data());
-        cv::Mat toAlignImage(toAlignBuffer.height(), toAlignBuffer.width(), CV_8U, (void*) toAlignBuffer.data());
-
         auto detector = cv::ORB::create(2000);
 
         std::vector<cv::KeyPoint> keypoints1, keypoints2;
@@ -1012,59 +1022,26 @@ namespace motioncam {
         // Started
         progressListener.onProgressUpdate(0);
         
-        //
-        // Pick sharpest image when shooting in night mode
-        //
-        
-        if(rawContainer.getPostProcessSettings().captureMode == "NIGHT") {
-            logger::log("Selecting sharpest image");
-            
-            std::map<std::string, float> sharpness;
-            
-            for(auto& p : rawContainer.getFrames()) {
-                auto s = rawContainer.loadFrame(p);
-                sharpness[p] = measureSharpness(*s);
-            }
-            
-            rawContainer.updateReferenceImage(sharpness.rbegin()->first);
-        }
+        auto referenceRawBuffer = rawContainer.loadFrame(rawContainer.getReferenceImage());
+        PostProcessSettings settings = rawContainer.getPostProcessSettings();
 
         if(rawContainer.isHdr()) {
-            double maxEv = -1e10;
-            double minEv = 1e10;
+            auto refEv = calcEv(rawContainer.getCameraMetadata(), referenceRawBuffer->metadata);
             
-            // Figure out where the base & underexposed images are
             for(auto frameName : rawContainer.getFrames()) {
                 auto frame = rawContainer.getFrame(frameName);
                 auto ev = calcEv(rawContainer.getCameraMetadata(), frame->metadata);
-                
-                if(ev > maxEv)
-                    maxEv = ev;
-                
-                if(ev < minEv)
-                    minEv = ev;
-            }
-                        
-            // Make sure there's enough of a difference between the base and underexposed images
-            if(std::abs(maxEv - minEv) > 0.49) {
-                for(auto frameName : rawContainer.getFrames()) {
-                    auto frame = rawContainer.getFrame(frameName);
-                    auto ev = calcEv(rawContainer.getCameraMetadata(), frame->metadata);
-                
-                    if(std::abs(ev - maxEv) < std::abs(ev - minEv)) {
-                        // Load the frame since we intend to remove it from the container
-                        auto raw = rawContainer.loadFrame(frameName);
-                        underexposedImages.push_back(raw);
-                        
-                        rawContainer.removeFrame(frameName);
-                    }
+                            
+                if(ev - refEv > 0.25f) {
+                    // Load the frame since we intend to remove it from the container
+                    auto raw = rawContainer.loadFrame(frameName);
+                    underexposedImages.push_back(raw);
+                    
+                    rawContainer.removeFrame(frameName);
                 }
             }
         }
-        
-        auto referenceRawBuffer = rawContainer.loadFrame(rawContainer.getReferenceImage());
-        PostProcessSettings settings = rawContainer.getPostProcessSettings();
-        
+                
         // Estimate shadows if not set
         if(settings.shadows < 0) {
             float keyValue = getShadowKeyValue(*referenceRawBuffer, rawContainer.getCameraMetadata(), settings.captureMode == "NIGHT");
@@ -1247,7 +1224,7 @@ namespace motioncam {
             settings);
         
         progressHelper.postProcessCompleted();
-        
+         
         // Write image
         std::vector<int> writeParams = { cv::IMWRITE_JPEG_QUALITY, rawContainer.getPostProcessSettings().jpegQuality };
         cv::imwrite(outputPath, outputImage, writeParams);

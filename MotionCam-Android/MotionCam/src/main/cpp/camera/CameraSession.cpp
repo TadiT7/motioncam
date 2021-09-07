@@ -32,8 +32,10 @@ namespace motioncam {
         ACTION_SET_EXPOSURE_COMP_VALUE,
         ACTION_SET_AUTO_FOCUS,
         ACTION_SET_FOCUS_POINT,
+        ACTION_PRECAPTURE_HDR,
         ACTION_CAPTURE_HDR,
 
+        EVENT_SAVE,
         EVENT_SAVE_HDR_DATA,
 
         EVENT_CAMERA_ERROR,
@@ -177,20 +179,19 @@ namespace motioncam {
             std::shared_ptr<CameraSessionListener> listener,
             std::shared_ptr<CameraDescription>  cameraDescription,
             std::shared_ptr<RawImageConsumer> rawImageConsumer) :
-        mState(CameraCaptureSessionState::CLOSED),
-        mLastIso(0),
-        mLastExposureTime(0),
-        mLastFocusState(CameraFocusState::INACTIVE),
-        mLastExposureState(CameraExposureState::INACTIVE),
-        mCameraDescription(std::move(cameraDescription)),
-        mImageConsumer(std::move(rawImageConsumer)),
-        mSessionListener(std::move(listener)),
-        mScreenOrientation(ScreenOrientation::PORTRAIT),
-        mRequestedHdrCaptures(0),
-        mRequestHdrCaptureTimestamp(-1),
-        mPartialHdrCapture(false),
-        mSaveHdrCaptures(0),
-        mHdrCaptureInProgress(false)
+            mState(CameraCaptureSessionState::CLOSED),
+            mLastIso(0),
+            mLastExposureTime(0),
+            mLastFocusState(CameraFocusState::INACTIVE),
+            mLastExposureState(CameraExposureState::INACTIVE),
+            mCameraDescription(std::move(cameraDescription)),
+            mImageConsumer(std::move(rawImageConsumer)),
+            mSessionListener(std::move(listener)),
+            mScreenOrientation(ScreenOrientation::PORTRAIT),
+            mRequestedHdrCaptures(0),
+            mRequestHdrCaptureTimestamp(-1),
+            mLongHdrCaptureInProgress(false),
+            mHdrCaptureSequenceCompleted(true)
     {
     }
 
@@ -296,13 +297,13 @@ namespace motioncam {
         const PostProcessSettings& postprocessSettings,
         const std::string& outputPath) {
 
-        if(mHdrCaptureInProgress) {
+        if(!mHdrCaptureSequenceCompleted) {
             LOGW("HDR capture already in progress, ignoring request");
             return;
         }
 
         mHdrCaptureSequenceCompleted = false;
-        mHdrCaptureInProgress = true;
+        mLongHdrCaptureInProgress = true;
         mHdrCaptureOutputPath = outputPath;
         mHdrCaptureSettings = postprocessSettings;
 
@@ -317,13 +318,45 @@ namespace motioncam {
         pushEvent(EventAction::ACTION_CAPTURE_HDR, data);
     }
 
+    void CameraSession::captureHdr(
+            int numImages,
+            const PostProcessSettings& postprocessSettings,
+            const std::string& outputPath) {
+
+        mHdrCaptureOutputPath = outputPath;
+        mHdrCaptureSettings = postprocessSettings;
+
+        json11::Json::object data = {
+            { "numImages", numImages }
+        };
+
+        pushEvent(EventAction::EVENT_SAVE, data);
+    }
+
+    void CameraSession::prepareHdr(int iso, int64_t exposure) {
+        if(!mHdrCaptureSequenceCompleted) {
+            LOGW("HDR capture already in progress, ignoring request");
+            return;
+        }
+
+        mHdrCaptureSequenceCompleted = false;
+        mLongHdrCaptureInProgress = false;
+
+        json11::Json::object data = {
+            { "iso", iso },
+            { "exposure", std::to_string(exposure) }
+        };
+
+        pushEvent(EventAction::ACTION_PRECAPTURE_HDR, data);
+
+    }
+
     ACaptureRequest* CameraSession::createCaptureRequest(const ACameraDevice_request_template requestTemplate) {
         ACaptureRequest* captureRequest = nullptr;
 
         if(ACameraDevice_createCaptureRequest(mSessionContext->activeCamera.get(), requestTemplate, &captureRequest) != ACAMERA_OK)
             throw CameraSessionException("Failed to create capture request");
 
-        const uint8_t captureIntent         = ACAMERA_CONTROL_CAPTURE_INTENT_PREVIEW;
         const uint8_t tonemapMode           = ACAMERA_TONEMAP_MODE_FAST;
         const uint8_t shadingMode           = ACAMERA_SHADING_MODE_FAST;
         const uint8_t colorCorrectionMode   = ACAMERA_COLOR_CORRECTION_MODE_HIGH_QUALITY;
@@ -332,7 +365,6 @@ namespace motioncam {
         const uint8_t antiBandingMode       = ACAMERA_CONTROL_AE_ANTIBANDING_MODE_AUTO;
         const uint8_t noiseReduction        = ACAMERA_NOISE_REDUCTION_MODE_MINIMAL;
 
-        ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_CONTROL_CAPTURE_INTENT, 1, &captureIntent);
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_SHADING_MODE, 1, &shadingMode);
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_STATISTICS_LENS_SHADING_MAP_MODE, 1, &lensShadingMapStats);
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_SENSOR_INFO_LENS_SHADING_APPLIED, 1, &lensShadingMapApplied);
@@ -522,20 +554,6 @@ namespace motioncam {
         mSessionContext->hdrCaptureRequests[0] = std::make_shared<CaptureRequest>(createCaptureRequest(TEMPLATE_STILL_CAPTURE), false);
         mSessionContext->hdrCaptureRequests[1] = std::make_shared<CaptureRequest>(createCaptureRequest(TEMPLATE_STILL_CAPTURE), false);
 
-        // Set to keep state
-        uint8_t mode        = ACAMERA_CONTROL_MODE_OFF_KEEP_STATE;
-        uint8_t aeLockMode  = ACAMERA_CONTROL_AE_LOCK_ON;
-        uint8_t afMode      = ACAMERA_CONTROL_AF_MODE_AUTO;
-
-        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_CONTROL_MODE, 1, &mode);
-        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_CONTROL_MODE, 1, &mode);
-
-        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_CONTROL_AE_LOCK, 1, &aeLockMode);
-        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_CONTROL_AE_LOCK, 1, &aeLockMode);
-
-        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_CONTROL_AF_MODE, 1, &afMode);
-        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_CONTROL_AF_MODE, 1, &afMode);
-
         // Set up a JPEG output that we don't use. For some reason without it the camera auto
         // focus does not work properly
         setupJpegCaptureOutput(*mSessionContext);
@@ -683,52 +701,68 @@ namespace motioncam {
         mCameraStateManager->requestAutoFocus();
     }
 
+    void CameraSession::doPrecaptureCaptureHdr(int iso, int64_t exposure) {
+        // Keep timestamp of latest buffer as our reference
+        mRequestHdrCaptureTimestamp = RawBufferManager::get().latestTimeStamp();
+        mRequestedHdrCaptures = 0;
+
+        // Don't capture image if iso/exposure not set
+        if(iso < 0 || exposure < 0)
+            return;
+
+        uint8_t mode  = ACAMERA_CONTROL_MODE_OFF_KEEP_STATE;
+
+        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_CONTROL_MODE, 1, &mode);
+        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_CONTROL_MODE, 1, &mode);
+
+        ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &iso);
+        ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &exposure);
+
+        std::vector<ACaptureRequest*> captureRequests(1);
+
+        // Set up list of capture requests
+        captureRequests[0] = mSessionContext->hdrCaptureRequests[0]->captureRequest;
+
+        LOGI("Initiating HDR precapture (hdrIso=%d, hdrExposure=%ld)", iso, exposure);
+
+        mRequestedHdrCaptures = 1;
+
+        ACameraCaptureSession_capture(
+                mSessionContext->captureSession.get(),
+                &mSessionContext->captureCallbacks[CaptureEvent::HDR_CAPTURE]->callbacks,
+                captureRequests.size(),
+                captureRequests.data(),
+                &mSessionContext->captureCallbacks[CaptureEvent::HDR_CAPTURE]->sequenceId);
+    }
+
     void CameraSession::doCaptureHdr(int numImages, int baseIso, int64_t baseExposure, int hdrIso, int64_t hdrExposure) {
         if(numImages < 1) {
             LOGE("Invalid HDR capture requested (numImages < 1)");
             return;
         }
 
-        if(baseIso > 0 && baseExposure > 0) {
-            ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &baseIso);
-            ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &baseExposure);
+        uint8_t mode  = ACAMERA_CONTROL_MODE_OFF_KEEP_STATE;
 
-            ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &hdrIso);
-            ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &hdrExposure);
+        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_CONTROL_MODE, 1, &mode);
+        ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &baseIso);
+        ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &baseExposure);
 
-            mPartialHdrCapture = false;
-        }
-        else {
-            // We are only capturing an underexposed image
-            mPartialHdrCapture = true;
-
-            ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &hdrIso);
-            ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &hdrExposure);
-        }
+        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_CONTROL_MODE, 1, &mode);
+        ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &hdrIso);
+        ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &hdrExposure);
 
         std::vector<ACaptureRequest*> captureRequests;
 
-        // Set up list of capture requests
-        if(mPartialHdrCapture) {
-            captureRequests.resize(1);
-            captureRequests[0] = mSessionContext->hdrCaptureRequests[0]->captureRequest;
+        // Allocate enough for numImages + 1 underexposed images
+        mRequestedHdrCaptures = numImages + 1;
 
-            mSaveHdrCaptures = numImages + 1;
-            mRequestedHdrCaptures = 1;
-        }
-        else {
-            // Allocate enough for numImages + 1 underexposed images
-            mSaveHdrCaptures = numImages + 1;
-            mRequestedHdrCaptures = numImages + 1;
+        captureRequests.resize(mRequestedHdrCaptures);
 
-            captureRequests.resize(mRequestedHdrCaptures);
+        for (int i = 0; i < mRequestedHdrCaptures; i++)
+            captureRequests[i] = mSessionContext->hdrCaptureRequests[0]->captureRequest;
 
-            for (int i = 0; i < mRequestedHdrCaptures; i++)
-                captureRequests[i] = mSessionContext->hdrCaptureRequests[0]->captureRequest;
-
-            // Interleave underexposed requests
-            captureRequests[mRequestedHdrCaptures / 2] = mSessionContext->hdrCaptureRequests[1]->captureRequest;
-        }
+        // Interleave underexposed requests
+        captureRequests[mRequestedHdrCaptures / 2] = mSessionContext->hdrCaptureRequests[1]->captureRequest;
 
         LOGI("Initiating HDR capture (numImages=%d, baseIso=%d, baseExposure=%ld, hdrIso=%d, hdrExposure=%ld)",
                 numImages, baseIso, baseExposure, hdrIso, hdrExposure);
@@ -744,6 +778,35 @@ namespace motioncam {
             &mSessionContext->captureCallbacks[CaptureEvent::HDR_CAPTURE]->sequenceId);
     }
 
+    void CameraSession::doSave(int numImages) {
+        // If there's a large delay between the requested capture timestamp then we need to use the latest timestamp
+        // because we might not have any images available
+        auto latestTimeStamp = RawBufferManager::get().latestTimeStamp();
+        if(latestTimeStamp - mRequestHdrCaptureTimestamp > 500*1000*1000) // 500 ms
+        {
+            mRequestHdrCaptureTimestamp = latestTimeStamp;
+        }
+        else {
+            int hdrBufferCount = RawBufferManager::get().numHdrBuffers();
+            if(hdrBufferCount < mRequestedHdrCaptures) {
+                // Continue waiting for HDR image
+                json11::Json::object data = { { "numImages", numImages } };
+                pushEvent(EventAction::EVENT_SAVE, data);
+                return;
+            }
+        }
+
+        RawBufferManager::get().save(
+                RawType::HDR,
+                numImages + mRequestedHdrCaptures,
+                mRequestHdrCaptureTimestamp,
+                mCameraDescription->metadata,
+                mHdrCaptureSettings,
+                mHdrCaptureOutputPath);
+
+        mSessionListener->onCameraHdrImageCaptureCompleted();
+    }
+
     void CameraSession::doAttemptSaveHdrData() {
         // Check how long it has been since the capture sequence has complete
         if(mHdrCaptureSequenceCompleted) {
@@ -752,7 +815,7 @@ namespace motioncam {
 
             // Fail if we haven't gotten the images in a reasonable amount of time
             if(timeSinceSequenceCompleted > 5000) {
-                mHdrCaptureInProgress = false;
+                mLongHdrCaptureInProgress = false;
                 mHdrCaptureSequenceCompleted = false;
 
                 mSessionListener->onCameraHdrImageCaptureFailed();
@@ -771,12 +834,12 @@ namespace motioncam {
         mSessionListener->onCameraHdrImageCaptureProgress(100);
 
         // Save HDR capture
-        mHdrCaptureInProgress = false;
+        mLongHdrCaptureInProgress = false;
 
         LOGI("HDR capture completed. Saving data.");
         RawBufferManager::get().save(
                 RawType::HDR,
-                mSaveHdrCaptures,
+                mRequestedHdrCaptures,
                 mRequestHdrCaptureTimestamp,
                 mCameraDescription->metadata,
                 mHdrCaptureSettings,
@@ -981,7 +1044,7 @@ namespace motioncam {
             mImageConsumer->queueImage(image);
         }
 
-        if(mHdrCaptureInProgress) {
+        if(mLongHdrCaptureInProgress) {
             pushEvent(EventAction::EVENT_SAVE_HDR_DATA);
         }
     }
@@ -1114,6 +1177,14 @@ namespace motioncam {
                 break;
             }
 
+            case EventAction::ACTION_PRECAPTURE_HDR: {
+                int iso = eventLoopData->data["iso"].int_value();
+                int64_t exposure = std::stol(eventLoopData->data["exposure"].string_value());
+
+                doPrecaptureCaptureHdr(iso, exposure);
+                break;
+            }
+
             case EventAction::ACTION_SET_FOCUS_POINT: {
                 doSetFocusPoint(
                         eventLoopData->data["focusX"].number_value(),
@@ -1126,6 +1197,13 @@ namespace motioncam {
             //
             // Events
             //
+
+            case EventAction::EVENT_SAVE: {
+                int numImages = eventLoopData->data["numImages"].int_value();
+
+                doSave(numImages);
+                break;
+            }
 
             case EventAction::EVENT_SAVE_HDR_DATA: {
                 doAttemptSaveHdrData();

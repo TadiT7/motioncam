@@ -238,6 +238,12 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         return previewOutput;
     }
 
+    public void prepareHdrCapture(int iso, long exposure) {
+        ensureValidHandle();
+
+        PrepareHdrCapture(mNativeCameraHandle, iso, exposure);
+    }
+
     public void captureImage(long bufferHandle, int numSaveImages, PostProcessSettings settings, String outputPath) {
         ensureValidHandle();
 
@@ -246,6 +252,16 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         String json = jsonAdapter.toJson(settings);
 
         CaptureImage(mNativeCameraHandle, bufferHandle, numSaveImages, json, outputPath);
+    }
+
+    public void captureZslHdrImage(int numSaveImages, PostProcessSettings settings, String outputPath) {
+        ensureValidHandle();
+
+        // Serialize settings to json and pass to native code
+        JsonAdapter<PostProcessSettings> jsonAdapter = mJson.adapter(PostProcessSettings.class);
+        String json = jsonAdapter.toJson(settings);
+
+        CaptureZslHdrImage(mNativeCameraHandle, numSaveImages, json, outputPath);
     }
 
     public void captureHdrImage(int numSaveImages, int baseIso, long baseExposure, int hdrIso, long hdrExposure, PostProcessSettings settings, String outputPath) {
@@ -410,11 +426,6 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         InitImageProcessor();
     }
 
-    public void destroyImageProcessor()
-    {
-        DestroyImageProcessor();
-    }
-
     @Override
     public void onRawPreviewUpdated() {
         mRawPreviewListener.onRawPreviewUpdated();
@@ -453,7 +464,11 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native NativeCameraMetadata GetMetadata(long handle, String cameraId);
     private native Size GetRawOutputSize(long handle, String cameraId);
     private native Size GetPreviewOutputSize(long handle, String cameraId, Size captureSize, Size displaySize);
+
+    private native void PrepareHdrCapture(long handle, int iso, long exposure);
     private native boolean CaptureImage(long handle, long bufferHandle, int numSaveImages, String settings, String outputPath);
+
+    private native boolean CaptureZslHdrImage(long handle, int numImages, String settings, String outputPath);
     private native boolean CaptureHdrImage(long handle, int numImages, int baseIso, long baseExposure, int hdrIso, long hdrExposure, String settings, String outputPath);
 
     private native NativeCameraBuffer[] GetAvailableImages(long handle);

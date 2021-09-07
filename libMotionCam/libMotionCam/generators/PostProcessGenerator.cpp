@@ -2135,7 +2135,7 @@ void EnhanceGenerator::sharpen(Func& output, Func input) {
     }
     else {
         blur2(blurOutput, blurOutputTmp, input);
-        blur3(blurOutput2, blurOutput2Tmp, blurOutput);        
+        blur3(blurOutput2, blurOutput2Tmp, blurOutput);
     }
 
     gaussianDiff0(v_x, v_y) = cast<int32_t>(input(v_x, v_y)) - blurOutput(v_x, v_y);
@@ -2419,6 +2419,11 @@ public:
 
     Output<Buffer<uint8_t>> output{"output", 3};
     
+    Func defringeVertical{"defringeVertical"};
+    Func defringeVerticalTransposed{"defringeVerticalTransposed"};
+    Func defringeHorizontal{"defringeHorizontal"};
+    Func defringe{"defringe"};
+
     Func colorCorrected{"colorCorrected"};
     Func hdrMask32{"hdrMask32"};
     Func hdrInput32{"hdrInput32"};
@@ -2450,11 +2455,10 @@ private:
 
 void PostProcessGenerator::generate()
 {
-    // Demosaic image
-    demosaic = create<Demosaic>();
-
     std::vector<Expr> asShot{ asShotVector[0], asShotVector[1], asShotVector[2] };
 
+    // Demosaic image
+    demosaic = create<Demosaic>();
     demosaic->apply(
         in0, in1, in2, in3,
         inShadingMap0, inShadingMap1, inShadingMap2, inShadingMap3,
@@ -2465,8 +2469,18 @@ void PostProcessGenerator::generate()
         asShot,
         cameraToSrgb);
     
+    defringeVertical.define_extern("extern_defringe", { (Func) demosaic->output, in0.width()*2, in0.height()*2 }, UInt(16), 3);
+    defringeVertical.compute_root();
+
+    defringeVerticalTransposed(v_x, v_y, v_c) = defringeVertical(v_y, v_x, v_c);
+
+    defringeHorizontal.define_extern("extern_defringe", { defringeVerticalTransposed, in0.height()*2, in0.width()*2 }, UInt(16), 3);
+    defringeHorizontal.compute_root();
+
+    defringe(v_x, v_y, v_c) = defringeHorizontal(v_y, v_x, v_c);
+
     // Blend in highlights
-    colorCorrected(v_x, v_y, v_c) = clamp(pow(2.0f, exposure) * (demosaic->output(v_x, v_y, v_c) / 65535.0f), 0.0f, 1.0f);
+    colorCorrected(v_x, v_y, v_c) = clamp(pow(2.0f, exposure) * (defringe(v_x, v_y, v_c) / 65535.0f), 0.0f, 1.0f);
 
     hdrMask32(v_x, v_y) = hdrMask(clamp(v_x, 0, hdrMask.width() - 1), clamp(v_y, 0, hdrMask.height() - 1)) / 255.0f;
     hdrInput32(v_x, v_y, v_c) = cast<float>(hdrInput(clamp(v_x, 0, hdrInput.width() - 1), clamp(v_y, 0, hdrInput.height() - 1), v_c)) / 65535.0f * hdrScale;
@@ -2599,6 +2613,20 @@ void PostProcessGenerator::schedule_for_gpu() {
 void PostProcessGenerator::schedule_for_cpu() { 
     int vector_size_u8 = natural_vector_size<uint8_t>();
     int vector_size_u16 = natural_vector_size<uint16_t>();
+
+    defringeVerticalTransposed
+        .compute_root()
+        .tile(v_x, v_y, v_xo, v_yo, v_x, v_y, 8, 8)
+        .vectorize(v_x)
+        .parallel(v_yo)
+        .parallel(v_c);
+
+    defringe
+        .compute_root()
+        .tile(v_x, v_y, v_xo, v_yo, v_x, v_y, 8, 8)
+        .vectorize(v_x)
+        .parallel(v_yo)
+        .parallel(v_c);
 
     hdrMerged
         .compute_at(tonemapInput, v_x)
