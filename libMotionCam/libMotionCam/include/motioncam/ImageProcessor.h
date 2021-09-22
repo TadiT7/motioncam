@@ -130,6 +130,8 @@ namespace motioncam {
 
         static float adjustShadowsForFaces(cv::Mat input, PreviewMetadata& metadata);
         
+        static std::vector<cv::Rect2f> detectFaces(const RawImageBuffer& buffer, const RawCameraMetadata& cameraMetadata);
+        
     #ifdef DNG_SUPPORT
         static cv::Mat buildRawImage(std::vector<cv::Mat> channels, int cropX, int cropY);
         

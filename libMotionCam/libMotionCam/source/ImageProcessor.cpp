@@ -9,6 +9,11 @@
 #include "motioncam/Settings.h"
 #include "motioncam/ImageOps.h"
 #include "motioncam/BlueNoiseLUT.h"
+#include "motioncam/FaceClassifier.h"
+
+//#include <dlib/image_processing/frontal_face_detector.h>
+//#include <dlib/image_processing.h>
+//#include <dlib/opencv/cv_image.h>
 
 // Halide
 #include "generate_edges.h"
@@ -18,6 +23,7 @@
 #include "inverse_transform.h"
 #include "fuse_image.h"
 #include "fuse_denoise.h"
+#include "fast_preview.h"
 
 #include "linear_image.h"
 #include "hdr_mask.h"
@@ -110,9 +116,9 @@ namespace motioncam {
 
     struct HdrMetadata {
         float exposureScale;
+        float gain;
         float error;
         Halide::Runtime::Buffer<uint16_t> hdrInput;
-        Halide::Runtime::Buffer<uint8_t> mask;
     };
 
     struct PreviewMetadata {
@@ -300,27 +306,25 @@ namespace motioncam {
         }
         
         Halide::Runtime::Buffer<uint16_t> hdrInput;
-        Halide::Runtime::Buffer<uint8_t> hdrMask;
-        float hdrScale = 1.0f;
         float shadows = settings.shadows;
-
-        cv::Mat blankMask(16, 16, CV_8U, cv::Scalar(0));
-        cv::Mat blankInput(16, 16, CV_16UC3, cv::Scalar(0));
         
-        float tonemapVariance = settings.tonemapVariance;
-  
+        float tonemapVariance = 0.25f;
+        bool useHdr = false;
+        float hdrInputGain = 1.0f;
+        
         if(hdrMetadata && hdrMetadata->error < MAX_HDR_ERROR) {
             hdrInput = hdrMetadata->hdrInput;
-            hdrMask = hdrMetadata->mask;
-            hdrScale = hdrMetadata->exposureScale / 2;
+            hdrInputGain = hdrMetadata->gain;
+            useHdr = true;
+            tonemapVariance = 0.20f;
         }
         else {
             // Don't apply underexposed image when error is too high
             if(hdrMetadata)
                 logger::log("Not using HDR image, error too high (" + std::to_string(hdrMetadata->error) + ")");
-                        
-            hdrMask = ToHalideBuffer<uint8_t>(blankMask);
-            hdrInput = Halide::Runtime::Buffer<uint16_t>((uint16_t*) blankInput.data, blankInput.cols, blankInput.rows, 3);
+            
+            hdrInput = Halide::Runtime::Buffer<uint16_t>(inputBuffers[0].width()*2, inputBuffers[0].height()*2, 3);
+            useHdr = false;
         }
         
         postprocess(inputBuffers[0],
@@ -329,8 +333,7 @@ namespace motioncam {
                     inputBuffers[3],
                     noiseBuffer,
                     hdrInput,
-                    hdrMask,
-                    hdrScale,
+                    useHdr,
                     metadata.asShot[0],
                     metadata.asShot[1],
                     metadata.asShot[2],
@@ -342,6 +345,7 @@ namespace motioncam {
                     EXPANDED_RANGE,
                     static_cast<int>(cameraMetadata.sensorArrangment),
                     shadows,
+                    hdrInputGain,
                     tonemapVariance,
                     settings.blacks,
                     settings.exposure,
@@ -468,9 +472,9 @@ namespace motioncam {
                 total += histogram.at<float>(i);
             }
 
-            float p = 1.5f*std::log(3000.0f*total) / std::log(10.0f);
+            float p = 1.5f*std::log(1000.0f*total) / std::log(10.0f);
 
-            return std::min(0.0f, std::max(-3.0f, -p));
+            return std::min(0.0f, std::max(-4.0f, -p));
         }
         
         double m = histogram.cols / static_cast<double>(bin + 1);
@@ -675,7 +679,7 @@ namespace motioncam {
             static_cast<uint16_t>(cameraMetadata.whiteLevel),
             settings.shadows,
             settings.whitePoint,
-            settings.tonemapVariance,
+            0.25f,
             settings.blacks,
             settings.exposure,
             settings.contrast,
@@ -1018,13 +1022,13 @@ namespace motioncam {
     {
         // If this is a HDR capture then find the underexposed images.
         std::vector<std::shared_ptr<RawImageBuffer>> underexposedImages;
-                 
+        
         // Started
         progressListener.onProgressUpdate(0);
         
         auto referenceRawBuffer = rawContainer.loadFrame(rawContainer.getReferenceImage());
         PostProcessSettings settings = rawContainer.getPostProcessSettings();
-
+                
         if(rawContainer.isHdr()) {
             auto refEv = calcEv(rawContainer.getCameraMetadata(), referenceRawBuffer->metadata);
             
@@ -1828,12 +1832,11 @@ namespace motioncam {
         Measure measure("prepareHdr()");
         
         // Match exposures
-        float exposureScale, whitePoint;
+        float exposureScale;
                         
         auto a = calcEv(cameraMetadata, reference.metadata);
         auto b = calcEv(cameraMetadata, underexposed.metadata);
 
-        whitePoint = 1.0f;
         exposureScale = std::pow(2.0f, std::abs(b - a));
         
         //
@@ -1849,9 +1852,11 @@ namespace motioncam {
         cv::Ptr<cv::DISOpticalFlow> opticalFlow =
             cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_FAST);
         
+        opticalFlow->setFinestScale(2);
         opticalFlow->setPatchSize(64);
-        opticalFlow->setPatchStride(8);
-        
+        opticalFlow->setPatchStride(16);
+        opticalFlow->setUseMeanNormalization(true);
+
         cv::Mat referenceImage(refImage->previewBuffer.height(),
                                refImage->previewBuffer.width(),
                                CV_8U, (void*)
@@ -1912,11 +1917,54 @@ namespace motioncam {
         if(error > MAX_HDR_ERROR)
             return nullptr;
         
-        cv::Mat mask(maskBuffer.height(), maskBuffer.width(), CV_8U, maskBuffer.data());
+        //
+        // Denoise
+        //
         
-        // Upscale and blur mask
-        cv::GaussianBlur(mask, mask, cv::Size(11, 11), -1);
-        cv::resize(mask, mask, cv::Size(mask.cols*2, mask.rows*2));
+        float weights[] = { 1, 1, 1, 1, 1, 1 };
+        auto weightsBuffer = Halide::Runtime::Buffer<float>(&weights[0], 6);
+        std::vector<Halide::Runtime::Buffer<uint16_t>> denoiseOutput;
+        
+        for(int c = 0; c < 4; c++) {
+            auto wavelet = createWaveletBuffers(underexposedImage->rawBuffer.width(), underexposedImage->rawBuffer.height());
+
+            forward_transform(underexposedImage->rawBuffer,
+                              underexposedImage->rawBuffer.width(),
+                              underexposedImage->rawBuffer.height(),
+                              c,
+                              wavelet[0],
+                              wavelet[1],
+                              wavelet[2],
+                              wavelet[3],
+                              wavelet[4],
+                              wavelet[5]);
+
+            int offset = 3 * wavelet[0].stride(2);
+
+            cv::Mat ll(wavelet[0].height(), wavelet[0].width(), CV_32F, wavelet[0].data() + 0);
+            cv::Mat hh(wavelet[0].height(), wavelet[0].width(), CV_32F, wavelet[0].data() + offset*3);
+            
+            float noiseSigma = estimateNoise(hh);
+
+            Halide::Runtime::Buffer<uint16_t> outputBuffer(underexposedImage->rawBuffer.width(), underexposedImage->rawBuffer.height());
+
+            inverse_transform(wavelet[0],
+                              wavelet[1],
+                              wavelet[2],
+                              wavelet[3],
+                              wavelet[4],
+                              wavelet[5],
+                              noiseSigma,
+                              true,
+                              weightsBuffer,
+                              outputBuffer);
+
+            denoiseOutput.push_back(outputBuffer);
+        }
+        
+        //
+        // Create the underexposed image
+        //
         
         cv::Mat cameraToPcs;
         cv::Mat pcsToSrgb;
@@ -1941,7 +1989,10 @@ namespace motioncam {
         Halide::Runtime::Buffer<float> colorTransformBuffer = ToHalideBuffer<float>(cameraToSrgb);
         Halide::Runtime::Buffer<uint16_t> outputBuffer(underexposedImage->rawBuffer.width()*2, underexposedImage->rawBuffer.height()*2, 3);
                 
-        linear_image(underexposedImage->rawBuffer,
+        linear_image(denoiseOutput[0],
+                     denoiseOutput[1],
+                     denoiseOutput[2],
+                     denoiseOutput[3],
                      flowBuffer,
                      shadingMapBuffer[0],
                      shadingMapBuffer[1],
@@ -1963,16 +2014,152 @@ namespace motioncam {
                      outputBuffer);
         
         //
+        // Shift image to the right if we've underexposed too much
+        //
+
+        cv::Mat RGB[3];
+        
+        RGB[0] = cv::Mat(outputBuffer.height(), outputBuffer.width(), CV_16U, outputBuffer.data() + 0*outputBuffer.stride(2));
+        RGB[1] = cv::Mat(outputBuffer.height(), outputBuffer.width(), CV_16U, outputBuffer.data() + 1*outputBuffer.stride(2));
+        RGB[2] = cv::Mat(outputBuffer.height(), outputBuffer.width(), CV_16U, outputBuffer.data() + 2*outputBuffer.stride(2));
+
+        const vector<int> histBins      = { 1024 };
+        const vector<float> histRange   = { 0, 65536 };
+        const vector<int> channels      = { 0 };
+
+        int p[3] = { 0, 0, 0 };
+
+        for(int c = 0; c < 3; c++) {
+            const vector<cv::Mat> inputImages = { RGB[c] };
+            cv::Mat histogram;
+
+            cv::calcHist(inputImages, channels, cv::Mat(), histogram, histBins, histRange);
+            
+            histogram /= (outputBuffer.width()*outputBuffer.height());
+            
+            float sum = 0;
+            
+            for(int x = histogram.rows - 1; x >= 0; x--) {
+                if( sum < 1e-4f )
+                    p[c] = x + 1;
+                else
+                    break;
+                
+                sum += histogram.at<float>(x);
+            }
+        }
+        
+        //
         // Return HDR metadata
         //
         
         auto hdrMetadata = std::make_shared<HdrMetadata>();
                 
-        hdrMetadata->exposureScale  = exposureScale / whitePoint;
+        hdrMetadata->exposureScale  = exposureScale;
         hdrMetadata->hdrInput       = outputBuffer;
-        hdrMetadata->mask           = ToHalideBuffer<uint8_t>(mask).copy();
         hdrMetadata->error          = error;
+        hdrMetadata->gain           = 1024.0f / std::max(p[2], std::max(p[0], p[1]));
         
         return hdrMetadata;
+    }
+
+    std::vector<cv::Rect2f> ImageProcessor::detectFaces(const RawImageBuffer& buffer, const RawCameraMetadata& cameraMetadata) {
+        Measure measure("detectFaces()");
+        
+        NativeBufferContext inputBufferContext(*buffer.data, false);
+        Halide::Runtime::Buffer<uint8_t> output;
+        
+        int scale = 4;
+        
+        if(buffer.metadata.screenOrientation == ScreenOrientation::LANDSCAPE ||
+           buffer.metadata.screenOrientation == ScreenOrientation::REVERSE_LANDSCAPE)
+        {
+            output = Halide::Runtime::Buffer<uint8_t>(buffer.width/scale, buffer.height/scale);
+        }
+        else {
+            output = Halide::Runtime::Buffer<uint8_t>(buffer.height/scale, buffer.width/scale);
+        }
+        
+        int rotation = 0;
+        switch(buffer.metadata.screenOrientation) {
+            case ScreenOrientation::PORTRAIT:
+                rotation = -90;
+                break;
+            case ScreenOrientation::REVERSE_PORTRAIT:
+                rotation = 90;
+                break;
+            case ScreenOrientation::REVERSE_LANDSCAPE:
+                rotation = 180;
+                break;
+                
+            default:
+            case ScreenOrientation::LANDSCAPE:
+                rotation = 0;
+        }
+        
+        fast_preview(inputBufferContext.getHalideBuffer(),
+                     buffer.rowStride,
+                     static_cast<int>(buffer.pixelFormat),
+                     static_cast<int>(cameraMetadata.sensorArrangment),
+                     buffer.width/scale,
+                     buffer.height/scale,
+                     rotation,
+                     scale/2,
+                     scale/2,
+                     cameraMetadata.whiteLevel,
+                     cameraMetadata.blackLevel[0],
+                     cameraMetadata.blackLevel[1],
+                     cameraMetadata.blackLevel[2],
+                     cameraMetadata.blackLevel[3],
+                     output);
+
+        auto previewImage = cv::Mat(output.height(), output.width(), CV_8U, output.data());
+        cv::equalizeHist(previewImage, previewImage);
+        
+        static cv::CascadeClassifier c;
+        
+        if(c.empty()) {
+            cv::FileStorage fs;
+            auto classifier = cv::String(&lbpcascade_frontalface_improved_xml[0]);
+            
+            fs.open(classifier, cv::FileStorage::READ | cv::FileStorage::MEMORY);
+            
+            c.read(fs.getFirstTopLevelNode());
+        }
+
+        std::vector<cv::Rect> dets;
+        std::vector<cv::Rect2f> result;
+        
+        c.detectMultiScale(previewImage, dets, 1.2, 3);
+        
+        for(int i = 0; i < dets.size(); i++) {
+            float x = dets[i].tl().x / (float) output.width();
+            float y = dets[i].tl().y / (float) output.height();
+            float width = dets[i].width / (float) output.width();
+            float height = dets[i].height / (float) output.height();
+
+            result.push_back(cv::Rect2f(x, y, width, height));
+        }
+
+//        static dlib::frontal_face_detector detector = dlib::get_frontal_face_detector();
+//
+//        std::vector<dlib::rectangle> dets;
+//        std::vector<cv::Rect2f> result;
+//
+//        dlib::array2d<dlib::uint8> dlibFrame;
+//        dlib::assign_image(dlibFrame, dlib::cv_image<dlib::uint8>(previewImage));
+//
+//        dets = detector(dlibFrame);
+//
+//        for(int i = 0; i < dets.size(); i++) {
+//            float left = dets[i].left() / (float) output.width();
+//            float right = dets[i].right() / (float) output.width();
+//            float top = dets[i].top() / (float) output.height();
+//            float bottom = dets[i].bottom() / (float) output.height();
+//
+//            result.push_back(cv::Rect2f(left, top, right - left, bottom - top));
+//        }
+
+        return result;
     }
 }

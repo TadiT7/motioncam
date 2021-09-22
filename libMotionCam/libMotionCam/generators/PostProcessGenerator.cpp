@@ -1633,17 +1633,18 @@ public:
     GeneratorParam<int> tonemap_levels {"tonemap_levels", 9};
     GeneratorParam<Type> output_type{"output_type", UInt(16)};
 
-    Input<Func> input{"input", 3 };
-    Output<Func> output{ "tonemapOutput", 2 };
+    Input<Func> input0{"input0", 3 };
+    Input<Func> input1{"input1", 3 };
+
+    Output<Func> output{ "output", 3 };
 
     Input<int> width {"width"};
     Input<int> height {"height"};
-    Input<int> channel {"channel"};
 
     Input<float> variance {"variance"};
     Input<float> gain {"gain"};
     
-    //
+    // //
 
     Var v_i{"i"};
     Var v_x{"x"};
@@ -1663,10 +1664,10 @@ public:
     Var subtile_idx{"subtile_idx"};
     Var tile_idx{"tile_idx"};
 
-    void pyramidUp(Func& output, Func& intermediate, Func input);
-    void pyramidDown(Func& output, Func& intermediate, Func input);
+    void pyramidUp(Func& output, Type outputType, Func& intermediate, Func input);
+    void pyramidDown(Func& output, Type outputType, Func& intermediate, Func input);
     
-    vector<pair<Func, Func>> buildPyramid(Func input, int maxlevel);
+    vector<pair<Func, Func>> buildPyramid(Func input, Type outputType, int maxlevel);
 
     void generate();
     void schedule();
@@ -1675,62 +1676,70 @@ public:
     vector<pair<Func, Func>> weightsPyramid;
 };
 
-void TonemapGenerator::pyramidUp(Func& output, Func& intermediate, Func input) {
+void TonemapGenerator::pyramidUp(Func& output, Type outputType, Func& intermediate, Func input) {
+    using Halide::_;
+
     Func blurX("blurX");
     Func blurY("blurY");
 
     // Insert zeros and expand by factor of 2 in both dims
-    Func expandedX;
+    Func expandedX{"expandedX"};
     Func expanded("expanded");
 
-    expandedX(v_x, v_y, v_c) = select((v_x % 2)==0, input(v_x/2, v_y, v_c), 0);
-    expanded(v_x, v_y, v_c)  = select((v_y % 2)==0, expandedX(v_x, v_y/2, v_c), 0);
+    Func pyramidUpInput{"pyramidUpInput"};
 
-    blurX(v_x, v_y, v_c) = fast_integer_divide(
-         (
-          1 * expanded(v_x - 1, v_y, v_c) +
-          2 * expanded(v_x,     v_y, v_c) +
-          1 * expanded(v_x + 1, v_y, v_c)
-          ), 4);
+    pyramidUpInput(v_x, v_y, v_c, _) = cast<int32_t>(input(v_x, v_y, v_c, _));
 
-    blurY(v_x, v_y, v_c) = fast_integer_divide(
+    expandedX(v_x, v_y, v_c, _) = select((v_x % 2)==0, pyramidUpInput(v_x/2, v_y, v_c, _), 0);
+    expanded(v_x, v_y, v_c, _)  = select((v_y % 2)==0, expandedX(v_x, v_y/2, v_c, _), 0);
+
+    blurX(v_x, v_y, v_c, _) =
          (
-          1 * blurX(v_x, v_y - 1, v_c) +
-          2 * blurX(v_x, v_y,     v_c) +
-          1 * blurX(v_x, v_y + 1, v_c)
-          ), 4);
+          1 * expanded(v_x - 1, v_y, v_c, _) +
+          2 * expanded(v_x,     v_y, v_c, _) +
+          1 * expanded(v_x + 1, v_y, v_c, _)
+          ) >> 2;
+
+    blurY(v_x, v_y, v_c, _) =
+         (
+          1 * blurX(v_x, v_y - 1, v_c, _) +
+          2 * blurX(v_x, v_y,     v_c, _) +
+          1 * blurX(v_x, v_y + 1, v_c, _)
+          ) >> 2;
 
     intermediate = blurX;
-    output(v_x, v_y, v_c) = 4 * blurY(v_x, v_y, v_c);
+    output(v_x, v_y, v_c, _) = cast(outputType, 4 * blurY(v_x, v_y, v_c, _));
 }
 
-void TonemapGenerator::pyramidDown(Func& output, Func& intermediate, Func input) {
-    Func blurX, blurY;
+void TonemapGenerator::pyramidDown(Func& output, Type outputType, Func& intermediate, Func input) {
+    using Halide::_;
 
-    blurX(v_x, v_y, v_c) = fast_integer_divide(
-         (
-          1 * input(v_x - 1, v_y, v_c) +
-          2 * input(v_x,     v_y, v_c) +
-          1 * input(v_x + 1, v_y, v_c)
-          ), 4);
+    Func blurX{"pyramidDownBlurX"}, blurY{"pyramidDownBlurY"};
 
-    blurY(v_x, v_y, v_c) = fast_integer_divide(
+    blurX(v_x, v_y, v_c, _) =
          (
-          1 * blurX(v_x, v_y - 1, v_c) +
-          2 * blurX(v_x, v_y,     v_c) +
-          1 * blurX(v_x, v_y + 1, v_c)
-          ), 4);
+          1 * cast<int32_t>(input(v_x - 1, v_y, v_c, _)) +
+          2 * cast<int32_t>(input(v_x,     v_y, v_c, _)) +
+          1 * cast<int32_t>(input(v_x + 1, v_y, v_c, _))
+          ) >> 2;
+
+    blurY(v_x, v_y, v_c, _) = 
+         (
+          1 * blurX(v_x, v_y - 1, v_c, _) +
+          2 * blurX(v_x, v_y,     v_c, _) +
+          1 * blurX(v_x, v_y + 1, v_c, _)
+          ) >> 2;
 
     intermediate = blurX;
-    output(v_x, v_y, v_c) = blurY(v_x * 2, v_y * 2, v_c);
+    output(v_x, v_y, v_c, _) = cast(outputType, blurY(v_x * 2, v_y * 2, v_c, _));
 }
 
-vector<pair<Func, Func>> TonemapGenerator::buildPyramid(Func input, int maxlevel) {
+vector<pair<Func, Func>> TonemapGenerator::buildPyramid(Func input, Type outputType, int maxlevel) {
     vector<pair<Func, Func>> pyramid;
 
     for(int level = 1; level <= maxlevel; level++) {
-        Func pyramidDownOutput("pyramidDownLvl" + std::to_string(level));
-        Func pyramidDownIntermediate("pyramidDownIntermediateLvl" + std::to_string(level));
+        Func pyramidDownOutput(input.name() + std::string("PyramidDownLvl") + std::to_string(level));
+        Func pyramidDownIntermediate(input.name() + std::string("PyramidDownIntermediateLvl") + std::to_string(level));
         
         Func inClamped;
 
@@ -1743,7 +1752,7 @@ vector<pair<Func, Func>> TonemapGenerator::buildPyramid(Func input, int maxlevel
             inClamped = BoundaryConditions::repeat_edge(pyramid[level - 1].second, { {0, width >> (level-1)}, {0, height >> (level-1)} } );
         }
 
-        pyramidDown(pyramidDownOutput, pyramidDownIntermediate, inClamped);
+        pyramidDown(pyramidDownOutput, outputType, pyramidDownIntermediate, inClamped);
         
         pyramid.push_back(std::make_pair(pyramidDownIntermediate, pyramidDownOutput));
     }
@@ -1752,34 +1761,33 @@ vector<pair<Func, Func>> TonemapGenerator::buildPyramid(Func input, int maxlevel
 }
 
 void TonemapGenerator::generate() {
-    Func gammaLut, inverseGammaLut;
-
+    Func gammaLut{"gammaLut"}, inverseGammaLut{"inverseGammaLut"};
     Expr type_max = ((Type)output_type).max();
 
-    Expr h = v_i / 65535.0f;
+    Expr h = v_x / 65535.0f;
 
-    gammaLut(v_i) = saturating_cast(output_type, select(h < 0.0031308f, h * 12.92f, pow(h, 1.0f / 2.4f) * 1.055f - 0.055f) * type_max);
-    inverseGammaLut(v_i) = saturating_cast(output_type, select(h < 0.04045f, h / 12.92f, pow((h + 0.055f) / 1.055f, 2.4f)) * type_max);
+    gammaLut(v_x) = saturating_cast(output_type, select(h < 0.0031308f, h * 12.92f, pow(h, 1.0f / 2.4f) * 1.055f - 0.055f) * type_max);
+    inverseGammaLut(v_x) = saturating_cast(output_type, select(h < 0.04045f, h / 12.92f, pow((h + 0.055f) / 1.055f, 2.4f)) * type_max);
 
     if(!auto_schedule) {
-        if(get_target().has_gpu_feature()) {
-            gammaLut.compute_root().gpu_tile(v_i, v_xi, 16);
-            inverseGammaLut.compute_root().gpu_tile(v_i, v_xi, 16);
-        }
-        else {
-            gammaLut.compute_root().vectorize(v_i, 8);
-            inverseGammaLut.compute_root().vectorize(v_i, 8);
-        }
+        gammaLut.compute_root().vectorize(v_x, 16);
+        inverseGammaLut.compute_root().vectorize(v_x, 16);
     }
 
-    // Create two exposures
-    Func exposures, weightsLut, weights, weightsNormalized;
-    
-    Expr ia = input(v_x, v_y, channel);
-    Expr ib = cast(output_type, clamp(cast<float>(input(v_x, v_y, channel)) * gain, 0.0f, type_max));
+    // Create exposures
+    Func exposures{"exposures"};
+    Func weightsLut{"weightsLut"};
+    Func weights{"weights"};
+    Func weightsNormalized{"weightsNormalized"};
+    Func Yinput{"Yinput"};
 
-    exposures(v_x, v_y, v_c) = select(v_c == 0, cast<int32_t>(gammaLut(ia)),
-                                                cast<int32_t>(gammaLut(ib)));
+    Expr ia = input0(v_x, v_y, v_c);
+    Expr ib = cast(output_type, clamp(cast<float>(input0(v_x, v_y, v_c)) * gain, 0.0f, type_max));
+    Expr ic = input1(v_x, v_y, v_c);
+
+    exposures(v_x, v_y, v_c, v_i) = gammaLut(select(v_i == 0, ia,
+                                                    v_i == 1, ib,
+                                                              ic));
 
     // Create weights LUT based on well exposed pixels
     Expr wa = v_i / cast<float>(type_max) - 0.5f;
@@ -1788,173 +1796,100 @@ void TonemapGenerator::generate() {
     weightsLut(v_i) = cast<int16_t>(clamp(exp(wb) * 32767, -32767, 32767));
     
     if(!auto_schedule) {
-        if(get_target().has_gpu_feature()) {
-            weightsLut.compute_root().gpu_tile(v_i, v_xi, 16);
-        }
-        else {
-            weightsLut.compute_root().vectorize(v_i, 8);
-        }
+        weightsLut.compute_root().vectorize(v_i, 8);
     }
 
-    weights(v_x, v_y, v_c) = weightsLut(cast<uint16_t>(exposures(v_x, v_y, v_c))) / 32767.0f;
-    weightsNormalized(v_x, v_y, v_c) = weights(v_x, v_y, v_c) / (1e-12f + weights(v_x, v_y, 0) + weights(v_x, v_y, 1));
+    Yinput(v_x, v_y, v_i) = saturating_cast<uint16_t>(0.299f*exposures(v_x, v_y, 0, v_i) + 0.587f*exposures(v_x, v_y, 1, v_i) + 0.114f*exposures(v_x, v_y, 2, v_i));
 
-    // Create pyramid input
-    tonemapPyramid = buildPyramid(exposures, tonemap_levels);
-    weightsPyramid = buildPyramid(weightsNormalized, tonemap_levels);
+    weights(v_x, v_y, v_i) = weightsLut(cast<uint16_t>(Yinput(v_x, v_y, v_i))) / 32767.0f;
+    weightsNormalized(v_x, v_y, v_i) = cast<uint16_t>(16384.0f * weights(v_x, v_y, v_i) / (1e-12f + weights(v_x, v_y, 0) + weights(v_x, v_y, 1) + weights(v_x, v_y, 2)));
 
     if(!auto_schedule) {
-        if(get_target().has_gpu_feature()) {
-            tonemapPyramid[0].first.in(tonemapPyramid[1].first)
-                .compute_at(tonemapPyramid[1].second, v_x)
-                .reorder(v_c, v_x, v_y)
-                .unroll(v_c)
-                .gpu_threads(v_x, v_y);
-            
-            weightsPyramid[0].first.in(weightsPyramid[1].first)
-                .compute_at(weightsPyramid[1].second, v_x)
-                .reorder(v_c, v_x, v_y)
-                .unroll(v_c)
-                .gpu_threads(v_x, v_y);
-        }
-        else {
-            tonemapPyramid[0].first.in(tonemapPyramid[1].first)
-                .compute_at(tonemapPyramid[1].second, v_yi)
-                .reorder(v_c, v_x, v_y)
-                .unroll(v_c);
-            
-            weightsPyramid[0].first.in(weightsPyramid[1].first)
-                .compute_at(weightsPyramid[1].second, v_yi)
-                .reorder(v_c, v_x, v_y)
-                .unroll(v_c);
-        }
+        weightsNormalized
+            .compute_root()
+            .reorder(v_i, v_x, v_y)
+            .tile(v_x, v_y, v_xo, v_yo, v_xi, v_yi, 64, 16)
+            .fuse(v_xo, v_yo, tile_idx)
+            .parallel(tile_idx)
+            .unroll(v_i)
+            .vectorize(v_xi, 8);
 
-        if(get_target().has_gpu_feature()) {
-            for(int level = 1; level < tonemap_levels; level++) {
-                tonemapPyramid[level].first
-                    .reorder(v_c, v_x, v_y)
-                    .compute_at(tonemapPyramid[level].second, v_x)
-                    .unroll(v_c)
-                    .gpu_threads(v_x, v_y);
+        exposures.in(Yinput)
+            .compute_at(weightsNormalized, tile_idx)
+            .vectorize(v_x, 8);
+    }
 
-                tonemapPyramid[level].second                
-                    .compute_root()
-                    .reorder(v_c, v_x, v_y)
-                    .unroll(v_c)
-                    .gpu_tile(v_x, v_y, v_xi, v_yi, 8, 8);
+    // Create pyramid input
+    tonemapPyramid = buildPyramid(exposures, UInt(16), tonemap_levels);
+    weightsPyramid = buildPyramid(weightsNormalized, UInt(16), tonemap_levels);
 
-                weightsPyramid[level].first
-                    .reorder(v_c, v_x, v_y)
-                    .compute_at(weightsPyramid[level].second, v_x)
-                    .unroll(v_c)
-                    .gpu_threads(v_x, v_y);
+    if(!auto_schedule) {
+        for(int level = 0; level < tonemap_levels; level++) {
 
-                weightsPyramid[level].second
-                    .compute_root()
-                    .reorder(v_c, v_x, v_y)
-                    .unroll(v_c)
-                    .gpu_tile(v_x, v_y, v_xi, v_yi, 8, 8);
+            if(level == 0) {
+                tonemapPyramid[0].second.in(tonemapPyramid[1].first)
+                    .compute_at(tonemapPyramid[1].second, v_y)
+                    .vectorize(v_x, 8)
+                    .unroll(v_i)
+                    .unroll(v_c);
             }
-        }
-        else {
-            for(int level = 1; level < tonemap_levels; level++) {
+            else {
                 tonemapPyramid[level].first
-                    .compute_at(tonemapPyramid[level].second, v_yi)
-                    .store_at(tonemapPyramid[level].second, v_yo)
-                    .vectorize(v_x, 4);
-
+                    .compute_at(tonemapPyramid[level].second, v_y)
+                    .unroll(v_c)
+                    .unroll(_0)
+                    .vectorize(v_x, 8);
+            
                 tonemapPyramid[level].second
                     .compute_root()
-                    .reorder(v_x, v_y)
-                    .split(v_y, v_yo, v_yi, 64)
-                    .vectorize(v_x, 4)
-                    .parallel(v_yo);
-            }
-
-            for(int level = 1; level < tonemap_levels; level++) {
-                weightsPyramid[level].first
-                    .compute_at(weightsPyramid[level].second, v_yi)
-                    .store_at(weightsPyramid[level].second, v_yo)
+                    .vectorize(v_x, 8)
                     .unroll(v_c)
-                    .vectorize(v_x, 4);
+                    .unroll(_0)
+                    .parallel(v_y);
 
+                weightsPyramid[level].first
+                    .compute_at(weightsPyramid[level].second, v_y)
+                    .unroll(v_c)
+                    .vectorize(v_x, 8);
+    
                 weightsPyramid[level].second
                     .compute_root()
-                    .reorder(v_c, v_x, v_y)
+                    .vectorize(v_x, 8)
                     .unroll(v_c)
-                    .split(v_y, v_yo, v_yi, 64)
-                    .vectorize(v_x, 4)
-                    .parallel(v_yo);
-            }        
+                    .parallel(v_y);
+            }
         }
     }
 
-    vector<Func> laplacianPyramid, combinedPyramid;
-    
     //
     // Create laplacian pyramid
     //
+
+    vector<Func> laplacianPyramid, combinedPyramid;
     
     for(int level = 0; level < tonemap_levels; level++) {
         Func up("laplacianUpLvl" + std::to_string(level));
         Func upIntermediate("laplacianUpIntermediateLvl" + std::to_string(level));
         Func laplacian("laplacianLvl" + std::to_string(level));
 
-        pyramidUp(up, upIntermediate, tonemapPyramid[level + 1].second);
+        pyramidUp(up, Int(32), upIntermediate, tonemapPyramid[level + 1].second);
         
-        laplacian(v_x, v_y, v_c) = cast<int32_t>(tonemapPyramid[level].second(v_x, v_y, v_c)) - up(v_x, v_y, v_c);
+        laplacian(v_x, v_y, v_c, v_i) = cast<int32_t>(tonemapPyramid[level].second(v_x, v_y, v_c, v_i)) - up(v_x, v_y, v_c, v_i);
 
-        // Skip first level
-        if(!auto_schedule) {
-            if(level > 0) {
-                if(get_target().has_gpu_feature()) {
-                    up
-                        .reorder(v_c, v_x, v_y)
-                        .unroll(v_c)
-                        .compute_at(laplacian, tile_idx)
-                        .store_at(laplacian, tile_idx)
-                        .gpu_threads(v_x, v_y);
+        if(level > 2) {
+            upIntermediate
+                .compute_at(laplacian, tile_idx)
+                .vectorize(v_x, 8);
 
-                    upIntermediate
-                        .reorder(v_c, v_x, v_y)
-                        .unroll(v_c)
-                        .compute_at(laplacian, tile_idx)
-                        .store_at(laplacian, tile_idx)
-                        .gpu_threads(v_x, v_y);
-
-                    laplacian
-                        .compute_root()
-                        .reorder(v_c, v_x, v_y)
-                        .tile(v_x, v_y, v_xo, v_yo, v_xi, v_yi, 16, 16)
-                        .fuse(v_xo, v_yo, tile_idx)
-                        .tile(v_xi, v_yi, v_xio, v_yio, v_xii, v_yii, 4, 4)
-                        .fuse(v_xio, v_yio, subtile_idx)
-                        .unroll(v_c)
-                        .gpu_blocks(tile_idx)
-                        .gpu_threads(subtile_idx);
-                }
-                else {
-                    up
-                        .compute_at(laplacian, v_yi)
-                        .store_at(laplacian, v_yo)
-                        .unroll(v_c)
-                        .vectorize(v_x, 12);
-
-                    upIntermediate
-                        .compute_at(laplacian, v_yi)
-                        .store_at(laplacian, v_yo)
-                        .unroll(v_c)
-                        .vectorize(v_x, 12);
-
-                    laplacian
-                        .compute_root()
-                        .reorder(v_c, v_x, v_y)
-                        .split(v_y, v_yo, v_yi, 32)
-                        .vectorize(v_x, 12)
-                        .unroll(v_c)
-                        .parallel(v_yo);
-                }
-            }
+            laplacian
+                .compute_root()
+                .reorder(v_i, v_c, v_x, v_y)
+                .tile(v_x, v_y, v_xo, v_yo, v_xi, v_yi, 64, 16)
+                .fuse(v_xo, v_yo, tile_idx)
+                .parallel(tile_idx)
+                .unroll(v_c)
+                .unroll(v_i)
+                .vectorize(v_xi, 8);
         }
 
         laplacianPyramid.push_back(laplacian);
@@ -1969,10 +1904,11 @@ void TonemapGenerator::generate() {
     for(int level = 0; level <= tonemap_levels; level++) {
         Func result("resultLvl" + std::to_string(level));
 
-        result(v_x, v_y, v_c) =
-            (laplacianPyramid[level](v_x, v_y, 0) * weightsPyramid[level].second(v_x, v_y, 0)) +
-            (laplacianPyramid[level](v_x, v_y, 1) * weightsPyramid[level].second(v_x, v_y, 1));
-        
+        result(v_x, v_y, v_c) = cast<int32_t>(0.5f + 
+            (laplacianPyramid[level](v_x, v_y, v_c, 0) * 1.0f/16384.0f*weightsPyramid[level].second(v_x, v_y, 0)) +
+            (laplacianPyramid[level](v_x, v_y, v_c, 1) * 1.0f/16384.0f*weightsPyramid[level].second(v_x, v_y, 1)) +
+            (laplacianPyramid[level](v_x, v_y, v_c, 2) * 1.0f/16384.0f*weightsPyramid[level].second(v_x, v_y, 2)));
+
         combinedPyramid.push_back(result);
     }
 
@@ -1988,75 +1924,58 @@ void TonemapGenerator::generate() {
         Func outputLvl("outputLvl" + std::to_string(level));
 
         if(level == tonemap_levels) {
-            pyramidUp(up, upIntermediate, combinedPyramid[level]);
+            pyramidUp(up, Int(32), upIntermediate, combinedPyramid[level]);
         }
         else {
-            pyramidUp(up, upIntermediate, outputPyramid[outputPyramid.size() - 1]);
+            pyramidUp(up, Int(32), upIntermediate, outputPyramid[outputPyramid.size() - 1]);
             
         }
 
-        outputLvl(v_x, v_y, v_c) = combinedPyramid[level - 1](v_x, v_y, v_c) + up(v_x, v_y, v_c);
+        outputLvl(v_x, v_y, v_c) = saturating_cast<uint16_t>(combinedPyramid[level - 1](v_x, v_y, v_c) + up(v_x, v_y, v_c));
 
         if(!auto_schedule) {
-            if(get_target().has_gpu_feature()) {
-                upIntermediate
-                    .reorder(v_c, v_x, v_y)
-                    .compute_at(outputLvl, v_x)
-                    .unroll(v_c)
-                    .gpu_threads(v_x, v_y);
+            combinedPyramid[level - 1].compute_at(outputLvl, tile_idx)
+                .vectorize(v_x, 8);
 
-                up
-                    .reorder(v_c, v_x, v_y)
-                    .compute_at(outputLvl, v_x)
-                    .unroll(v_c)
-                    .gpu_threads(v_x, v_y);
+            upIntermediate.compute_at(outputLvl, tile_idx)
+                .vectorize(v_x, 8);
 
-                outputLvl
-                    .compute_root()
-                    .reorder(v_c, v_x, v_y)
-                    .unroll(v_c)
-                    .gpu_tile(v_x, v_y, v_xi, v_yi, 16, 8);
-            }
-            else {
-                upIntermediate
-                    .compute_at(outputLvl, subtile_idx)
-                    .store_at(outputLvl, tile_idx)
-                    .vectorize(v_x, 8);
-
-                up
-                    .compute_at(outputLvl, subtile_idx)
-                    .store_at(outputLvl, tile_idx)
-                    .vectorize(v_x, 8);
-
-                outputLvl
-                    .compute_root()
-                    .reorder(v_c, v_x, v_y)
-                    .unroll(v_c)
-                    .tile(v_x, v_y, v_xo, v_yo, v_xi, v_yi, 64, 64)
-                    .fuse(v_xo, v_yo, tile_idx)
-                    .tile(v_xi, v_yi, v_xio, v_yio, v_xii, v_yii, 32, 32)
-                    .fuse(v_xio, v_yio, subtile_idx)
-                    .parallel(tile_idx)
-                    .vectorize(v_xii, 16);
-            }
+            outputLvl
+                .compute_root()
+                .reorder(v_c, v_x, v_y)
+                .tile(v_x, v_y, v_xo, v_yo, v_xi, v_yi, 64, 16)
+                .fuse(v_xo, v_yo, tile_idx)
+                .parallel(tile_idx)
+                .unroll(v_c)
+                .vectorize(v_xi, 8);
         }
 
         outputPyramid.push_back(outputLvl);
     }
 
     // Inverse gamma correct tonemapped result
-    output(v_x, v_y) = inverseGammaLut(cast(output_type, clamp(outputPyramid[tonemap_levels - 1](v_x, v_y, 0), 0, type_max)));
+    output(v_x, v_y, v_c) = inverseGammaLut(cast(output_type, clamp(outputPyramid[tonemap_levels - 1](v_x, v_y, v_c), 0, type_max)));
+
+    if(!auto_schedule) {
+        output
+            .compute_root()
+            .bound(v_c, 0, 3)
+            .parallel(v_y)
+            .unroll(v_c)
+            .vectorize(v_x, 8);
+    }
 
     width.set_estimate(4096);
     height.set_estimate(3072);
     variance.set_estimate(0.25f);
     gain.set_estimate(8.0f);
 
-    input.set_estimates({{0, 4096}, {0, 3072}, {0, 3}});
-    output.set_estimates({{0, 4096}, {0, 3072}});
+    input0.set_estimates({{0, 4096}, {0, 3072}, {0, 3}});
+    input1.set_estimates({{0, 4096}, {0, 3072}, {0, 3}});
+    output.set_estimates({{0, 4096}, {0, 3072}, {0, 3}});
 }
 
-void TonemapGenerator::schedule() { 
+void TonemapGenerator::schedule() {    
 }
 
 class EnhanceGenerator : public Halide::Generator<EnhanceGenerator>, public PostProcessBase {
@@ -2189,7 +2108,7 @@ void EnhanceGenerator::generate() {
 
         chromaInput
             .compute_root()
-            .parallel(v_y, 64)
+            .parallel(v_y)
             .vectorize(v_x, 8)
             .unroll(v_c);
 
@@ -2290,7 +2209,7 @@ void EnhanceGenerator::schedule_for_cpu() {
         .compute_root()
         .unroll(v_c)
         .vectorize(v_x, 8)
-        .parallel(v_y, 64);
+        .parallel(v_y);
 
     if(enableSharpen) {
         blurOutputTmp
@@ -2349,9 +2268,8 @@ void EnhanceGenerator::schedule_for_cpu() {
 
         localContrast
             .compute_root()
-            .split(v_y, v_yo, v_yi, 64)
             .vectorize(v_x, 8)
-            .parallel(v_yo);
+            .parallel(v_y);
     }
 
     saturationApplied
@@ -2372,10 +2290,9 @@ void EnhanceGenerator::schedule_for_cpu() {
     output
         .compute_root()
         .reorder(v_c, v_x, v_y)
-        .split(v_y, v_yo, v_yi, 64)
         .unroll(v_c)
         .vectorize(v_x, 8)
-        .parallel(v_yo);
+        .parallel(v_y);
 }
 
 class PostProcessGenerator : public Halide::Generator<PostProcessGenerator>, public PostProcessBase {
@@ -2386,10 +2303,8 @@ public:
     Input<Buffer<uint16_t>> in3{"in3", 2 };
 
     Input<Buffer<uint8_t>> blueNoise{"blueNoise", 3 };
-
     Input<Buffer<uint16_t>> hdrInput{"hdrInput", 3 };
-    Input<Buffer<uint8_t>> hdrMask{"hdrMask", 2 };
-    Input<float> hdrScale{"hdrScale"};
+    Input<bool> useHdr{"useHdr"};
 
     Input<float[3]> asShotVector{"asShotVector"};
     Input<Buffer<float>> cameraToSrgb{"cameraToSrgb", 2};
@@ -2403,6 +2318,7 @@ public:
     Input<int> sensorArrangement{"sensorArrangement"};
     
     Input<float> shadows{"shadows"};
+    Input<float> hdrInputGain{"hdrInputGain"};
     Input<float> tonemapVariance{"tonemapVariance"};
     Input<float> blackPoint{"blackPoint"};
     Input<float> exposure{"exposure"};
@@ -2468,8 +2384,22 @@ void PostProcessGenerator::generate()
         sensorArrangement,
         asShot,
         cameraToSrgb);
-    
-    defringeVertical.define_extern("extern_defringe", { (Func) demosaic->output, in0.width()*2, in0.height()*2 }, UInt(16), 3);
+
+    Func hdrTonemapInput{"hdrTonemapInput"};
+
+    tonemapInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(0.5f + pow(2.0f, exposure) * demosaic->output(v_x, v_y, v_c));
+
+    hdrTonemapInput(v_x, v_y, v_c) = select(useHdr, 
+        saturating_cast<uint16_t>(hdrInputGain * hdrInput(clamp(v_x, 0, hdrInput.width() - 1), clamp(v_y, 0, hdrInput.height() - 1), v_c)),
+        tonemapInput(v_x, v_y, v_c));
+
+    tonemap = create<TonemapGenerator>();
+
+    tonemap->output_type.set(UInt(16));
+    tonemap->tonemap_levels.set(TONEMAP_LEVELS);
+    tonemap->apply(tonemapInput, hdrTonemapInput, in0.width() * 2, in0.height() * 2, tonemapVariance, shadows);
+
+    defringeVertical.define_extern("extern_defringe", { (Func) tonemap->output, in0.width()*2, in0.height()*2 }, UInt(16), 3);
     defringeVertical.compute_root();
 
     defringeVerticalTransposed(v_x, v_y, v_c) = defringeVertical(v_y, v_x, v_c);
@@ -2478,41 +2408,7 @@ void PostProcessGenerator::generate()
     defringeHorizontal.compute_root();
 
     defringe(v_x, v_y, v_c) = defringeHorizontal(v_y, v_x, v_c);
-
-    // Blend in highlights
-    colorCorrected(v_x, v_y, v_c) = clamp(pow(2.0f, exposure) * (defringe(v_x, v_y, v_c) / 65535.0f), 0.0f, 1.0f);
-
-    hdrMask32(v_x, v_y) = hdrMask(clamp(v_x, 0, hdrMask.width() - 1), clamp(v_y, 0, hdrMask.height() - 1)) / 255.0f;
-    hdrInput32(v_x, v_y, v_c) = cast<float>(hdrInput(clamp(v_x, 0, hdrInput.width() - 1), clamp(v_y, 0, hdrInput.height() - 1), v_c)) / 65535.0f * hdrScale;
-
-    hdrMerged(v_x, v_y, v_c) = (1.0f - hdrMask32(v_x, v_y))*(colorCorrected(v_x, v_y, v_c)) + (hdrMask32(v_x, v_y)*hdrInput32(v_x, v_y, v_c));
-    hdrTonemapped(v_x, v_y, v_c) = clamp((hdrMerged(v_x, v_y, v_c) * (1.0f + (hdrMerged(v_x, v_y, v_c) / (hdrScale*hdrScale)))) / (1.0f + hdrMerged(v_x, v_y, v_c)), 0.0f, 1.0f);
-
-    RGBToYCbCr(YCbCr, hdrTonemapped);
-
-    // Tonemap
-    tonemapInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(
-        select( v_c == 0, YCbCr(v_x, v_y, v_c),
-                v_c == 1, YCbCr(v_x, v_y, v_c) + 0.5f,
-                          YCbCr(v_x, v_y, v_c) + 0.5f ) * 65535.0f + 0.5f);
-
-    tonemap = create<TonemapGenerator>();
-
-    tonemap->output_type.set(UInt(16));
-    tonemap->tonemap_levels.set(TONEMAP_LEVELS);
-    tonemap->apply(tonemapInput, in0.width() * 2, in0.height() * 2, 0, tonemapVariance, shadows);
     
-    Expr scale = (tonemap->output(v_x, v_y) / 65535.0f) / (1e-5f + tonemapInput(v_x, v_y, 0) / 65535.0f);
-
-    tonemapped(v_x, v_y, v_c) = select(
-        v_c == 0, tonemap->output(v_x, v_y) / 65535.0f,
-        v_c == 1, scale*(tonemapInput(v_x, v_y, v_c) / 65535.0f - 0.5f),
-                  scale*(tonemapInput(v_x, v_y, v_c) / 65535.0f - 0.5f));
-
-    YCbCrToRGB(linearRgb, tonemapped);
-
-    enhanceInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(linearRgb(v_x, v_y, v_c) * 65535.0f + 0.5f);
-
     // Finalize output
     enhance = create<EnhanceGenerator>();
 
@@ -2521,7 +2417,7 @@ void PostProcessGenerator::generate()
     enhance->popRadius.set(25);
 
     enhance->apply(
-        enhanceInput,
+        defringe,
         in0.width()*2,
         in0.height()*2,
         blackPoint,
@@ -2585,8 +2481,6 @@ void PostProcessGenerator::generate()
     in3.set_estimates({{0, 2048}, {0, 1536}});
 
     hdrInput.set_estimates({{0, 4096}, {0, 3072}, {0, 3}});
-    hdrMask.set_estimates({{0, 4096}, {0, 3072}});
-    hdrScale.set_estimate(2.0f);
 
     inShadingMap0.set_estimates({{0, 17}, {0, 13}});
     inShadingMap1.set_estimates({{0, 17}, {0, 13}});
@@ -2628,29 +2522,23 @@ void PostProcessGenerator::schedule_for_cpu() {
         .parallel(v_yo)
         .parallel(v_c);
 
-    hdrMerged
-        .compute_at(tonemapInput, v_x)
-        .unroll(v_c)
-        .vectorize(v_x, vector_size_u16);
+    // hdrTonemapInput
+    // .compute_root()
+    //     .bound(v_c, 0, 3)
+    //     .reorder(v_c, v_x, v_y)
+    //     .split(v_y, v_yo, v_yi, 32)
+    //     .parallel(v_yo)
+    //     .unroll(v_c)
+    //     .vectorize(v_x, vector_size_u16);
 
-    hdrTonemapped
-        .compute_at(tonemapInput, v_x)
-        .unroll(v_c)
-        .vectorize(v_x, vector_size_u16);
-
-    tonemapInput
-        .compute_root()
-        .bound(v_c, 0, 3)
-        .reorder(v_c, v_x, v_y)
-        .split(v_y, v_yo, v_yi, 32)
-        .parallel(v_yo)
-        .unroll(v_c)
-        .vectorize(v_x, vector_size_u16);
-
-    enhanceInput
-        .compute_at(enhance->gammaCorrected, v_x)
-        .unroll(v_c)
-        .vectorize(v_x, vector_size_u16);
+    // tonemapInput
+    //     .compute_root()
+    //     .bound(v_c, 0, 3)
+    //     .reorder(v_c, v_x, v_y)
+    //     .split(v_y, v_yo, v_yi, 32)
+    //     .parallel(v_yo)
+    //     .unroll(v_c)
+    //     .vectorize(v_x, vector_size_u16);
 
     output
         .compute_root()
@@ -2787,34 +2675,13 @@ void PreviewGenerator::generate() {
 
     transform(SRGB, downscaledInput, cameraToSrgb);
 
-    Func YCbCrInput{"YCbCrInput"};
-
-    YCbCrInput(v_x, v_y, v_c) = clamp(SRGB(v_x, v_y, v_c) * pow(2.0f, exposure), 0.0f, 1.0f);
-
-    RGBToYCbCr(YCbCr, YCbCrInput);
-
-    tonemapInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(
-        select( v_c == 0, YCbCr(v_x, v_y, v_c),
-                v_c == 1, YCbCr(v_x, v_y, v_c) + 0.5f,
-                          YCbCr(v_x, v_y, v_c) + 0.5f ) * 65535.0f + 0.5f);
+    tonemapInput(v_x, v_y, v_c) = cast<uint16_t>(65535.0f * clamp(SRGB(v_x, v_y, v_c) * pow(2.0f, exposure), 0.0f, 1.0f) + 0.5f);
 
     tonemap = create<TonemapGenerator>();
 
     tonemap->output_type.set(UInt(16));
-    tonemap->tonemap_levels.set(tonemap_levels);
-    tonemap->apply(tonemapInput, width, height, 0, tonemapVariance, shadows);
-
-     // Finalize output    
-    Expr scale = (tonemap->output(v_x, v_y) / 65535.0f) / (1e-5f + tonemapInput(v_x, v_y, 0) / 65535.0f);
-
-    tonemapped(v_x, v_y, v_c) = select(
-        v_c == 0, tonemap->output(v_x, v_y) / 65535.0f,
-        v_c == 1, scale*(tonemapInput(v_x, v_y, v_c) / 65535.0f - 0.5f),
-                  scale*(tonemapInput(v_x, v_y, v_c) / 65535.0f - 0.5f));
-
-    YCbCrToRGB(linearRgb, tonemapped);
-
-    enhanceInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(linearRgb(v_x, v_y, v_c) * 65535.0f + 0.5f);
+    tonemap->tonemap_levels.set(TONEMAP_LEVELS);
+    tonemap->apply(tonemapInput, tonemapInput, width, height, tonemapVariance, shadows);
 
     enhance = create<EnhanceGenerator>();
     
@@ -2823,7 +2690,7 @@ void PreviewGenerator::generate() {
     enhance->popRadius.set(popRadius);
 
     enhance->apply(
-        enhanceInput,
+        tonemap->output,
         width,
         height,
         blackPoint,
@@ -2921,14 +2788,6 @@ void PreviewGenerator::schedule_for_cpu() {
         .parallel(v_yo)
         .vectorize(v_x, vector_size_u16);
 
-    enhanceInput
-        .compute_root()
-        .reorder(v_c, v_x, v_y)
-        .unroll(v_c)
-        .split(v_y, v_yo, v_yi, 32)
-        .parallel(v_yo)
-        .vectorize(v_x, vector_size_u16);
-
     output
         .compute_root()
         .bound(v_c, 0, 4)
@@ -2939,6 +2798,108 @@ void PreviewGenerator::schedule_for_cpu() {
         .unroll(v_c)
         .vectorize(v_xi, vector_size_u8);
 }
+
+class FastPreviewGenerator : public Halide::Generator<FastPreviewGenerator>, public PostProcessBase {
+public:
+    Input<Buffer<uint8_t>> input{"input", 1};
+    Input<int> stride{"stride"};
+    Input<int> pixelFormat{"pixelFormat"};
+    Input<int> sensorArrangement{"sensorArrangement"};
+    
+    Input<int> width{"width"};
+    Input<int> height{"height"};
+
+    Input<int> rotation{"rotation", 0};
+
+    Input<int> sx{"sx"};
+    Input<int> sy{"sy"};
+
+    Input<int>    whiteLevel{"whiteLevel"};
+    Input<int[4]> blackLevel{"blackLevel"};
+
+    Output<Buffer<uint8_t>> output{"output", 2};
+
+    Func clamped;
+    Func deinterleaved{"deinterleaved"};
+    Func gammaCorrected{"gammaCorrected"};
+
+    void generate();
+    void schedule_for_cpu();
+};
+
+void FastPreviewGenerator::generate() {
+    Func channels[4];
+
+    // Deinterleave
+    deinterleave(channels[0], input, 0, stride, pixelFormat);
+    deinterleave(channels[1], input, 1, stride, pixelFormat);
+    deinterleave(channels[2], input, 2, stride, pixelFormat);
+    deinterleave(channels[3], input, 3, stride, pixelFormat);
+
+    deinterleaved(v_x, v_y, v_c) = select(
+        v_c == 0, channels[0](v_x * sx, v_y * sy),
+        v_c == 1, channels[1](v_x * sx, v_y * sy),
+        v_c == 2, channels[2](v_x * sx, v_y * sy),
+                  channels[3](v_x * sx, v_y * sy));
+
+    clamped = BoundaryConditions::mirror_image(deinterleaved, { {0, width - 1}, {0, height - 1}, {0, 4} });
+    
+    // Gamma correct preview
+    Func gammaLut;
+    
+    gammaLut(v_i) = cast<uint8_t>(clamp(pow(v_i / 255.0f, 1.0f / 2.2f) * 255, 0, 255));    
+
+    if(!get_auto_schedule())
+        gammaLut.compute_root().vectorize(v_i, 8);
+
+    Expr P = 0.25f * (clamped(v_x, v_y, 0) +
+                      clamped(v_x, v_y, 1) +
+                      clamped(v_x, v_y, 2) +
+                      clamped(v_x, v_y, 3));
+
+    Expr S = (P - blackLevel[0]) / (whiteLevel - blackLevel[0]);
+
+    gammaCorrected(v_x, v_y) = gammaLut(cast<uint8_t>(clamp(S * 255.0f + 0.5f, 0, 255)));
+
+    output(v_x, v_y) = select(
+        rotation == 90,  gammaCorrected(width - v_y, v_x),
+        rotation == -90, gammaCorrected(v_y, height - v_x),
+        rotation == 180, gammaCorrected(v_x, height - v_y),
+                         gammaCorrected(v_x, v_y) );
+
+    input.set_estimates({ {0, 18000000} });
+    width.set_estimate(4000);
+    height.set_estimate(3000);
+    blackLevel.set_estimate(0, 64);
+    blackLevel.set_estimate(1, 64);
+    blackLevel.set_estimate(2, 64);
+    blackLevel.set_estimate(3, 64);
+    whiteLevel.set_estimate(1023);
+    sx.set_estimate(2);
+    sy.set_estimate(2);
+    stride.set_estimate(4000);
+    sensorArrangement.set_estimate(0);
+    rotation.set_estimate(90);
+    pixelFormat.set_estimate(0);
+
+    output.set_estimates({{0, 1000}, {0, 750} } );
+
+    if(!get_auto_schedule()) {
+        schedule_for_cpu();
+    }
+ }
+
+void FastPreviewGenerator::schedule_for_cpu() {    
+    gammaCorrected
+        .compute_root()
+        .vectorize(v_x, 16)
+        .parallel(v_y);
+
+    output.compute_root()
+        .vectorize(v_x, 16)
+        .parallel(v_y);
+}
+
 
 //
 
@@ -3319,7 +3280,7 @@ void MeasureImageGenerator::generate() {
     result8u
         .compute_root()
         .reorder(v_x, v_y)
-        .parallel(v_y, 32)
+        .parallel(v_y)
         .vectorize(v_x, 8);
 
     histogram
@@ -3503,7 +3464,11 @@ void HdrMaskGenerator::schedule_for_cpu(::Halide::Pipeline pipeline, ::Halide::T
 
 class LinearImageGenerator : public Halide::Generator<LinearImageGenerator>, public PostProcessBase {
 public:
-    Input<Buffer<uint16_t>> input{"input", 3};
+    Input<Buffer<uint16_t>> input0{"input0", 2};
+    Input<Buffer<uint16_t>> input1{"input1", 2};
+    Input<Buffer<uint16_t>> input2{"input2", 2};
+    Input<Buffer<uint16_t>> input3{"input3", 2};
+
     Input<Buffer<float>> flowMap{"flowMap", 3};
 
     Input<Buffer<float>> inShadingMap0{"inShadingMap0", 2 };
@@ -3536,13 +3501,22 @@ private:
 
 Func LinearImageGenerator::registeredInput() {
     Func result{"registeredInput"};
+
+    Func input{"input"};
     Func inputF32{"inputF32"};
 
     flowMap
         .dim(0).set_stride(2)
         .dim(2).set_stride(1);
 
-    Func clamped = BoundaryConditions::repeat_edge(input);
+    input(v_x, v_y, v_c) =
+        mux(v_c,
+            {   input0(v_x, v_y),
+                input1(v_x, v_y),
+                input2(v_x, v_y),
+                input3(v_x, v_y) });
+
+    Func clamped = BoundaryConditions::repeat_edge(input, { { 0, input0.width() }, { 0, input0.height() } });
 
     inputF32(v_x, v_y, v_c) = cast<float>(clamped(v_x, v_y, v_c));
     
@@ -3595,7 +3569,7 @@ void LinearImageGenerator::generate() {
     demosaic->apply(
         inDemosaic[0], inDemosaic[1], inDemosaic[2], inDemosaic[3],
         inShadingMap0, inShadingMap1, inShadingMap2, inShadingMap3,
-        input.width(), input.height(),
+        input0.width(), input0.height(),
         inShadingMap0.width(), inShadingMap0.height(),
         cast<float>(range),
         sensorArrangement,
@@ -3607,7 +3581,7 @@ void LinearImageGenerator::generate() {
     scaled
         .compute_root()
         .vectorize(v_x, 8)
-        .parallel(v_y, 64)
+        .parallel(v_y)
         .unroll(v_c);
 
     alignedInput.set_estimates({{0, 2048}, {0, 1536}, {0, 4}});
@@ -3672,7 +3646,7 @@ public:
             .dim(0).set_stride(3)
             .dim(2).set_stride(1);
 
-        output.compute_root().parallel(v_y, 32).vectorize(v_x, 8);
+        output.compute_root().parallel(v_y).vectorize(v_x, 8);
     }
 };
 
@@ -3680,6 +3654,7 @@ HALIDE_REGISTER_GENERATOR(GenerateEdgesGenerator, generate_edges_generator)
 HALIDE_REGISTER_GENERATOR(MeasureImageGenerator, measure_image_generator)
 HALIDE_REGISTER_GENERATOR(DeinterleaveRawGenerator, deinterleave_raw_generator)
 HALIDE_REGISTER_GENERATOR(PostProcessGenerator, postprocess_generator)
+HALIDE_REGISTER_GENERATOR(FastPreviewGenerator, fast_preview_generator)
 HALIDE_REGISTER_GENERATOR(GuidedFilter, guided_filter_generator)
 HALIDE_REGISTER_GENERATOR(Demosaic, demosaic_generator)
 HALIDE_REGISTER_GENERATOR(TonemapGenerator, tonemap_generator)
@@ -3688,4 +3663,4 @@ HALIDE_REGISTER_GENERATOR(PreviewGenerator, preview_generator)
 HALIDE_REGISTER_GENERATOR(HdrMaskGenerator, hdr_mask_generator)
 HALIDE_REGISTER_GENERATOR(LinearImageGenerator, linear_image_generator)
 
-HALIDE_REGISTER_GENERATOR(TestGenerator, test_generator)
+// HALIDE_REGISTER_GENERATOR(TestGenerator, test_generator)

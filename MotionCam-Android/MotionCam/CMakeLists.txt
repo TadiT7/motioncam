@@ -97,6 +97,14 @@ target_include_directories(
         ${thirdparty-libs}/dng_sdk)
 
 #
+# DLIB
+#
+
+add_library(dlib STATIC IMPORTED)
+set_target_properties(dlib PROPERTIES IMPORTED_LOCATION
+        ${thirdparty-libs}/dlib/lib/libdlib.a)
+
+#
 # Exiv2
 #
 
@@ -124,6 +132,10 @@ set_target_properties(zstd PROPERTIES IMPORTED_LOCATION
 #
 # Halide libraries
 #
+
+add_library(fast_preview STATIC IMPORTED)
+set_target_properties(fast_preview PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/fast_preview.a)
 
 add_library(camera_preview2_raw10 STATIC IMPORTED)
 set_target_properties(camera_preview2_raw10 PROPERTIES IMPORTED_LOCATION
@@ -336,6 +348,10 @@ add_library(opencv-photo STATIC IMPORTED)
 set_target_properties(opencv-photo PROPERTIES IMPORTED_LOCATION
         ${thirdparty-libs}/opencv/libs/${ANDROID_ABI}/libopencv_photo.a)
 
+add_library(opencv-objdetect STATIC IMPORTED)
+set_target_properties(opencv-objdetect PROPERTIES IMPORTED_LOCATION
+        ${thirdparty-libs}/opencv/libs/${ANDROID_ABI}/libopencv_objdetect.a)
+
 add_library(opencv-core STATIC IMPORTED)
 set_target_properties(opencv-core PROPERTIES IMPORTED_LOCATION
         ${thirdparty-libs}/opencv/libs/${ANDROID_ABI}/libopencv_core.a)
@@ -374,6 +390,7 @@ target_include_directories(motion-cam PUBLIC
         ${libmotioncam-src}/include
         ${libmotioncam-src}/halide/${ANDROID_ABI}
         ${thirdparty-libs}/json11
+        ${thirdparty-libs}/dlib/include
         ${thirdparty-libs}/miniz
         ${thirdparty-libs}/halide/include
         ${thirdparty-libs}/opencl
@@ -450,6 +467,7 @@ set(native-camera-libs
         libexpat
 
         # Halide libraries
+        fast_preview
         hdr_mask
         linear_image
         generate_edges
@@ -478,12 +496,12 @@ set(native-camera-libs
         opencv-xfeatures2d
         opencv-features2d
         opencv-flann
-        opencv-imgcodecs
         opencv-video
         opencv-imgproc
         opencv-ximgproc
         opencv-imgcodecs
         opencv-photo
+        opencv-objdetect
         opencv-core
         ittnotify
         tegra-hal

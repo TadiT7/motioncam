@@ -133,13 +133,11 @@ namespace motioncam {
         std::move(buffers.begin(), buffers.end(), std::back_inserter(mReadyBuffers));
     }
 
-    void RawBufferManager::save(
-            RawType type,
-            int numSaveBuffers,
-            int64_t referenceTimestampNs,
-            const RawCameraMetadata& metadata,
-            const PostProcessSettings& settings,
-            const std::string& outputPath)
+    void RawBufferManager::saveHdr(int numSaveBuffers,
+                                   int64_t referenceTimestampNs,
+                                   const RawCameraMetadata& metadata,
+                                   const PostProcessSettings& settings,
+                                   const std::string& outputPath)
     {
         std::vector<std::shared_ptr<RawImageBuffer>> buffers;
 
@@ -149,57 +147,59 @@ namespace motioncam {
             if (mReadyBuffers.empty() || numSaveBuffers <= 0)
                 return;
 
-            std::vector<std::shared_ptr<RawImageBuffer>> typedBuffers, remainingBuffers;
-            
-            // Sort buffers into requested type and remaining types
-            for(int i = 0; i < mReadyBuffers.size(); i++) {
-                if(mReadyBuffers[i]->metadata.rawType == type && numSaveBuffers > 0) {
-                    typedBuffers.push_back(mReadyBuffers[i]);
-                }
-                else if(mReadyBuffers[i]->metadata.timestampNs <= referenceTimestampNs) {
-                    remainingBuffers.push_back(mReadyBuffers[i]);
-                }
-            }
-            
-            // Sort remaining buffers
-            std::sort(remainingBuffers.begin(), remainingBuffers.end(), [](auto a, auto b) {
-                return a->metadata.timestampNs > b->metadata.timestampNs;
-            });
-            
-            numSaveBuffers = std::min((int) remainingBuffers.size(), std::max(0, numSaveBuffers - (int) typedBuffers.size()));
+            std::vector<std::shared_ptr<RawImageBuffer>> zslBuffers, hdrBuffers;
 
-            // Keep just the remaining buffers closest to the reference time stamp
-            remainingBuffers.resize(numSaveBuffers);
-            
-            if(!remainingBuffers.empty()) {
-                // Front will be closest to reference
-                referenceTimestampNs = remainingBuffers.front()->metadata.timestampNs;
-            }
-            else if(!typedBuffers.empty()) {
-                int64_t closestDiff = 1e10;
-                int64_t timestamp = referenceTimestampNs;
-                
-                // Get closest to reference
-                for(int i = 0; i < typedBuffers.size(); i++) {
-                    auto diff = std::abs(typedBuffers[i]->metadata.timestampNs - referenceTimestampNs);
-                    
-                    if(diff < closestDiff) {
-                        timestamp = typedBuffers[i]->metadata.timestampNs;
-                        closestDiff = diff;
-                    }
+            // Find the HDR buffers first
+            for(int i = 0; i < mReadyBuffers.size(); i++) {
+                if(mReadyBuffers[i]->metadata.rawType == RawType::HDR) {
+                    hdrBuffers.push_back(mReadyBuffers[i]);
                 }
-                
-                referenceTimestampNs = timestamp;
+            }
+
+            // Sort them by timestmp
+            std::sort(hdrBuffers.begin(), hdrBuffers.end(), [](auto a, auto b) {
+                return a->metadata.timestampNs < b->metadata.timestampNs;
+            });
+
+            numSaveBuffers = numSaveBuffers - (int) hdrBuffers.size();
+            numSaveBuffers = std::max(0, numSaveBuffers);
+            
+            int64_t hdrTimestamp = std::numeric_limits<int64_t>::max();
+            
+            // Pick images older than HDR images because the auto exposure changes after the first HDR capture
+            if(!hdrBuffers.empty()) {
+                hdrTimestamp = hdrBuffers.front()->metadata.timestampNs;
             }
             
-            // Combine the buffers
-            buffers.insert(buffers.end(), typedBuffers.begin(), typedBuffers.end());
-            buffers.insert(buffers.end(), remainingBuffers.begin(), remainingBuffers.end());
-                        
-            if(buffers.empty()) {
-                logger::log("No buffers to save!");
+            for(int i = 0; i < mReadyBuffers.size(); i++) {
+                if(mReadyBuffers[i]->metadata.rawType == RawType::ZSL &&
+                   mReadyBuffers[i]->metadata.timestampNs < hdrTimestamp)
+                {
+                    zslBuffers.push_back(mReadyBuffers[i]);
+                }
+            }
+            
+            std::sort(zslBuffers.begin(), zslBuffers.end(), [](auto a, auto b) {
+                return a->metadata.timestampNs < b->metadata.timestampNs;
+            });
+
+            numSaveBuffers = std::min(numSaveBuffers, (int) zslBuffers.size());
+            int numToRemove = ((int)zslBuffers.size() - numSaveBuffers);
+            
+            zslBuffers.erase(zslBuffers.begin(), zslBuffers.begin() + numToRemove);
+            
+            // Set reference timestamp
+            if(!zslBuffers.empty())
+                referenceTimestampNs = zslBuffers.back()->metadata.timestampNs;
+            else if(!hdrBuffers.empty())
+                referenceTimestampNs = hdrBuffers.back()->metadata.timestampNs;
+            else {
+                logger::log("No buffers. Something is not right");
                 return;
             }
+
+            buffers.insert(buffers.end(), hdrBuffers.begin(), hdrBuffers.end());
+            buffers.insert(buffers.end(), zslBuffers.begin(), zslBuffers.end());
             
             // Remove from the ready buffers until we copy them
             mReadyBuffers.erase(
@@ -215,7 +215,7 @@ namespace motioncam {
                 metadata,
                 settings,
                 referenceTimestampNs,
-                type == RawType::HDR,
+                true,
                 buffers);
 
         // Return buffers

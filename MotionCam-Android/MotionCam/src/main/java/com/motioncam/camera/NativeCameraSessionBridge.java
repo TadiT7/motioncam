@@ -2,6 +2,7 @@ package com.motioncam.camera;
 
 import android.graphics.Bitmap;
 import android.graphics.PointF;
+import android.graphics.RectF;
 import android.util.Size;
 import android.view.Surface;
 
@@ -367,6 +368,12 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         SetAutoFocus(mNativeCameraHandle);
     }
 
+    public RectF[] detectFaces() {
+        ensureValidHandle();
+
+        return DetectFaces(mNativeCameraHandle);
+    }
+
     @Override
     public void onCameraDisconnected() {
         mListener.onCameraDisconnected();
@@ -479,4 +486,6 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
 
     private native float EstimateShadows(long handle, float bias);
     private native String EstimatePostProcessSettings(long bufferHandle, float shadowsBias);
+
+    private native RectF[] DetectFaces(long handle);
 }

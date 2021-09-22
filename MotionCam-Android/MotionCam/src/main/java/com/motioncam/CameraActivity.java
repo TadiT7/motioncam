@@ -11,6 +11,7 @@ import android.graphics.Matrix;
 import android.graphics.PointF;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
+import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.graphics.drawable.Drawable;
 import android.location.Location;
@@ -78,6 +79,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -120,6 +123,11 @@ public class CameraActivity extends AppCompatActivity implements
         COLOUR,
         TINT,
         WARMTH
+    }
+
+    private enum FaceDetectionMode {
+        FAST,
+        NORMAL
     }
 
     private static class Settings {
@@ -202,6 +210,55 @@ public class CameraActivity extends AppCompatActivity implements
                     ", rawMode=" + rawMode +
                     ", cameraPreviewQuality=" + cameraPreviewQuality +
                     '}';
+        }
+    }
+
+    private class FaceDetectionTask extends TimerTask {
+        @Override
+        public void run() {
+            if(mNativeCamera == null)
+                mNativeCamera = null;
+
+            final RectF[] faces = mNativeCamera.detectFaces();
+            int selectedFace = 0;
+
+            if(faces == null || faces.length == 0) {
+                if(mFaceDetectionMode == FaceDetectionMode.FAST) {
+                    mFaceDetectionTimer.cancel();
+
+                    mFaceDetectionTimer = new Timer("FaceDetection");
+                    mFaceDetectionTimer.scheduleAtFixedRate(new FaceDetectionTask(), 1000, 1000);
+                    mFaceDetectionMode = FaceDetectionMode.NORMAL;
+                }
+
+                return;
+            }
+
+            // Use largest found face
+            for(int i = 1; i < faces.length; i++) {
+                if((faces[i].width() * faces[i].width()) > (faces[selectedFace].width() * faces[selectedFace].width()))
+                {
+                    selectedFace = i;
+                }
+            }
+
+            final int finalSelectedFace = selectedFace;
+
+            mFaceDetectionTimer.cancel();
+
+            mFaceDetectionTimer = new Timer("FaceDetection");
+            mFaceDetectionTimer.scheduleAtFixedRate(new FaceDetectionTask(), 500, 500);
+            mFaceDetectionMode = FaceDetectionMode.FAST;
+
+            runOnUiThread(() -> {
+                Matrix m = new Matrix();
+                float[] pts = new float[]{ faces[finalSelectedFace].centerX(), faces[finalSelectedFace].centerY() };
+
+                m.setRotate(mSensorEventManager.getOrientation().angle, 0.5f, 0.5f);
+                m.mapPoints(pts);
+
+                onSetFocusPt(pts[0] * mTextureView.getWidth(), pts[1] * mTextureView.getHeight());
+            });
         }
     }
 
@@ -292,6 +349,8 @@ public class CameraActivity extends AppCompatActivity implements
     private float mShadowOffset;
     private AtomicBoolean mImageCaptureInProgress = new AtomicBoolean(false);
     private long mFocusRequestedTimestampMs;
+    private Timer mFaceDetectionTimer;
+    private FaceDetectionMode mFaceDetectionMode = FaceDetectionMode.NORMAL;
 
     @Override
     public void onBackPressed() {
@@ -436,7 +495,7 @@ public class CameraActivity extends AppCompatActivity implements
 
     private void setPostProcessingDefaults() {
         // Set initial preview values
-        mPostProcessSettings.shadows = 1.0f;
+        mPostProcessSettings.shadows = -1.0f;
         mPostProcessSettings.contrast = mSettings.contrast;
         mPostProcessSettings.saturation = mSettings.saturation;
         mPostProcessSettings.greens = 4.0f;
@@ -526,6 +585,11 @@ public class CameraActivity extends AppCompatActivity implements
         mSensorEventManager.disable();
         mProgressReceiver.setReceiver(null);
         mBinding.previewPager.unregisterOnPageChangeCallback(mCapturedPreviewPagerListener);
+
+        if(mFaceDetectionTimer != null) {
+            mFaceDetectionTimer.cancel();
+            mFaceDetectionTimer = null;
+        }
 
         if(mNativeCamera != null) {
             mNativeCamera.stopCapture();
@@ -862,6 +926,8 @@ public class CameraActivity extends AppCompatActivity implements
             boolean useHdr = mSettings.hdr && hdrEv > 1.01f;
             CameraManualControl.Exposure hdrExposure = null;
 
+            Log.d(TAG, "useHdr " + useHdr + " hdrEv: " + hdrEv + " hdr: " + mSettings.hdr);
+
             if(useHdr) {
                 hdrExposure = CameraManualControl.Exposure.Create(
                         CameraManualControl.GetClosestShutterSpeed(Math.round(mExposureTime / hdrEv)),
@@ -872,12 +938,9 @@ public class CameraActivity extends AppCompatActivity implements
                     a = mCameraMetadata.cameraApertures[0];
 
                 hdrExposure = CameraManualControl.MapToExposureLine(a, hdrExposure, CameraManualControl.HDR_EXPOSURE_LINE);
-            }
 
-            if(hdrExposure != null)
                 mNativeCamera.prepareHdrCapture(hdrExposure.iso.getIso(), hdrExposure.shutterSpeed.getExposureTime());
-            else
-                mNativeCamera.prepareHdrCapture(-1, -1);
+            }
         }
 
         return false;
@@ -1383,6 +1446,15 @@ public class CameraActivity extends AppCompatActivity implements
 
         mBinding.previewFrame.rawEnableBtn.setOnClickListener(v -> setSaveRaw(!mPostProcessSettings.dng));
         mBinding.previewFrame.hdrEnableBtn.setOnClickListener(v -> setHdr(!mSettings.hdr));
+
+        // Kill previous timer
+        if(mFaceDetectionTimer != null) {
+            mFaceDetectionTimer.cancel();
+            mFaceDetectionTimer = null;
+        }
+
+        mFaceDetectionTimer = new Timer("FaceDetection");
+        mFaceDetectionTimer.scheduleAtFixedRate(new FaceDetectionTask(), 1000, 1000);
     }
 
     @Override
@@ -1737,6 +1809,14 @@ public class CameraActivity extends AppCompatActivity implements
     private void setFocusState(FocusState state, PointF focusPt) {
         if(mFocusState == FocusState.AUTO && state == FocusState.AUTO)
             return;
+
+        // Don't update if the focus points are very close to each other
+        if(focusPt != null && mAutoFocusPoint != null) {
+            double d = Math.hypot(focusPt.x - mAutoFocusPoint.x, focusPt.y - mAutoFocusPoint.y);
+            if(d < 0.05) {
+                return;
+            }
+        }
 
         mFocusState = state;
 

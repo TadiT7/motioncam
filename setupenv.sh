@@ -18,6 +18,7 @@ OPENCV_VERSION="4.5.3"
 LIBEXPAT_VERSION="2.4.1"
 LIBEXIV2_VERSION="0.27.4"
 ZSTD_VERSION="v1.5.0"
+DLIB_VERSION="19.22"
 HALIDE_BRANCH=https://github.com/mirsadm/Halide
 
 mkdir -p tmp
@@ -167,6 +168,41 @@ build_zstd() {
 	touch ".zstd-${ZSTD_VERSION}"
 }
 
+build_dlib() {	
+	DLIB_ARCHIVE="dlib-${DLIB_VERSION}.tar.bz2"	
+
+	curl -L http://dlib.net/files/${DLIB_ARCHIVE} --output ${DLIB_ARCHIVE}
+
+	tar -xvf ${DLIB_ARCHIVE}
+
+	pushd dlib-${DLIB_VERSION}
+
+	mkdir -p build
+	pushd build
+
+	cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../build/${ANDROID_ABI} -DCMAKE_SYSTEM_NAME=Android 												\
+		-DANDROID_NATIVE_API_LEVEL=21 -DCMAKE_SYSTEM_VERSION=21 -DANDROID_ABI=${ANDROID_ABI} -DCMAKE_ANDROID_ARCH_ABI=${ANDROID_ABI} -DANDROID_STL=c++_shared 	\
+		-DBUILD_SHARED_LIBS=OFF -DDLIB_USE_CUDA=NO -DDLIB_USE_BLAS=NO -DDLIB_NO_GUI_SUPPORT=YES -DDLIB_LINK_WITH_SQLITE3=NO -DDLIB_PNG_SUPPORT=NO -DDLIB_JPEG_SUPPORT=NO \
+		-DCMAKE_ANDROID_NDK_TOOLCHAIN_VERSION=clang -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake ..
+
+	make -j${NUM_CORES}
+
+	make install
+
+	INSTALL_DIR="../../../libMotionCam/thirdparty/dlib"
+
+	mkdir -p ${INSTALL_DIR}/lib
+	mkdir -p ${INSTALL_DIR}/include
+
+	cp -a ./${ANDROID_ABI}/include/. ${INSTALL_DIR}/include/.
+	cp -a ./${ANDROID_ABI}/lib/*.a ${INSTALL_DIR}/lib/.
+
+	popd # build
+	popd # dlib-${LIBEXIV2_VERSION}-Source
+
+	touch ".dlib-${DLIB_VERSION}"	
+}
+
 build_halide() {
 	if [ ! -d "halide-src" ]; then
 		git clone ${HALIDE_BRANCH} halide-src
@@ -217,6 +253,10 @@ fi
 
 if [ ! -f ".zstd-${ZSTD_VERSION}" ]; then
 	build_zstd
+fi
+
+if [ ! -f ".dlib-${DLIB_VERSION}" ]; then
+	build_dlib
 fi
 
 if [ ! -f ".halide" ]; then

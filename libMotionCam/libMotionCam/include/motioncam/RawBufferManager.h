@@ -57,12 +57,11 @@ namespace motioncam {
         std::unique_ptr<LockedBuffers> consumeAllBuffers();
         std::unique_ptr<LockedBuffers> consumeBuffer(int64_t timestampNs);
         
-        void save(RawType type,
-                  int numSaveBuffers,
-                  int64_t referenceTimestampNs,
-                  const RawCameraMetadata& metadata,
-                  const PostProcessSettings& settings,
-                  const std::string& outputPath);
+        void saveHdr(int numSaveBuffers,
+                     int64_t referenceTimestampNs,
+                     const RawCameraMetadata& metadata,
+                     const PostProcessSettings& settings,
+                     const std::string& outputPath);
 
         void save(RawCameraMetadata& metadata,
                   int64_t referenceTimestampNs,

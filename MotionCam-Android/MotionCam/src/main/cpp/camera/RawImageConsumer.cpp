@@ -51,7 +51,7 @@ namespace motioncam {
         mShadowBoost(0.0f),
         mTempOffset(0.0f),
         mTintOffset(0.0f),
-        mPreviewShadows(0.0f),
+        mPreviewShadows(4.0f),
         mPreviewShadowStep(0.0f),
         mCameraDesc(std::move(cameraDescription))
     {

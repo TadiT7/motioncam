@@ -469,7 +469,7 @@ JNIEXPORT jobjectArray JNICALL Java_com_motioncam_camera_NativeCameraSessionBrid
 
     // Construct result
     jclass nativeCameraBufferClass = env->FindClass("com/motioncam/camera/NativeCameraBuffer");
-    jobjectArray result = nullptr;
+    jobjectArray result;
 
     // Return available buffers
     auto lockedBuffers = RawBufferManager::get().consumeAllBuffers();
@@ -997,4 +997,44 @@ void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_PrepareHdrCaptu
     }
 
     sessionManager->prepareHdrCapture(iso, exposure);
+}
+
+extern "C" JNIEXPORT
+jobjectArray JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_DetectFaces(
+        JNIEnv *env, jobject thiz, jlong handle)
+{
+    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
+    if(!sessionManager) {
+        return nullptr;
+    }
+
+    auto cameraId = sessionManager->getSelectedCameraId();
+    auto metadata = sessionManager->getCameraDescription(cameraId)->metadata;
+
+    auto lockedBuffer = RawBufferManager::get().consumeLatestBuffer();
+    if(!lockedBuffer || lockedBuffer->getBuffers().empty())
+        return nullptr;
+
+    auto imageBuffer = lockedBuffer->getBuffers().front();
+    auto faces = ImageProcessor::detectFaces(*imageBuffer, metadata);
+
+    jclass nativeRectClass = env->FindClass("android/graphics/RectF");
+    auto result = env->NewObjectArray(static_cast<jsize>(faces.size()), nativeRectClass, nullptr);
+    if(result == nullptr)
+        return nullptr;
+
+    for (size_t i = 0; i < faces.size(); i++) {
+        jobject obj =
+                env->NewObject(
+                        nativeRectClass,
+                        env->GetMethodID(nativeRectClass, "<init>", "(FFFF)V"),
+                        faces[i].x,
+                        faces[i].y,
+                        faces[i].x + faces[i].width,
+                        faces[i].y + faces[i].height);
+
+        env->SetObjectArrayElement(result, i, obj);
+    }
+
+    return result;
 }

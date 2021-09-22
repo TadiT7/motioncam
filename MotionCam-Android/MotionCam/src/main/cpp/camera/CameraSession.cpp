@@ -779,25 +779,15 @@ namespace motioncam {
     }
 
     void CameraSession::doSave(int numImages) {
-        // If there's a large delay between the requested capture timestamp then we need to use the latest timestamp
-        // because we might not have any images available
-        auto latestTimeStamp = RawBufferManager::get().latestTimeStamp();
-        if(latestTimeStamp - mRequestHdrCaptureTimestamp > 500*1000*1000) // 500 ms
-        {
-            mRequestHdrCaptureTimestamp = latestTimeStamp;
-        }
-        else {
-            int hdrBufferCount = RawBufferManager::get().numHdrBuffers();
-            if(hdrBufferCount < mRequestedHdrCaptures) {
-                // Continue waiting for HDR image
-                json11::Json::object data = { { "numImages", numImages } };
-                pushEvent(EventAction::EVENT_SAVE, data);
-                return;
-            }
+        int hdrBufferCount = RawBufferManager::get().numHdrBuffers();
+        if(hdrBufferCount < mRequestedHdrCaptures) {
+            // Continue waiting for HDR image
+            json11::Json::object data = { { "numImages", numImages } };
+            pushEvent(EventAction::EVENT_SAVE, data);
+            return;
         }
 
-        RawBufferManager::get().save(
-                RawType::HDR,
+        RawBufferManager::get().saveHdr(
                 numImages + mRequestedHdrCaptures,
                 mRequestHdrCaptureTimestamp,
                 mCameraDescription->metadata,
@@ -837,8 +827,7 @@ namespace motioncam {
         mLongHdrCaptureInProgress = false;
 
         LOGI("HDR capture completed. Saving data.");
-        RawBufferManager::get().save(
-                RawType::HDR,
+        RawBufferManager::get().saveHdr(
                 mRequestedHdrCaptures,
                 mRequestHdrCaptureTimestamp,
                 mCameraDescription->metadata,

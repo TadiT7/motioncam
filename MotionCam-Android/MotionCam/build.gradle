@@ -14,8 +14,8 @@ android {
         applicationId "com.motioncam"
         minSdkVersion 24
         targetSdkVersion 30
-        versionCode 43
-        versionName "4.0.3"
+        versionCode 50
+        versionName "5.0.0"
         externalNativeBuild {
             cmake {
                 version "3.10.3"
@@ -73,7 +73,7 @@ dependencies {
     implementation 'commons-io:commons-io:20030203.000550'
     implementation 'org.apache.commons:commons-math3:3.6.1'
     implementation 'com.mikhaellopez:circularprogressbar:3.1.0'
-    implementation 'com.jakewharton:process-phoenix:2.0.0'
+    implementation 'com.jakewharton:process-phoenix:2.1.2'
     implementation 'de.hdodenhof:circleimageview:3.1.0'
     implementation 'com.github.bumptech.glide:glide:4.12.0'
     implementation 'com.google.mlkit:face-detection:16.1.2'
