@@ -133,39 +133,50 @@ Expr DenoiseGenerator::mean(Expr A, Expr B, Expr C, Expr D) {
 Func DenoiseGenerator::calcThreshold(Func inHigh) {
     Func T{"T"};
 
-    Expr T0 = mean(
-        abs(inHigh(v_x-1,  v_y-1,  v_c, v_i)),
-        abs(inHigh(v_x,    v_y-1,  v_c, v_i)),
-        abs(inHigh(v_x,    v_y,    v_c, v_i)),
-        abs(inHigh(v_x-1,  v_y,    v_c, v_i ))
-    );
+    // Expr T0 = mean(
+    //     abs(inHigh(v_x-1,  v_y-1,  v_c, v_i)),
+    //     abs(inHigh(v_x,    v_y-1,  v_c, v_i)),
+    //     abs(inHigh(v_x,    v_y,    v_c, v_i)),
+    //     abs(inHigh(v_x-1,  v_y,    v_c, v_i ))
+    // );
 
-    Expr T1 = mean(
-        abs(inHigh(v_x,    v_y-1,  v_c, v_i)),
-        abs(inHigh(v_x+1,  v_y-1,  v_c, v_i)),
-        abs(inHigh(v_x+1,  v_y,    v_c, v_i)),
-        abs(inHigh(v_x,    v_y,    v_c, v_i))
-    );
+    // Expr T1 = mean(
+    //     abs(inHigh(v_x,    v_y-1,  v_c, v_i)),
+    //     abs(inHigh(v_x+1,  v_y-1,  v_c, v_i)),
+    //     abs(inHigh(v_x+1,  v_y,    v_c, v_i)),
+    //     abs(inHigh(v_x,    v_y,    v_c, v_i))
+    // );
 
-    Expr T2 = mean(
-        abs(inHigh(v_x,    v_y,    v_c, v_i)),
-        abs(inHigh(v_x+1,  v_y,    v_c, v_i)),
-        abs(inHigh(v_x,    v_y+1,  v_c, v_i)),
-        abs(inHigh(v_x+1,  v_y+1,  v_c, v_i))
-    );
+    // Expr T2 = mean(
+    //     abs(inHigh(v_x,    v_y,    v_c, v_i)),
+    //     abs(inHigh(v_x+1,  v_y,    v_c, v_i)),
+    //     abs(inHigh(v_x,    v_y+1,  v_c, v_i)),
+    //     abs(inHigh(v_x+1,  v_y+1,  v_c, v_i))
+    // );
 
-    Expr T3 = mean(
-        abs(inHigh(v_x-1,  v_y,    v_c, v_i)),
-        abs(inHigh(v_x,    v_y,    v_c, v_i)),
-        abs(inHigh(v_x,    v_y+1,  v_c, v_i)),
-        abs(inHigh(v_x-1,  v_y+1,  v_c, v_i))
-    );
+    // Expr T3 = mean(
+    //     abs(inHigh(v_x-1,  v_y,    v_c, v_i)),
+    //     abs(inHigh(v_x,    v_y,    v_c, v_i)),
+    //     abs(inHigh(v_x,    v_y+1,  v_c, v_i)),
+    //     abs(inHigh(v_x-1,  v_y+1,  v_c, v_i))
+    // );
 
-    T(v_x, v_y, v_c, v_i) =
-        select( v_i == 0, T0,
-                v_i == 1, T1,
-                v_i == 2, T2,
-                          T3 );
+    // T(v_x, v_y, v_c, v_i) =
+    //     select( v_i == 0, T0,
+    //             v_i == 1, T1,
+    //             v_i == 2, T2,
+    //                       T3 );
+
+    const int R = 1;
+    Expr M = 0.0f;
+
+    for(int y = -R; y <= R; y++) {
+        for(int x = -R; x <= R; x++) {
+            M += abs(inHigh(v_x + x, v_y + y, v_c, 2));
+        }
+    }
+
+    T(v_x, v_y, v_c) = sqrt(M / 9.0f);
 
     return T;
 }
@@ -191,8 +202,6 @@ Func DenoiseGenerator::registeredInput() {
     Expr x = cast<int16_t>(fx + 0.5f);
     Expr y = cast<int16_t>(fy + 0.5f);
     
-    // result(v_x, v_y, v_c) = clamped(x, y, v_c);
-
     Expr a = fx - x;
     Expr b = fy - y;
     
@@ -229,12 +238,12 @@ void DenoiseGenerator::generate() {
     Func outMean{"outMean"}, outHigh{"outHigh"};
 
     Expr d0 = inHigh0(v_x, v_y, v_c, v_i) - inHigh1(v_x, v_y, v_c, v_i);
-    Expr m0 = abs(d0) / (1e-15f + abs(d0) + Wh*T(v_x, v_y, v_c, v_i));
+    Expr m0 = abs(d0) / (1e-15f + abs(d0) + Wh*T(v_x, v_y, v_c));
 
     outHigh(v_x, v_y, v_c, v_i) = inHigh1(v_x, v_y, v_c, v_i) + m0*d0;
 
     Expr d1 = inMean0(v_x, v_y, v_c, v_i) - inMean1(v_x, v_y, v_c, v_i);
-    Expr m1 = abs(d1) / (1e-15f + abs(d1) + Wm*T(v_x, v_y, v_c, v_i));
+    Expr m1 = abs(d1) / (1e-15f + abs(d1) + Wm*T(v_x, v_y, v_c));
 
     outMean(v_x, v_y, v_c, v_i) = inMean1(v_x, v_y, v_c, v_i) + m1*d1;
 
