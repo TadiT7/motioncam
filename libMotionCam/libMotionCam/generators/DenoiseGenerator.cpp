@@ -61,7 +61,7 @@ public:
 private:
     Func blockMean(Func in);
     void cmpSwap(Expr& a, Expr& b);
-    Expr median(Expr A, Expr B, Expr C, Expr D);
+    Expr mean(Expr A, Expr B, Expr C, Expr D);
     Func registeredInput();
     Func calcThreshold(Func inHigh);
 
@@ -126,35 +126,35 @@ void DenoiseGenerator::cmpSwap(Expr& a, Expr& b) {
     a = tmp;
 }
 
-Expr DenoiseGenerator::median(Expr A, Expr B, Expr C, Expr D) {
+Expr DenoiseGenerator::mean(Expr A, Expr B, Expr C, Expr D) {
     return sqrt(0.25f * (A+B+C+D));
 }
 
 Func DenoiseGenerator::calcThreshold(Func inHigh) {
     Func T{"T"};
 
-    Expr T0 = median(
+    Expr T0 = mean(
         abs(inHigh(v_x-1,  v_y-1,  v_c, v_i)),
         abs(inHigh(v_x,    v_y-1,  v_c, v_i)),
         abs(inHigh(v_x,    v_y,    v_c, v_i)),
         abs(inHigh(v_x-1,  v_y,    v_c, v_i ))
     );
 
-    Expr T1 = median(
+    Expr T1 = mean(
         abs(inHigh(v_x,    v_y-1,  v_c, v_i)),
         abs(inHigh(v_x+1,  v_y-1,  v_c, v_i)),
         abs(inHigh(v_x+1,  v_y,    v_c, v_i)),
         abs(inHigh(v_x,    v_y,    v_c, v_i))
     );
 
-    Expr T2 = median(
+    Expr T2 = mean(
         abs(inHigh(v_x,    v_y,    v_c, v_i)),
         abs(inHigh(v_x+1,  v_y,    v_c, v_i)),
         abs(inHigh(v_x,    v_y+1,  v_c, v_i)),
         abs(inHigh(v_x+1,  v_y+1,  v_c, v_i))
     );
 
-    Expr T3 = median(
+    Expr T3 = mean(
         abs(inHigh(v_x-1,  v_y,    v_c, v_i)),
         abs(inHigh(v_x,    v_y,    v_c, v_i)),
         abs(inHigh(v_x,    v_y+1,  v_c, v_i)),

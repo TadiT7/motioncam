@@ -3469,8 +3469,6 @@ public:
     Input<Buffer<uint16_t>> input2{"input2", 2};
     Input<Buffer<uint16_t>> input3{"input3", 2};
 
-    Input<Buffer<float>> flowMap{"flowMap", 3};
-
     Input<Buffer<float>> inShadingMap0{"inShadingMap0", 2 };
     Input<Buffer<float>> inShadingMap1{"inShadingMap1", 2 };
     Input<Buffer<float>> inShadingMap2{"inShadingMap2", 2 };
@@ -3493,21 +3491,15 @@ public:
     void generate();
 
 private:
-    Func registeredInput();
-
-private:
     std::unique_ptr<Demosaic> demosaic;
 };
 
-Func LinearImageGenerator::registeredInput() {
-    Func result{"registeredInput"};
+void LinearImageGenerator::generate() {
+    Func inDemosaic[4];
 
     Func input{"input"};
-    Func inputF32{"inputF32"};
-
-    flowMap
-        .dim(0).set_stride(2)
-        .dim(2).set_stride(1);
+    Func b{"b"};
+    Func scaled{"scaled"};
 
     input(v_x, v_y, v_c) =
         mux(v_c,
@@ -3516,38 +3508,6 @@ Func LinearImageGenerator::registeredInput() {
                 input2(v_x, v_y),
                 input3(v_x, v_y) });
 
-    Func clamped = BoundaryConditions::repeat_edge(input, { { 0, input0.width() }, { 0, input0.height() } });
-
-    inputF32(v_x, v_y, v_c) = cast<float>(clamped(v_x, v_y, v_c));
-    
-    Expr flowX = clamp(v_x, 0, flowMap.width() - 1);
-    Expr flowY = clamp(v_y, 0, flowMap.height() - 1);
-    
-    Expr fx = v_x + flowMap(flowX, flowY, 0);
-    Expr fy = v_y + flowMap(flowX, flowY, 1);
-    
-    Expr x = cast<int16_t>(fx + 0.5f);
-    Expr y = cast<int16_t>(fy + 0.5f);
-    
-    Expr a = fx - x;
-    Expr b = fy - y;
-    
-    Expr p0 = lerp(inputF32(x, y, v_c), inputF32(x + 1, y, v_c), a);
-    Expr p1 = lerp(inputF32(x, y + 1, v_c), inputF32(x + 1, y + 1, v_c), a);
-    
-    result(v_x, v_y, v_c) = saturating_cast<uint16_t>(lerp(p0, p1, b) + 0.5f);
-
-    return result;
-}
-
-void LinearImageGenerator::generate() {
-    Func alignedInput;
-    Func inDemosaic[4];
-    Func b{"b"};
-    Func scaled{"scaled"};
-
-    alignedInput = registeredInput();
-
     b(v_c) =
         mux(v_c,
             {   blackLevel[0],
@@ -3555,7 +3515,7 @@ void LinearImageGenerator::generate() {
                 blackLevel[2],
                 blackLevel[3] });
 
-    scaled(v_x, v_y, v_c) = cast<uint16_t>(clamp((cast<float>(alignedInput(v_x, v_y, v_c)) - b(v_c)) / cast<float>(whiteLevel - b(v_c)) * range + 0.5f, 0, range));
+    scaled(v_x, v_y, v_c) = cast<uint16_t>(clamp((cast<float>(input(v_x, v_y, v_c)) - b(v_c)) / cast<float>(whiteLevel - b(v_c)) * range + 0.5f, 0, range));
 
     inDemosaic[0](v_x, v_y) = scaled(v_x, v_y, 0);
     inDemosaic[1](v_x, v_y) = scaled(v_x, v_y, 1);
@@ -3584,7 +3544,7 @@ void LinearImageGenerator::generate() {
         .parallel(v_y)
         .unroll(v_c);
 
-    alignedInput.set_estimates({{0, 2048}, {0, 1536}, {0, 4}});
+    input.set_estimates({{0, 2048}, {0, 1536}, {0, 4}});
 
     inShadingMap0.set_estimates({{0, 17}, {0, 13}});
     inShadingMap1.set_estimates({{0, 17}, {0, 13}});

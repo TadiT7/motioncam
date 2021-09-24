@@ -75,7 +75,8 @@ namespace motioncam {
 
         static void measureImage(RawImageBuffer& rawImage, const RawCameraMetadata& cameraMetadata, float& outSceneLuminosity);
         
-        static cv::Mat registerImage(const cv::Mat& referenceImage, const cv::Mat& toAlignImage);
+        static cv::Mat registerImage(const Halide::Runtime::Buffer<uint8_t>& referenceBuffer,
+                                     const Halide::Runtime::Buffer<uint8_t>& toAlignBuffer);
 
         static cv::Mat registerImage2(const Halide::Runtime::Buffer<uint8_t>& referenceBuffer,
                                       const Halide::Runtime::Buffer<uint8_t>& toAlignBuffer);
@@ -103,7 +104,10 @@ namespace motioncam {
                                      cv::Mat& outPcsToSrgb);
 
         static std::vector<Halide::Runtime::Buffer<uint16_t>> denoise(
-            RawContainer& rawContainer, float* outNoise, ImageProgressHelper& progressHelper);
+            RawContainer& rawContainer,
+            std::shared_ptr<RawImageBuffer> referenceRawBuffer,
+            float* outNoise,
+            ImageProgressHelper& progressHelper);
         
         static void addExifMetadata(const RawImageMetadata& metadata,
                                     const cv::Mat& thumbnail,
@@ -139,6 +143,9 @@ namespace motioncam {
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
                       const std::string& outputPath);
+        
+        static float testAlignment(std::shared_ptr<RawData> refImage, std::shared_ptr<RawData> underexposedImage, cv::Mat warpMatrix);
+        
     #endif
     };
 }

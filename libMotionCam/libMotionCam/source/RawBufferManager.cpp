@@ -7,6 +7,7 @@
 #include "motioncam/Measure.h"
 
 namespace motioncam {
+    static const bool AlwaysSaveToDisk = false;
 
     static std::vector<std::shared_ptr<RawImageBuffer>> FindNearestBuffers(
         const std::vector<std::shared_ptr<RawImageBuffer>>& buffers, RawType type, int64_t timestampNs, int numBuffers) {
@@ -226,7 +227,7 @@ namespace motioncam {
         }
 
         // Save the container
-        if(mPendingContainers.size_approx() > 1) {
+        if(AlwaysSaveToDisk || mPendingContainers.size_approx() > 1) {
             rawContainer->save(outputPath);
         }
         else {
@@ -325,7 +326,7 @@ namespace motioncam {
         }
 
         // Save container
-        if(mPendingContainers.size_approx() > 1) {
+        if(AlwaysSaveToDisk || mPendingContainers.size_approx() > 1) {
             rawContainer->save(outputPath);
         }
         else {
