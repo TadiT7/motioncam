@@ -806,7 +806,7 @@ void InverseTransformGenerator::threshold(Func& out, Func in, Func parent, Expr 
 
     Wsig.compute_root().parallel(v_y, 32).vectorize(v_x, 8);
 
-    Expr T = sqrt(3.0f)*(Nsig*Nsig) / Ssig(v_x, v_y, v_c, v_i);
+    Expr T = sqrtf(3.0f)*(Nsig*Nsig) / Ssig(v_x, v_y, v_c, v_i);
     Expr R = max(sqrt(y1*y1 + y2*y2) - T, 0);
 
     Expr w = R/(R+T);

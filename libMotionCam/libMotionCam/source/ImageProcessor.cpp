@@ -103,7 +103,7 @@ static std::vector<Halide::Runtime::Buffer<float>> createWaveletBuffers(int widt
 namespace motioncam {
     const int DENOISE_LEVELS            = 6;
     const int EXPANDED_RANGE            = 16384;
-    const float MAX_HDR_ERROR           = 0.03f;
+    const float MAX_HDR_ERROR           = 0.005f;
     const float WHITEPOINT_THRESHOLD    = 1.0f;
     const float SHADOW_BIAS             = 16.0f;
 
@@ -312,15 +312,14 @@ namespace motioncam {
         float tonemapVariance = 0.25f;
         bool useHdr = false;
         float hdrInputGain = 1.0f;
+        float hdrScale = 1.0f;
         
         if(hdrMetadata && hdrMetadata->error < MAX_HDR_ERROR) {
             hdrInput = hdrMetadata->hdrInput;
             hdrInputGain = hdrMetadata->gain;
-            useHdr = true;
             tonemapVariance = 0.2f;
-            
-            // Hack boost shadows when dynamic range compression is high
-            shadows = std::min(24.0f, shadows * sqrt(hdrMetadata->exposureScale));
+            hdrScale = 1.0f / hdrMetadata->exposureScale;
+            useHdr = true;
         }
         else {
             // Don't apply underexposed image when error is too high
@@ -330,7 +329,7 @@ namespace motioncam {
             hdrInput = Halide::Runtime::Buffer<uint16_t>(inputBuffers[0].width()*2, inputBuffers[0].height()*2, 3);
             useHdr = false;
         }
-        
+
         postprocess(inputBuffers[0],
                     inputBuffers[1],
                     inputBuffers[2],
@@ -350,6 +349,7 @@ namespace motioncam {
                     static_cast<int>(cameraMetadata.sensorArrangment),
                     shadows,
                     hdrInputGain,
+                    hdrScale,
                     tonemapVariance,
                     settings.blacks,
                     settings.exposure,
@@ -847,7 +847,7 @@ namespace motioncam {
             try {
                 cv::findTransformECC(curPyramid[i], refPyramid[i], warpMatrix, cv::MOTION_HOMOGRAPHY, termCriteria);
             }
-            catch(std::runtime_error e) {
+            catch(cv::Exception& e) {
                 return warpMatrix;
             }
             
@@ -1441,11 +1441,51 @@ namespace motioncam {
         
         auto processFrames = rawContainer.getFrames();
         auto it = processFrames.begin();
-                
-        // Linearly increase difference threshold based on the exposure value
-        float ev = calcEv(rawContainer.getCameraMetadata(), reference->metadata);
-        float w = std::max(1.0f, -ev + 12.0f);
                         
+        // # frames -> maximum weight
+        std::vector<int> MAX_WEIGHT_FOR_FRAMES = {
+            4,  2,
+            8,  4,
+            12, 12,
+            16, 16,
+        };
+        
+        // ev -> weight
+        std::vector<int> WEIGHT_FOR_EV = {
+            16, 2,
+            8,  4,
+            4,  8,
+            0,  12,
+            -4, 16
+        };
+        
+        int ev = (int) (0.5f + calcEv(rawContainer.getCameraMetadata(), reference->metadata));
+
+        //
+        // Get weight when merging frames. We'll want a higher weight with more noise but we reduce the weight when
+        // the number of frames is lower. The fewer frames we have to merge the less aggressive we can be when merging because
+        // of a higher chance of introducing artifacts into the final output.
+        //
+        
+        int w0 = MAX_WEIGHT_FOR_FRAMES[MAX_WEIGHT_FOR_FRAMES.size()-1];
+        int w1 = WEIGHT_FOR_EV[WEIGHT_FOR_EV.size()-1];
+        
+        for(int i = 0; i < MAX_WEIGHT_FOR_FRAMES.size(); i+=2) {
+            if(processFrames.size() <= MAX_WEIGHT_FOR_FRAMES[i] ) {
+                w0 = MAX_WEIGHT_FOR_FRAMES[i + 1];
+                break;
+            }
+        }
+
+        for(int i = 0; i < WEIGHT_FOR_EV.size(); i+=2) {
+            if(ev >= WEIGHT_FOR_EV[i] ) {
+                w1 = WEIGHT_FOR_EV[i + 1];
+                break;
+            }
+        }
+
+        int w = std::min(w0, w1);
+        
         while(it != processFrames.end()) {
             if(rawContainer.getReferenceImage() == *it) {
                 ++it;
@@ -1858,7 +1898,7 @@ namespace motioncam {
         Halide::Runtime::Buffer<uint8_t> ghostMapBuffer(alignedBuffer.width(), alignedBuffer.height());
         Halide::Runtime::Buffer<uint8_t> maskBuffer(alignedBuffer.width(), alignedBuffer.height());
         
-        hdr_mask(refImage->previewBuffer, alignedBuffer, 2.0f, ghostMapBuffer, maskBuffer);
+        hdr_mask(refImage->previewBuffer, alignedBuffer, 16.0f, ghostMapBuffer, maskBuffer);
 
         // Calculate error
         cv::Mat ghostMap(ghostMapBuffer.height(), ghostMapBuffer.width(), CV_8U, ghostMapBuffer.data());

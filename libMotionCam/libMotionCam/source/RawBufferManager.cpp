@@ -145,7 +145,7 @@ namespace motioncam {
         {
             std::lock_guard<std::recursive_mutex> lock(mMutex);
 
-            if (mReadyBuffers.empty() || numSaveBuffers <= 0)
+            if (mReadyBuffers.empty() || numSaveBuffers < 1)
                 return;
 
             std::vector<std::shared_ptr<RawImageBuffer>> zslBuffers, hdrBuffers;
@@ -245,6 +245,9 @@ namespace motioncam {
         
         std::vector<std::shared_ptr<RawImageBuffer>> buffers;
 
+        if(numSaveBuffers < 1)
+            return;
+
         {
             std::lock_guard<std::recursive_mutex> lock(mMutex);
 
@@ -258,6 +261,7 @@ namespace motioncam {
                 if(mReadyBuffers[i]->metadata.timestampNs == referenceTimestampNs) {
                     referenceIdx = i;
                     buffers.push_back(mReadyBuffers[i]);
+                    --numSaveBuffers;
                     break;
                 }
             }

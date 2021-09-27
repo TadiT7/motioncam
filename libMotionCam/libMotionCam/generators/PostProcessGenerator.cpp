@@ -2319,6 +2319,7 @@ public:
     
     Input<float> shadows{"shadows"};
     Input<float> hdrInputGain{"hdrInputGain"};
+    Input<float> hdrScale{"hdrScale"};
     Input<float> tonemapVariance{"tonemapVariance"};
     Input<float> blackPoint{"blackPoint"};
     Input<float> exposure{"exposure"};
@@ -2341,9 +2342,9 @@ public:
     Func defringe{"defringe"};
 
     Func colorCorrected{"colorCorrected"};
-    Func hdrMask32{"hdrMask32"};
-    Func hdrInput32{"hdrInput32"};
-    Func hdrMerged{"hdrMerged"};
+    Func hdrTonemapInput{"hdrTonemapInput"};
+    Func hdrMask{"hdrMask"};
+    Func highlights{"highlights"};
     Func YCbCr{"YCbCr"};
     Func linearRgb{"linearRgb"};
     Func tonemapped{"tonemapped"};
@@ -2385,12 +2386,14 @@ void PostProcessGenerator::generate()
         asShot,
         cameraToSrgb);
 
-    Func hdrTonemapInput{"hdrTonemapInput"};
-
     tonemapInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(0.5f + pow(2.0f, exposure) * demosaic->output(v_x, v_y, v_c));
 
+    hdrMask(v_x, v_y) = exp(-16.0f * (demosaic->output(v_x, v_y, 1) / 65535.0f - 1.0f) * (demosaic->output(v_x, v_y, 1) / 65535.0f - 1.0f));
+
+    highlights(v_x, v_y, v_c) = (hdrMask(v_x, v_y)*hdrInput(v_x, v_y, v_c)/65535.0f) + ((1.0f - hdrMask(v_x, v_y))*hdrScale*demosaic->output(v_x, v_y, v_c)/65535.0f);
+
     hdrTonemapInput(v_x, v_y, v_c) = select(useHdr, 
-        saturating_cast<uint16_t>(hdrInputGain * hdrInput(clamp(v_x, 0, hdrInput.width() - 1), clamp(v_y, 0, hdrInput.height() - 1), v_c)),
+        saturating_cast<uint16_t>(hdrInputGain * highlights(v_x, v_y, v_c) * 65535.0f),
         tonemapInput(v_x, v_y, v_c));
 
     tonemap = create<TonemapGenerator>();
@@ -2522,23 +2525,13 @@ void PostProcessGenerator::schedule_for_cpu() {
         .parallel(v_yo)
         .parallel(v_c);
 
-    // hdrTonemapInput
-    // .compute_root()
-    //     .bound(v_c, 0, 3)
-    //     .reorder(v_c, v_x, v_y)
-    //     .split(v_y, v_yo, v_yi, 32)
-    //     .parallel(v_yo)
-    //     .unroll(v_c)
-    //     .vectorize(v_x, vector_size_u16);
-
-    // tonemapInput
-    //     .compute_root()
-    //     .bound(v_c, 0, 3)
-    //     .reorder(v_c, v_x, v_y)
-    //     .split(v_y, v_yo, v_yi, 32)
-    //     .parallel(v_yo)
-    //     .unroll(v_c)
-    //     .vectorize(v_x, vector_size_u16);
+    hdrTonemapInput
+        .compute_root()
+            .bound(v_c, 0, 3)
+            .reorder(v_c, v_x, v_y)
+            .parallel(v_y)
+            .unroll(v_c)
+            .vectorize(v_x, vector_size_u16);
 
     output
         .compute_root()
