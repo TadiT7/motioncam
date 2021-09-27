@@ -99,7 +99,7 @@ public class CameraActivity extends AppCompatActivity implements
     private static final int PERMISSION_REQUEST_CODE = 1;
     private static final int SETTINGS_ACTIVITY_REQUEST_CODE = 0x10;
 
-    private static final CameraManualControl.SHUTTER_SPEED MAX_EXPOSURE_TIME = CameraManualControl.SHUTTER_SPEED.EXPOSURE_1__0;
+    private static final CameraManualControl.SHUTTER_SPEED MAX_EXPOSURE_TIME = CameraManualControl.SHUTTER_SPEED.EXPOSURE_30__0;
 
     private static final String[] REQUEST_PERMISSIONS = {
             Manifest.permission.CAMERA,
