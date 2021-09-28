@@ -1,10 +1,12 @@
 #include "motioncam/RawBufferManager.h"
 
 #include <utility>
+
 #include "motioncam/RawContainer.h"
 #include "motioncam/Util.h"
 #include "motioncam/Logger.h"
 #include "motioncam/Measure.h"
+#include "motioncam/Lock.h"
 
 namespace motioncam {
     static const bool AlwaysSaveToDisk = false;
@@ -71,7 +73,7 @@ namespace motioncam {
         }
 
         {
-            std::lock_guard<std::recursive_mutex> lock(mMutex);
+            Lock lock(mMutex, __PRETTY_FUNCTION__);
             mReadyBuffers.clear();
         }
         
@@ -87,7 +89,7 @@ namespace motioncam {
         }
         
         {
-            std::lock_guard<std::recursive_mutex> lock(mMutex);
+            Lock lock(mMutex, __PRETTY_FUNCTION__);
 
             if(!mReadyBuffers.empty()) {
                 buffer = mReadyBuffers.front();
@@ -101,13 +103,13 @@ namespace motioncam {
     }
 
     void RawBufferManager::enqueueReadyBuffer(const std::shared_ptr<RawImageBuffer>& buffer) {
-        std::lock_guard<std::recursive_mutex> lock(mMutex);
+        Lock lock(mMutex, __PRETTY_FUNCTION__);
         
         mReadyBuffers.push_back(buffer);
     }
 
     int RawBufferManager::numHdrBuffers() {
-        std::lock_guard<std::recursive_mutex> lock(mMutex);
+        Lock lock(mMutex, __PRETTY_FUNCTION__);
         
         int hdrBuffers = 0;
         
@@ -129,7 +131,7 @@ namespace motioncam {
     }
 
     void RawBufferManager::returnBuffers(const std::vector<std::shared_ptr<RawImageBuffer>>& buffers) {
-        std::lock_guard<std::recursive_mutex> lock(mMutex);
+        Lock lock(mMutex, __PRETTY_FUNCTION__);
 
         std::move(buffers.begin(), buffers.end(), std::back_inserter(mReadyBuffers));
     }
@@ -143,7 +145,7 @@ namespace motioncam {
         std::vector<std::shared_ptr<RawImageBuffer>> buffers;
 
         {
-            std::lock_guard<std::recursive_mutex> lock(mMutex);
+            Lock lock(mMutex, __PRETTY_FUNCTION__);
 
             if (mReadyBuffers.empty() || numSaveBuffers < 1)
                 return;
@@ -151,9 +153,9 @@ namespace motioncam {
             std::vector<std::shared_ptr<RawImageBuffer>> zslBuffers, hdrBuffers;
 
             // Find the HDR buffers first
-            for(int i = 0; i < mReadyBuffers.size(); i++) {
-                if(mReadyBuffers[i]->metadata.rawType == RawType::HDR) {
-                    hdrBuffers.push_back(mReadyBuffers[i]);
+            for(auto & mReadyBuffer : mReadyBuffers) {
+                if(mReadyBuffer->metadata.rawType == RawType::HDR) {
+                    hdrBuffers.push_back(mReadyBuffer);
                 }
             }
 
@@ -172,11 +174,11 @@ namespace motioncam {
                 hdrTimestamp = hdrBuffers.front()->metadata.timestampNs;
             }
             
-            for(int i = 0; i < mReadyBuffers.size(); i++) {
-                if(mReadyBuffers[i]->metadata.rawType == RawType::ZSL &&
-                   mReadyBuffers[i]->metadata.timestampNs < hdrTimestamp)
+            for(auto & mReadyBuffer : mReadyBuffers) {
+                if(mReadyBuffer->metadata.rawType == RawType::ZSL &&
+                   mReadyBuffer->metadata.timestampNs < hdrTimestamp)
                 {
-                    zslBuffers.push_back(mReadyBuffers[i]);
+                    zslBuffers.push_back(mReadyBuffer);
                 }
             }
             
@@ -249,7 +251,7 @@ namespace motioncam {
             return;
 
         {
-            std::lock_guard<std::recursive_mutex> lock(mMutex);
+            Lock lock(mMutex, __PRETTY_FUNCTION__);
 
             if(mReadyBuffers.empty())
                 return;
@@ -325,7 +327,7 @@ namespace motioncam {
 
         // Return buffers
         {
-            std::lock_guard<std::recursive_mutex> lock(mMutex);
+            Lock lock(mMutex, __PRETTY_FUNCTION__);
             mReadyBuffers.insert(mReadyBuffers.end(), buffers.begin(), buffers.end());
         }
 
@@ -346,7 +348,7 @@ namespace motioncam {
     }
 
     std::unique_ptr<RawBufferManager::LockedBuffers> RawBufferManager::consumeLatestBuffer() {
-        std::lock_guard<std::recursive_mutex> lock(mMutex);
+        Lock lock(mMutex, __PRETTY_FUNCTION__);
 
         if(mReadyBuffers.empty()) {
             return std::unique_ptr<LockedBuffers>(new LockedBuffers());
@@ -361,7 +363,7 @@ namespace motioncam {
     }
 
     std::unique_ptr<RawBufferManager::LockedBuffers> RawBufferManager::consumeBuffer(int64_t timestampNs) {
-        std::lock_guard<std::recursive_mutex> lock(mMutex);
+        Lock lock(mMutex, __PRETTY_FUNCTION__);
 
         auto it = std::find_if(
             mReadyBuffers.begin(), mReadyBuffers.end(),
@@ -379,7 +381,7 @@ namespace motioncam {
     }
 
     std::unique_ptr<RawBufferManager::LockedBuffers> RawBufferManager::consumeAllBuffers() {
-        std::lock_guard<std::recursive_mutex> lock(mMutex);
+        Lock lock(mMutex, __PRETTY_FUNCTION__);
 
         auto lockedBuffers = std::unique_ptr<LockedBuffers>(new LockedBuffers(mReadyBuffers));
         mReadyBuffers.clear();
@@ -388,7 +390,7 @@ namespace motioncam {
     }
 
     int64_t RawBufferManager::latestTimeStamp() {
-        std::lock_guard<std::recursive_mutex> lock(mMutex);
+        Lock lock(mMutex, __PRETTY_FUNCTION__);
         
         if(mReadyBuffers.empty())
             return -1;

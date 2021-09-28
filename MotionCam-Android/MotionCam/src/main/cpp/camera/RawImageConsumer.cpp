@@ -29,7 +29,7 @@
 namespace motioncam {
     static const int COPY_THREADS = 1; // More than one copy thread breaks RAW preview
     static const int MINIMUM_BUFFERS = 16;
-    static const int ESTIMATE_SHADOWS_FRAME_INTERVAL = 8;
+    static const int ESTIMATE_SHADOWS_FRAME_INTERVAL = 4;
 
 #ifdef GPU_CAMERA_PREVIEW
     void VERIFY_RESULT(int32_t errCode, const std::string& errString)
@@ -342,7 +342,7 @@ namespace motioncam {
             buf.device_malloc(halide_opencl_device_interface());
 
             // Use relaxed math
-            halide_opencl_set_build_options("-cl-fast-relaxed-math");
+            halide_opencl_set_build_options("-cl-fast-relaxed-math -cl-mad-enable");
         }
 #endif
 
@@ -660,7 +660,7 @@ namespace motioncam {
             result &= (AImage_getWidth(image, &width)                   == AMEDIA_OK);
             result &= (AImage_getHeight(image, &height)                 == AMEDIA_OK);
             result &= (AImage_getPlaneRowStride(image, 0, &rowStride)   == AMEDIA_OK);
-            result &= (AImage_getTimestamp(image, &timestamp)                   == AMEDIA_OK);
+            result &= (AImage_getTimestamp(image, &timestamp)           == AMEDIA_OK);
             result &= (AImage_getPlaneData(image, 0, &data, &length)    == AMEDIA_OK);
 
             // Copy raw data if were able to acquire it successfully

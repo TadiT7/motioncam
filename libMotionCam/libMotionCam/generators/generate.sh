@@ -67,40 +67,40 @@ function build_postprocess() {
 	./tmp/postprocess_generator -g fast_preview_generator -f fast_preview -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS}
 
 	echo "[$ARCH] Building preview_generator2 rotation=0"
-	./tmp/postprocess_generator -g preview_generator -f preview_landscape2 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=0 tonemap_levels=9 downscale_factor=2 enable_sharpen=true pop_radius=7
+	./tmp/postprocess_generator -g preview_generator -f preview_landscape2 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=0 tonemap_levels=8 downscale_factor=2 enable_sharpen=true pop_radius=7
 
 	echo "[$ARCH] Building preview_generator2 rotation=90"
-	./tmp/postprocess_generator -g preview_generator -f preview_reverse_portrait2 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=90 tonemap_levels=9 downscale_factor=2 enable_sharpen=true pop_radius=7
+	./tmp/postprocess_generator -g preview_generator -f preview_reverse_portrait2 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=90 tonemap_levels=8 downscale_factor=2 enable_sharpen=true pop_radius=7
 
 	echo "[$ARCH] Building preview_generator2 rotation=-90"
-	./tmp/postprocess_generator -g preview_generator -f preview_portrait2 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=-90 tonemap_levels=9 downscale_factor=2 enable_sharpen=true pop_radius=7
+	./tmp/postprocess_generator -g preview_generator -f preview_portrait2 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=-90 tonemap_levels=8 downscale_factor=2 enable_sharpen=true pop_radius=7
 
 	echo "[$ARCH] Building preview_generator2 rotation=180"
-	./tmp/postprocess_generator -g preview_generator -f preview_reverse_landscape2 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=180 tonemap_levels=9 downscale_factor=2 enable_sharpen=true pop_radius=7
+	./tmp/postprocess_generator -g preview_generator -f preview_reverse_landscape2 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=180 tonemap_levels=8 downscale_factor=2 enable_sharpen=true pop_radius=7
 
 	echo "[$ARCH] Building preview_generator4 rotation=0"
-	./tmp/postprocess_generator -g preview_generator -f preview_landscape4 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=0 tonemap_levels=8 downscale_factor=4 enable_sharpen=true pop_radius=3
+	./tmp/postprocess_generator -g preview_generator -f preview_landscape4 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=0 tonemap_levels=7 downscale_factor=4 enable_sharpen=true pop_radius=3
 
 	echo "[$ARCH] Building preview_generator4 rotation=90"
-	./tmp/postprocess_generator -g preview_generator -f preview_reverse_portrait4 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=90 tonemap_levels=8 downscale_factor=4 enable_sharpen=true pop_radius=3
+	./tmp/postprocess_generator -g preview_generator -f preview_reverse_portrait4 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=90 tonemap_levels=7 downscale_factor=4 enable_sharpen=true pop_radius=3
 
 	echo "[$ARCH] Building preview_generator4 rotation=-90"
-	./tmp/postprocess_generator -g preview_generator -f preview_portrait4 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=-90 tonemap_levels=8 downscale_factor=4 enable_sharpen=true pop_radius=3
+	./tmp/postprocess_generator -g preview_generator -f preview_portrait4 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=-90 tonemap_levels=7 downscale_factor=4 enable_sharpen=true pop_radius=3
 
 	echo "[$ARCH] Building preview_generator4 rotation=180"
-	./tmp/postprocess_generator -g preview_generator -f preview_reverse_landscape4 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=180 tonemap_levels=8 downscale_factor=4 enable_sharpen=true pop_radius=3
+	./tmp/postprocess_generator -g preview_generator -f preview_reverse_landscape4 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=180 tonemap_levels=7 downscale_factor=4 enable_sharpen=true pop_radius=3
 
 	echo "[$ARCH] Building preview_generator8 rotation=0"
-	./tmp/postprocess_generator -g preview_generator -f preview_landscape8 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=0 tonemap_levels=7 downscale_factor=8 enable_sharpen=false pop_radius=3
+	./tmp/postprocess_generator -g preview_generator -f preview_landscape8 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=0 tonemap_levels=6 downscale_factor=8 enable_sharpen=false pop_radius=3
 
 	echo "[$ARCH] Building preview_generator8 rotation=90"
-	./tmp/postprocess_generator -g preview_generator -f preview_reverse_portrait8 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=90 tonemap_levels=7 downscale_factor=8 enable_sharpen=false pop_radius=3
+	./tmp/postprocess_generator -g preview_generator -f preview_reverse_portrait8 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=90 tonemap_levels=6 downscale_factor=8 enable_sharpen=false pop_radius=3
 
 	echo "[$ARCH] Building preview_generator8 rotation=-90"
-	./tmp/postprocess_generator -g preview_generator -f preview_portrait8 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=-90 tonemap_levels=7 downscale_factor=8 enable_sharpen=false
+	./tmp/postprocess_generator -g preview_generator -f preview_portrait8 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=-90 tonemap_levels=6 downscale_factor=8 enable_sharpen=false
 
 	echo "[$ARCH] Building preview_generator8 rotation=180"
-	./tmp/postprocess_generator -g preview_generator -f preview_reverse_landscape8 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=180 tonemap_levels=7 downscale_factor=8 enable_sharpen=false
+	./tmp/postprocess_generator -g preview_generator -f preview_reverse_landscape8 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=180 tonemap_levels=6 downscale_factor=8 enable_sharpen=false
 }
 
 function build_camera_preview() {
@@ -110,23 +110,23 @@ function build_camera_preview() {
 
 	# RAW10
 	echo "[$ARCH] Building camera_preview_generator2_raw10"
-	./tmp/camera_preview_generator -g camera_preview_generator -f camera_preview2_raw10 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} tonemap_levels=9 downscale_factor=2 pixel_format=0
+	./tmp/camera_preview_generator -g camera_preview_generator -f camera_preview2_raw10 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} tonemap_levels=6 downscale_factor=2 pixel_format=0
 
 	echo "[$ARCH] Building camera_preview_generator3_raw10"
-	./tmp/camera_preview_generator -g camera_preview_generator -f camera_preview3_raw10 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} tonemap_levels=8 downscale_factor=3 pixel_format=0
+	./tmp/camera_preview_generator -g camera_preview_generator -f camera_preview3_raw10 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} tonemap_levels=5 downscale_factor=3 pixel_format=0
 
 	echo "[$ARCH] Building camera_preview_generator4_raw10"
-	./tmp/camera_preview_generator -g camera_preview_generator -f camera_preview4_raw10 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} tonemap_levels=7 downscale_factor=4 pixel_format=0
+	./tmp/camera_preview_generator -g camera_preview_generator -f camera_preview4_raw10 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} tonemap_levels=4 downscale_factor=4 pixel_format=0
 
 	# RAW16
 	echo "[$ARCH] Building camera_preview_generator2_raw16"
-	./tmp/camera_preview_generator -g camera_preview_generator -f camera_preview2_raw16 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} tonemap_levels=9 downscale_factor=2 pixel_format=1
+	./tmp/camera_preview_generator -g camera_preview_generator -f camera_preview2_raw16 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} tonemap_levels=6 downscale_factor=2 pixel_format=1
 
 	echo "[$ARCH] Building camera_preview_generator3_raw16"
-	./tmp/camera_preview_generator -g camera_preview_generator -f camera_preview3_raw16 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} tonemap_levels=8 downscale_factor=3 pixel_format=1
+	./tmp/camera_preview_generator -g camera_preview_generator -f camera_preview3_raw16 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} tonemap_levels=5 downscale_factor=3 pixel_format=1
 
 	echo "[$ARCH] Building camera_preview_generator4_raw16"
-	./tmp/camera_preview_generator -g camera_preview_generator -f camera_preview4_raw16 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} tonemap_levels=7 downscale_factor=4 pixel_format=1
+	./tmp/camera_preview_generator -g camera_preview_generator -f camera_preview4_raw16 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} tonemap_levels=4 downscale_factor=4 pixel_format=1
 }
 
 function build_runtime() {

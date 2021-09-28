@@ -21,13 +21,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
 
-import com.google.android.gms.tasks.Task;
-import com.google.android.gms.tasks.Tasks;
-import com.google.mlkit.vision.common.InputImage;
-import com.google.mlkit.vision.face.Face;
-import com.google.mlkit.vision.face.FaceDetection;
-import com.google.mlkit.vision.face.FaceDetector;
-import com.google.mlkit.vision.face.FaceDetectorOptions;
 import com.motioncam.BuildConfig;
 import com.motioncam.R;
 import com.motioncam.model.CameraProfile;
@@ -42,6 +35,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -428,6 +422,8 @@ public class ProcessorService extends IntentService {
             return;
 
         // Process all files
+        Arrays.sort(pendingFiles);
+
         for(File file : pendingFiles) {
             ProcessFile processFile = new ProcessFile(
                     getApplicationContext(), file, previewDirectory, false, receiver);

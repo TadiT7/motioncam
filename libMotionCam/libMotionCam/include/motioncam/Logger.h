@@ -6,6 +6,7 @@
 namespace motioncam {
     namespace logger {
         void log(const std::string& str);
+        void debug(const std::string& str);
     }
 }
 

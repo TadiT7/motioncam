@@ -67,12 +67,11 @@ import com.motioncam.processor.ProcessorService;
 import com.motioncam.ui.BitmapDrawView;
 import com.motioncam.ui.CameraCapturePreviewAdapter;
 
-import org.apache.commons.io.FileUtils;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -370,10 +369,15 @@ public class CameraActivity extends AppCompatActivity implements
 
         // Clear out previous preview files
         File previewDirectory = new File(getFilesDir(), ProcessorService.PREVIEW_PATH);
-        try {
-            FileUtils.deleteDirectory(previewDirectory);
-        } catch (IOException e) {
-            e.printStackTrace();
+        long now = new Date().getTime();
+
+        File[] previewFiles = previewDirectory.listFiles();
+        if(previewFiles != null) {
+            for (File f : previewFiles) {
+                long diff = now - f.lastModified();
+                if (diff > 2 * 24 * 60 * 60 * 1000) // 2 days old
+                    f.delete();
+            }
         }
 
         mBinding = CameraActivityBinding.inflate(getLayoutInflater());
@@ -970,7 +974,7 @@ public class CameraActivity extends AppCompatActivity implements
 
             startActivity(intent);
         }
-        else if(mode == CaptureMode.NIGHT){
+        else if(mode == CaptureMode.NIGHT) {
             mBinding.captureBtn.setEnabled(false);
 
             mBinding.captureProgressBar.setVisibility(View.VISIBLE);
@@ -1453,8 +1457,8 @@ public class CameraActivity extends AppCompatActivity implements
             mFaceDetectionTimer = null;
         }
 
-//        mFaceDetectionTimer = new Timer("FaceDetection");
-//        mFaceDetectionTimer.scheduleAtFixedRate(new FaceDetectionTask(), 1000, 1000);
+        mFaceDetectionTimer = new Timer("FaceDetection");
+        mFaceDetectionTimer.scheduleAtFixedRate(new FaceDetectionTask(), 1000, 1000);
     }
 
     @Override

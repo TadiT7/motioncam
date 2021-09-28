@@ -348,7 +348,6 @@ namespace motioncam {
         };
 
         pushEvent(EventAction::ACTION_PRECAPTURE_HDR, data);
-
     }
 
     ACaptureRequest* CameraSession::createCaptureRequest(const ACameraDevice_request_template requestTemplate) {
@@ -702,10 +701,6 @@ namespace motioncam {
     }
 
     void CameraSession::doPrecaptureCaptureHdr(int iso, int64_t exposure) {
-        // Keep timestamp of latest buffer as our reference
-        mRequestHdrCaptureTimestamp = RawBufferManager::get().latestTimeStamp();
-        mRequestedHdrCaptures = 0;
-
         // Don't capture image if iso/exposure not set
         if(iso < 0 || exposure < 0)
             return;
@@ -725,6 +720,8 @@ namespace motioncam {
 
         LOGI("Initiating HDR precapture (hdrIso=%d, hdrExposure=%ld)", iso, exposure);
 
+        // Keep timestamp of latest buffer as our reference
+        mRequestHdrCaptureTimestamp = RawBufferManager::get().latestTimeStamp();
         mRequestedHdrCaptures = 1;
 
         ACameraCaptureSession_capture(
@@ -780,7 +777,22 @@ namespace motioncam {
 
     void CameraSession::doSave(int numImages) {
         int hdrBufferCount = RawBufferManager::get().numHdrBuffers();
-        if(hdrBufferCount < mRequestedHdrCaptures) {
+        bool waitForImage = true;
+
+        // Don't wait for HDR image if we have already captured it but
+        // can't find it. This is likely because the user has kept the shutter button
+        // pressed for a long time before releasing it.
+        if(mHdrCaptureSequenceCompleted) {
+            double timeSinceSequenceCompleted =
+                    std::chrono::duration <double, std::milli>(std::chrono::steady_clock::now() - mHdrSequenceCompletedTimePoint).count();
+
+            if(timeSinceSequenceCompleted > 250) {
+                waitForImage = false;
+                LOGI("Not waiting for HDR image");
+            }
+        }
+
+        if(waitForImage && (hdrBufferCount < mRequestedHdrCaptures)) {
             // Continue waiting for HDR image
             json11::Json::object data = { { "numImages", numImages } };
             pushEvent(EventAction::EVENT_SAVE, data);
@@ -801,7 +813,7 @@ namespace motioncam {
         // Check how long it has been since the capture sequence has complete
         if(mHdrCaptureSequenceCompleted) {
             double timeSinceSequenceCompleted =
-                    std::chrono::duration <double, std::milli>(std::chrono::steady_clock::now() - mHdrSequenceCompletedTimePoint).count();
+                std::chrono::duration <double, std::milli>(std::chrono::steady_clock::now() - mHdrSequenceCompletedTimePoint).count();
 
             // Fail if we haven't gotten the images in a reasonable amount of time
             if(timeSinceSequenceCompleted > 5000) {
@@ -972,7 +984,7 @@ namespace motioncam {
         }
         else {
             json11::Json::object data = {
-                    { "sequenceId", sequenceId }
+                { "sequenceId", sequenceId }
             };
 
             pushEvent(EventAction::EVENT_CAMERA_SEQUENCE_COMPLETED, data);
@@ -990,7 +1002,7 @@ namespace motioncam {
     void CameraSession::onCameraError(int error) {
         LOGE("Camera has failed with error %d", error);
         json11::Json::object data = {
-                { "error", error }
+            { "error", error }
         };
 
         pushEvent(EventAction::EVENT_CAMERA_ERROR, data);
@@ -1002,7 +1014,7 @@ namespace motioncam {
 
     void CameraSession::onCameraSessionStateActive() {
         json11::Json::object data = {
-                { "state", static_cast<int>(CameraCaptureSessionState::ACTIVE) }
+            { "state", static_cast<int>(CameraCaptureSessionState::ACTIVE) }
         };
 
         pushEvent(EventAction::EVENT_CAMERA_SESSION_CHANGED, data);
@@ -1010,7 +1022,7 @@ namespace motioncam {
 
     void CameraSession::onCameraSessionStateReady() {
         json11::Json::object data = {
-                { "state", static_cast<int>(CameraCaptureSessionState::READY) }
+            { "state", static_cast<int>(CameraCaptureSessionState::READY) }
         };
 
         pushEvent(EventAction::EVENT_CAMERA_SESSION_CHANGED, data);
@@ -1018,7 +1030,7 @@ namespace motioncam {
 
     void CameraSession::onCameraSessionStateClosed() {
         json11::Json::object data = {
-                { "state", static_cast<int>(CameraCaptureSessionState::CLOSED) }
+            { "state", static_cast<int>(CameraCaptureSessionState::CLOSED) }
         };
 
         pushEvent(EventAction::EVENT_CAMERA_SESSION_CHANGED, data);

@@ -168,7 +168,7 @@ namespace motioncam {
         if(mState == State::AUTO_FOCUS_ACTIVE) {
             setAutoFocus();
         }
-        else if(mState == State::USER_FOCUS_LOCKED) {
+        else if(mState == State::USER_FOCUS_ACTIVE) {
             setUserFocus();
         }
     }

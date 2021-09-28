@@ -382,14 +382,14 @@ namespace motioncam {
         settings.blacks     = 0;
         settings.whitePoint = 1;
         settings.sharpen0   = 1;
-        settings.sharpen1   = 1;
-        settings.pop        = 1;
+        settings.sharpen1   = 2;
+        settings.pop        = 1.25;
         
         auto previewBuffer = createPreview(rawBuffer, 4, cameraMetadata, settings);
         
         cv::Mat preview(previewBuffer.height(), previewBuffer.width(), CV_8UC4, previewBuffer.data());
         cv::Mat histogram;
-        
+                
         cv::cvtColor(preview, preview, cv::COLOR_BGRA2GRAY);
         
         vector<cv::Mat> inputImages     = { preview };
@@ -405,9 +405,9 @@ namespace motioncam {
         for(int i = 1; i < histogram.rows; i++) {
             histogram.at<float>(i) += histogram.at<float>(i - 1);
         }
-                
+        
         // Estimate black point
-        const float minDehazePercent = 0.0f;
+        const float minDehazePercent = 0.000f;
         const float maxDehazePercent = 0.001f;
         const int maxBlackPointBin = 0.07f * histBins[0] + 0.5f;
 
@@ -503,7 +503,7 @@ namespace motioncam {
                                           const RawCameraMetadata& cameraMetadata,
                                           PostProcessSettings& outSettings)
     {
-        //Measure measure("estimateSettings()");
+//        Measure measure("estimateSettings()");
         float keyValue = getShadowKeyValue(rawBuffer, cameraMetadata, false);
 
         // Start with basic initial values
@@ -848,7 +848,7 @@ namespace motioncam {
                 cv::findTransformECC(curPyramid[i], refPyramid[i], warpMatrix, cv::MOTION_HOMOGRAPHY, termCriteria);
             }
             catch(cv::Exception& e) {
-                return warpMatrix;
+                return cv::Mat();
             }
             
             if(i > 0)
@@ -1879,6 +1879,9 @@ namespace motioncam {
     float ImageProcessor::testAlignment(std::shared_ptr<RawData> refImage, std::shared_ptr<RawData> underexposedImage, cv::Mat warpMatrix) {
         Measure measure("testAlignment()");
         
+        if(warpMatrix.empty())
+            return 1e10f;
+        
         cv::Mat underExposedExposure(
             underexposedImage->previewBuffer.height(),
             underexposedImage->previewBuffer.width(),
@@ -2116,9 +2119,9 @@ namespace motioncam {
                      cameraMetadata.blackLevel[3],
                      output);
 
-        auto previewImage = cv::Mat(output.height(), output.width(), CV_8U, output.data());
+        auto previewImage = cv::Mat(output.height(), output.width(), CV_8U, output.data());        
         cv::equalizeHist(previewImage, previewImage);
-        
+
         static cv::CascadeClassifier c;
         
         if(c.empty()) {
@@ -2133,7 +2136,7 @@ namespace motioncam {
         std::vector<cv::Rect> dets;
         std::vector<cv::Rect2f> result;
         
-        c.detectMultiScale(previewImage, dets, 1.2, 3);
+        c.detectMultiScale(previewImage, dets, 1.5);
         
         for(int i = 0; i < dets.size(); i++) {
             float x = dets[i].tl().x / (float) output.width();

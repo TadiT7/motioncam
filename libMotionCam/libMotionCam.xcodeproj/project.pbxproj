@@ -191,6 +191,7 @@
 		4513AFA326332A7B002C3BED /* libzstd.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libzstd.a; path = ../../../../../usr/local/lib/libzstd.a; sourceTree = "<group>"; };
 		452B6CC126A02FD100992FB4 /* BlueNoiseLUT.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BlueNoiseLUT.h; sourceTree = "<group>"; };
 		453ACCA120E431320083620E /* OpenCL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenCL.framework; path = System/Library/Frameworks/OpenCL.framework; sourceTree = SDKROOT; };
+		4541C94D27031D610067BED9 /* Lock.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Lock.h; sourceTree = "<group>"; };
 		4550698226EB838C00ADBD75 /* libdlib.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libdlib.dylib; path = ../../../../../usr/local/lib/libdlib.dylib; sourceTree = "<group>"; };
 		45565E2E246592590021A442 /* RawContainer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RawContainer.cpp; sourceTree = "<group>"; };
 		45565E2F246592590021A442 /* RawContainer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RawContainer.h; sourceTree = "<group>"; };
@@ -587,6 +588,7 @@
 				450E1E65214D290300C1B27A /* Temperature.h */,
 				450E1E69214D290300C1B27A /* Types.h */,
 				450E1E5E214D290200C1B27A /* Util.h */,
+				4541C94D27031D610067BED9 /* Lock.h */,
 			);
 			path = motioncam;
 			sourceTree = "<group>";

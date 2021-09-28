@@ -19,5 +19,13 @@ namespace motioncam {
             std::cout << str << std::endl;
 #endif
         }
+    
+        void debug(const std::string& str) {
+    #ifdef __ANDROID__
+            __android_log_print(ANDROID_LOG_DEBUG, ANDROID_TAG, "%s", str.c_str());
+    #else
+            std::cout << str << std::endl;
+    #endif
+        }
     }
 }
