@@ -434,7 +434,7 @@ void CameraPreviewGenerator::generate() {
     Func blackLevelFunc{"blackLevelFunc"};
     Func linearFunc{"linearFunc"};
 
-    inputRepeated(v_i) = cast<uint16_t>(input(clamp(v_i, 0, input.width() - 1)));
+    inputRepeated(v_i) = cast<uint16_t>(input(v_i));
 
     for(int c = 0; c < 4; c++) {
         linearScale16(scaledShadingMap[c], shadingMap[c], shadingMap[c].width(), shadingMap[c].height(), width, height);
@@ -482,25 +482,29 @@ void CameraPreviewGenerator::generate() {
         throw std::runtime_error("invalid pixel format");
     }
 
+    Func clampedInput{"clampedInput"};
+
+    clampedInput(v_x, v_y, v_c) = rawInput(clamp(v_x, 0, width*downscale_factor-1), clamp(v_y, 0, height*downscale_factor-1), v_c);
+
     demosaicInput(v_x, v_y, v_c) =
         select(sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
-                select( v_c == 0, rawInput(v_x, v_y, 0),
-                        v_c == 1, rawInput(v_x, v_y, 1),
-                                  rawInput(v_x, v_y, 3) ),
+                select( v_c == 0, clampedInput(v_x, v_y, 0),
+                        v_c == 1, clampedInput(v_x, v_y, 1),
+                                  clampedInput(v_x, v_y, 3) ),
 
             sensorArrangement == static_cast<int>(SensorArrangement::GRBG),
-                select( v_c == 0, rawInput(v_x, v_y, 1),
-                        v_c == 1, rawInput(v_x, v_y, 0),
-                                  rawInput(v_x, v_y, 2) ),
+                select( v_c == 0, clampedInput(v_x, v_y, 1),
+                        v_c == 1, clampedInput(v_x, v_y, 0),
+                                  clampedInput(v_x, v_y, 2) ),
 
             sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
-                select( v_c == 0, rawInput(v_x, v_y, 2),
-                        v_c == 1, rawInput(v_x, v_y, 0),
-                                  rawInput(v_x, v_y, 1) ),
+                select( v_c == 0, clampedInput(v_x, v_y, 2),
+                        v_c == 1, clampedInput(v_x, v_y, 0),
+                                  clampedInput(v_x, v_y, 1) ),
 
-                select( v_c == 0, rawInput(v_x, v_y, 3),
-                        v_c == 1, rawInput(v_x, v_y, 1),
-                                  rawInput(v_x, v_y, 0) ) );
+                select( v_c == 0, clampedInput(v_x, v_y, 3),
+                        v_c == 1, clampedInput(v_x, v_y, 1),
+                                  clampedInput(v_x, v_y, 0) ) );
 
     shadingMapInput(v_x, v_y, v_c) =
         mux(v_c, { scaledShadingMap[0](v_x, v_y), scaledShadingMap[1](v_x, v_y), scaledShadingMap[3](v_x, v_y) } );
@@ -621,7 +625,7 @@ void CameraPreviewGenerator::generate() {
             tx = ty = 4;
         }
 
-        rawInput
+        clampedInput
             .reorder(v_c, v_x, v_y)
             .compute_at(downscaled, v_x)            
             .gpu_threads(v_x, v_y);

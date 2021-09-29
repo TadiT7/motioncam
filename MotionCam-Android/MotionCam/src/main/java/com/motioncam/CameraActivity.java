@@ -1457,8 +1457,8 @@ public class CameraActivity extends AppCompatActivity implements
             mFaceDetectionTimer = null;
         }
 
-        mFaceDetectionTimer = new Timer("FaceDetection");
-        mFaceDetectionTimer.scheduleAtFixedRate(new FaceDetectionTask(), 1000, 1000);
+//        mFaceDetectionTimer = new Timer("FaceDetection");
+//        mFaceDetectionTimer.scheduleAtFixedRate(new FaceDetectionTask(), 1000, 1000);
     }
 
     @Override

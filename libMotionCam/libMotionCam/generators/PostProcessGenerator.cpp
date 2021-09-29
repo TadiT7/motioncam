@@ -2077,7 +2077,7 @@ void EnhanceGenerator::generate() {
 
         Expr i = v_i / 65535.0f;
         Expr j = select(i < 0.0031308f, i * 12.92f, pow(i, 1.0f / 2.4f) * 1.055f - 0.055f);
-        Expr k = clamp(j - blackPoint, 0.0f, 1.0f) / (1.0f - blackPoint);
+        Expr k = clamp(j - blackPoint, 0.0f, 1.0f) * (1.0f / (1.0f - blackPoint + 1e-5f));
         Expr m = k / whitePoint;
 
         Expr S = 1.0f / (1.0f + exp(-a*m + b));
@@ -2598,17 +2598,15 @@ public:
     void schedule_for_cpu();
     
 private:
-    Func downscale(Func f, Func& downx, Expr factor);
+    Func downscale(Func f, Func& downx);
 
 private:
     Func in[4];
     Func shadingMap[4];
-    Func inputRepeated{"inputRepeated"};    
     Func deinterleaved{"deinterleaved"};
-    Func downscaled{"downscaled"};
-    Func downscaledTemp{"downscaledTemp"};
     Func demosaicInput{"demosaicInput"};
     Func downscaledInput{"downscaledInput"};
+    Func srgbInput{"srgbInput"};
     Func inMuxed{"inMuxed"};
     Func SRGB{"SRGB"};
     Func enhanceInput{"enhanceInput"};
@@ -2617,28 +2615,25 @@ private:
     Func tonemapped{"tonemapped"};
     Func tonemapInput{"tonemapInput"};    
     Func gammaLut{"gammaContrastLut"};
+
+    std::vector<Func> d;
 };
 
-Func PreviewGenerator::downscale(Func f, Func& downx, Expr factor) {
-    Func in{"downscaleIn"}, downy{"downy"}, result{"downscaled"};
-    RDom r(-factor/2, factor+1);
+Func PreviewGenerator::downscale(Func f, Func& downx) {
+    Func downy;
 
-    in(v_x, v_y, v_c) = cast<float>(f(v_x, v_y, v_c));
-
-    downx(v_x, v_y, v_c) = sum(in(v_x * factor + r.x, v_y, v_c)) / (factor + 1);
-    downy(v_x, v_y, v_c) = sum(downx(v_x, v_y * factor + r.x, v_c)) / (factor + 1);
+    downx(v_x, v_y, v_c) = (f(v_x*2 - 1, v_y, v_c) + 2.0f*f(v_x*2, v_y, v_c) + f(v_x*2 + 1, v_y, v_c)) / 4.0f;
+    downy(v_x, v_y, v_c) = (downx(v_x, v_y*2 - 1, v_c) + 2.0f*downx(v_x, v_y*2, v_c) + downx(v_x, v_y*2 + 1, v_c)) / 4.0f;
 
     return downy;
 }
 
 void PreviewGenerator::generate() {
-    inputRepeated(v_i) = input(clamp(v_i, 4, input.width()-4));
-
     // Deinterleave
-    deinterleave(in[0], inputRepeated, 0, stride, pixelFormat);
-    deinterleave(in[1], inputRepeated, 1, stride, pixelFormat);
-    deinterleave(in[2], inputRepeated, 2, stride, pixelFormat);
-    deinterleave(in[3], inputRepeated, 3, stride, pixelFormat);
+    deinterleave(in[0], input, 0, stride, pixelFormat);
+    deinterleave(in[1], input, 1, stride, pixelFormat);
+    deinterleave(in[2], input, 2, stride, pixelFormat);
+    deinterleave(in[3], input, 3, stride, pixelFormat);
     
     inMuxed(v_x, v_y, v_c) =
         mux(v_c,
@@ -2647,7 +2642,18 @@ void PreviewGenerator::generate() {
                 in[2](v_x, v_y),
                 in[3](v_x, v_y) });
 
-    downscaled = downscale(inMuxed, downscaledTemp, downscaleFactor);
+    Func inDownscale = Halide::BoundaryConditions::repeat_edge(inMuxed, { { 0, width * downscaleFactor - 1 }, { 0, height * downscaleFactor - 1 } } );
+
+    int iterations = (int) (std::log((float)downscaleFactor) / std::log(2.0f));
+
+    d.push_back(inDownscale);
+
+    for(int i = 0; i < iterations; i++) {
+        Func downscaledTemp{"downscaledTemp" + std::to_string(i)};
+        Func downscaled = downscale(d[d.size()-1], downscaledTemp);
+
+        d.push_back(downscaled);
+    }
 
     // Shading map
     linearScale(shadingMap[0], inShadingMap0, inShadingMap0.width(), inShadingMap0.height(), width, height);
@@ -2655,25 +2661,37 @@ void PreviewGenerator::generate() {
     linearScale(shadingMap[2], inShadingMap2, inShadingMap2.width(), inShadingMap2.height(), width, height);
     linearScale(shadingMap[3], inShadingMap3, inShadingMap3.width(), inShadingMap3.height(), width, height);
 
-    rearrange(demosaicInput, downscaled, sensorArrangement);
+    downscaledInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(0.5f + d[d.size()-1](v_x, v_y, v_c));
+
+    for(int i = 0; i < iterations - 1; i++)
+        d[i].compute_at(downscaledInput, v_y).vectorize(v_x, 8).unroll(v_c);
+    
+    downscaledInput
+        .compute_root()
+        .reorder(v_c, v_x, v_y)
+        .unroll(v_c)
+        .parallel(v_y)
+        .vectorize(v_x, 8);
+
+    rearrange(demosaicInput, downscaledInput, sensorArrangement);
 
     Expr c0 = (demosaicInput(v_x, v_y, 0) - blackLevel[0]) / (cast<float>(whiteLevel - blackLevel[0])) * shadingMap[0](v_x, v_y);
     Expr c1 = (demosaicInput(v_x, v_y, 1) - blackLevel[1]) / (cast<float>(whiteLevel - blackLevel[1])) * shadingMap[1](v_x, v_y);
     Expr c2 = (demosaicInput(v_x, v_y, 2) - blackLevel[2]) / (cast<float>(whiteLevel - blackLevel[2])) * shadingMap[2](v_x, v_y);
     Expr c3 = (demosaicInput(v_x, v_y, 3) - blackLevel[3]) / (cast<float>(whiteLevel - blackLevel[3])) * shadingMap[3](v_x, v_y);
     
-    downscaledInput(v_x, v_y, v_c) = select(v_c == 0,  clamp( c0,               0.0f, asShotVector[0] ),
-                                            v_c == 1,  clamp( (c1 + c2) / 2,    0.0f, asShotVector[1] ),
-                                                       clamp( c3,               0.0f, asShotVector[2] ));
+    srgbInput(v_x, v_y, v_c) = select(v_c == 0,  clamp( c0,               0.0f, asShotVector[0] ),
+                                      v_c == 1,  clamp( (c1 + c2) / 2,    0.0f, asShotVector[1] ),
+                                                 clamp( c3,               0.0f, asShotVector[2] ));
 
-    transform(SRGB, downscaledInput, cameraToSrgb);
+    transform(SRGB, srgbInput, cameraToSrgb);
 
-    tonemapInput(v_x, v_y, v_c) = cast<uint16_t>(65535.0f * clamp(SRGB(v_x, v_y, v_c) * pow(2.0f, exposure), 0.0f, 1.0f) + 0.5f);
+    tonemapInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(SRGB(v_x, v_y, v_c) * pow(2.0f, exposure) * 65535.0f + 0.5f);
 
     tonemap = create<TonemapGenerator>();
 
     tonemap->output_type.set(UInt(16));
-    tonemap->tonemap_levels.set(TONEMAP_LEVELS);
+    tonemap->tonemap_levels.set(tonemap_levels);
     tonemap->apply(tonemapInput, tonemapInput, width, height, tonemapVariance, shadows);
 
     enhance = create<EnhanceGenerator>();
@@ -2734,11 +2752,11 @@ void PreviewGenerator::generate() {
     if(!auto_schedule)
         gammaLut.compute_root().vectorize(v_i, 8);
 
-    output(v_x, v_y, v_c) = gammaLut(cast<uint8_t>(clamp(
+    output(v_x, v_y, v_c) = gammaLut(saturating_cast<uint8_t>(
         select( v_c == 0, enhance->output(M, N, 2) * 255.0f/65535.0f + 0.5f,
                 v_c == 1, enhance->output(M, N, 1) * 255.0f/65535.0f + 0.5f,
                 v_c == 2, enhance->output(M, N, 0) * 255.0f/65535.0f + 0.5f,
-                          255), 0, 255)));
+                255)));
 
     // Output interleaved
     output
@@ -2759,33 +2777,18 @@ void PreviewGenerator::schedule_for_cpu() {
     int vector_size_u8 = natural_vector_size<uint8_t>();
     int vector_size_u16 = natural_vector_size<uint16_t>();    
 
-    downscaled
-        .reorder(v_c, v_x, v_y)
-        .unroll(v_c)
-        .compute_at(downscaledInput, v_yi)
-        .store_at(downscaledInput, v_yo)
-        .vectorize(v_x, vector_size_u16);
-
-    demosaicInput
-        .reorder(v_c, v_x, v_y)
-        .unroll(v_c)
-        .compute_at(downscaledInput, v_yi)
-        .store_at(downscaledInput, v_yo)
-        .vectorize(v_x, vector_size_u16);
-
-    downscaledInput
+    tonemapInput
         .compute_root()
         .reorder(v_c, v_x, v_y)
         .unroll(v_c)
-        .split(v_y, v_yo, v_yi, 32)
-        .parallel(v_yo)
+        .parallel(v_y)
         .vectorize(v_x, vector_size_u16);
 
     output
         .compute_root()
         .bound(v_c, 0, 4)
         .reorder(v_c, v_x, v_y)
-        .tile(v_x, v_y, v_xo, v_yo, v_xi, v_yi, 64, 64)
+        .tile(v_x, v_y, v_xo, v_yo, v_xi, v_yi, 32, 16)
         .fuse(v_xo, v_yo, tile_idx)
         .parallel(tile_idx)
         .unroll(v_c)

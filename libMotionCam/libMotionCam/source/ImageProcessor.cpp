@@ -309,7 +309,7 @@ namespace motioncam {
         Halide::Runtime::Buffer<uint16_t> hdrInput;
         float shadows = settings.shadows;
         
-        float tonemapVariance = 0.25f;
+        float tonemapVariance = 0.27f;
         bool useHdr = false;
         float hdrInputGain = 1.0f;
         float hdrScale = 1.0f;
@@ -317,9 +317,9 @@ namespace motioncam {
         if(hdrMetadata && hdrMetadata->error < MAX_HDR_ERROR) {
             hdrInput = hdrMetadata->hdrInput;
             hdrInputGain = hdrMetadata->gain;
-            tonemapVariance = 0.2f;
             hdrScale = 1.0f / hdrMetadata->exposureScale;
             useHdr = true;
+            tonemapVariance = 0.22f;
         }
         else {
             // Don't apply underexposed image when error is too high
@@ -379,17 +379,18 @@ namespace motioncam {
     {
         PostProcessSettings settings = postProcessSettings;
             
-        settings.blacks     = 0;
-        settings.whitePoint = 1;
-        settings.sharpen0   = 1;
-        settings.sharpen1   = 2;
-        settings.pop        = 1.25;
-        
-        auto previewBuffer = createPreview(rawBuffer, 4, cameraMetadata, settings);
-        
+        settings.blacks     = 0.0f;
+        settings.whitePoint = 1.0f;
+        settings.sharpen0   = 1.0f;
+        settings.sharpen1   = 2.0f;
+        settings.contrast   = 0.35f;
+        settings.pop        = 1.25f;
+                
+        auto previewBuffer = createPreview(rawBuffer, 2, cameraMetadata, settings);
+
         cv::Mat preview(previewBuffer.height(), previewBuffer.width(), CV_8UC4, previewBuffer.data());
         cv::Mat histogram;
-                
+        
         cv::cvtColor(preview, preview, cv::COLOR_BGRA2GRAY);
         
         vector<cv::Mat> inputImages     = { preview };
@@ -400,16 +401,16 @@ namespace motioncam {
         cv::calcHist(inputImages, channels, cv::Mat(), histogram, histBins, histRange);
         
         histogram = histogram / (preview.rows * preview.cols);
-        
+                
         // Cumulative histogram
         for(int i = 1; i < histogram.rows; i++) {
             histogram.at<float>(i) += histogram.at<float>(i - 1);
         }
-        
+                
         // Estimate black point
         const float minDehazePercent = 0.000f;
         const float maxDehazePercent = 0.001f;
-        const int maxBlackPointBin = 0.07f * histBins[0] + 0.5f;
+        const int maxBlackPointBin = 0.05f * histBins[0] + 0.5f;
 
         int endBin = 1;
         
@@ -425,19 +426,15 @@ namespace motioncam {
         outBlackPoint = (endBin - 1) / (float) (histogram.rows - 1);
         
         // Estimate white point
-        float sum = 0;
-
         const int maxWhitePointBin = 0.9f * histBins[0] + 0.5f;
-        
         for(endBin = histogram.rows - 1; endBin >= maxWhitePointBin; endBin--) {
-            sum += histogram.at<float>(endBin);
+            float p = histogram.at<float>(endBin);
 
-            if(sum >= 1e-5)
+            if(p < 0.9999f)
                 break;
         }
 
         outWhitePoint = static_cast<float>(endBin + 1) / ((float) histogram.rows);
-
     }
 
     float ImageProcessor::estimateShadows(const cv::Mat& histogram, float keyValue) {
@@ -683,7 +680,7 @@ namespace motioncam {
             static_cast<uint16_t>(cameraMetadata.whiteLevel),
             settings.shadows,
             settings.whitePoint,
-            0.25f,
+            0.27f,
             settings.blacks,
             settings.exposure,
             settings.contrast,
@@ -1077,7 +1074,10 @@ namespace motioncam {
         // Save preview
         //
         
-        auto preview = createPreview(*referenceRawBuffer, 2, rawContainer.getCameraMetadata(), settings);
+        Halide::Runtime::Buffer<uint8_t> preview;
+        
+        preview = createPreview(*referenceRawBuffer, 2, rawContainer.getCameraMetadata(), settings);
+        
         std::string basePath, filename;
 
         cv::Mat previewImage(preview.height(), preview.width(), CV_8UC4, preview.data());
@@ -1906,7 +1906,7 @@ namespace motioncam {
         // Calculate error
         cv::Mat ghostMap(ghostMapBuffer.height(), ghostMapBuffer.width(), CV_8U, ghostMapBuffer.data());
         auto trimmedGhostMap = ghostMap(cv::Rect(32, 32, ghostMap.cols - 32, ghostMap.rows - 32));
-
+        
         return cv::mean(trimmedGhostMap)[0] * 100;
     }
 

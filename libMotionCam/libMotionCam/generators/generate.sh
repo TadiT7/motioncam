@@ -91,16 +91,16 @@ function build_postprocess() {
 	./tmp/postprocess_generator -g preview_generator -f preview_reverse_landscape4 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=180 tonemap_levels=7 downscale_factor=4 enable_sharpen=true pop_radius=3
 
 	echo "[$ARCH] Building preview_generator8 rotation=0"
-	./tmp/postprocess_generator -g preview_generator -f preview_landscape8 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=0 tonemap_levels=6 downscale_factor=8 enable_sharpen=false pop_radius=3
+	./tmp/postprocess_generator -g preview_generator -f preview_landscape8 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=0 tonemap_levels=4 downscale_factor=8 enable_sharpen=false pop_radius=3
 
 	echo "[$ARCH] Building preview_generator8 rotation=90"
-	./tmp/postprocess_generator -g preview_generator -f preview_reverse_portrait8 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=90 tonemap_levels=6 downscale_factor=8 enable_sharpen=false pop_radius=3
+	./tmp/postprocess_generator -g preview_generator -f preview_reverse_portrait8 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=90 tonemap_levels=4 downscale_factor=8 enable_sharpen=false pop_radius=3
 
 	echo "[$ARCH] Building preview_generator8 rotation=-90"
-	./tmp/postprocess_generator -g preview_generator -f preview_portrait8 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=-90 tonemap_levels=6 downscale_factor=8 enable_sharpen=false
+	./tmp/postprocess_generator -g preview_generator -f preview_portrait8 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=-90 tonemap_levels=4 downscale_factor=8 enable_sharpen=false
 
 	echo "[$ARCH] Building preview_generator8 rotation=180"
-	./tmp/postprocess_generator -g preview_generator -f preview_reverse_landscape8 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=180 tonemap_levels=6 downscale_factor=8 enable_sharpen=false
+	./tmp/postprocess_generator -g preview_generator -f preview_reverse_landscape8 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=180 tonemap_levels=4 downscale_factor=8 enable_sharpen=false
 }
 
 function build_camera_preview() {
@@ -148,7 +148,7 @@ mkdir -p ../halide/host
 
 build_denoise host host
 build_postprocess host host
-build_camera_preview host host
+# build_camera_preview host host
 build_runtime host host
 
 mkdir -p ../halide/arm64-v8a
