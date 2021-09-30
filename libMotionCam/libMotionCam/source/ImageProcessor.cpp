@@ -1502,7 +1502,7 @@ namespace motioncam {
                                      current->previewBuffer.data());
             
             cv::Ptr<cv::DISOpticalFlow> opticalFlow =
-                cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_FAST);
+                cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_ULTRAFAST);
             
             opticalFlow->setPatchSize(16);
             opticalFlow->setPatchStride(8);
@@ -1605,7 +1605,7 @@ namespace motioncam {
 
             denoiseOutput.push_back(outputBuffer);
         }
-
+        
         *outNoise = *std::max_element(normalisedNoise.begin(), normalisedNoise.end());
         
         return denoiseOutput;
