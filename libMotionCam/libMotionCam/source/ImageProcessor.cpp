@@ -1503,10 +1503,12 @@ namespace motioncam {
             
             cv::Ptr<cv::DISOpticalFlow> opticalFlow =
                 cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_ULTRAFAST);
-            
+                                
             opticalFlow->setPatchSize(16);
             opticalFlow->setPatchStride(8);
-            opticalFlow->setUseMeanNormalization(false);
+            opticalFlow->setGradientDescentIterations(16);
+            opticalFlow->setUseMeanNormalization(true);
+            opticalFlow->setUseSpatialPropagation(true);
             
             opticalFlow->calc(referenceFlowImage, currentFlowImage, flow);
             
