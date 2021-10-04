@@ -205,15 +205,15 @@ namespace motioncam {
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_TRIGGER, 1, &afTrigger);
 
         // Set the focus region
-        int w = static_cast<int>(mCameraDescription.sensorSize.width * 0.125f);
-        int h = static_cast<int>(mCameraDescription.sensorSize.height * 0.125f);
+        int w = static_cast<int>(mCameraDescription.sensorSize.width * 0.25f);
+        int h = static_cast<int>(mCameraDescription.sensorSize.height * 0.25f);
 
         int px = static_cast<int>(static_cast<float>(mCameraDescription.sensorSize.left + mCameraDescription.sensorSize.width) * mRequestedFocusX);
         int py = static_cast<int>(static_cast<float>(mCameraDescription.sensorSize.top + mCameraDescription.sensorSize.height) * mRequestedFocusY);
 
         int32_t afRegion[5] = { px - w/2, py - h/2,
                                 px + w/2, py + h/2,
-                                500 };
+                                1000 };
 
         ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_REGIONS, 5, &afRegion[0]);
 
@@ -285,7 +285,7 @@ namespace motioncam {
 
         int32_t afRegion[5] = {px - w/2, py - h/2,
                                px + w/2, py + h/2,
-                               500 };
+                               1000 };
 
         ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_REGIONS, 5, &afRegion[0]);
 
@@ -299,11 +299,11 @@ namespace motioncam {
                 w = static_cast<int>(mCameraDescription.sensorSize.width * 0.75f);
                 h = static_cast<int>(mCameraDescription.sensorSize.height * 0.75f);
 
-                int32_t aeRegion[5] = {px - w/2, py - h/2,
+                int32_t aeRegion[5] = { px - w/2, py - h/2,
                                         px + w/2, py + h/2,
-                                        500 };
+                                        1000 };
 
-                ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_REGIONS, 10, &aeRegion[0]);
+                ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_REGIONS, 5, &aeRegion[0]);
             }
         }
         else {
