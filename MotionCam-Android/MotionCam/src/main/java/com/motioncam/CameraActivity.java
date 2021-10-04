@@ -911,26 +911,29 @@ public class CameraActivity extends AppCompatActivity implements
         if(mNativeCamera == null)
             return false;
 
-        try
-        {
-            mEstimatedSettings = mNativeCamera.getRawPreviewEstimatedPostProcessSettings();
-        }
-        catch (IOException exception) {
-            Log.e(TAG, "Failed to get estimated settings", exception);
-            return false;
-        }
-
         if(e.getAction() == MotionEvent.ACTION_DOWN && mCaptureMode == CaptureMode.ZSL) {
             float hdrEv = 0.0f;
+
+            // Keep estimated settings now
+            try
+            {
+                mEstimatedSettings = mNativeCamera.getRawPreviewEstimatedPostProcessSettings();
+            }
+            catch (IOException exception) {
+                Log.e(TAG, "Failed to get estimated settings", exception);
+                return false;
+            }
 
             if(mEstimatedSettings.exposure < 0) {
                 hdrEv = (float) Math.pow(2.0f, -mEstimatedSettings.exposure);
             }
+            else {
+                // Always capture HDR image
+                hdrEv = 4.0f;
+            }
 
-            boolean useHdr = mSettings.hdr && hdrEv > 0.0f;
+            boolean useHdr = mSettings.hdr;
             CameraManualControl.Exposure hdrExposure = null;
-
-            Log.d(TAG, "useHdr " + useHdr + " hdrEv: " + -mEstimatedSettings.exposure);
 
             if(useHdr) {
                 hdrExposure = CameraManualControl.Exposure.Create(
@@ -987,22 +990,29 @@ public class CameraActivity extends AppCompatActivity implements
 
             PostProcessSettings settings = mPostProcessSettings.clone();
 
+            try
+            {
+                mEstimatedSettings = mNativeCamera.getRawPreviewEstimatedPostProcessSettings();
+            }
+            catch (IOException exception) {
+                Log.e(TAG, "Failed to get estimated settings", exception);
+            }
+
             // Map camera exposure to our own
             long cameraExposure = mExposureTime;
-            float hdrEv = 1.0f;
+            float hdrEv = 4.0f; // always capture HDR image so we can overexpose by a little bit
 
             // Use estimated underexposed image exposure
             if(mEstimatedSettings.exposure < 0) {
                 hdrEv = (float) Math.pow(2.0f, -mEstimatedSettings.exposure);
                 mEstimatedSettings.exposure = 0;
             }
+            else {
+                cameraExposure = Math.round(mExposureTime * Math.pow(2.0f, mEstimatedSettings.exposure));
+            }
 
             // We'll estimate the shadows again since the exposure has been adjusted
             settings.shadows = -1;
-
-            if(!mManualControlsSet) {
-                cameraExposure = Math.round(mExposureTime * Math.pow(2.0f, mEstimatedSettings.exposure));
-            }
 
             CameraManualControl.Exposure baseExposure = CameraManualControl.Exposure.Create(
                     CameraManualControl.GetClosestShutterSpeed(cameraExposure),

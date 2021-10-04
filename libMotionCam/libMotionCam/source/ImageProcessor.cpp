@@ -469,6 +469,8 @@ namespace motioncam {
         
         // Estimate underexpose if overexposed
         if(bin >= histogram.cols - 2) {
+            total = 0;
+            
             for(int i = histogram.cols - 1; i >= (int) (0.95f*histogram.cols); i--) {
                 total += histogram.at<float>(i);
             }
@@ -478,9 +480,7 @@ namespace motioncam {
                 0.12f, -3.5f,
                 0.08f, -3.0f,
                 0.06f, -2.5f,
-                0.04f, -2.0f,
-                0.02f, -1.5f,
-                0.00f, -1.0f,
+                0.04f, -2.0f
             };
             
             for(int i = 0; i < EV_MAP.size(); i+=2) {
@@ -527,7 +527,7 @@ namespace motioncam {
         outSettings.temperature    = static_cast<float>(temperature.temperature());
         outSettings.tint           = static_cast<float>(temperature.tint());
         outSettings.shadows        = estimateShadows(histogram, keyValue);
-        outSettings.exposure       = estimateExposureCompensation(histogram, 1e-3f);
+        outSettings.exposure       = estimateExposureCompensation(histogram, 1e-2f);
     }
 
     void ImageProcessor::createSrgbMatrix(const RawCameraMetadata& cameraMetadata,
