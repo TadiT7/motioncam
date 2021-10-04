@@ -103,7 +103,7 @@ static std::vector<Halide::Runtime::Buffer<float>> createWaveletBuffers(int widt
 namespace motioncam {
     const int DENOISE_LEVELS            = 6;
     const int EXPANDED_RANGE            = 16384;
-    const float MAX_HDR_ERROR           = 0.005f;
+    const float MAX_HDR_ERROR           = 0.0075f;
     const float WHITEPOINT_THRESHOLD    = 1.0f;
     const float SHADOW_BIAS             = 16.0f;
 
