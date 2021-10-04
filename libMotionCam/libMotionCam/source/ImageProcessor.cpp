@@ -409,7 +409,7 @@ namespace motioncam {
                 
         // Estimate black point
         const float minDehazePercent = 0.000f;
-        const float maxDehazePercent = 0.001f;
+        const float maxDehazePercent = 0.0015f;
         const int maxBlackPointBin = 0.05f * histBins[0] + 0.5f;
 
         int endBin = 1;
@@ -473,9 +473,22 @@ namespace motioncam {
                 total += histogram.at<float>(i);
             }
 
-            float p = 1.5f*std::log(1000.0f*total) / std::log(10.0f);
-
-            return std::min(0.0f, std::max(-4.0f, -p));
+            std::vector<float> EV_MAP = {
+                0.20f, -4.0f,
+                0.12f, -3.5f,
+                0.08f, -3.0f,
+                0.06f, -2.5f,
+                0.04f, -2.0f,
+                0.02f, -1.5f,
+                0.00f, -1.0f,
+            };
+            
+            for(int i = 0; i < EV_MAP.size(); i+=2) {
+                if(total >= EV_MAP[i])
+                    return EV_MAP[i + 1];
+            }
+            
+            return EV_MAP[EV_MAP.size()-1];
         }
         
         double m = histogram.cols / static_cast<double>(bin + 1);
@@ -1103,37 +1116,19 @@ namespace motioncam {
             auto referenceRawBuffer = rawContainer.loadFrame(rawContainer.getReferenceImage());
             auto underexposedFrameIt = underexposedImages.begin();
 
-            auto hist = calcHistogram(rawContainer.getCameraMetadata(), *referenceRawBuffer, false, 4);
-            const int bound = (int) (hist.cols * 0.95f);
-            float sum = 0;
+            while(underexposedFrameIt != underexposedImages.end()) {
+                hdrMetadata =
+                    prepareHdr(rawContainer.getCameraMetadata(),
+                               settings,
+                               *referenceRawBuffer,
+                               *(*underexposedFrameIt));
 
-            for(int x = hist.cols - 1; x >= bound; x--) {
-                sum += hist.at<float>(x);
-            }
-
-            // Check if there's any point even using the underexposed image (less than 0.1% in the >95% bins)
-            float p = sum * 100.0f;
-            if(p < 0.09f) {
-                logger::log("Skipping HDR processing (" + std::to_string(p) + ")");
-            }
-            // Try each underexposed image
-            else {
-                logger::log("Using HDR processing (" + std::to_string(p) + ")");
-                
-                while(underexposedFrameIt != underexposedImages.end()) {
-                    hdrMetadata =
-                        prepareHdr(rawContainer.getCameraMetadata(),
-                                   settings,
-                                   *referenceRawBuffer,
-                                   *(*underexposedFrameIt));
-
-                    if(hdrMetadata) {
-                        underExposedImage = *underexposedFrameIt;
-                        break;
-                    }
-
-                    ++underexposedFrameIt;
+                if(hdrMetadata) {
+                    underExposedImage = *underexposedFrameIt;
+                    break;
                 }
+
+                ++underexposedFrameIt;
             }
         }
         
@@ -2056,7 +2051,7 @@ namespace motioncam {
                 sum += histogram.at<float>(x);
             }
         }
-        
+                
         //
         // Return HDR metadata
         //

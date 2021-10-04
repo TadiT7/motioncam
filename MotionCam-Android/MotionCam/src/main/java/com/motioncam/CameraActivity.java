@@ -535,8 +535,8 @@ public class CameraActivity extends AppCompatActivity implements
 
         Log.d(TAG, mSettings.toString());
 
-        updatePreviewTabUi(true);
         setPostProcessingDefaults();
+        updatePreviewTabUi(true);
 
         setCaptureMode(mSettings.captureMode);
         setSaveRaw(mSettings.saveDng);
@@ -743,29 +743,29 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.previewFrame.tintValue.setText(
                 getString(R.string.value_percent, Math.round((mTintOffset + 50.0f) / 100.0f * 100.0f)));
 
-        switch(mPreviewControlMode) {
-            case CONTRAST:
-                progress = Math.round(mPostProcessSettings.contrast * seekBarMax);
-                selectionView = mBinding.previewFrame.contrastBtn;
-                break;
-
-            case COLOUR:
-                progress = Math.round(mPostProcessSettings.saturation / 2.0f * seekBarMax);
-                selectionView = mBinding.previewFrame.colourBtn;
-                break;
-
-            case TINT:
-                progress = Math.round(((mTintOffset + 50.0f) / 100.0f * seekBarMax));
-                selectionView = mBinding.previewFrame.tintBtn;
-                break;
-
-            case WARMTH:
-                progress = Math.round(((mTemperatureOffset + 1000.0f) / 2000.0f * seekBarMax));
-                selectionView = mBinding.previewFrame.warmthBtn;
-                break;
-        }
-
         if(updateModeSelection) {
+            switch(mPreviewControlMode) {
+                case CONTRAST:
+                    progress = Math.round(mPostProcessSettings.contrast * seekBarMax);
+                    selectionView = mBinding.previewFrame.contrastBtn;
+                    break;
+
+                case COLOUR:
+                    progress = Math.round(mPostProcessSettings.saturation / 2.0f * seekBarMax);
+                    selectionView = mBinding.previewFrame.colourBtn;
+                    break;
+
+                case TINT:
+                    progress = Math.round(((mTintOffset + 50.0f) / 100.0f * seekBarMax));
+                    selectionView = mBinding.previewFrame.tintBtn;
+                    break;
+
+                case WARMTH:
+                    progress = Math.round(((mTemperatureOffset + 1000.0f) / 2000.0f * seekBarMax));
+                    selectionView = mBinding.previewFrame.warmthBtn;
+                    break;
+            }
+
             mBinding.previewFrame.contrastBtn.setBackground(null);
             mBinding.previewFrame.colourBtn.setBackground(null);
             mBinding.previewFrame.tintBtn.setBackground(null);
@@ -921,16 +921,16 @@ public class CameraActivity extends AppCompatActivity implements
         }
 
         if(e.getAction() == MotionEvent.ACTION_DOWN && mCaptureMode == CaptureMode.ZSL) {
-            float hdrEv = 1.0f;
+            float hdrEv = 0.0f;
 
             if(mEstimatedSettings.exposure < 0) {
                 hdrEv = (float) Math.pow(2.0f, -mEstimatedSettings.exposure);
             }
 
-            boolean useHdr = mSettings.hdr && hdrEv > 1.01f;
+            boolean useHdr = mSettings.hdr && hdrEv > 0.0f;
             CameraManualControl.Exposure hdrExposure = null;
 
-            Log.d(TAG, "useHdr " + useHdr + " hdrEv: " + hdrEv + " hdr: " + mSettings.hdr);
+            Log.d(TAG, "useHdr " + useHdr + " hdrEv: " + -mEstimatedSettings.exposure);
 
             if(useHdr) {
                 hdrExposure = CameraManualControl.Exposure.Create(
@@ -962,6 +962,11 @@ public class CameraActivity extends AppCompatActivity implements
         // Store capture mode
         mPostProcessSettings.captureMode = mCaptureMode.name();
 
+        float a = 1.6f;
+
+        if(mCameraMetadata.cameraApertures.length > 0)
+            a = mCameraMetadata.cameraApertures[0];
+
         if(mode == CaptureMode.BURST) {
             mImageCaptureInProgress.set(false);
 
@@ -992,14 +997,11 @@ public class CameraActivity extends AppCompatActivity implements
                 mEstimatedSettings.exposure = 0;
             }
 
-            if(mManualControlsSet) {
-                settings.shadows = mEstimatedSettings.shadows;
-            }
-            else {
-                cameraExposure = Math.round(mExposureTime * Math.pow(2.0f, mEstimatedSettings.exposure));
+            // We'll estimate the shadows again since the exposure has been adjusted
+            settings.shadows = -1;
 
-                // We'll estimate the shadows again since the exposure has been adjusted
-                settings.shadows = -1;
+            if(!mManualControlsSet) {
+                cameraExposure = Math.round(mExposureTime * Math.pow(2.0f, mEstimatedSettings.exposure));
             }
 
             CameraManualControl.Exposure baseExposure = CameraManualControl.Exposure.Create(
@@ -1009,10 +1011,6 @@ public class CameraActivity extends AppCompatActivity implements
             CameraManualControl.Exposure hdrExposure = CameraManualControl.Exposure.Create(
                     CameraManualControl.GetClosestShutterSpeed(Math.round(cameraExposure / hdrEv)),
                     CameraManualControl.GetClosestIso(mIsoValues, mIso));
-
-            float a = 1.6f;
-            if(mCameraMetadata.cameraApertures.length > 0)
-                a = mCameraMetadata.cameraApertures[0];
 
             baseExposure = CameraManualControl.MapToExposureLine(a, baseExposure, CameraManualControl.EXPOSURE_LINE);
             hdrExposure = CameraManualControl.MapToExposureLine(a, hdrExposure, CameraManualControl.HDR_EXPOSURE_LINE);
@@ -1049,15 +1047,10 @@ public class CameraActivity extends AppCompatActivity implements
         }
         else {
             PostProcessSettings settings = mPostProcessSettings.clone();
-            settings.shadows = mEstimatedSettings.shadows;
 
             CameraManualControl.Exposure baseExposure = CameraManualControl.Exposure.Create(
                     CameraManualControl.GetClosestShutterSpeed(mExposureTime),
                     CameraManualControl.GetClosestIso(mIsoValues, mIso));
-
-            float a = 1.6f;
-            if(mCameraMetadata.cameraApertures.length > 0)
-                a = mCameraMetadata.cameraApertures[0];
 
             DenoiseSettings denoiseSettings = new DenoiseSettings(
                     0,
@@ -1068,6 +1061,7 @@ public class CameraActivity extends AppCompatActivity implements
             settings.exposure = 0.0f;
             settings.temperature = mEstimatedSettings.temperature + mTemperatureOffset;
             settings.tint = mEstimatedSettings.tint + mTintOffset;
+            settings.shadows = mEstimatedSettings.shadows;
             settings.sharpen0 = denoiseSettings.sharpen0;
             settings.sharpen1 = denoiseSettings.sharpen1;
 
@@ -1938,6 +1932,7 @@ public class CameraActivity extends AppCompatActivity implements
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if(keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            onCaptureTouched(MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0));
             onCaptureClicked();
             return true;
         }
