@@ -9,9 +9,9 @@
 
 namespace motioncam {
     
-    float estimateNoise(cv::Mat& input);
+    float estimateNoise(cv::Mat& input, float p=0.5f);
     
-    float findMedian(cv::Mat& input, float p=0.5);
+    float findMedian(cv::Mat& input, float p=0.5f);
     float findMedian(std::vector<float> nums);
     
     float calculateEnergy(cv::Mat& image);

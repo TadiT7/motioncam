@@ -490,21 +490,6 @@ void ForwardTransformGenerator::generate() {
             
             // Select input channel
             rawChannel(v_x, v_y) = cast<float>(clamped(v_x, v_y, channel));
-
-            // // Suppress hot pixels
-            // Expr a0 = rawChannel(v_x - 1, v_y);
-            // Expr a1 = rawChannel(v_x + 1, v_y);
-            // Expr a2 = rawChannel(v_x, v_y + 1);
-            // Expr a3 = rawChannel(v_x, v_y - 1);
-            // Expr a4 = rawChannel(v_x + 1, v_y + 1);
-            // Expr a5 = rawChannel(v_x + 1, v_y - 1);
-            // Expr a6 = rawChannel(v_x - 1, v_y + 1);
-            // Expr a7 = rawChannel(v_x - 1, v_y - 1);
-
-            // Expr threshold = max(a0, a1, a2, a3, a4, a5, a6, a7);
-
-            // denoised(v_x, v_y) = clamp(rawChannel(v_x, v_y), 0, threshold);
-            // inputF32(v_x, v_y) = cast<float>(denoised(v_x, v_y));
             
             forward0(forwardOutput, intermediateOutput, rawChannel);
         }
@@ -539,13 +524,6 @@ void ForwardTransformGenerator::generate() {
     width.set_estimate(2000);
     height.set_estimate(1500);
     channel.set_estimate(0);
-
-    output[0].set_estimates({{0, 1024}, {0, 768}, {0, 4}, {0, 4}});
-    output[1].set_estimates({{0, 512}, {0, 384}, {0, 4}, {0, 4}});
-    output[2].set_estimates({{0, 256}, {0, 192}, {0, 4}, {0, 4}});
-    output[3].set_estimates({{0, 128}, {0, 96}, {0, 4}, {0, 4}});
-    output[4].set_estimates({{0, 64}, {0, 48}, {0, 4}, {0, 4}});
-    output[5].set_estimates({{0, 32}, {0, 24}, {0, 4}, {0, 4}});
 }
 
 void ForwardTransformGenerator::schedule() {

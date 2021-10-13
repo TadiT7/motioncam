@@ -483,10 +483,11 @@ public:
     GeneratorParam<int> radius{"radius", 51};
 
     Input<Func> input{"input", 3};
+    Input<Func> eps {"eps", 2};
+
     Output<Func> output{"output", 2};
     
     GeneratorParam<Type> output_type{"output_type", UInt(16)};
-    Input<float> eps {"eps"};
     Input<uint16_t> width {"width"};
     Input<uint16_t> height {"height"};
     Input<uint16_t> channel {"channel"};
@@ -658,7 +659,7 @@ void GuidedFilter::generate() {
     
     var_I(v_x, v_y) = mean_II(v_x, v_y) - (mean_I(v_x, v_y) * mean_I(v_x, v_y));
     
-    a(v_x, v_y) = var_I(v_x, v_y) / (var_I(v_x, v_y) + eps);
+    a(v_x, v_y) = var_I(v_x, v_y) / (var_I(v_x, v_y) + eps(v_x, v_y));
     b(v_x, v_y) = mean_I(v_x, v_y) - (a(v_x, v_y) * mean_I(v_x, v_y));
     
     boxFilter(mean_a, mean_temp_a, a);
@@ -678,7 +679,6 @@ void GuidedFilter::generate() {
     width.set_estimate(4096);
     height.set_estimate(3072);
     channel.set_estimate(1);
-    eps.set_estimate(0.015f);
 }
 
 void GuidedFilter::schedule() {    
@@ -1981,6 +1981,8 @@ void TonemapGenerator::schedule() {
 class EnhanceGenerator : public Halide::Generator<EnhanceGenerator>, public PostProcessBase {
 public:
     Input<Func> input{"input", 3 };
+    Input<Func> chromaDenoiseEps{"chromaDenoiseEps", 2 };
+
     Output<Func> output{ "enhanceOutput", 3 };
 
     GeneratorParam<int> popRadius{"popRadius", 25};
@@ -2000,8 +2002,6 @@ public:
     Input<float> sharpen0{"sharpen0"};
     Input<float> sharpen1{"sharpen1"};
     Input<float> pop{"pop"};
-    Input<float> chromaEps0{"chromaEps0"};
-    Input<float> chromaEps1{"chromaEps1"};
 
     Func linearRgb{"linearRgb"};
     Func sharpenInput{"sharpenInput"};
@@ -2117,11 +2117,11 @@ void EnhanceGenerator::generate() {
 
         gf0->radius.set(41);
         gf0->output_type.set(UInt(16));
-        gf0->apply(chromaInput, chromaEps0*chromaEps0*65535.0f*65535.0f, cast<uint16_t>(width), cast<uint16_t>(height), cast<uint16_t>(1));
+        gf0->apply(chromaInput, chromaDenoiseEps, cast<uint16_t>(width), cast<uint16_t>(height), cast<uint16_t>(1));
 
         gf1->radius.set(41);
         gf1->output_type.set(UInt(16));
-        gf1->apply(chromaInput, chromaEps1*chromaEps1*65535.0f*65535.0f, cast<uint16_t>(width), cast<uint16_t>(height), cast<uint16_t>(2));
+        gf1->apply(chromaInput, chromaDenoiseEps, cast<uint16_t>(width), cast<uint16_t>(height), cast<uint16_t>(2));
 
         chromaDenoised(v_x, v_y, v_c) = select(
             v_c == 0, YCbCrOutput(v_x, v_y, v_c),
@@ -2154,10 +2154,13 @@ void EnhanceGenerator::generate() {
         downsampled(v_x, v_y, v_c) = select(v_c == 0, downsample(sharpened, downsampledTmp)(v_x, v_y), 0);
 
         auto gf = create<GuidedFilter>();
+        Func eps{"eps"};
+
+        eps(v_x, v_y) = 0.2f*0.2f*65535.0f*65535.0f;
 
         gf->radius.set(popRadius);
         gf->output_type.set(UInt(16));
-        gf->apply(downsampled, 0.2f*0.2f*65535.0f*65535.0f, cast<uint16_t>(width), cast<uint16_t>(height), cast<uint16_t>(0));
+        gf->apply(downsampled, eps, cast<uint16_t>(width), cast<uint16_t>(height), cast<uint16_t>(0));
 
         upsampled = upsample(gf->output, upsampleTmp);
 
@@ -2336,6 +2339,10 @@ public:
 
     Output<Buffer<uint8_t>> output{"output", 3};
     
+    Func chromaEpsMap{"chromaEpsMap"}, chromaEps{"chromaEps"};
+    Func Lmap{"Lmap"};
+    Func LmapTmp0{"LmapTmp0"}, LmapTmp1{"LmapTmp1"}, LmapTmp2{"LmapTmp2"}, LmapTmp3{"LmapTmp3"};
+
     Func defringeVertical{"defringeVertical"};
     Func defringeVerticalTransposed{"defringeVerticalTransposed"};
     Func defringeHorizontal{"defringeHorizontal"};
@@ -2386,11 +2393,20 @@ void PostProcessGenerator::generate()
         asShot,
         cameraToSrgb);
 
+    // Calculate chroma denoising map
+    Lmap(v_x, v_y) = cast<uint8_t>(0.5f + 255.0f*pow(demosaic->output(v_x, v_y, 1)/65535.0f, 1.0f/2.2f));
+    chromaEpsMap(v_x, v_y) = cast<uint8_t>(upsample(upsample(downsample(downsample(Lmap, LmapTmp0), LmapTmp1), LmapTmp2), LmapTmp3)(v_x, v_y));
+
+    Expr eps = 0.005f - 0.015f*log(1e-5f + chromaEpsMap(v_x, v_y)/255.0f);
+
+    chromaEps(v_x, v_y) = 65535.0f*65535.0f*eps*eps;
+
+    // Merge HDR images
     tonemapInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(0.5f + pow(2.0f, exposure) * demosaic->output(v_x, v_y, v_c));
 
     hdrMask(v_x, v_y) = exp(-16.0f * (demosaic->output(v_x, v_y, 1) / 65535.0f - 1.0f) * (demosaic->output(v_x, v_y, 1) / 65535.0f - 1.0f));
 
-    highlights(v_x, v_y, v_c) = (hdrMask(v_x, v_y)*hdrInput(v_x, v_y, v_c)/65535.0f) + ((1.0f - hdrMask(v_x, v_y))*hdrScale*demosaic->output(v_x, v_y, v_c)/65535.0f);
+    highlights(v_x, v_y, v_c) = (hdrMask(v_x, v_y)*Halide::BoundaryConditions::repeat_edge(hdrInput)(v_x, v_y, v_c)/65535.0f) + ((1.0f - hdrMask(v_x, v_y))*hdrScale*demosaic->output(v_x, v_y, v_c)/65535.0f);
 
     hdrTonemapInput(v_x, v_y, v_c) = select(useHdr, 
         saturating_cast<uint16_t>(hdrInputGain * highlights(v_x, v_y, v_c) * 65535.0f),
@@ -2421,6 +2437,7 @@ void PostProcessGenerator::generate()
 
     enhance->apply(
         defringe,
+        chromaEps,
         in0.width()*2,
         in0.height()*2,
         blackPoint,
@@ -2431,9 +2448,7 @@ void PostProcessGenerator::generate()
         saturation,
         sharpen0,
         sharpen1,
-        pop,
-        chromaEps0,
-        chromaEps1);
+        pop);
 
     // Finish with blue noise dithering + gamma
     Expr h = v_i / 255.0f;
@@ -2510,6 +2525,31 @@ void PostProcessGenerator::schedule_for_gpu() {
 void PostProcessGenerator::schedule_for_cpu() { 
     int vector_size_u8 = natural_vector_size<uint8_t>();
     int vector_size_u16 = natural_vector_size<uint16_t>();
+
+    Lmap
+        .compute_at(chromaEpsMap, v_y)
+        .vectorize(v_x, 8);
+
+    LmapTmp0
+        .compute_at(chromaEpsMap, v_y)
+        .vectorize(v_x, 8);
+
+    LmapTmp1
+        .compute_at(chromaEpsMap, v_y)
+        .vectorize(v_x, 8);
+
+    LmapTmp2
+        .compute_at(chromaEpsMap, v_y)
+        .vectorize(v_x, 8);
+
+    LmapTmp3
+        .compute_at(chromaEpsMap, v_y)
+        .vectorize(v_x, 8);
+
+    chromaEpsMap
+        .compute_root()
+        .vectorize(v_y, 12)
+        .parallel(v_y);
 
     defringeVerticalTransposed
         .compute_root()
@@ -2700,8 +2740,13 @@ void PreviewGenerator::generate() {
     enhance->enableSharpen.set(enableSharpen);
     enhance->popRadius.set(popRadius);
 
+    Func eps{"eps"};
+
+    eps(v_x, v_y) = 0;
+
     enhance->apply(
         tonemap->output,
+        eps,
         width,
         height,
         blackPoint,
@@ -2712,9 +2757,7 @@ void PreviewGenerator::generate() {
         saturation,
         sharpen0,
         sharpen1,
-        pop,
-        0.0f,
-        0.0f);
+        pop);
            
     //
     // Finalize output

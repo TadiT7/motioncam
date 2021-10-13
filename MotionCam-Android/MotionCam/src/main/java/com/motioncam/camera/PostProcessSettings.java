@@ -13,6 +13,7 @@ public class PostProcessSettings implements Cloneable {
     public float blacks                         = -1.0f;
     public float contrast                       = 0.35f;
     public float exposure                       = 0.0f;
+    public float hdr                            = 0.0f;
     public float noiseSigma                     = 0.0f;
     public float sceneLuminance                 = 0.0f;
     public float saturation                     = 1.05f;

@@ -1,7 +1,6 @@
 package com.motioncam;
 
 public class DenoiseSettings {
-    public float spatialWeight;
     public int numMergeImages;
     public float sharpen0;
     public float sharpen1;
@@ -13,8 +12,7 @@ public class DenoiseSettings {
     @Override
     public String toString() {
         return "DenoiseSettings{" +
-                "spatialWeight=" + spatialWeight +
-                ", numMergeImages=" + numMergeImages +
+                "numMergeImages=" + numMergeImages +
                 ", sharpen0=" + sharpen0 +
                 ", sharpen1=" + sharpen1 +
                 '}';
@@ -23,30 +21,28 @@ public class DenoiseSettings {
     private void estimateFromExposure(float ev, float shadows) {
         int mergeImages;
         float chromaBlendWeight;
-        float spatialDenoiseWeight;
 
-        sharpen0 = 2.25f;
-        sharpen1 = 2.0f;
+        sharpen0 = 2.0f;
+        sharpen1 = 2.5f;
 
         if(ev > 7.99) {
-            spatialDenoiseWeight    = 1.0f;
             mergeImages             = 4;
         }
         else if(ev > 5.99) {
-            spatialDenoiseWeight    = 1.0f;
             mergeImages             = 6;
         }
         else if(ev > 3.99) {
-            spatialDenoiseWeight    = 1.0f;
             mergeImages             = 8;
         }
         else if(ev > 0) {
-            spatialDenoiseWeight    = 1.25f;
             mergeImages             = 12;
+            sharpen0                = 1.5f;
+            sharpen1                = 3.0f;
         }
         else {
-            spatialDenoiseWeight    = 1.5f;
             mergeImages             = 12;
+            sharpen0                = 1.5f;
+            sharpen1                = 3.0f;
         }
 
         if(shadows > 7.99) {
@@ -58,7 +54,6 @@ public class DenoiseSettings {
         }
 
         this.numMergeImages     = mergeImages;
-        this.spatialWeight      = spatialDenoiseWeight;
     }
 
     public DenoiseSettings(float noiseProfile, float ev, float shadows) {

@@ -67,10 +67,12 @@ namespace motioncam {
                                             float& outWhitePoint);
         
         static float estimateShadows(const cv::Mat& histogram, float keyValue=0.22f);
+        static float estimateHdr(const cv::Mat& histogram);
         static float estimateExposureCompensation(const cv::Mat& histogram, float threshold=1e-4f);
 
         static float estimateChromaEps(const float noise);
-
+        static std::vector<float>& estimateDenoiseWeights(const float noise);
+        
         static double measureSharpness(const RawImageBuffer& rawBuffer);
 
         static void measureImage(RawImageBuffer& rawImage, const RawCameraMetadata& cameraMetadata, float& outSceneLuminosity);

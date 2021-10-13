@@ -27,6 +27,7 @@ namespace motioncam {
         float pop;
         float blacks;
         float exposure;
+        float hdr;
         
         float noiseSigma;
         float sceneLuminance;
@@ -54,6 +55,7 @@ namespace motioncam {
             tonemapVariance(0.25f),
             shadows(1.0f),
             exposure(0.0f),
+            hdr(0.0f),
             noiseSigma(0.0f),
             sceneLuminance(0.0f),
             contrast(0.5f),
@@ -86,6 +88,7 @@ namespace motioncam {
             whitePoint                      = getSetting(json, "whitePoint",        whitePoint);
             contrast                        = getSetting(json, "contrast",          contrast);
             exposure                        = getSetting(json, "exposure",          exposure);
+            hdr                             = getSetting(json, "hdr",               hdr);
             blacks                          = getSetting(json, "blacks",            blacks);
             
             noiseSigma                      = getSetting(json, "noiseSigma",        noiseSigma);
@@ -125,6 +128,7 @@ namespace motioncam {
             json["pop"]                             = pop;
             json["blacks"]                          = blacks;
             json["exposure"]                        = exposure;
+            json["hdr"]                             = hdr;
             json["temperature"]                     = temperature;
             json["tint"]                            = tint;
             

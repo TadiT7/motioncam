@@ -182,6 +182,7 @@ namespace motioncam {
             mState(CameraCaptureSessionState::CLOSED),
             mLastIso(0),
             mLastExposureTime(0),
+            mLastFocusDistance(0),
             mLastFocusState(CameraFocusState::INACTIVE),
             mLastExposureState(CameraExposureState::INACTIVE),
             mCameraDescription(std::move(cameraDescription)),
@@ -705,11 +706,9 @@ namespace motioncam {
         if(iso < 0 || exposure < 0)
             return;
 
-        uint8_t mode  = ACAMERA_CONTROL_MODE_OFF_KEEP_STATE;
+        uint8_t aeMode  = ACAMERA_CONTROL_AE_MODE_OFF;
 
-        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_CONTROL_MODE, 1, &mode);
-        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_CONTROL_MODE, 1, &mode);
-
+        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_CONTROL_AE_MODE, 1, &aeMode);
         ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &iso);
         ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &exposure);
 
@@ -738,13 +737,20 @@ namespace motioncam {
             return;
         }
 
-        uint8_t mode  = ACAMERA_CONTROL_MODE_OFF_KEEP_STATE;
+        uint8_t afMode  = ACAMERA_CONTROL_AF_MODE_OFF;
+        uint8_t aeMode  = ACAMERA_CONTROL_AE_MODE_OFF;
 
-        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_CONTROL_MODE, 1, &mode);
+        float focusDistance = mLastFocusDistance;
+
+        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_CONTROL_AF_MODE, 1, &afMode);
+        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_CONTROL_AE_MODE, 1, &aeMode);
+        ACaptureRequest_setEntry_float(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_LENS_FOCUS_DISTANCE, 1, &focusDistance);
         ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &baseIso);
         ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &baseExposure);
 
-        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_CONTROL_MODE, 1, &mode);
+        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_CONTROL_AF_MODE, 1, &afMode);
+        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_CONTROL_AE_MODE, 1, &aeMode);
+        ACaptureRequest_setEntry_float(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_LENS_FOCUS_DISTANCE, 1, &focusDistance);
         ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &hdrIso);
         ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &hdrExposure);
 
@@ -913,6 +919,7 @@ namespace motioncam {
         // Read the ISO/shutter speed values.
         int iso = 0;
         int64_t exposure = 0;
+        float focusDistance = 0;
 
         if (ACameraMetadata_getConstEntry(metadata, ACAMERA_SENSOR_SENSITIVITY, &metadataEntry) == ACAMERA_OK) {
             iso = metadataEntry.data.i32[0];
@@ -921,6 +928,12 @@ namespace motioncam {
         if (ACameraMetadata_getConstEntry(metadata, ACAMERA_SENSOR_EXPOSURE_TIME, &metadataEntry) == ACAMERA_OK) {
             exposure = (double) metadataEntry.data.i64[0];
         }
+
+        if (ACameraMetadata_getConstEntry(metadata, ACAMERA_LENS_FOCUS_DISTANCE, &metadataEntry) == ACAMERA_OK) {
+            focusDistance = (float) metadataEntry.data.f[0];
+        }
+
+        mLastFocusDistance = focusDistance;
 
         if (iso != mLastIso || exposure != mLastExposureTime) {
             json11::Json::object data = {

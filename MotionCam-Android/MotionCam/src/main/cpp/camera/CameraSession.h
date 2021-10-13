@@ -135,6 +135,7 @@ namespace motioncam {
         CameraCaptureSessionState mState;
         int32_t mLastIso;
         int64_t mLastExposureTime;
+        std::atomic<float> mLastFocusDistance;
         CameraFocusState mLastFocusState;
         CameraExposureState mLastExposureState;
         std::atomic<ScreenOrientation> mScreenOrientation;

@@ -27,11 +27,11 @@ namespace motioncam {
         return nums[nums.size()*p];
     }
     
-    float estimateNoise(cv::Mat& input) {
+    float estimateNoise(cv::Mat& input, float p) {
         cv::Mat d = cv::abs(input);
-        float mad = findMedian(d);
+        return findMedian(d, p);
 
-        return mad / 0.6745;
+//        return mad / 0.6745;
     }
         
     float calculateEnergy(cv::Mat& image) {
