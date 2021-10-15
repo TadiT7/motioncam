@@ -31,13 +31,13 @@ function build_denoise() {
 	./tmp/denoise_generator -g denoise_generator -f fuse_denoise -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} input0.type=uint16 input1.type=uint16 pendingOutput.type=float32 output.type=float32
 
 	echo "[$ARCH] Building forward_transform_generator"
-	./tmp/denoise_generator -g forward_transform_generator -f forward_transform -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} input.type=uint16 levels=6
+	./tmp/denoise_generator -g forward_transform_generator -f forward_transform -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} input.type=uint16 levels=4
 
 	echo "[$ARCH] Building fuse_image_generator"
-	./tmp/denoise_generator -g fuse_image_generator -f fuse_image -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} input.type=uint16 reference.size=6 reference.type=float32 intermediate.size=6 intermediate.type=float32
+	./tmp/denoise_generator -g fuse_image_generator -f fuse_image -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} input.type=uint16 reference.size=4 reference.type=float32 intermediate.size=4 intermediate.type=float32
 
 	echo "[$ARCH] Building inverse_transform_generator"
-	./tmp/denoise_generator -g inverse_transform_generator -f inverse_transform -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} input.size=6
+	./tmp/denoise_generator -g inverse_transform_generator -f inverse_transform -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} input.size=4
 }
 
 function build_postprocess() {
