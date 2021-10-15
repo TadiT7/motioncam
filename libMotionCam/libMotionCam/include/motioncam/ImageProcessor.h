@@ -70,7 +70,6 @@ namespace motioncam {
         static float estimateHdr(const cv::Mat& histogram);
         static float estimateExposureCompensation(const cv::Mat& histogram, float threshold=1e-4f);
 
-        static float estimateChromaEps(const float noise);
         static std::vector<float>& estimateDenoiseWeights(const float noise);
         
         static double measureSharpness(const RawImageBuffer& rawBuffer);
@@ -121,7 +120,6 @@ namespace motioncam {
                                    const std::shared_ptr<HdrMetadata>& hdrMetadata,
                                    int offsetX,
                                    int offsetY,
-                                   const float chromaEps,
                                    const RawImageMetadata& metadata,
                                    const RawCameraMetadata& cameraMetadata,
                                    const PostProcessSettings& settings);

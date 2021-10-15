@@ -2115,11 +2115,11 @@ void EnhanceGenerator::generate() {
         auto gf0 = create<GuidedFilter>();
         auto gf1 = create<GuidedFilter>();
 
-        gf0->radius.set(41);
+        gf0->radius.set(61);
         gf0->output_type.set(UInt(16));
         gf0->apply(chromaInput, chromaDenoiseEps, cast<uint16_t>(width), cast<uint16_t>(height), cast<uint16_t>(1));
 
-        gf1->radius.set(41);
+        gf1->radius.set(61);
         gf1->output_type.set(UInt(16));
         gf1->apply(chromaInput, chromaDenoiseEps, cast<uint16_t>(width), cast<uint16_t>(height), cast<uint16_t>(2));
 
@@ -2307,6 +2307,7 @@ public:
 
     Input<Buffer<uint8_t>> blueNoise{"blueNoise", 3 };
     Input<Buffer<uint16_t>> hdrInput{"hdrInput", 3 };
+
     Input<bool> useHdr{"useHdr"};
 
     Input<float[3]> asShotVector{"asShotVector"};
@@ -2394,17 +2395,19 @@ void PostProcessGenerator::generate()
         cameraToSrgb);
 
     // Calculate chroma denoising map
-    Lmap(v_x, v_y) = cast<uint8_t>(0.5f + 255.0f*pow(demosaic->output(v_x, v_y, 1)/65535.0f, 1.0f/2.2f));
+    Lmap(v_x, v_y) = cast<uint8_t>(0.5f + demosaic->output(v_x, v_y, 1)*255.0f/65535.0f);
     chromaEpsMap(v_x, v_y) = cast<uint8_t>(upsample(upsample(downsample(downsample(Lmap, LmapTmp0), LmapTmp1), LmapTmp2), LmapTmp3)(v_x, v_y));
-
-    Expr eps = 0.005f - 0.015f*log(1e-5f + chromaEpsMap(v_x, v_y)/255.0f);
+    
+    Expr eps = max(0.0005f, chromaEps0*chromaEpsMap(v_x, v_y)/255.0f + chromaEps1);
 
     chromaEps(v_x, v_y) = 65535.0f*65535.0f*eps*eps;
 
     // Merge HDR images
     tonemapInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(0.5f + pow(2.0f, exposure) * demosaic->output(v_x, v_y, v_c));
 
-    hdrMask(v_x, v_y) = exp(-16.0f * (demosaic->output(v_x, v_y, 1) / 65535.0f - 1.0f) * (demosaic->output(v_x, v_y, 1) / 65535.0f - 1.0f));
+    Expr L = 1.0f/65535.0f * (0.299f*demosaic->output(v_x, v_y, 0) + 0.587f*demosaic->output(v_x, v_y, 1) + 0.114f*demosaic->output(v_x, v_y, 2));
+
+    hdrMask(v_x, v_y) = exp(-32.0f * (L - 1.0f) * (L - 1.0f));
 
     highlights(v_x, v_y, v_c) = (hdrMask(v_x, v_y)*Halide::BoundaryConditions::repeat_edge(hdrInput)(v_x, v_y, v_c)/65535.0f) + ((1.0f - hdrMask(v_x, v_y))*hdrScale*demosaic->output(v_x, v_y, v_c)/65535.0f);
 
@@ -3410,14 +3413,14 @@ void HdrMaskGenerator::generate() {
     Func map0, map1;
     Func ghostMap;
 
-    inputf0(v_x, v_y) = max(0.0f, min(1.0f, cast<float>(BoundaryConditions::repeat_edge(input0)(v_x, v_y)) / 255.0f));
-    inputf1(v_x, v_y) = max(0.0f, min(1.0f, cast<float>(BoundaryConditions::repeat_edge(input1)(v_x, v_y)) / 255.0f));
+    inputf0(v_x, v_y) = cast<float>(BoundaryConditions::repeat_edge(input0)(v_x, v_y)) / 255.0f;
+    inputf1(v_x, v_y) = cast<float>(BoundaryConditions::repeat_edge(input1)(v_x, v_y)) / 255.0f;
 
     mask0(v_x, v_y) = exp(-c * (inputf0(v_x, v_y) - 1.0f) * (inputf0(v_x, v_y) - 1.0f));
     mask1(v_x, v_y) = exp(-c * (inputf1(v_x, v_y) - 1.0f) * (inputf1(v_x, v_y) - 1.0f));
 
-    map0(v_x, v_y) = cast<uint8_t>(select(mask0(v_x, v_y) > 0.5f, 1, 0));
-    map1(v_x, v_y) = cast<uint8_t>(select(mask1(v_x, v_y) > 0.5f, 1, 0));
+    map0(v_x, v_y) = cast<bool>(select(mask0(v_x, v_y) > 0.05f, 1, 0));
+    map1(v_x, v_y) = cast<bool>(select(mask1(v_x, v_y) > 0.05f, 1, 0));
 
     ghostMap(v_x, v_y) = map0(v_x, v_y) ^ map1(v_x, v_y);
 
@@ -3425,8 +3428,8 @@ void HdrMaskGenerator::generate() {
 
     outputGhost(v_x, v_y) = cast<uint8_t>(1);
     outputGhost(v_x, v_y) = outputGhost(v_x, v_y) & ghostMap(v_x + r.x, v_y + r.y);
-    
-    outputMask(v_x, v_y) = cast<uint8_t>(clamp(mask0(v_x, v_y) * 255.0f + 0.5f, 0, 255));
+
+    outputMask(v_x, v_y) = saturating_cast<uint8_t>((mask0(v_x, v_y)) * 255.0f);
 
     c.set_estimate(4.0f);
 

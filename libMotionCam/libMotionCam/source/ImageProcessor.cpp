@@ -105,9 +105,9 @@ static std::vector<Halide::Runtime::Buffer<float>> createWaveletBuffers(int widt
 
 namespace motioncam {
     const int EXPANDED_RANGE            = 16384;
-    const float MAX_HDR_ERROR           = 0.0025f;
+    const float MAX_HDR_ERROR           = 0.25f;
     const float WHITEPOINT_THRESHOLD    = 1.0f;
-    const float SHADOW_BIAS             = 12.0f;
+    const float SHADOW_BIAS             = 14.0f;
 
     typedef Halide::Runtime::Buffer<float> WaveletBuffer;
 
@@ -259,7 +259,6 @@ namespace motioncam {
                                         const shared_ptr<HdrMetadata>& hdrMetadata,
                                         int offsetX,
                                         int offsetY,
-                                        const float chromaEps,
                                         const RawImageMetadata& metadata,
                                         const RawCameraMetadata& cameraMetadata,
                                         const PostProcessSettings& settings)
@@ -309,6 +308,7 @@ namespace motioncam {
         }
         
         Halide::Runtime::Buffer<uint16_t> hdrInput;
+        
         float shadows = settings.shadows;
         
         float tonemapVariance = 0.27f;
@@ -318,6 +318,7 @@ namespace motioncam {
         
         if(hdrMetadata && hdrMetadata->error < MAX_HDR_ERROR) {
             hdrInput = hdrMetadata->hdrInput;
+            
             hdrInputGain = hdrMetadata->gain;
             hdrScale = 1.0f / hdrMetadata->exposureScale;
             useHdr = true;
@@ -329,6 +330,7 @@ namespace motioncam {
                 logger::log("Not using HDR image, error too high (" + std::to_string(hdrMetadata->error) + ")");
             
             hdrInput = Halide::Runtime::Buffer<uint16_t>(inputBuffers[0].width()*2, inputBuffers[0].height()*2, 3);
+            
             useHdr = false;
         }
         
@@ -363,8 +365,8 @@ namespace motioncam {
                     settings.sharpen0,
                     settings.sharpen1,
                     settings.pop,
-                    chromaEps,
-                    chromaEps,
+                    -0.15f,
+                    0.02f,
                     outputBuffer);
 
         outputBuffer.device_sync();
@@ -386,7 +388,7 @@ namespace motioncam {
         settings.sharpen0   = 1.0f;
         settings.sharpen1   = 1.0f;
         settings.contrast   = 0.0f;
-        settings.pop        = 1.0f;
+        settings.pop        = 1.25f;
                 
         auto previewBuffer = createPreview(rawBuffer, 2, cameraMetadata, settings);
 
@@ -498,10 +500,6 @@ namespace motioncam {
         return std::log2(m);
     }
 
-    float ImageProcessor::estimateChromaEps(const float noise) {
-        return std::max(0.0175f, 2.4880f*(noise*noise) + 0.0450f*noise + 0.0127f);
-    }
-
     std::vector<float>& ImageProcessor::estimateDenoiseWeights(const float noise) {
         const float NOISE_MAP[] = {
             0.15f,
@@ -518,12 +516,12 @@ namespace motioncam {
             { 8,  4,   1,   1  },
             { 4,  2,   0.5, 0  },
             { 2,  1,   0,   0  },
-            { 1,  0.5, 0,   0  }
+            { 1,  1,   0,   0  }
         };
         
-        for(int i = 1; i < WEIGHTS.size(); i++) {
+        for(int i = 0; i < WEIGHTS.size(); i++) {
             if(noise > NOISE_MAP[i]) {
-                return WEIGHTS[i - 1];
+                return WEIGHTS[i];
             }
         }
         
@@ -558,7 +556,7 @@ namespace motioncam {
         outSettings.temperature    = static_cast<float>(temperature.temperature());
         outSettings.tint           = static_cast<float>(temperature.tint());
         outSettings.shadows        = estimateShadows(histogram, keyValue);
-        outSettings.exposure       = estimateExposureCompensation(histogram, 1e-2f);
+        outSettings.exposure       = estimateExposureCompensation(histogram, 1e-3f);
         outSettings.hdr            = estimateHdr(histogram);
     }
 
@@ -856,7 +854,7 @@ namespace motioncam {
     {
         Measure measure("registerImage2()");
 
-        static const cv::TermCriteria termCriteria = cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 100, 0.0001);
+        static const cv::TermCriteria termCriteria = cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 50, 0.0001f);
 
         static const float scaleWarpMatrix[] = {
            1,   1,   2,
@@ -868,7 +866,7 @@ namespace motioncam {
         cv::Mat referenceImage(referenceBuffer.height(), referenceBuffer.width(), CV_8U, (void*) referenceBuffer.data());
         cv::Mat toAlignImage(toAlignBuffer.height(), toAlignBuffer.width(), CV_8U, (void*) toAlignBuffer.data());
 
-        const int ALIGN_PYRAMID_LEVELS = 7;
+        const int ALIGN_PYRAMID_LEVELS = 5;
     
         // Create pyramid from reference
         vector<cv::Mat> refPyramid;
@@ -1249,17 +1247,12 @@ namespace motioncam {
 #endif
         
         logger::log("Noise " + std::to_string(noise));
-        
-        float chromaEps = estimateChromaEps(noise);
-        
-        logger::log("Estimated chroma eps " + std::to_string(chromaEps));
-        
+                
         cv::Mat outputImage = postProcess(
             denoiseOutput,
             hdrMetadata,
             offsetX,
             offsetY,
-            chromaEps,
             referenceRawBuffer->metadata,
             rawContainer.getCameraMetadata(),
             settings);
@@ -1975,7 +1968,7 @@ namespace motioncam {
         if(error > MAX_HDR_ERROR) {
             cv::Ptr<cv::DISOpticalFlow> opticalFlow =
                 cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_FAST);
-            
+
             opticalFlow->setFinestScale(2);
             opticalFlow->setPatchSize(64);
             opticalFlow->setPatchStride(16);
@@ -1985,7 +1978,7 @@ namespace motioncam {
                                    refImage->previewBuffer.width(),
                                    CV_8U, (void*)
                                    refImage->previewBuffer.data());
-            
+
             cv::Mat toAlignImage(underexposedImage->previewBuffer.height(),
                                  underexposedImage->previewBuffer.width(),
                                  CV_8U,
@@ -2000,9 +1993,9 @@ namespace motioncam {
                 logger::log(std::string("Failed to get optical flow: ") + e.what());
                 return nullptr;
             }
-            
+
             map = cv::Mat(flow.size(), CV_32FC2);
-            
+
             for (int y = 0; y < map.rows; ++y)
             {
                 for (int x = 0; x < map.cols; ++x)
@@ -2011,14 +2004,14 @@ namespace motioncam {
                     map.at<cv::Point2f>(y, x) = cv::Point2f(x + f.x, y + f.y);
                 }
             }
-            
+
             error = testAlignment(refImage, underexposedImage, map);
         }
-        
+
         logger::log("HDR error: " + std::to_string(error));
         if(error > MAX_HDR_ERROR)
             return nullptr;
-        
+          
         //
         // Denoise
         //
@@ -2190,7 +2183,7 @@ namespace motioncam {
                 
         hdrMetadata->exposureScale  = exposureScale;
         hdrMetadata->hdrInput       = outputBuffer;
-        hdrMetadata->error          = error;
+        hdrMetadata->error          = 0;
         hdrMetadata->gain           = 1024.0f / std::max(p[2], std::max(p[0], p[1]));
         
         return hdrMetadata;
