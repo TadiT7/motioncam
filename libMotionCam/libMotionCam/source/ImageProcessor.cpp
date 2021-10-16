@@ -365,7 +365,7 @@ namespace motioncam {
                     settings.sharpen0,
                     settings.sharpen1,
                     settings.pop,
-                    -0.15f,
+                    -0.05f,
                     0.028f,
                     outputBuffer);
 
