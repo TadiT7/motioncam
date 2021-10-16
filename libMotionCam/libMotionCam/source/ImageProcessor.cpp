@@ -366,7 +366,7 @@ namespace motioncam {
                     settings.sharpen1,
                     settings.pop,
                     -0.15f,
-                    0.02f,
+                    0.028f,
                     outputBuffer);
 
         outputBuffer.device_sync();
@@ -511,21 +511,27 @@ namespace motioncam {
         };
         
         static std::vector<std::vector<float>> WEIGHTS = {
-            { 16, 8,   4,   2  },
+            { 12, 6,   2,   1  },
             { 8,  4,   2,   1  },
-            { 8,  4,   1,   1  },
-            { 4,  2,   0.5, 0  },
-            { 2,  1,   0,   0  },
+            { 6,  4,   1,   1  },
+            { 4,  2,   1,   0  },
+            { 2,  1,   0.5, 0  },
             { 1,  1,   0,   0  }
         };
         
+        float minDiff = 1e5f;
+        int w = (int) WEIGHTS.size()-1;
+        
         for(int i = 0; i < WEIGHTS.size(); i++) {
-            if(noise > NOISE_MAP[i]) {
-                return WEIGHTS[i];
+            float diff = abs(noise  - NOISE_MAP[i]);
+            
+            if(diff < minDiff) {
+                minDiff = diff;
+                w = i;
             }
         }
         
-        return WEIGHTS[WEIGHTS.size()-1];
+        return WEIGHTS[w];
     }
 
     float ImageProcessor::getShadowKeyValue(const RawImageBuffer& rawBuffer, const RawCameraMetadata& cameraMetadata, bool nightMode) {

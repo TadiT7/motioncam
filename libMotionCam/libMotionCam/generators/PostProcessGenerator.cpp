@@ -2398,7 +2398,7 @@ void PostProcessGenerator::generate()
     Lmap(v_x, v_y) = cast<uint8_t>(0.5f + demosaic->output(v_x, v_y, 1)*255.0f/65535.0f);
     chromaEpsMap(v_x, v_y) = cast<uint8_t>(upsample(upsample(downsample(downsample(Lmap, LmapTmp0), LmapTmp1), LmapTmp2), LmapTmp3)(v_x, v_y));
     
-    Expr eps = max(0.0005f, chromaEps0*chromaEpsMap(v_x, v_y)/255.0f + chromaEps1);
+    Expr eps = max(0.005f, chromaEps0*chromaEpsMap(v_x, v_y)/255.0f + chromaEps1);
 
     chromaEps(v_x, v_y) = 65535.0f*65535.0f*eps*eps;
 
@@ -2407,7 +2407,7 @@ void PostProcessGenerator::generate()
 
     Expr L = 1.0f/65535.0f * (0.299f*demosaic->output(v_x, v_y, 0) + 0.587f*demosaic->output(v_x, v_y, 1) + 0.114f*demosaic->output(v_x, v_y, 2));
 
-    hdrMask(v_x, v_y) = exp(-32.0f * (L - 1.0f) * (L - 1.0f));
+    hdrMask(v_x, v_y) = exp(-16.0f * (L - 1.0f) * (L - 1.0f));
 
     highlights(v_x, v_y, v_c) = (hdrMask(v_x, v_y)*Halide::BoundaryConditions::repeat_edge(hdrInput)(v_x, v_y, v_c)/65535.0f) + ((1.0f - hdrMask(v_x, v_y))*hdrScale*demosaic->output(v_x, v_y, v_c)/65535.0f);
 
