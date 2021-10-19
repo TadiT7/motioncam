@@ -992,7 +992,7 @@ public class CameraActivity extends AppCompatActivity implements
 
             // Map camera exposure to our own
             long cameraExposure = mExposureTime;
-            float hdr = Math.max(2.0f, mEstimatedSettings.hdr);
+            float hdr = Math.max(1.0f, mEstimatedSettings.hdr);
 
             float hdrEv = (float) Math.pow(2.0f, hdr);
 

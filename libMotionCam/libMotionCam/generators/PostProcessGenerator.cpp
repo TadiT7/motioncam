@@ -2115,18 +2115,48 @@ void EnhanceGenerator::generate() {
         auto gf0 = create<GuidedFilter>();
         auto gf1 = create<GuidedFilter>();
 
-        gf0->radius.set(61);
+        gf0->radius.set(15);
         gf0->output_type.set(UInt(16));
         gf0->apply(chromaInput, chromaDenoiseEps, cast<uint16_t>(width), cast<uint16_t>(height), cast<uint16_t>(1));
 
-        gf1->radius.set(61);
+        gf1->radius.set(15);
         gf1->output_type.set(UInt(16));
         gf1->apply(chromaInput, chromaDenoiseEps, cast<uint16_t>(width), cast<uint16_t>(height), cast<uint16_t>(2));
 
+        auto gf2 = create<GuidedFilter>();
+        auto gf3 = create<GuidedFilter>();
+
+        Func secondPass{"secondPass"};
+
+        secondPass(v_x, v_y, v_c) = select(v_c == 0, gf0->output(v_x, v_y), gf1->output(v_x, v_y));
+
+        gf2->radius.set(15);
+        gf2->output_type.set(UInt(16));
+        gf2->apply(secondPass, chromaDenoiseEps, cast<uint16_t>(width), cast<uint16_t>(height), cast<uint16_t>(0));
+
+        gf3->radius.set(15);
+        gf3->output_type.set(UInt(16));
+        gf3->apply(secondPass, chromaDenoiseEps, cast<uint16_t>(width), cast<uint16_t>(height), cast<uint16_t>(1));
+
+        auto gf4 = create<GuidedFilter>();
+        auto gf5 = create<GuidedFilter>();
+
+        Func thirdPass{"thirdPass"};
+
+        thirdPass(v_x, v_y, v_c) = select(v_c == 0, gf2->output(v_x, v_y), gf3->output(v_x, v_y));
+
+        gf4->radius.set(25);
+        gf4->output_type.set(UInt(16));
+        gf4->apply(thirdPass, chromaDenoiseEps, cast<uint16_t>(width), cast<uint16_t>(height), cast<uint16_t>(0));
+
+        gf5->radius.set(25);
+        gf5->output_type.set(UInt(16));
+        gf5->apply(thirdPass, chromaDenoiseEps, cast<uint16_t>(width), cast<uint16_t>(height), cast<uint16_t>(1));
+
         chromaDenoised(v_x, v_y, v_c) = select(
             v_c == 0, YCbCrOutput(v_x, v_y, v_c),
-            v_c == 1, gf0->output(v_x, v_y) / 65535.0f - 0.5f,
-                      gf1->output(v_x, v_y) / 65535.0f - 0.5f);
+            v_c == 1, gf4->output(v_x, v_y) / 65535.0f - 0.5f,
+                      gf5->output(v_x, v_y) / 65535.0f - 0.5f);
 
         YCbCrToRGB(hsvInput, chromaDenoised);
     }
@@ -2337,6 +2367,7 @@ public:
     Input<float> pop{"pop"};
     Input<float> chromaEps0{"chromaEps0"};
     Input<float> chromaEps1{"chromaEps1"};
+    Input<float> chromaEps3{"chromaEps3"};
 
     Output<Buffer<uint8_t>> output{"output", 3};
     
@@ -2395,10 +2426,12 @@ void PostProcessGenerator::generate()
         cameraToSrgb);
 
     // Calculate chroma denoising map
-    Lmap(v_x, v_y) = cast<uint8_t>(0.5f + demosaic->output(v_x, v_y, 1)*255.0f/65535.0f);
+    Lmap(v_x, v_y) = cast<uint8_t>(0.5f + 255.0f*pow(demosaic->output(v_x, v_y, 1)/65535.0f, 1.0f/2.2f));
     chromaEpsMap(v_x, v_y) = cast<uint8_t>(upsample(upsample(downsample(downsample(Lmap, LmapTmp0), LmapTmp1), LmapTmp2), LmapTmp3)(v_x, v_y));
     
-    Expr eps = max(0.005f, chromaEps0*chromaEpsMap(v_x, v_y)/255.0f + chromaEps1);
+    Expr X = chromaEpsMap(v_x, v_y)/255.0f;
+    Expr W = chromaEps1*exp(-chromaEps0*(X*X)) + 1.0f;
+    Expr eps = W*chromaEps3;
 
     chromaEps(v_x, v_y) = 65535.0f*65535.0f*eps*eps;
 

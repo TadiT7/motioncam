@@ -120,6 +120,7 @@ namespace motioncam {
                                    const std::shared_ptr<HdrMetadata>& hdrMetadata,
                                    int offsetX,
                                    int offsetY,
+                                   float noiseEstimate,
                                    const RawImageMetadata& metadata,
                                    const RawCameraMetadata& cameraMetadata,
                                    const PostProcessSettings& settings);

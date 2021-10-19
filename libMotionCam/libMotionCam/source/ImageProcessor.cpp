@@ -105,7 +105,7 @@ static std::vector<Halide::Runtime::Buffer<float>> createWaveletBuffers(int widt
 
 namespace motioncam {
     const int EXPANDED_RANGE            = 16384;
-    const float MAX_HDR_ERROR           = 0.25f;
+    const float MAX_HDR_ERROR           = 0.01f;
     const float WHITEPOINT_THRESHOLD    = 1.0f;
     const float SHADOW_BIAS             = 14.0f;
 
@@ -259,6 +259,7 @@ namespace motioncam {
                                         const shared_ptr<HdrMetadata>& hdrMetadata,
                                         int offsetX,
                                         int offsetY,
+                                        const float noiseEstimate,
                                         const RawImageMetadata& metadata,
                                         const RawCameraMetadata& cameraMetadata,
                                         const PostProcessSettings& settings)
@@ -365,13 +366,14 @@ namespace motioncam {
                     settings.sharpen0,
                     settings.sharpen1,
                     settings.pop,
-                    -0.05f,
-                    0.028f,
+                    128.0f,
+                    7.0f,
+                    std::min(0.015f, std::max(0.005f, noiseEstimate / 2.0f)),
                     outputBuffer);
 
         outputBuffer.device_sync();
         outputBuffer.copy_to_host();
-
+        
         return output;
     }
 
@@ -505,9 +507,9 @@ namespace motioncam {
             0.15f,
             0.09f,
             0.06f,
+            0.04f,
             0.02f,
-            0.01f,
-            0.00f
+            0.01f
         };
         
         static std::vector<std::vector<float>> WEIGHTS = {
@@ -1259,6 +1261,7 @@ namespace motioncam {
             hdrMetadata,
             offsetX,
             offsetY,
+            noise,
             referenceRawBuffer->metadata,
             rawContainer.getCameraMetadata(),
             settings);
