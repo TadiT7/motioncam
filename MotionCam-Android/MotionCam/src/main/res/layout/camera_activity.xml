@@ -327,6 +327,17 @@
                     android:padding="5dp"
                     android:text="@string/burst_mode"
                     android:textAppearance="@style/MotionCam.TextAppearance.Small" />
+
+                <TextView
+                    android:id="@+id/rawVideoModeBtn"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:padding="5dp"
+                    android:text="@string/raw_video_mode"
+                    android:textAppearance="@style/MotionCam.TextAppearance.Small" />
+
             </LinearLayout>
 
         </androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,9 +1,7 @@
 #ifndef Temperature_hpp
 #define Temperature_hpp
 
-#include "Types.h"
-
-#include <string>
+#include "motioncam/Types.h"
 
 namespace motioncam {
     

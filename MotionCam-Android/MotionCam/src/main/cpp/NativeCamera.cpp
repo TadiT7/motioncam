@@ -1038,3 +1038,32 @@ jobjectArray JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_DetectF
 
     return result;
 }
+
+extern "C"
+JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_StartStreamToFile(
+        JNIEnv *env, jobject thiz, jlong handle, jstring jOutputPath)
+{
+    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
+    if(!sessionManager) {
+        return;
+    }
+
+    const char* outputPathChars = env->GetStringUTFChars(jOutputPath, nullptr);
+    if(outputPathChars == nullptr) {
+        LOGE("Failed to get output path");
+        return;
+    }
+
+    std::string outputPath(outputPathChars);
+    env->ReleaseStringUTFChars(jOutputPath, outputPathChars);
+
+    auto cameraId = sessionManager->getSelectedCameraId();
+    auto metadata = sessionManager->getCameraDescription(cameraId)->metadata;
+
+    RawBufferManager::get().enableStreaming(outputPath, metadata);
+}
+
+extern "C"
+JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_EndStream(JNIEnv *env, jobject thiz, jlong handle) {
+    RawBufferManager::get().endStreaming();
+}

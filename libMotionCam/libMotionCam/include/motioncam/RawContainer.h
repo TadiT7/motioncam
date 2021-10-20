@@ -9,13 +9,17 @@
 #include <json11/json11.hpp>
 
 #include "motioncam/RawImageMetadata.h"
-#include "motioncam/RawBufferManager.h"
 
 namespace motioncam {
+    namespace util {
+        class ZipWriter;
+        class ZipReader;
+    }
 
     class RawContainer {
     public:
         RawContainer(const std::string& inputPath);
+        RawContainer(const RawCameraMetadata& cameraMetadata);
 
         RawContainer(const RawCameraMetadata& cameraMetadata,
                      const PostProcessSettings& postProcessSettings,
@@ -38,6 +42,8 @@ namespace motioncam {
         
         void save(const std::string& outputPath);
         
+        static size_t append(util::ZipWriter& zipWriter, std::shared_ptr<RawImageBuffer> frame);
+        
         bool isInMemory() const { return mIsInMemory; };
         
     private:
@@ -57,6 +63,9 @@ namespace motioncam {
         static cv::Vec3f toVec3f(const std::vector<json11::Json>& array);
         static json11::Json::array toJsonArray(cv::Mat m);
 
+        static std::shared_ptr<RawImageBuffer> loadFrameMetadata(const json11::Json& obj);
+        static void generateMetadata(std::shared_ptr<RawImageBuffer> frame, json11::Json::object& metadata, const std::string& filename);
+
     private:
         std::unique_ptr<util::ZipReader> mZipReader;
         RawCameraMetadata mCameraMetadata;
@@ -67,7 +76,6 @@ namespace motioncam {
         bool mIsInMemory;
         std::vector<std::string> mFrames;
         std::map<std::string, std::shared_ptr<RawImageBuffer>> mFrameBuffers;
-        std::unique_ptr<RawBufferManager::LockedBuffers> mLockedBuffers;        
     };
 }
 

@@ -1,6 +1,7 @@
 package com.motioncam;
 
 import android.Manifest;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -16,7 +17,9 @@ import android.graphics.SurfaceTexture;
 import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -35,6 +38,7 @@ import android.widget.FrameLayout;
 import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -114,7 +118,8 @@ public class CameraActivity extends AppCompatActivity implements
     private enum CaptureMode {
         NIGHT,
         ZSL,
-        BURST
+        BURST,
+        RAW_VIDEO
     }
 
     private enum PreviewControlMode {
@@ -277,6 +282,7 @@ public class CameraActivity extends AppCompatActivity implements
     private FusedLocationProviderClient mFusedLocationClient;
     private ProcessorReceiver mProgressReceiver;
     private Location mLastLocation;
+    private String mVideoOutputPath;
 
     private CameraCapturePreviewAdapter mCameraCapturePreviewAdapter;
 
@@ -415,6 +421,7 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.nightModeBtn.setOnClickListener(this::onCaptureModeClicked);
         mBinding.burstModeBtn.setOnClickListener(this::onCaptureModeClicked);
         mBinding.zslModeBtn.setOnClickListener(this::onCaptureModeClicked);
+        mBinding.rawVideoModeBtn.setOnClickListener(this::onCaptureModeClicked);
 
         mBinding.previewFrame.contrastBtn.setOnClickListener(this::onPreviewModeClicked);
         mBinding.previewFrame.colourBtn.setOnClickListener(this::onPreviewModeClicked);
@@ -596,6 +603,10 @@ public class CameraActivity extends AppCompatActivity implements
         }
 
         if(mNativeCamera != null) {
+            if(mImageCaptureInProgress.getAndSet(false) && mCaptureMode == CaptureMode.RAW_VIDEO) {
+                finaliseRawVideo();
+            }
+
             mNativeCamera.stopCapture();
         }
 
@@ -618,6 +629,22 @@ public class CameraActivity extends AppCompatActivity implements
             mNativeCamera.destroy();
             mNativeCamera = null;
         }
+    }
+
+    private void finaliseRawVideo() {
+        ProgressDialog dialog = new ProgressDialog(this, R.style.BasicDialog);
+
+        dialog.setIndeterminate(true);
+        dialog.setCancelable(false);
+        dialog.setTitle("Please Wait");
+        dialog.setMessage("Finalising video to " + mVideoOutputPath);
+
+        dialog.show();
+
+        AsyncTask.execute(() -> {
+            mNativeCamera.endStream();
+            dialog.dismiss();
+        });
     }
 
     @Override
@@ -783,6 +810,7 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.nightModeBtn.setTextColor(getColor(R.color.textColor));
         mBinding.zslModeBtn.setTextColor(getColor(R.color.textColor));
         mBinding.burstModeBtn.setTextColor(getColor(R.color.textColor));
+        mBinding.rawVideoModeBtn.setTextColor(getColor(R.color.textColor));
 
         mCaptureMode = captureMode;
 
@@ -797,6 +825,11 @@ public class CameraActivity extends AppCompatActivity implements
 
             case BURST:
                 mBinding.burstModeBtn.setTextColor(getColor(R.color.colorAccent));
+                break;
+
+            case RAW_VIDEO:
+                mBinding.rawVideoModeBtn.setTextColor(getColor(R.color.colorAccent));
+                Toast.makeText(this, "Warning: This is an experimental feature.", Toast.LENGTH_SHORT).show();
                 break;
         }
     }
@@ -828,6 +861,10 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void onCaptureModeClicked(View v) {
+        // Don't allow capture mode changes during capture
+        if(mImageCaptureInProgress.get())
+            return;
+
         mUserCaptureModeOverride = true;
 
         if(v == mBinding.nightModeBtn) {
@@ -838,6 +875,9 @@ public class CameraActivity extends AppCompatActivity implements
         }
         else if(v == mBinding.burstModeBtn) {
             setCaptureMode(CaptureMode.BURST);
+        }
+        else if(v == mBinding.rawVideoModeBtn) {
+            setCaptureMode(CaptureMode.RAW_VIDEO);
         }
     }
 
@@ -923,7 +963,7 @@ public class CameraActivity extends AppCompatActivity implements
             }
 
             boolean useHdr = mSettings.hdr;
-            CameraManualControl.Exposure hdrExposure = null;
+            CameraManualControl.Exposure hdrExposure;
 
             float hdrEv = (float) Math.pow(2.0f, mEstimatedSettings.hdr);
 
@@ -949,7 +989,7 @@ public class CameraActivity extends AppCompatActivity implements
         if(mNativeCamera == null)
             return;
 
-        if(!mImageCaptureInProgress.compareAndSet(false, true)) {
+        if(mode != CaptureMode.RAW_VIDEO && !mImageCaptureInProgress.compareAndSet(false, true)) {
             Log.e(TAG, "Aborting capture, one is already in progress");
             return;
         }
@@ -974,10 +1014,37 @@ public class CameraActivity extends AppCompatActivity implements
 
             startActivity(intent);
         }
+        else if(mode == CaptureMode.RAW_VIDEO) {
+            if(mImageCaptureInProgress.get()) {
+                mImageCaptureInProgress.set(false);
+
+                mBinding.captureProgressBar.setVisibility(View.INVISIBLE);
+                mBinding.captureProgressBar.setIndeterminateMode(false);
+
+                mBinding.previewFrame.settingsBtn.setEnabled(true);
+                mBinding.switchCameraBtn.setEnabled(true);
+
+                finaliseRawVideo();
+            }
+            else {
+                File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
+                File file = new File(dir, CameraProfile.generateFilename());
+
+                mNativeCamera.streamToFile(file.getPath());
+                mImageCaptureInProgress.set(true);
+
+                mBinding.captureProgressBar.setVisibility(View.VISIBLE);
+                mBinding.captureProgressBar.setIndeterminateMode(true);
+
+                mBinding.previewFrame.settingsBtn.setEnabled(false);
+                mBinding.switchCameraBtn.setEnabled(false);
+
+                mVideoOutputPath = file.getPath();
+            }
+        }
         else if(mode == CaptureMode.NIGHT) {
             mBinding.captureBtn.setEnabled(false);
 
-            mBinding.captureProgressBar.setVisibility(View.VISIBLE);
             mBinding.captureProgressBar.setIndeterminateMode(false);
 
             PostProcessSettings settings = mPostProcessSettings.clone();
@@ -991,7 +1058,7 @@ public class CameraActivity extends AppCompatActivity implements
             }
 
             // Map camera exposure to our own
-            long cameraExposure = mExposureTime;
+            long cameraExposure;
             float hdr = Math.max(1.0f, mEstimatedSettings.hdr);
 
             float hdrEv = (float) Math.pow(2.0f, hdr);

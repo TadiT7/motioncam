@@ -364,6 +364,7 @@ namespace motioncam {
         const uint8_t lensShadingMapApplied = ACAMERA_SENSOR_INFO_LENS_SHADING_APPLIED_FALSE;
         const uint8_t antiBandingMode       = ACAMERA_CONTROL_AE_ANTIBANDING_MODE_AUTO;
         const uint8_t noiseReduction        = ACAMERA_NOISE_REDUCTION_MODE_MINIMAL;
+        const int32_t frameDuration[2]      = { 10, 24 };
 
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_SHADING_MODE, 1, &shadingMode);
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_STATISTICS_LENS_SHADING_MAP_MODE, 1, &lensShadingMapStats);
@@ -371,6 +372,7 @@ namespace motioncam {
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_CONTROL_AE_ANTIBANDING_MODE, 1, &antiBandingMode);
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_NOISE_REDUCTION_MODE, 1, &noiseReduction);
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_COLOR_CORRECTION_MODE, 1, &colorCorrectionMode);
+        ACaptureRequest_setEntry_i32(captureRequest, ACAMERA_CONTROL_AE_TARGET_FPS_RANGE, 2, &frameDuration[0]);
 
         // Enable OIS
         uint8_t omode = ACAMERA_LENS_OPTICAL_STABILIZATION_MODE_ON;
@@ -712,16 +714,21 @@ namespace motioncam {
         ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &iso);
         ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &exposure);
 
-        std::vector<ACaptureRequest*> captureRequests(1);
+        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_CONTROL_AE_MODE, 1, &aeMode);
+        ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &mLastIso);
+        ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &mLastExposureTime);
+
+        std::vector<ACaptureRequest*> captureRequests(2);
 
         // Set up list of capture requests
         captureRequests[0] = mSessionContext->hdrCaptureRequests[0]->captureRequest;
+        captureRequests[1] = mSessionContext->hdrCaptureRequests[1]->captureRequest;
 
         LOGI("Initiating HDR precapture (hdrIso=%d, hdrExposure=%ld)", iso, exposure);
 
         // Keep timestamp of latest buffer as our reference
         mRequestHdrCaptureTimestamp = RawBufferManager::get().latestTimeStamp();
-        mRequestedHdrCaptures = 1;
+        mRequestedHdrCaptures = 2;
 
         ACameraCaptureSession_capture(
                 mSessionContext->captureSession.get(),

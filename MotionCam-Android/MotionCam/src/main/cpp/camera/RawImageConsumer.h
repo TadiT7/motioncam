@@ -70,7 +70,6 @@ namespace motioncam {
         std::shared_ptr<std::thread> mPreprocessThread;
         std::atomic<bool> mRunning;
         std::atomic<bool> mEnableRawPreview;
-        std::atomic<bool> mOverrideWhiteBalance;
 
         std::atomic<float> mShadowBoost;
         std::atomic<float> mTempOffset;

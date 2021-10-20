@@ -11,10 +11,6 @@
 #include "motioncam/BlueNoiseLUT.h"
 #include "motioncam/FaceClassifier.h"
 
-//#include <dlib/image_processing/frontal_face_detector.h>
-//#include <dlib/image_processing.h>
-//#include <dlib/opencv/cv_image.h>
-
 // Halide
 #include "generate_edges.h"
 #include "measure_image.h"
@@ -52,19 +48,6 @@
 #include <opencv2/features2d.hpp>
 #include <opencv2/xfeatures2d.hpp>
 #include <opencv2/core/ocl.hpp>
-
-#ifdef DNG_SUPPORT
-
-#include <dng/dng_host.h>
-#include <dng/dng_negative.h>
-#include <dng/dng_camera_profile.h>
-#include <dng/dng_file_stream.h>
-#include <dng/dng_memory_stream.h>
-#include <dng/dng_image_writer.h>
-#include <dng/dng_render.h>
-#include <dng/dng_gain_map.h>
-
-#endif
 
 using std::ios;
 using std::string;
@@ -1103,7 +1086,7 @@ namespace motioncam {
                 }
             }
         }
-                        
+                                
         // Estimate shadows if not set
         if(settings.shadows < 0) {
             float keyValue = getShadowKeyValue(*referenceRawBuffer, rawContainer.getCameraMetadata(), settings.captureMode == "NIGHT");
@@ -1205,40 +1188,7 @@ namespace motioncam {
                 rawChannels.emplace_back(denoiseOutput[i].height(), denoiseOutput[i].width(), CV_16U, denoiseOutput[i].data());
             }
 
-            switch(rawContainer.getCameraMetadata().sensorArrangment) {
-                default:
-                case ColorFilterArrangment::RGGB:
-                    // All good
-                    break;
-
-                case ColorFilterArrangment::GRBG:
-                {
-                    std::vector<cv::Mat> tmp = rawChannels;
-                    
-                    rawChannels[0] = tmp[1];
-                    rawChannels[1] = tmp[0];
-                    rawChannels[2] = tmp[3];
-                    rawChannels[3] = tmp[2];
-                }
-                break;
-
-                case ColorFilterArrangment::GBRG:
-                {
-                    std::vector<cv::Mat> tmp = rawChannels;
-                    
-                    rawChannels[0] = tmp[2];
-                    rawChannels[1] = tmp[0];
-                    rawChannels[2] = tmp[3];
-                    rawChannels[3] = tmp[1];
-                }
-                break;
-
-                case ColorFilterArrangment::BGGR:
-                    std::swap(rawChannels[0], rawChannels[3]);
-                    break;
-            }
-
-            cv::Mat rawImage = buildRawImage(rawChannels, offsetX, offsetY);
+            cv::Mat rawImage = util::BuildRawImage(rawChannels, offsetX, offsetY);
             
             size_t extensionStartIdx = outputPath.find_last_of('.');
             std::string rawOutputPath;
@@ -1250,7 +1200,17 @@ namespace motioncam {
                 rawOutputPath = outputPath;
             }
             
-            writeDng(rawImage, rawContainer.getCameraMetadata(), referenceRawBuffer->metadata, rawOutputPath + ".dng");
+            // Update the black/white levels before writing DNG
+            RawCameraMetadata metadata = rawContainer.getCameraMetadata();
+            
+            metadata.blackLevel[0] = 0;
+            metadata.blackLevel[1] = 1;
+            metadata.blackLevel[2] = 2;
+            metadata.blackLevel[3] = 3;
+            
+            metadata.whiteLevel = EXPANDED_RANGE;
+            
+            util::WriteDng(rawImage, metadata, referenceRawBuffer->metadata, rawOutputPath + ".dng");
         }
 #endif
         
@@ -1556,6 +1516,8 @@ namespace motioncam {
             
             progressHelper.nextFusedImage();
 
+            frame->data->release();
+            
             ++it;
         }
         
@@ -1635,275 +1597,13 @@ namespace motioncam {
             denoiseOutput.push_back(outputBuffer);
         }
         
+        // Release RAW data
+        referenceRawBuffer->data.reset();
+        
         *outNoise = *std::max_element(normalisedNoise.begin(), normalisedNoise.end());
         
         return denoiseOutput;
     }
-
-#ifdef DNG_SUPPORT
-    cv::Mat ImageProcessor::buildRawImage(vector<cv::Mat> channels, int cropX, int cropY) {
-        const uint32_t height = channels[0].rows * 2;
-        const uint32_t width  = channels[1].cols * 2;
-        
-        cv::Mat outputImage(height, width, CV_16U);
-        
-        for (int y = 0; y < height; y+=2) {
-            auto* outRow1 = outputImage.ptr<uint16_t>(y);
-            auto* outRow2 = outputImage.ptr<uint16_t>(y + 1);
-            
-            int ry = y / 2;
-            
-            const uint16_t* inC0 = channels[0].ptr<uint16_t>(ry);
-            const uint16_t* inC1 = channels[1].ptr<uint16_t>(ry);
-            const uint16_t* inC2 = channels[2].ptr<uint16_t>(ry);
-            const uint16_t* inC3 = channels[3].ptr<uint16_t>(ry);
-            
-            for(int x = 0; x < width; x+=2) {
-                int rx = x / 2;
-                
-                outRow1[x]      = inC0[rx];
-                outRow1[x + 1]  = inC1[rx];
-                outRow2[x]      = inC2[rx];
-                outRow2[x + 1]  = inC3[rx];
-            }
-        }
-        
-        return outputImage(cv::Rect(cropX, cropY, width - cropX*2, height - cropY*2)).clone();
-    }
-
-    void ImageProcessor::writeDng(cv::Mat& rawImage,
-                                  const RawCameraMetadata& cameraMetadata,
-                                  const RawImageMetadata& imageMetadata,
-                                  const std::string& outputPath)
-    {
-        Measure measure("writeDng()");
-        
-        const int width  = rawImage.cols;
-        const int height = rawImage.rows;
-        
-        dng_host host;
-
-        host.SetSaveLinearDNG(false);
-        host.SetSaveDNGVersion(dngVersion_SaveDefault);
-        
-        AutoPtr<dng_negative> negative(host.Make_dng_negative());
-        
-        // Create lens shading map for each channel
-        for(int c = 0; c < 4; c++) {
-            dng_point channelGainMapPoints(imageMetadata.lensShadingMap[c].rows, imageMetadata.lensShadingMap[c].cols);
-            
-            AutoPtr<dng_gain_map> gainMap(new dng_gain_map(host.Allocator(),
-                                                           channelGainMapPoints,
-                                                           dng_point_real64(1.0 / (imageMetadata.lensShadingMap[c].rows), 1.0 / (imageMetadata.lensShadingMap[c].cols)),
-                                                           dng_point_real64(0, 0),
-                                                           1));
-            
-            for(int y = 0; y < imageMetadata.lensShadingMap[c].rows; y++) {
-                for(int x = 0; x < imageMetadata.lensShadingMap[c].cols; x++) {
-                    gainMap->Entry(y, x, 0) = imageMetadata.lensShadingMap[c].at<float>(y, x);
-                }
-            }
-            
-            int left = 0;
-            int top  = 0;
-            
-            if(c == 0) {
-                left = 0;
-                top = 0;
-            }
-            else if(c == 1) {
-                left = 1;
-                top = 0;
-            }
-            else if(c == 2) {
-                left = 0;
-                top = 1;
-            }
-            else if(c == 3) {
-                left = 1;
-                top = 1;
-            }
-            
-            dng_rect gainMapArea(top, left, height, width);
-            AutoPtr<dng_opcode> gainMapOpCode(new dng_opcode_GainMap(dng_area_spec(gainMapArea, 0, 1, 2, 2), gainMap));
-            
-            negative->OpcodeList2().Append(gainMapOpCode);
-        }
-        
-        negative->SetModelName("MotionCam");
-        negative->SetLocalName("MotionCam");
-        
-        // We always use RGGB at this point
-        negative->SetColorKeys(colorKeyRed, colorKeyGreen, colorKeyBlue);
-                
-        negative->SetBayerMosaic(1);
-        negative->SetColorChannels(3);
-        
-        negative->SetQuadBlacks(0, 0, 0, 0);
-        negative->SetWhiteLevel(EXPANDED_RANGE);
-        
-        // Square pixels
-        negative->SetDefaultScale(dng_urational(1,1), dng_urational(1,1));
-        
-        negative->SetDefaultCropSize(width, height);
-        negative->SetNoiseReductionApplied(dng_urational(1,1));
-        negative->SetCameraNeutral(dng_vector_3(imageMetadata.asShot[0], imageMetadata.asShot[1], imageMetadata.asShot[2]));
-
-        dng_orientation orientation;
-        
-        switch(imageMetadata.screenOrientation)
-        {
-            default:
-            case ScreenOrientation::PORTRAIT:
-                orientation = dng_orientation::Rotate90CW();
-                break;
-            
-            case ScreenOrientation::REVERSE_PORTRAIT:
-                orientation = dng_orientation::Rotate90CCW();
-                break;
-                
-            case ScreenOrientation::LANDSCAPE:
-                orientation = dng_orientation::Normal();
-                break;
-                
-            case ScreenOrientation::REVERSE_LANDSCAPE:
-                orientation = dng_orientation::Rotate180();
-                break;
-        }
-        
-        negative->SetBaseOrientation(orientation);
-
-        // Set up camera profile
-        AutoPtr<dng_camera_profile> cameraProfile(new dng_camera_profile());
-        
-        // Color matrices
-        cv::Mat color1 = cameraMetadata.colorMatrix1;
-        cv::Mat color2 = cameraMetadata.colorMatrix2;
-        
-        dng_matrix_3by3 dngColor1 = dng_matrix_3by3(color1.at<float>(0, 0), color1.at<float>(0, 1), color1.at<float>(0, 2),
-                                                    color1.at<float>(1, 0), color1.at<float>(1, 1), color1.at<float>(1, 2),
-                                                    color1.at<float>(2, 0), color1.at<float>(2, 1), color1.at<float>(2, 2));
-        
-        dng_matrix_3by3 dngColor2 = dng_matrix_3by3(color2.at<float>(0, 0), color2.at<float>(0, 1), color2.at<float>(0, 2),
-                                                    color2.at<float>(1, 0), color2.at<float>(1, 1), color2.at<float>(1, 2),
-                                                    color2.at<float>(2, 0), color2.at<float>(2, 1), color2.at<float>(2, 2));
-        
-        cameraProfile->SetColorMatrix1(dngColor1);
-        cameraProfile->SetColorMatrix2(dngColor2);
-        
-        // Forward matrices
-        cv::Mat forward1 = cameraMetadata.forwardMatrix1;
-        cv::Mat forward2 = cameraMetadata.forwardMatrix2;
-        
-        if(!forward1.empty() && !forward2.empty()) {
-            dng_matrix_3by3 dngForward1 = dng_matrix_3by3( forward1.at<float>(0, 0), forward1.at<float>(0, 1), forward1.at<float>(0, 2),
-                                                           forward1.at<float>(1, 0), forward1.at<float>(1, 1), forward1.at<float>(1, 2),
-                                                           forward1.at<float>(2, 0), forward1.at<float>(2, 1), forward1.at<float>(2, 2) );
-            
-            dng_matrix_3by3 dngForward2 = dng_matrix_3by3( forward2.at<float>(0, 0), forward2.at<float>(0, 1), forward2.at<float>(0, 2),
-                                                           forward2.at<float>(1, 0), forward2.at<float>(1, 1), forward2.at<float>(1, 2),
-                                                           forward2.at<float>(2, 0), forward2.at<float>(2, 1), forward2.at<float>(2, 2) );
-            
-            cameraProfile->SetForwardMatrix1(dngForward1);
-            cameraProfile->SetForwardMatrix2(dngForward2);
-        }
-        
-        uint32_t illuminant1 = 0;
-        uint32_t illuminant2 = 0;
-        
-        // Convert to DNG format
-        switch(cameraMetadata.colorIlluminant1) {
-            case color::StandardA:
-                illuminant1 = lsStandardLightA;
-                break;
-            case color::StandardB:
-                illuminant1 = lsStandardLightB;
-                break;
-            case color::StandardC:
-                illuminant1 = lsStandardLightC;
-                break;
-            case color::D50:
-                illuminant1 = lsD50;
-                break;
-            case color::D55:
-                illuminant1 = lsD55;
-                break;
-            case color::D65:
-                illuminant1 = lsD65;
-                break;
-            case color::D75:
-                illuminant1 = lsD75;
-                break;
-        }
-        
-        switch(cameraMetadata.colorIlluminant2) {
-            case color::StandardA:
-                illuminant2 = lsStandardLightA;
-                break;
-            case color::StandardB:
-                illuminant2 = lsStandardLightB;
-                break;
-            case color::StandardC:
-                illuminant2 = lsStandardLightC;
-                break;
-            case color::D50:
-                illuminant2 = lsD50;
-                break;
-            case color::D55:
-                illuminant2 = lsD55;
-                break;
-            case color::D65:
-                illuminant2 = lsD65;
-                break;
-            case color::D75:
-                illuminant2 = lsD75;
-                break;
-        }
-        
-        cameraProfile->SetCalibrationIlluminant1(illuminant1);
-        cameraProfile->SetCalibrationIlluminant2(illuminant2);
-        
-        cameraProfile->SetName("MotionCam");
-        cameraProfile->SetEmbedPolicy(pepAllowCopying);
-        
-        // This ensures profile is saved
-        cameraProfile->SetWasReadFromDNG();
-        
-        negative->AddProfile(cameraProfile);
-        
-        // Finally add the raw data to the negative
-        dng_rect dngArea(height, width);
-        dng_pixel_buffer dngBuffer;
-
-        AutoPtr<dng_image> dngImage(host.Make_dng_image(dngArea, 1, ttShort));
-
-        dngBuffer.fArea         = dngArea;
-        dngBuffer.fPlane        = 0;
-        dngBuffer.fPlanes       = 1;
-        dngBuffer.fRowStep      = dngBuffer.fPlanes * width;
-        dngBuffer.fColStep      = dngBuffer.fPlanes;
-        dngBuffer.fPixelType    = ttShort;
-        dngBuffer.fPixelSize    = TagTypeSize(ttShort);
-        dngBuffer.fData         = rawImage.ptr();
-        
-        dngImage->Put(dngBuffer);
-        
-        // Build the DNG images
-        negative->SetStage1Image(dngImage);
-        negative->BuildStage2Image(host);
-        negative->BuildStage3Image(host);
-        
-        negative->SynchronizeMetadata();
-        
-        // Create stream writer for output file
-        dng_file_stream dngStream(outputPath.c_str(), true);
-        
-        // Write DNG file to disk
-        AutoPtr<dng_image_writer> dngWriter(new dng_image_writer());
-        
-        dngWriter->WriteDNG(host, dngStream, *negative.Get(), nullptr, ccUncompressed);
-    }
-#endif // DNG_SUPPORT
 
     float ImageProcessor::testAlignment(std::shared_ptr<RawData> refImage, std::shared_ptr<RawData> underexposedImage, cv::Mat warpMatrix) {
         Measure measure("testAlignment()");

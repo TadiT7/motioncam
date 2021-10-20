@@ -374,6 +374,18 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         return DetectFaces(mNativeCameraHandle);
     }
 
+    public void streamToFile(String outputPath) {
+        ensureValidHandle();
+
+        StartStreamToFile(mNativeCameraHandle, outputPath);
+    }
+
+    public void endStream() {
+        ensureValidHandle();
+
+        EndStream(mNativeCameraHandle);
+    }
+
     @Override
     public void onCameraDisconnected() {
         mListener.onCameraDisconnected();
@@ -471,6 +483,9 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native NativeCameraMetadata GetMetadata(long handle, String cameraId);
     private native Size GetRawOutputSize(long handle, String cameraId);
     private native Size GetPreviewOutputSize(long handle, String cameraId, Size captureSize, Size displaySize);
+
+    private native void StartStreamToFile(long handle, String outputPath);
+    private native void EndStream(long handle);
 
     private native void PrepareHdrCapture(long handle, int iso, long exposure);
     private native boolean CaptureImage(long handle, long bufferHandle, int numSaveImages, String settings, String outputPath);

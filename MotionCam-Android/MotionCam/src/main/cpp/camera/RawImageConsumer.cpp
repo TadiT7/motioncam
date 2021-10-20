@@ -47,7 +47,6 @@ namespace motioncam {
         mEnableRawPreview(false),
         mRawPreviewQuality(4),
         mCopyCaptureColorTransform(true),
-        mOverrideWhiteBalance(false),
         mShadowBoost(0.0f),
         mTempOffset(0.0f),
         mTintOffset(0.0f),
@@ -262,6 +261,10 @@ namespace motioncam {
             motioncam::ImageProcessor::estimateSettings(*buffer, mCameraDesc->metadata, mEstimatedSettings);
 
             // Update shadows to include user selected boost
+            float shadowBoost = 0.0f;
+            if(mEnableRawPreview)
+                shadowBoost = mShadowBoost;
+
             float userShadows = std::pow(2.0f, std::log(mEstimatedSettings.shadows) / std::log(2.0f) + mShadowBoost);
             mEstimatedSettings.shadows = std::max(1.0f, std::min(32.0f, userShadows));
 
@@ -589,8 +592,6 @@ namespace motioncam {
     }
 
     void RawImageConsumer::setWhiteBalanceOverride(bool override) {
-        // TODO This doesn't do anything yet
-        mOverrideWhiteBalance = override;
     }
 
     void RawImageConsumer::doCopyImage() {

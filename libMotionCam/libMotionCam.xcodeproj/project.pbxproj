@@ -20,6 +20,9 @@
 		45565E30246592590021A442 /* RawContainer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45565E2E246592590021A442 /* RawContainer.cpp */; };
 		45565E322465F94D0021A442 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 45565E312465F94D0021A442 /* OpenGL.framework */; };
 		455EE73F20556B550090DFAC /* ImageOps.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 455EE73D20556B550090DFAC /* ImageOps.cpp */; };
+		45684C31271ED640004E7A12 /* RawBufferStreamer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45684C2F271ED63F004E7A12 /* RawBufferStreamer.cpp */; };
+		45684C35271F62B7004E7A12 /* RawSequenceConverter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45684C33271F62B5004E7A12 /* RawSequenceConverter.cpp */; };
+		45684C392720096C004E7A12 /* build_bayer.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45684C382720096C004E7A12 /* build_bayer.a */; };
 		4571F8282330211500B5E5E8 /* libexiv2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4571F8272330211500B5E5E8 /* libexiv2.dylib */; };
 		4571F82A2330211900B5E5E8 /* libexiv2-xmp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4571F8292330211900B5E5E8 /* libexiv2-xmp.a */; };
 		457B8F462218401F004E4E7A /* dng_tone_curve.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 457B8EB42218401F004E4E7A /* dng_tone_curve.cpp */; };
@@ -197,6 +200,12 @@
 		45565E2F246592590021A442 /* RawContainer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RawContainer.h; sourceTree = "<group>"; };
 		45565E312465F94D0021A442 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 		455EE73D20556B550090DFAC /* ImageOps.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ImageOps.cpp; sourceTree = "<group>"; };
+		45684C2F271ED63F004E7A12 /* RawBufferStreamer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RawBufferStreamer.cpp; sourceTree = "<group>"; };
+		45684C32271ED699004E7A12 /* RawBufferStreamer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RawBufferStreamer.h; sourceTree = "<group>"; };
+		45684C33271F62B5004E7A12 /* RawSequenceConverter.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RawSequenceConverter.cpp; sourceTree = "<group>"; };
+		45684C36271F62E3004E7A12 /* RawSequenceConverter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RawSequenceConverter.h; sourceTree = "<group>"; };
+		45684C372720096C004E7A12 /* build_bayer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = build_bayer.h; sourceTree = "<group>"; };
+		45684C382720096C004E7A12 /* build_bayer.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = build_bayer.a; sourceTree = "<group>"; };
 		456B91E721565C6700E6CFED /* libtiff.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtiff.a; path = ../../../../../usr/local/lib/libtiff.a; sourceTree = "<group>"; };
 		4571F8272330211500B5E5E8 /* libexiv2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libexiv2.dylib; path = ../../../../../usr/local/lib/libexiv2.dylib; sourceTree = "<group>"; };
 		4571F8292330211900B5E5E8 /* libexiv2-xmp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libexiv2-xmp.a"; path = "../../../../../usr/local/lib/libexiv2-xmp.a"; sourceTree = "<group>"; };
@@ -505,6 +514,7 @@
 				453ACCA620E431CB0083620E /* Accelerate.framework in Frameworks */,
 				453ACCA220E431320083620E /* OpenCL.framework in Frameworks */,
 				4571F82A2330211900B5E5E8 /* libexiv2-xmp.a in Frameworks */,
+				45684C392720096C004E7A12 /* build_bayer.a in Frameworks */,
 				45952467251F8980004C549E /* preview_portrait8.a in Frameworks */,
 				4571F8282330211500B5E5E8 /* libexiv2.dylib in Frameworks */,
 				45CA474325B7204800ACB36A /* hdr_mask.a in Frameworks */,
@@ -578,17 +588,19 @@
 				450E1E6B214D290300C1B27A /* ImageOps.h */,
 				45AD8089230DCFA800D6AA04 /* ImageProcessor.h */,
 				450E1E61214D290200C1B27A /* ImageProcessorProgress.h */,
+				4541C94D27031D610067BED9 /* Lock.h */,
 				450E1E62214D290200C1B27A /* Logger.h */,
 				450E1E58214D290200C1B27A /* Math.h */,
 				450E1E6C214D290300C1B27A /* Measure.h */,
 				4502C00E23377A610027EBF2 /* RawBufferManager.h */,
+				45684C32271ED699004E7A12 /* RawBufferStreamer.h */,
+				45684C36271F62E3004E7A12 /* RawSequenceConverter.h */,
 				45565E2F246592590021A442 /* RawContainer.h */,
 				450E1E57214D290200C1B27A /* RawImageMetadata.h */,
 				450E1E67214D290300C1B27A /* Settings.h */,
 				450E1E65214D290300C1B27A /* Temperature.h */,
 				450E1E69214D290300C1B27A /* Types.h */,
 				450E1E5E214D290200C1B27A /* Util.h */,
-				4541C94D27031D610067BED9 /* Lock.h */,
 			);
 			path = motioncam;
 			sourceTree = "<group>";
@@ -784,6 +796,8 @@
 		45CA974C2317214900698BBE /* host */ = {
 			isa = PBXGroup;
 			children = (
+				45684C382720096C004E7A12 /* build_bayer.a */,
+				45684C372720096C004E7A12 /* build_bayer.h */,
 				4597315725C9A78800B75610 /* camera_preview2_raw10.a */,
 				4597315525C9A78800B75610 /* camera_preview2_raw10.h */,
 				4597315425C9A78800B75610 /* camera_preview2_raw16.a */,
@@ -879,6 +893,7 @@
 		45FA2E3F1FF7D5A200BE34C3 /* source */ = {
 			isa = PBXGroup;
 			children = (
+				45A340A1260B887700405A85 /* CameraPreview.cpp */,
 				45FA2E6D1FF8118A00BE34C3 /* CameraProfile.cpp */,
 				45FA2E771FF8333000BE34C3 /* Color.cpp */,
 				455EE73D20556B550090DFAC /* ImageOps.cpp */,
@@ -886,11 +901,12 @@
 				45FA2E831FF96A3000BE34C3 /* Logger.cpp */,
 				45FA2E801FF9687300BE34C3 /* Measure.cpp */,
 				4502C00F23377A610027EBF2 /* RawBufferManager.cpp */,
+				45684C2F271ED63F004E7A12 /* RawBufferStreamer.cpp */,
 				45565E2E246592590021A442 /* RawContainer.cpp */,
+				45684C33271F62B5004E7A12 /* RawSequenceConverter.cpp */,
 				45936A2B23BA979C00CC85D4 /* Settings.cpp */,
 				45FA2E731FF82F6200BE34C3 /* Temperature.cpp */,
 				45FA2E7D1FF8EA8000BE34C3 /* Util.cpp */,
-				45A340A1260B887700405A85 /* CameraPreview.cpp */,
 			);
 			path = source;
 			sourceTree = "<group>";
@@ -1063,6 +1079,7 @@
 				45FA2E751FF82F6200BE34C3 /* Temperature.cpp in Sources */,
 				45FA2E851FF96A3000BE34C3 /* Logger.cpp in Sources */,
 				457B8F722218401F004E4E7A /* dng_exceptions.cpp in Sources */,
+				45684C31271ED640004E7A12 /* RawBufferStreamer.cpp in Sources */,
 				45FA2E791FF8333000BE34C3 /* Color.cpp in Sources */,
 				457B8F5F2218401F004E4E7A /* dng_host.cpp in Sources */,
 				457B8F562218401F004E4E7A /* dng_file_stream.cpp in Sources */,
@@ -1103,6 +1120,7 @@
 				457B8F592218401F004E4E7A /* dng_resample.cpp in Sources */,
 				457B8F762218401F004E4E7A /* dng_globals.cpp in Sources */,
 				457B8F482218401F004E4E7A /* dng_simple_image.cpp in Sources */,
+				45684C35271F62B7004E7A12 /* RawSequenceConverter.cpp in Sources */,
 				45A340A3260B887800405A85 /* CameraPreview.cpp in Sources */,
 				457B8F702218401F004E4E7A /* dng_1d_function.cpp in Sources */,
 				457B8F852218401F004E4E7A /* dng_orientation.cpp in Sources */,

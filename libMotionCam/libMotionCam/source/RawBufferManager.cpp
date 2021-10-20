@@ -11,32 +11,10 @@
 namespace motioncam {
     static const bool AlwaysSaveToDisk = false;
 
-    static std::vector<std::shared_ptr<RawImageBuffer>> FindNearestBuffers(
-        const std::vector<std::shared_ptr<RawImageBuffer>>& buffers, RawType type, int64_t timestampNs, int numBuffers) {
-     
-        if(numBuffers <= 0)
-            return std::vector<std::shared_ptr<RawImageBuffer>>();
-        
-        std::vector<std::shared_ptr<RawImageBuffer>> sortedBuffers = buffers;
-        
-        // Sort by distance to reference timestamp
-        std::sort(sortedBuffers.begin(), sortedBuffers.end(), [timestampNs](auto a, auto b) {
-            return std::abs(a->metadata.timestampNs - timestampNs) < std::abs(b->metadata.timestampNs - timestampNs);
-        });
-        
-        // Filter out by type
-        sortedBuffers.erase(
-            std::remove_if(sortedBuffers.begin(), sortedBuffers.end(), [type](auto x) { return x->metadata.rawType != type; }),
-            sortedBuffers.end());
-        
-        numBuffers = std::min((int) sortedBuffers.size(), numBuffers);
-        
-        return std::vector<std::shared_ptr<RawImageBuffer>>(sortedBuffers.begin(), sortedBuffers.begin() + numBuffers);
-    }
-
     RawBufferManager::RawBufferManager() :
         mMemoryUseBytes(0),
-        mNumBuffers(0)
+        mNumBuffers(0),
+        mStreamer(new RawBufferStreamer())
     {
     }
 
@@ -104,8 +82,11 @@ namespace motioncam {
 
     void RawBufferManager::enqueueReadyBuffer(const std::shared_ptr<RawImageBuffer>& buffer) {
         Lock lock(mMutex, __PRETTY_FUNCTION__);
-        
-        mReadyBuffers.push_back(buffer);
+
+        if(mStreamer->isRunning())
+            mStreamer->add(buffer);
+        else
+            mReadyBuffers.push_back(buffer);
     }
 
     int RawBufferManager::numHdrBuffers() {
@@ -192,10 +173,10 @@ namespace motioncam {
             zslBuffers.erase(zslBuffers.begin(), zslBuffers.begin() + numToRemove);
             
             // Set reference timestamp
-            if(!zslBuffers.empty())
-                referenceTimestampNs = zslBuffers.back()->metadata.timestampNs;
-            else if(!hdrBuffers.empty())
+            if(!hdrBuffers.empty() && hdrBuffers.size() > 1)
                 referenceTimestampNs = hdrBuffers.back()->metadata.timestampNs;
+            else if(!zslBuffers.empty())
+                referenceTimestampNs = zslBuffers.back()->metadata.timestampNs;
             else {
                 logger::log("No buffers. Something is not right");
                 return;
@@ -397,5 +378,13 @@ namespace motioncam {
         
         auto latest = mReadyBuffers.back();
         return latest->metadata.timestampNs;
+    }
+
+    void RawBufferManager::enableStreaming(const std::string outputPath, const RawCameraMetadata& metadata) {        
+        mStreamer->start(outputPath, metadata);
+    }
+
+    void RawBufferManager::endStreaming() {
+        mStreamer->stop();
     }
 }

@@ -1,7 +1,5 @@
 #include "motioncam/Temperature.h"
 
-#include <locale>
-
 using std::string;
 
 namespace motioncam {

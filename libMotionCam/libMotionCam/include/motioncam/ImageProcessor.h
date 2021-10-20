@@ -137,17 +137,7 @@ namespace motioncam {
         
         static std::vector<cv::Rect2f> detectFaces(const RawImageBuffer& buffer, const RawCameraMetadata& cameraMetadata);
         
-    #ifdef DNG_SUPPORT
-        static cv::Mat buildRawImage(std::vector<cv::Mat> channels, int cropX, int cropY);
-        
-        static void writeDng(cv::Mat& rawImage,
-                      const RawCameraMetadata& cameraMetadata,
-                      const RawImageMetadata& imageMetadata,
-                      const std::string& outputPath);
-        
         static float testAlignment(std::shared_ptr<RawData> refImage, std::shared_ptr<RawData> underexposedImage, cv::Mat warpMatrix);
-        
-    #endif
     };
 }
 

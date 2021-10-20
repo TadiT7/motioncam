@@ -11,7 +11,7 @@ public class CameraProfile {
     private static final String CAPTURE_OUTPUT_PATH_NAME = "motionCam";
     private static final SimpleDateFormat OUTPUT_DATE_FORMAT = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.forLanguageTag("en-US"));
 
-    static private String generateFilename() {
+    static public String generateFilename() {
         return String.format(
                 Locale.getDefault(),
                 "IMG_%s.zip",

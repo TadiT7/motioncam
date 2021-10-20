@@ -1,10 +1,22 @@
 #include "motioncam/Util.h"
 #include "motioncam/Exceptions.h"
+#include "motioncam/RawImageMetadata.h"
 
 #include <fstream>
 
 #ifdef ZSTD_AVAILABLE
     #include <zstd.h>
+#endif
+
+#ifdef DNG_SUPPORT
+    #include <dng/dng_host.h>
+    #include <dng/dng_negative.h>
+    #include <dng/dng_camera_profile.h>
+    #include <dng/dng_file_stream.h>
+    #include <dng/dng_memory_stream.h>
+    #include <dng/dng_image_writer.h>
+    #include <dng/dng_render.h>
+    #include <dng/dng_gain_map.h>
 #endif
 
 using std::string;
@@ -19,9 +31,20 @@ namespace motioncam {
         // Very basic zip writer
         //
             
-        ZipWriter::ZipWriter(const string& filename) : m_zip{ 0 }, m_commited(false) {
-            if(!mz_zip_writer_init_file(&m_zip, filename.c_str(), 0)) {
-                throw IOException("Can't create " + filename);
+        ZipWriter::ZipWriter(const string& filename, bool append) : mZip{ 0 }, mCommited(false) {
+            if(append) {
+                if(!mz_zip_reader_init_file(&mZip, filename.c_str(), 0)) {
+                    throw IOException("Can't read " + filename);
+                }
+
+                if(!mz_zip_writer_init_from_reader(&mZip, filename.c_str())) {
+                    throw IOException("Can't append to " + filename);
+                }
+            }
+            else {
+                if(!mz_zip_writer_init_file(&mZip, filename.c_str(), 0)) {
+                    throw IOException("Can't create " + filename);
+                }
             }
         }
     
@@ -30,31 +53,31 @@ namespace motioncam {
         }
 
         void ZipWriter::addFile(const std::string& filename, const std::vector<uint8_t>& data, const size_t numBytes) {
-            if(m_commited) {
+            if(mCommited) {
                 throw IOException("Can't add " + filename + " because archive has been commited");
             }
             
-            if(!mz_zip_writer_add_mem(&m_zip, filename.c_str(), data.data(), numBytes, MZ_NO_COMPRESSION)) {
+            if(!mz_zip_writer_add_mem(&mZip, filename.c_str(), data.data(), numBytes, MZ_NO_COMPRESSION)) {
                 throw IOException("Can't add " + filename);
             }
         }
     
         void ZipWriter::commit() {
-            if(!mz_zip_writer_finalize_archive(&m_zip)) {
+            if(!mz_zip_writer_finalize_archive(&mZip)) {
                 throw IOException("Failed to finalize archive!");
             }
         
-            if(!mz_zip_writer_end(&m_zip)) {
+            if(!mz_zip_writer_end(&mZip)) {
                 throw IOException("Failed to complete archive!");
             }
             
-            m_commited = true;
+            mCommited = true;
         }
         
         ZipWriter::~ZipWriter() {
-            if(!m_commited) {
-                mz_zip_writer_finalize_archive(&m_zip);
-                mz_zip_writer_end(&m_zip);
+            if(!mCommited) {
+                mz_zip_writer_finalize_archive(&mZip);
+                mz_zip_writer_end(&mZip);
             }
         }
     
@@ -62,26 +85,26 @@ namespace motioncam {
         // Very basic zip reader
         //
         
-        ZipReader::ZipReader(const string& filename) : m_zip{ 0 } {
-            if(!mz_zip_reader_init_file(&m_zip, filename.c_str(), 0)) {
+        ZipReader::ZipReader(const string& filename) : mZip{ 0 } {
+            if(!mz_zip_reader_init_file(&mZip, filename.c_str(), 0)) {
                 throw IOException("Can't read " + filename);
             }
             
-            auto numFiles = mz_zip_reader_get_num_files(&m_zip);
+            auto numFiles = mz_zip_reader_get_num_files(&mZip);
             char entry[512];
 
             for(auto i = 0; i < numFiles; i++) {
-                auto len = mz_zip_reader_get_filename(&m_zip, i, entry, 512);
+                auto len = mz_zip_reader_get_filename(&mZip, i, entry, 512);
                 if(len == 0) {
                     throw IOException("Failed to parse " + filename);
                 }
                 
-                m_files.emplace_back(entry, len - 1);
+                mFiles.emplace_back(entry, len - 1);
             }
         }
     
         ZipReader::~ZipReader() {
-            mz_zip_reader_end(&m_zip);
+            mz_zip_reader_end(&mZip);
         }
     
         void ZipReader::read(const std::string& filename, std::string& output) {
@@ -93,23 +116,27 @@ namespace motioncam {
         }
     
         void ZipReader::read(const string& filename, vector<uint8_t>& output) {
-            auto it = std::find(m_files.begin(), m_files.end(), filename);
-            if(it == m_files.end()) {
+            auto it = std::find(mFiles.begin(), mFiles.end(), filename);
+            if(it == mFiles.end()) {
                 throw IOException("Unable to find " + filename);
             }
             
-            size_t index = it - m_files.begin();
+            size_t index = it - mFiles.begin();
             mz_zip_archive_file_stat stat;
             
-            if (!mz_zip_reader_file_stat(&m_zip, static_cast<mz_uint>(index), &stat))
+            if (!mz_zip_reader_file_stat(&mZip, static_cast<mz_uint>(index), &stat))
                 throw IOException("Failed to stat " + filename);
 
             // Resize output
             output.resize(stat.m_uncomp_size);
             
-            if(!mz_zip_reader_extract_to_mem(&m_zip, static_cast<mz_uint>(index), &output[0], output.size(), 0)) {
+            if(!mz_zip_reader_extract_to_mem(&mZip, static_cast<mz_uint>(index), &output[0], output.size(), 0)) {
                 throw IOException("Failed to load " + filename);
             }
+        }
+    
+        const std::vector<std::string>& ZipReader::getFiles() const {
+            return mFiles;
         }
     
         //
@@ -286,5 +313,294 @@ namespace motioncam {
             basePath = path.substr(0, index);
             filename = path.substr(index + 1, path.size());
         }
+    
+#ifdef DNG_SUPPORT
+    cv::Mat BuildRawImage(std::vector<cv::Mat> channels, int cropX, int cropY) {
+        const uint32_t height = channels[0].rows * 2;
+        const uint32_t width  = channels[1].cols * 2;
+        
+        cv::Mat outputImage(height, width, CV_16U);
+        
+        for (int y = 0; y < height; y+=2) {
+            auto* outRow1 = outputImage.ptr<uint16_t>(y);
+            auto* outRow2 = outputImage.ptr<uint16_t>(y + 1);
+            
+            int ry = y / 2;
+            
+            const uint16_t* inC0 = channels[0].ptr<uint16_t>(ry);
+            const uint16_t* inC1 = channels[1].ptr<uint16_t>(ry);
+            const uint16_t* inC2 = channels[2].ptr<uint16_t>(ry);
+            const uint16_t* inC3 = channels[3].ptr<uint16_t>(ry);
+            
+            for(int x = 0; x < width; x+=2) {
+                int rx = x / 2;
+                
+                outRow1[x]      = inC0[rx];
+                outRow1[x + 1]  = inC1[rx];
+                outRow2[x]      = inC2[rx];
+                outRow2[x + 1]  = inC3[rx];
+            }
+        }
+        
+        return outputImage(cv::Rect(cropX, cropY, width - cropX*2, height - cropY*2)).clone();
+    }
+
+    void WriteDng(cv::Mat& rawImage,
+                  const RawCameraMetadata& cameraMetadata,
+                  const RawImageMetadata& imageMetadata,
+                  const std::string& outputPath)
+    {
+        const int width  = rawImage.cols;
+        const int height = rawImage.rows;
+        
+        dng_host host;
+
+        host.SetSaveLinearDNG(false);
+        host.SetSaveDNGVersion(dngVersion_SaveDefault);
+        
+        AutoPtr<dng_negative> negative(host.Make_dng_negative());
+        
+        // Create lens shading map for each channel
+        for(int c = 0; c < 4; c++) {
+            dng_point channelGainMapPoints(imageMetadata.lensShadingMap[c].rows, imageMetadata.lensShadingMap[c].cols);
+            
+            AutoPtr<dng_gain_map> gainMap(new dng_gain_map(host.Allocator(),
+                                                           channelGainMapPoints,
+                                                           dng_point_real64(1.0 / (imageMetadata.lensShadingMap[c].rows), 1.0 / (imageMetadata.lensShadingMap[c].cols)),
+                                                           dng_point_real64(0, 0),
+                                                           1));
+            
+            for(int y = 0; y < imageMetadata.lensShadingMap[c].rows; y++) {
+                for(int x = 0; x < imageMetadata.lensShadingMap[c].cols; x++) {
+                    gainMap->Entry(y, x, 0) = imageMetadata.lensShadingMap[c].at<float>(y, x);
+                }
+            }
+            
+            int left = 0;
+            int top  = 0;
+            
+            if(c == 0) {
+                left = 0;
+                top = 0;
+            }
+            else if(c == 1) {
+                left = 1;
+                top = 0;
+            }
+            else if(c == 2) {
+                left = 0;
+                top = 1;
+            }
+            else if(c == 3) {
+                left = 1;
+                top = 1;
+            }
+            
+            dng_rect gainMapArea(top, left, height, width);
+            AutoPtr<dng_opcode> gainMapOpCode(new dng_opcode_GainMap(dng_area_spec(gainMapArea, 0, 1, 2, 2), gainMap));
+            
+            negative->OpcodeList2().Append(gainMapOpCode);
+        }
+        
+        negative->SetModelName("MotionCam");
+        negative->SetLocalName("MotionCam");
+        
+        // We always use RGGB at this point
+        negative->SetColorKeys(colorKeyRed, colorKeyGreen, colorKeyBlue);
+        
+        uint32_t phase = 0;
+        
+        switch(cameraMetadata.sensorArrangment) {
+            case ColorFilterArrangment::GRBG:
+                phase = 0;
+                break;
+
+            default:
+            case ColorFilterArrangment::RGGB:
+                phase = 1;
+                break;
+
+            case ColorFilterArrangment::BGGR:
+                phase = 2;
+                break;
+                
+            case ColorFilterArrangment::GBRG:
+                phase = 3;
+                break;
+        }
+        
+        negative->SetBayerMosaic(phase);
+        negative->SetColorChannels(3);
+        
+        negative->SetQuadBlacks(cameraMetadata.blackLevel[0],
+                                cameraMetadata.blackLevel[1],
+                                cameraMetadata.blackLevel[2],
+                                cameraMetadata.blackLevel[3]);
+        
+        negative->SetWhiteLevel(cameraMetadata.whiteLevel);
+        
+        // Square pixels
+        negative->SetDefaultScale(dng_urational(1,1), dng_urational(1,1));
+        
+        negative->SetDefaultCropSize(width, height);
+        negative->SetNoiseReductionApplied(dng_urational(1,1));
+        negative->SetCameraNeutral(dng_vector_3(imageMetadata.asShot[0], imageMetadata.asShot[1], imageMetadata.asShot[2]));
+
+        dng_orientation orientation;
+        
+        switch(imageMetadata.screenOrientation)
+        {
+            default:
+            case ScreenOrientation::PORTRAIT:
+                orientation = dng_orientation::Rotate90CW();
+                break;
+            
+            case ScreenOrientation::REVERSE_PORTRAIT:
+                orientation = dng_orientation::Rotate90CCW();
+                break;
+                
+            case ScreenOrientation::LANDSCAPE:
+                orientation = dng_orientation::Normal();
+                break;
+                
+            case ScreenOrientation::REVERSE_LANDSCAPE:
+                orientation = dng_orientation::Rotate180();
+                break;
+        }
+        
+        negative->SetBaseOrientation(orientation);
+
+        // Set up camera profile
+        AutoPtr<dng_camera_profile> cameraProfile(new dng_camera_profile());
+        
+        // Color matrices
+        cv::Mat color1 = cameraMetadata.colorMatrix1;
+        cv::Mat color2 = cameraMetadata.colorMatrix2;
+        
+        dng_matrix_3by3 dngColor1 = dng_matrix_3by3(color1.at<float>(0, 0), color1.at<float>(0, 1), color1.at<float>(0, 2),
+                                                    color1.at<float>(1, 0), color1.at<float>(1, 1), color1.at<float>(1, 2),
+                                                    color1.at<float>(2, 0), color1.at<float>(2, 1), color1.at<float>(2, 2));
+        
+        dng_matrix_3by3 dngColor2 = dng_matrix_3by3(color2.at<float>(0, 0), color2.at<float>(0, 1), color2.at<float>(0, 2),
+                                                    color2.at<float>(1, 0), color2.at<float>(1, 1), color2.at<float>(1, 2),
+                                                    color2.at<float>(2, 0), color2.at<float>(2, 1), color2.at<float>(2, 2));
+        
+        cameraProfile->SetColorMatrix1(dngColor1);
+        cameraProfile->SetColorMatrix2(dngColor2);
+        
+        // Forward matrices
+        cv::Mat forward1 = cameraMetadata.forwardMatrix1;
+        cv::Mat forward2 = cameraMetadata.forwardMatrix2;
+        
+        if(!forward1.empty() && !forward2.empty()) {
+            dng_matrix_3by3 dngForward1 = dng_matrix_3by3( forward1.at<float>(0, 0), forward1.at<float>(0, 1), forward1.at<float>(0, 2),
+                                                           forward1.at<float>(1, 0), forward1.at<float>(1, 1), forward1.at<float>(1, 2),
+                                                           forward1.at<float>(2, 0), forward1.at<float>(2, 1), forward1.at<float>(2, 2) );
+            
+            dng_matrix_3by3 dngForward2 = dng_matrix_3by3( forward2.at<float>(0, 0), forward2.at<float>(0, 1), forward2.at<float>(0, 2),
+                                                           forward2.at<float>(1, 0), forward2.at<float>(1, 1), forward2.at<float>(1, 2),
+                                                           forward2.at<float>(2, 0), forward2.at<float>(2, 1), forward2.at<float>(2, 2) );
+            
+            cameraProfile->SetForwardMatrix1(dngForward1);
+            cameraProfile->SetForwardMatrix2(dngForward2);
+        }
+        
+        uint32_t illuminant1 = 0;
+        uint32_t illuminant2 = 0;
+        
+        // Convert to DNG format
+        switch(cameraMetadata.colorIlluminant1) {
+            case color::StandardA:
+                illuminant1 = lsStandardLightA;
+                break;
+            case color::StandardB:
+                illuminant1 = lsStandardLightB;
+                break;
+            case color::StandardC:
+                illuminant1 = lsStandardLightC;
+                break;
+            case color::D50:
+                illuminant1 = lsD50;
+                break;
+            case color::D55:
+                illuminant1 = lsD55;
+                break;
+            case color::D65:
+                illuminant1 = lsD65;
+                break;
+            case color::D75:
+                illuminant1 = lsD75;
+                break;
+        }
+        
+        switch(cameraMetadata.colorIlluminant2) {
+            case color::StandardA:
+                illuminant2 = lsStandardLightA;
+                break;
+            case color::StandardB:
+                illuminant2 = lsStandardLightB;
+                break;
+            case color::StandardC:
+                illuminant2 = lsStandardLightC;
+                break;
+            case color::D50:
+                illuminant2 = lsD50;
+                break;
+            case color::D55:
+                illuminant2 = lsD55;
+                break;
+            case color::D65:
+                illuminant2 = lsD65;
+                break;
+            case color::D75:
+                illuminant2 = lsD75;
+                break;
+        }
+        
+        cameraProfile->SetCalibrationIlluminant1(illuminant1);
+        cameraProfile->SetCalibrationIlluminant2(illuminant2);
+        
+        cameraProfile->SetName("MotionCam");
+        cameraProfile->SetEmbedPolicy(pepAllowCopying);
+        
+        // This ensures profile is saved
+        cameraProfile->SetWasReadFromDNG();
+        
+        negative->AddProfile(cameraProfile);
+        
+        // Finally add the raw data to the negative
+        dng_rect dngArea(height, width);
+        dng_pixel_buffer dngBuffer;
+
+        AutoPtr<dng_image> dngImage(host.Make_dng_image(dngArea, 1, ttShort));
+
+        dngBuffer.fArea         = dngArea;
+        dngBuffer.fPlane        = 0;
+        dngBuffer.fPlanes       = 1;
+        dngBuffer.fRowStep      = dngBuffer.fPlanes * width;
+        dngBuffer.fColStep      = dngBuffer.fPlanes;
+        dngBuffer.fPixelType    = ttShort;
+        dngBuffer.fPixelSize    = TagTypeSize(ttShort);
+        dngBuffer.fData         = rawImage.ptr();
+        
+        dngImage->Put(dngBuffer);
+        
+        // Build the DNG images
+        negative->SetStage1Image(dngImage);
+        negative->BuildStage2Image(host);
+        negative->BuildStage3Image(host);
+        
+        negative->SynchronizeMetadata();
+        
+        // Create stream writer for output file
+        dng_file_stream dngStream(outputPath.c_str(), true);
+        
+        // Write DNG file to disk
+        AutoPtr<dng_image_writer> dngWriter(new dng_image_writer());
+        
+        dngWriter->WriteDNG(host, dngStream, *negative.Get(), nullptr, ccUncompressed);
+    }
+#endif // DNG_SUPPORT
+
     }
 }

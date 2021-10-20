@@ -1,6 +1,4 @@
 #include "motioncam/Measure.h"
-
-#include <utility>
 #include "motioncam/Logger.h"
 
 namespace motioncam {

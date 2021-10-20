@@ -3,17 +3,20 @@
 
 #include <string>
 #include <vector>
-#include <set>
 
 #include <miniz_zip.h>
 #include <json11/json11.hpp>
+#include <opencv2/opencv.hpp>
 
 namespace motioncam {
+    struct RawImageMetadata;
+    struct RawCameraMetadata;
+
     namespace util {
         
         class ZipWriter {
         public:
-            ZipWriter(const std::string& pathname);
+            ZipWriter(const std::string& pathname, bool append=false);
             ~ZipWriter();
             
             void addFile(const std::string& filename, const std::string& data);
@@ -22,8 +25,8 @@ namespace motioncam {
             void commit();
             
         private:
-            mz_zip_archive m_zip;
-            bool m_commited;
+            mz_zip_archive mZip;
+            bool mCommited;
         };
 
         class ZipReader {
@@ -34,9 +37,11 @@ namespace motioncam {
             void read(const std::string& filename, std::string& output);
             void read(const std::string& filename, std::vector<uint8_t>& output);
             
+            const std::vector<std::string>& getFiles() const;
+            
         private:
-            mz_zip_archive m_zip;
-            std::vector<std::string> m_files;
+            mz_zip_archive mZip;
+            std::vector<std::string> mFiles;
         };
 
 #ifdef ZSTD_AVAILABLE
@@ -48,6 +53,11 @@ namespace motioncam {
         void WriteFile(const uint8_t* data, size_t size, const std::string& outputPath);
         json11::Json ReadJsonFromFile(const std::string& path);
         void GetBasePath(const std::string& path, std::string& basePath, std::string& filename);
+    
+#ifdef DNG_SUPPORT
+        cv::Mat BuildRawImage(std::vector<cv::Mat> channels, int cropX, int cropY);
+        void WriteDng(cv::Mat& rawImage, const RawCameraMetadata& cameraMetadata, const RawImageMetadata& imageMetadata, const std::string& outputPath);
+#endif
     }
 }
 

@@ -2,6 +2,7 @@
 #define RawBufferManager_hpp
 
 #include "motioncam/RawImageMetadata.h"
+#include "motioncam/RawBufferStreamer.h"
 
 #include <queue/concurrentqueue.h>
 #include <set>
@@ -69,6 +70,9 @@ namespace motioncam {
                   const PostProcessSettings& settings,
                   const std::string& outputPath);
         
+        void enableStreaming(const std::string outputPath, const RawCameraMetadata& metadata);
+        void endStreaming();
+        
     private:
         RawBufferManager();
 
@@ -81,6 +85,8 @@ namespace motioncam {
 
         moodycamel::ConcurrentQueue<std::shared_ptr<RawImageBuffer>> mUnusedBuffers;
         moodycamel::ConcurrentQueue<std::shared_ptr<RawContainer>> mPendingContainers;
+        
+        std::unique_ptr<RawBufferStreamer> mStreamer;
     };
 
 } // namespace motioncam

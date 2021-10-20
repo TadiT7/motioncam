@@ -8,7 +8,6 @@ using std::string;
 
 namespace motioncam {
     namespace color {
-        
         const XYCoord D50XYCoord = XYCoord(0.3457, 0.3585);
         
         namespace illuminant {

@@ -380,6 +380,7 @@ add_library( # Sets the name of the library.
         ${libmotioncam-src}/source/Logger.cpp
         ${libmotioncam-src}/source/Measure.cpp
         ${libmotioncam-src}/source/RawBufferManager.cpp
+        ${libmotioncam-src}/source/RawBufferStreamer.cpp
         ${libmotioncam-src}/source/RawContainer.cpp
         ${libmotioncam-src}/source/Temperature.cpp
         ${libmotioncam-src}/source/Settings.cpp

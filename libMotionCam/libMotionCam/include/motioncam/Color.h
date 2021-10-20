@@ -5,7 +5,6 @@
 
 namespace motioncam {
     namespace color {
-
         extern const XYCoord D50XYCoord;
         
         enum Illuminant {

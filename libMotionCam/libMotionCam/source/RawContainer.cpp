@@ -1,9 +1,6 @@
 #include "motioncam/RawContainer.h"
 #include "motioncam/Util.h"
 #include "motioncam/Exceptions.h"
-#include "motioncam/Math.h"
-#include "motioncam/Logger.h"
-#include "motioncam/Measure.h"
 
 #include <zstd.h>
 #include <utility>
@@ -11,6 +8,7 @@
 
 using std::string;
 using std::vector;
+using std::shared_ptr;
 using json11::Json;
 
 namespace motioncam {
@@ -178,11 +176,19 @@ namespace motioncam {
         initialise();
     }
 
+    RawContainer::RawContainer(const RawCameraMetadata& cameraMetadata) :
+        mCameraMetadata(cameraMetadata),
+        mIsHdr(false),
+        mIsInMemory(false)
+    {
+        // Empty container for streaming
+    }
+
     RawContainer::RawContainer(const RawCameraMetadata& cameraMetadata,
                                const PostProcessSettings& postProcessSettings,
                                const int64_t referenceTimestamp,
                                const bool isHdr,
-                               const std::vector<std::shared_ptr<RawImageBuffer>>& buffers) :
+                               const vector<shared_ptr<RawImageBuffer>>& buffers) :
         mCameraMetadata(cameraMetadata),
         mPostProcessSettings(postProcessSettings),
         mReferenceTimestamp(referenceTimestamp),
@@ -197,7 +203,7 @@ namespace motioncam {
         int filenameIdx = 0;
 
         for(const auto& buffer : buffers) {
-            std::string filename = "frame" + std::to_string(filenameIdx) + ".raw";
+            string filename = "frame" + std::to_string(filenameIdx) + ".raw";
 
             mFrameBuffers[filename] = std::make_shared<RawImageBuffer>(*buffer);
             mFrames.push_back(filename);
@@ -215,9 +221,7 @@ namespace motioncam {
         }
     }
 
-    void RawContainer::save(const std::string& outputPath) {
-        Measure m("RawContainer::save()");
-        
+    void RawContainer::save(const string& outputPath) {
         auto it = mFrames.begin();
         
         json11::Json::object metadataJson;
@@ -227,6 +231,10 @@ namespace motioncam {
         metadataJson["isHdr"]               = mIsHdr;
         
         // Global camera metadata
+        json11::Json::object postProcessSettings;
+        
+        mPostProcessSettings.toJson(postProcessSettings);
+        
         metadataJson["colorIlluminant1"]    = color::IlluminantToString(mCameraMetadata.colorIlluminant1);
         metadataJson["colorIlluminant2"]    = color::IlluminantToString(mCameraMetadata.colorIlluminant2);
         metadataJson["forwardMatrix1"]      = toJsonArray(mCameraMetadata.forwardMatrix1);
@@ -238,14 +246,14 @@ namespace motioncam {
         metadataJson["blackLevel"]          = mCameraMetadata.blackLevel;
         metadataJson["whiteLevel"]          = mCameraMetadata.whiteLevel;
         metadataJson["sensorArrangment"]    = toString(mCameraMetadata.sensorArrangment);
-        metadataJson["postProcessingSettings"] = mPostProcessSettings.toJson();
+        metadataJson["postProcessingSettings"] = postProcessSettings;
         metadataJson["apertures"]           = mCameraMetadata.apertures;
         metadataJson["focalLengths"]        = mCameraMetadata.focalLengths;
         
         json11::Json::array rawImages;
         util::ZipWriter zip(outputPath);
         
-        std::vector<uint8_t> tmpBuffer;
+        vector<uint8_t> tmpBuffer;
         
         // Write frames first
         while(it != mFrames.end()) {
@@ -257,80 +265,10 @@ namespace motioncam {
             
             auto frame = frameIt->second;
             
-            // If the metadata has been set, remove the frame
             json11::Json::object imageMetadata;
 
-            // Metadata
-            imageMetadata["timestamp"]   = std::to_string(frame->metadata.timestampNs);
-            imageMetadata["filename"]    = filename;
-            imageMetadata["width"]       = frame->width;
-            imageMetadata["height"]      = frame->height;
-            imageMetadata["rowStride"]   = frame->rowStride;
-            imageMetadata["pixelFormat"] = toString(frame->pixelFormat);
-            imageMetadata["type"]        = toString(frame->metadata.rawType);
-
-            vector<float> asShot = {
-                frame->metadata.asShot[0],
-                frame->metadata.asShot[1],
-                frame->metadata.asShot[2],
-            };
-
-            imageMetadata["asShotNeutral"]          = asShot;
-            
-            imageMetadata["iso"]                    = frame->metadata.iso;
-            imageMetadata["exposureCompensation"]   = frame->metadata.exposureCompensation;
-            imageMetadata["exposureTime"]           = (double) frame->metadata.exposureTime;
-            imageMetadata["orientation"]            = static_cast<int>(frame->metadata.screenOrientation);
-
-            if(!frame->metadata.calibrationMatrix1.empty()) {
-                imageMetadata["calibrationMatrix1"]  = toJsonArray(frame->metadata.calibrationMatrix1);
-            }
-
-            if(!frame->metadata.calibrationMatrix2.empty()) {
-                imageMetadata["calibrationMatrix2"]  = toJsonArray(frame->metadata.calibrationMatrix2);
-            }
-
-            if(!frame->metadata.colorMatrix1.empty()) {
-                imageMetadata["colorMatrix1"]  = toJsonArray(frame->metadata.colorMatrix1);
-            }
-
-            if(!frame->metadata.colorMatrix2.empty()) {
-                imageMetadata["colorMatrix2"]  = toJsonArray(frame->metadata.colorMatrix2);
-            }
-
-            if(!frame->metadata.forwardMatrix1.empty()) {
-                imageMetadata["forwardMatrix1"]  = toJsonArray(frame->metadata.forwardMatrix1);
-            }
-
-            if(!frame->metadata.forwardMatrix2.empty()) {
-                imageMetadata["forwardMatrix2"]  = toJsonArray(frame->metadata.forwardMatrix2);
-            }
-            
-            if(!frame->metadata.lensShadingMap.empty()) {
-                imageMetadata["lensShadingMapWidth"]    = frame->metadata.lensShadingMap[0].cols;
-                imageMetadata["lensShadingMapHeight"]   = frame->metadata.lensShadingMap[0].rows;
-            
-                vector<vector<float>> points;
-                
-                for(auto& i : frame->metadata.lensShadingMap) {
-                    vector<float> p;
-                    
-                    for(int y = 0; y < i.rows; y++) {
-                        for(int x = 0; x < i.cols; x++) {
-                            p.push_back(i.at<float>(y, x));
-                        }
-                    }
-                    
-                    points.push_back(p);
-                }
-                
-                imageMetadata["lensShadingMap"] = points;
-            }
-            else {
-                imageMetadata["lensShadingMapWidth"] = 0;
-                imageMetadata["lensShadingMapHeight"] = 0;
-            }
-            
+            generateMetadata(frame, imageMetadata, filename);
+                        
             // We'll compress the data
             if(USE_COMPRESSION) {
                 imageMetadata["isCompressed"] = true;
@@ -358,7 +296,7 @@ namespace motioncam {
         // Write the metadata
         metadataJson["frames"] = rawImages;
         
-        std::string jsonOutput = json11::Json(metadataJson).dump();
+        string jsonOutput = json11::Json(metadataJson).dump();
         
         zip.addFile(METATDATA_FILENAME, jsonOutput);
         zip.commit();
@@ -370,7 +308,6 @@ namespace motioncam {
         mZipReader->read(METATDATA_FILENAME, jsonStr);
         
         json11::Json json = json11::Json::parse(jsonStr, err);
-
         if(!err.empty()) {
             throw IOException("Cannot parse metadata");
         }
@@ -380,7 +317,7 @@ namespace motioncam {
             mPostProcessSettings = PostProcessSettings(json["postProcessingSettings"]);
         }
         
-        mReferenceTimestamp = std::stol(getOptionalStringSetting(json, "referenceTimestamp", "0"));
+        mReferenceTimestamp = stol(getOptionalStringSetting(json, "referenceTimestamp", "0"));
         mIsHdr = getOptionalSetting(json, "isHdr", false);
 
         // Black/white levels
@@ -453,115 +390,13 @@ namespace motioncam {
         if(!frames.is_array()) {
             throw IOException("No frames found in metadata");
         }
-
+        
         // Add all frame metadata to a list
         vector<Json> frameList = frames.array_items();
         vector<Json>::const_iterator it = frameList.begin();
         
         while(it != frameList.end()) {
-            std::shared_ptr<RawImageBuffer> buffer = std::make_shared<RawImageBuffer>();
-            
-            buffer->width        = getRequiredSettingAsInt(*it, "width");
-            buffer->height       = getRequiredSettingAsInt(*it, "height");
-            buffer->rowStride    = getRequiredSettingAsInt(*it, "rowStride");
-            buffer->isCompressed = getOptionalSetting(*it, "isCompressed", false);
-
-            string pixelFormat = getOptionalStringSetting(*it, "pixelFormat", "raw10");
-
-            if(pixelFormat == "raw16") {
-                buffer->pixelFormat = PixelFormat::RAW16;
-            }
-            else if(pixelFormat == "raw12") {
-                buffer->pixelFormat = PixelFormat::RAW12;
-            }
-            else if(pixelFormat == "yuv_420_888") {
-                buffer->pixelFormat = PixelFormat::YUV_420_888;
-            }
-            else {
-                // Default to RAW10
-                buffer->pixelFormat = PixelFormat::RAW10;
-            }
-
-            buffer->metadata.exposureTime           = getOptionalSetting(*it, "exposureTime", 0);
-            buffer->metadata.iso                    = getOptionalSetting(*it, "iso", 0);
-            buffer->metadata.exposureCompensation   = getOptionalSetting(*it, "exposureCompensation", 0);
-            buffer->metadata.screenOrientation      =
-                static_cast<ScreenOrientation>(getOptionalSetting(*it, "orientation", static_cast<int>(ScreenOrientation::LANDSCAPE)));
-            
-            buffer->metadata.asShot             = toVec3f((*it)["asShotNeutral"].array_items());
-            
-            string timestamp                    = getRequiredSettingAsString(*it, "timestamp");
-            buffer->metadata.timestampNs        = std::stol(timestamp);
-
-            if(it->object_items().find("colorMatrix1") != it->object_items().end()) {
-                buffer->metadata.colorMatrix1 = toMat3x3((*it)["colorMatrix1"].array_items());
-            }
-
-            if(it->object_items().find("colorMatrix2") != it->object_items().end()) {
-                buffer->metadata.colorMatrix2 = toMat3x3((*it)["colorMatrix2"].array_items());
-            }
-
-            if(it->object_items().find("calibrationMatrix1") != it->object_items().end()) {
-                buffer->metadata.calibrationMatrix1 = toMat3x3((*it)["calibrationMatrix1"].array_items());
-            }
-
-            if(it->object_items().find("calibrationMatrix2") != it->object_items().end()) {
-                buffer->metadata.calibrationMatrix1 = toMat3x3((*it)["calibrationMatrix2"].array_items());
-            }
-
-            if(it->object_items().find("forwardMatrix1") != it->object_items().end()) {
-                buffer->metadata.calibrationMatrix1 = toMat3x3((*it)["forwardMatrix1"].array_items());
-            }
-
-            if(it->object_items().find("forwardMatrix2") != it->object_items().end()) {
-                buffer->metadata.calibrationMatrix1 = toMat3x3((*it)["forwardMatrix2"].array_items());
-            }
-            
-            // Lens shading maps
-            int lenShadingMapWidth  = getOptionalSetting(*it, "lensShadingMapWidth", 0);
-            int lenShadingMapHeight = getOptionalSetting(*it, "lensShadingMapHeight", 0);
-            
-            // Make sure there are a reasonable number of points available
-            if(lenShadingMapHeight < 4 || lenShadingMapWidth < 4) {
-                lenShadingMapWidth = 16;
-                lenShadingMapHeight = 12;
-            }
-            
-            for(int i = 0; i < 4; i++) {
-                cv::Mat m(lenShadingMapHeight, lenShadingMapWidth, CV_32F, cv::Scalar(1));
-                buffer->metadata.lensShadingMap.push_back(m);
-            }
-            
-            // Load points for shading map
-            auto shadingMapPts = (*it)["lensShadingMap"].array_items();
-            
-            if(shadingMapPts.size() == 4) {
-                for(int i = 0; i < 4; i++) {
-                    auto pts = shadingMapPts[i].array_items();
-                    
-                    // Check number of points matches
-                    if(pts.size() == lenShadingMapWidth * lenShadingMapHeight) {
-                        for(int y = 0; y < lenShadingMapHeight; y++) {
-                            for(int x = 0; x < lenShadingMapWidth; x++) {
-                                buffer->metadata.lensShadingMap[i].at<float>(y, x) = pts[y * lenShadingMapWidth + x].number_value();
-                            }
-                        }
-                    }
-                }
-            }
-            else {
-                if(shadingMapPts.size() == lenShadingMapWidth * lenShadingMapHeight * 4) {
-                    for(int y = 0; y < lenShadingMapHeight * 4; y+=4) {
-                        for(int x = 0; x < lenShadingMapWidth * 4; x+=4) {
-                            buffer->metadata.lensShadingMap[0].at<float>(y/4, x/4) = shadingMapPts[y * lenShadingMapWidth + x + 0].number_value();
-                            buffer->metadata.lensShadingMap[1].at<float>(y/4, x/4) = shadingMapPts[y * lenShadingMapWidth + x + 1].number_value();
-                            buffer->metadata.lensShadingMap[2].at<float>(y/4, x/4) = shadingMapPts[y * lenShadingMapWidth + x + 2].number_value();
-                            buffer->metadata.lensShadingMap[3].at<float>(y/4, x/4) = shadingMapPts[y * lenShadingMapWidth + x + 3].number_value();
-                        }
-                    }
-                }
-            }
-
+            auto buffer = loadFrameMetadata(*it);
             string filename = getRequiredSettingAsString(*it, "filename");
 
             // If this is the reference image, keep the name
@@ -574,8 +409,37 @@ namespace motioncam {
             
             ++it;
         }
+
+        // Add files that were streamed if there were no frames in the metadata
+        if(frameList.empty()) {
+            auto& files = mZipReader->getFiles();
+            for(int i = 0; i < files.size(); i++) {
+                size_t p = files[i].find_last_of(".");
+                if(p == string::npos)
+                    continue;
+                
+                auto type = files[i].substr(p + 1, files[i].size() - 1);
+                if(type != "metadata")
+                    continue;
+                
+                string metadataStr;
+
+                mZipReader->read(files[i], metadataStr);
+                
+                json11::Json frameJson = json11::Json::parse(metadataStr, err);
+                if(!err.empty()) {
+                    throw IOException("Cannot parse file metadata");
+                }
+
+                auto buffer = loadFrameMetadata(frameJson);
+                string filename = getRequiredSettingAsString(frameJson, "filename");
+                
+                mFrames.push_back(filename);
+                mFrameBuffers.insert(make_pair(filename, buffer));
+            }
+        }
         
-        if(mReferenceImage.empty()) {
+        if(mReferenceImage.empty() && !mFrames.empty()) {
             mReferenceImage = *mFrames.begin();
         }
     }
@@ -596,16 +460,16 @@ namespace motioncam {
         return mReferenceImage;
     }
 
-    void RawContainer::updateReferenceImage(const std::string& referenceName) {
+    void RawContainer::updateReferenceImage(const string& referenceName) {
         mReferenceTimestamp = -1;
         mReferenceImage = referenceName;
     }
 
-    std::vector<string> RawContainer::getFrames() const {
+    vector<string> RawContainer::getFrames() const {
         return mFrames;
     }
 
-    std::shared_ptr<RawImageBuffer> RawContainer::loadFrame(const std::string& frame) const {
+    shared_ptr<RawImageBuffer> RawContainer::loadFrame(const string& frame) const {
         auto buffer = mFrameBuffers.find(frame);
         if(buffer == mFrameBuffers.end()) {
             throw IOException("Cannot find " + frame + " in container");
@@ -616,12 +480,12 @@ namespace motioncam {
             return buffer->second;
         
         // Load the data into the buffer
-        std::vector<uint8_t> data;
+        vector<uint8_t> data;
 
         mZipReader->read(frame, data);
         
         if(buffer->second->isCompressed) {
-            std::vector<uint8_t> tmp;
+            vector<uint8_t> tmp;
             
             size_t outputSize = ZSTD_getFrameContentSize(static_cast<void*>(&data[0]), data.size());
             tmp.resize(outputSize);
@@ -640,7 +504,7 @@ namespace motioncam {
         return buffer->second;
     }
 
-    std::shared_ptr<RawImageBuffer> RawContainer::getFrame(const std::string& frame) const {
+    shared_ptr<RawImageBuffer> RawContainer::getFrame(const string& frame) const {
         auto buffer = mFrameBuffers.find(frame);
         if(buffer == mFrameBuffers.end()) {
             throw IOException("Cannot find " + frame + " in container");
@@ -649,8 +513,8 @@ namespace motioncam {
         return buffer->second;
     }
 
-    void RawContainer::removeFrame(const std::string& frame) {
-        auto it = std::find(mFrames.begin(), mFrames.end(), frame);
+    void RawContainer::removeFrame(const string& frame) {
+        auto it = find(mFrames.begin(), mFrames.end(), frame);
         if(it != mFrames.end()) {
             mFrames.erase(it);
         }
@@ -658,5 +522,201 @@ namespace motioncam {
         auto bufferIt = mFrameBuffers.find(frame);
         if(bufferIt != mFrameBuffers.end())
             mFrameBuffers.erase(bufferIt);
+    }
+
+    shared_ptr<RawImageBuffer> RawContainer::loadFrameMetadata(const json11::Json& obj) {
+        shared_ptr<RawImageBuffer> buffer = std::make_shared<RawImageBuffer>();
+        
+        buffer->width        = getRequiredSettingAsInt(obj, "width");
+        buffer->height       = getRequiredSettingAsInt(obj, "height");
+        buffer->rowStride    = getRequiredSettingAsInt(obj, "rowStride");
+        buffer->isCompressed = getOptionalSetting(obj, "isCompressed", false);
+
+        string pixelFormat = getOptionalStringSetting(obj, "pixelFormat", "raw10");
+
+        if(pixelFormat == "raw16") {
+            buffer->pixelFormat = PixelFormat::RAW16;
+        }
+        else if(pixelFormat == "raw12") {
+            buffer->pixelFormat = PixelFormat::RAW12;
+        }
+        else if(pixelFormat == "yuv_420_888") {
+            buffer->pixelFormat = PixelFormat::YUV_420_888;
+        }
+        else {
+            // Default to RAW10
+            buffer->pixelFormat = PixelFormat::RAW10;
+        }
+
+        buffer->metadata.exposureTime           = getOptionalSetting(obj, "exposureTime", 0);
+        buffer->metadata.iso                    = getOptionalSetting(obj, "iso", 0);
+        buffer->metadata.exposureCompensation   = getOptionalSetting(obj, "exposureCompensation", 0);
+        buffer->metadata.screenOrientation      =
+            static_cast<ScreenOrientation>(getOptionalSetting(obj, "orientation", static_cast<int>(ScreenOrientation::LANDSCAPE)));
+        
+        buffer->metadata.asShot             = toVec3f((obj)["asShotNeutral"].array_items());
+        
+        string timestamp                    = getRequiredSettingAsString(obj, "timestamp");
+        buffer->metadata.timestampNs        = stol(timestamp);
+
+        if(obj.object_items().find("colorMatrix1") != obj.object_items().end()) {
+            buffer->metadata.colorMatrix1 = toMat3x3((obj)["colorMatrix1"].array_items());
+        }
+
+        if(obj.object_items().find("colorMatrix2") != obj.object_items().end()) {
+            buffer->metadata.colorMatrix2 = toMat3x3((obj)["colorMatrix2"].array_items());
+        }
+
+        if(obj.object_items().find("calibrationMatrix1") != obj.object_items().end()) {
+            buffer->metadata.calibrationMatrix1 = toMat3x3((obj)["calibrationMatrix1"].array_items());
+        }
+
+        if(obj.object_items().find("calibrationMatrix2") != obj.object_items().end()) {
+            buffer->metadata.calibrationMatrix1 = toMat3x3((obj)["calibrationMatrix2"].array_items());
+        }
+
+        if(obj.object_items().find("forwardMatrix1") != obj.object_items().end()) {
+            buffer->metadata.calibrationMatrix1 = toMat3x3((obj)["forwardMatrix1"].array_items());
+        }
+
+        if(obj.object_items().find("forwardMatrix2") != obj.object_items().end()) {
+            buffer->metadata.calibrationMatrix1 = toMat3x3((obj)["forwardMatrix2"].array_items());
+        }
+        
+        // Lens shading maps
+        int lenShadingMapWidth  = getOptionalSetting(obj, "lensShadingMapWidth", 0);
+        int lenShadingMapHeight = getOptionalSetting(obj, "lensShadingMapHeight", 0);
+        
+        // Make sure there are a reasonable number of points available
+        if(lenShadingMapHeight < 4 || lenShadingMapWidth < 4) {
+            lenShadingMapWidth = 16;
+            lenShadingMapHeight = 12;
+        }
+        
+        for(int i = 0; i < 4; i++) {
+            cv::Mat m(lenShadingMapHeight, lenShadingMapWidth, CV_32F, cv::Scalar(1));
+            buffer->metadata.lensShadingMap.push_back(m);
+        }
+        
+        // Load points for shading map
+        auto shadingMapPts = (obj)["lensShadingMap"].array_items();
+        
+        if(shadingMapPts.size() == 4) {
+            for(int i = 0; i < 4; i++) {
+                auto pts = shadingMapPts[i].array_items();
+                
+                // Check number of points matches
+                if(pts.size() == lenShadingMapWidth * lenShadingMapHeight) {
+                    for(int y = 0; y < lenShadingMapHeight; y++) {
+                        for(int x = 0; x < lenShadingMapWidth; x++) {
+                            buffer->metadata.lensShadingMap[i].at<float>(y, x) = pts[y * lenShadingMapWidth + x].number_value();
+                        }
+                    }
+                }
+            }
+        }
+        else {
+            if(shadingMapPts.size() == lenShadingMapWidth * lenShadingMapHeight * 4) {
+                for(int y = 0; y < lenShadingMapHeight * 4; y+=4) {
+                    for(int x = 0; x < lenShadingMapWidth * 4; x+=4) {
+                        buffer->metadata.lensShadingMap[0].at<float>(y/4, x/4) = shadingMapPts[y * lenShadingMapWidth + x + 0].number_value();
+                        buffer->metadata.lensShadingMap[1].at<float>(y/4, x/4) = shadingMapPts[y * lenShadingMapWidth + x + 1].number_value();
+                        buffer->metadata.lensShadingMap[2].at<float>(y/4, x/4) = shadingMapPts[y * lenShadingMapWidth + x + 2].number_value();
+                        buffer->metadata.lensShadingMap[3].at<float>(y/4, x/4) = shadingMapPts[y * lenShadingMapWidth + x + 3].number_value();
+                    }
+                }
+            }
+        }
+        
+        return buffer;
+    }
+
+    void RawContainer::generateMetadata(shared_ptr<RawImageBuffer> frame, json11::Json::object& metadata, const string& filename) {
+        metadata["timestamp"]   = std::to_string(frame->metadata.timestampNs);
+        metadata["filename"]    = filename;
+        metadata["width"]       = frame->width;
+        metadata["height"]      = frame->height;
+        metadata["rowStride"]   = frame->rowStride;
+        metadata["pixelFormat"] = toString(frame->pixelFormat);
+        metadata["type"]        = toString(frame->metadata.rawType);
+
+        vector<float> asShot = {
+            frame->metadata.asShot[0],
+            frame->metadata.asShot[1],
+            frame->metadata.asShot[2],
+        };
+
+        metadata["asShotNeutral"]          = asShot;
+        
+        metadata["iso"]                    = frame->metadata.iso;
+        metadata["exposureCompensation"]   = frame->metadata.exposureCompensation;
+        metadata["exposureTime"]           = (double) frame->metadata.exposureTime;
+        metadata["orientation"]            = static_cast<int>(frame->metadata.screenOrientation);
+        metadata["isCompressed"]           = frame->isCompressed;
+
+        if(!frame->metadata.calibrationMatrix1.empty()) {
+            metadata["calibrationMatrix1"]  = toJsonArray(frame->metadata.calibrationMatrix1);
+        }
+
+        if(!frame->metadata.calibrationMatrix2.empty()) {
+            metadata["calibrationMatrix2"]  = toJsonArray(frame->metadata.calibrationMatrix2);
+        }
+
+        if(!frame->metadata.colorMatrix1.empty()) {
+            metadata["colorMatrix1"]  = toJsonArray(frame->metadata.colorMatrix1);
+        }
+
+        if(!frame->metadata.colorMatrix2.empty()) {
+            metadata["colorMatrix2"]  = toJsonArray(frame->metadata.colorMatrix2);
+        }
+
+        if(!frame->metadata.forwardMatrix1.empty()) {
+            metadata["forwardMatrix1"]  = toJsonArray(frame->metadata.forwardMatrix1);
+        }
+
+        if(!frame->metadata.forwardMatrix2.empty()) {
+            metadata["forwardMatrix2"]  = toJsonArray(frame->metadata.forwardMatrix2);
+        }
+        
+        if(!frame->metadata.lensShadingMap.empty()) {
+            metadata["lensShadingMapWidth"]    = frame->metadata.lensShadingMap[0].cols;
+            metadata["lensShadingMapHeight"]   = frame->metadata.lensShadingMap[0].rows;
+        
+            vector<vector<float>> points;
+            
+            for(auto& i : frame->metadata.lensShadingMap) {
+                vector<float> p;
+                
+                for(int y = 0; y < i.rows; y++) {
+                    for(int x = 0; x < i.cols; x++) {
+                        p.push_back(i.at<float>(y, x));
+                    }
+                }
+                
+                points.push_back(p);
+            }
+            
+            metadata["lensShadingMap"] = points;
+        }
+        else {
+            metadata["lensShadingMapWidth"] = 0;
+            metadata["lensShadingMapHeight"] = 0;
+        }
+    }
+
+    size_t RawContainer::append(util::ZipWriter& writer, shared_ptr<RawImageBuffer> frame) {
+        // Metadata
+        json11::Json::object metadata;
+        string filenamePrefix = "frame_" + std::to_string(frame->metadata.timestampNs);
+        string filename = filenamePrefix + ".raw";
+
+        generateMetadata(frame, metadata, filename);
+        
+        writer.addFile(filename, frame->data->hostData(), frame->data->len());
+
+        string jsonOutput = json11::Json(metadata).dump();
+        writer.addFile(filenamePrefix + ".metadata", jsonOutput);
+        
+        return frame->data->len();
     }
 }

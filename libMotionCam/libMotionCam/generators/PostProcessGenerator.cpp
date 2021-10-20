@@ -2841,7 +2841,6 @@ void PreviewGenerator::generate() {
     output
         .dim(0).set_stride(4)
         .dim(2).set_stride(1);
-
     
     if(get_target().has_gpu_feature())
         schedule_for_gpu();
@@ -3646,42 +3645,43 @@ void LinearImageGenerator::generate() {
 
 //////////////
 
-class TestGenerator : public Halide::Generator<TestGenerator> {
+class BuildBayerGenerator : public Halide::Generator<BuildBayerGenerator>, public PostProcessBase {
 public:
-    Var v_i{"i"};
-    Var v_x{"x"};
-    Var v_y{"y"};
-    Var v_c{"c"};
+    Input<Buffer<uint8_t>> input{"input", 1 };
 
-    Input<Buffer<uint16_t>> input{"input", 3 };
-    Input<Buffer<uint8_t>> blueNoise{"blueNoise", 3 };
+    Input<int> stride{"stride"};
+    Input<int> pixelFormat{"pixelFormat"};
 
-    Output<Buffer<uint8_t>> output{"output", 3 };
+    Output<Buffer<uint16_t>> output{"output", 2 };
 
     void generate() {
-        Func inputRepeated = BoundaryConditions::repeat_edge(input);
-        Func noiseInput, noise;
+        Func inputChannels[4];
+        Func inputDeinterleaved{"inputDeinterleaved"};
 
-        noiseInput(v_x, v_y, v_c) = BoundaryConditions::repeat_image(blueNoise)(v_x, v_y, v_c) * 2.0f/255.0f - 1.0f;
+        for(int i = 0; i < 4; i++)
+            deinterleave(inputChannels[i], BoundaryConditions::repeat_edge(input), i, stride, pixelFormat);
 
-        Expr S = select(noiseInput(v_x, v_y, v_c) < 0.0f, -1.0f, 1.0f);
-        noise(v_x, v_y, v_c) = S*(1.0f - sqrt(max(0.0f, 1.0f - abs(noiseInput(v_x, v_y, v_c)))));
+        inputDeinterleaved(v_x, v_y, v_c) = 
+            mux(v_c,
+                {   inputChannels[0](v_x, v_y),
+                    inputChannels[1](v_x, v_y),
+                    inputChannels[2](v_x, v_y),
+                    inputChannels[3](v_x, v_y) } );
 
-        output(v_x, v_y, v_c) = saturating_cast<uint8_t>(clamp(input(v_x, v_y, v_c) / 65535.0f * 7 + noise(v_x, v_y, v_c), 0, 7)) * 36;
+        output(v_x, v_y) =
+            select(v_y % 2 == 0,
+                   select(v_x % 2 == 0, inputDeinterleaved(v_x/2, v_y/2, 0), inputDeinterleaved(v_x/2, v_y/2, 1)),
+                   select(v_x % 2 == 0, inputDeinterleaved(v_x/2, v_y/2, 2), inputDeinterleaved(v_x/2, v_y/2, 3)));
 
-        input
-            .dim(0).set_stride(3)
-            .dim(2).set_stride(1);
+        input.set_estimates({ {0, 24000000} });
+        stride.set_estimate(5008);
+        pixelFormat.set_estimate(0);
 
-        blueNoise
-            .dim(0).set_stride(4)
-            .dim(2).set_stride(1);
+        output.set_estimates({{0, 4000}, {0, 3000} });
 
-        output
-            .dim(0).set_stride(3)
-            .dim(2).set_stride(1);
-
-        output.compute_root().parallel(v_y).vectorize(v_x, 8);
+        output.compute_root()
+            .parallel(v_y)
+            .vectorize(v_x, 8);
     }
 };
 
@@ -3697,5 +3697,6 @@ HALIDE_REGISTER_GENERATOR(EnhanceGenerator, enhance_generator)
 HALIDE_REGISTER_GENERATOR(PreviewGenerator, preview_generator)
 HALIDE_REGISTER_GENERATOR(HdrMaskGenerator, hdr_mask_generator)
 HALIDE_REGISTER_GENERATOR(LinearImageGenerator, linear_image_generator)
+HALIDE_REGISTER_GENERATOR(BuildBayerGenerator, build_bayer_generator)
 
 // HALIDE_REGISTER_GENERATOR(TestGenerator, test_generator)

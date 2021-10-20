@@ -5,20 +5,11 @@
 #include "motioncam/Settings.h"
 
 #include <string>
-#include <map>
-#include <set>
 #include <vector>
 
 #include <opencv2/opencv.hpp>
-#include <json11/json11.hpp>
 
 namespace motioncam {
-    class ImageProcessorProgress;
-
-    namespace util {
-        class ZipReader;
-    }
-
     enum class ColorFilterArrangment : int {
         RGGB = 0,
         GRBG,

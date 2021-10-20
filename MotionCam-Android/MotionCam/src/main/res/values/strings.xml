@@ -65,6 +65,7 @@
     <string name="photo_mode">PHOTO</string>
     <string name="night_mode">NIGHT</string>
     <string name="burst_mode">BURST</string>
+    <string name="raw_video_mode">RAW VIDEO</string>
     <string name="processing">Processing</string>
     <string name="send_to">Send To</string>
     <string name="automatic_night_mode">Automatic night mode</string>
