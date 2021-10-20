@@ -1545,11 +1545,17 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void autoSwitchCaptureMode() {
-        if(!mSettings.autoNightMode || mCaptureMode == CaptureMode.BURST || mManualControlsSet || mUserCaptureModeOverride)
+        if(!mSettings.autoNightMode
+            || mCaptureMode == CaptureMode.BURST
+            || mCaptureMode == CaptureMode.RAW_VIDEO
+            || mManualControlsSet
+            || mUserCaptureModeOverride)
+        {
             return;
+        }
 
         // Switch to night mode if we high ISO/shutter speed
-        if(mIso >= 1600 || mExposureTime > CameraManualControl.SHUTTER_SPEED.EXPOSURE_1_40.getExposureTime())
+        if(mIso > 1000 || mExposureTime > CameraManualControl.SHUTTER_SPEED.EXPOSURE_1_40.getExposureTime())
             setCaptureMode(CaptureMode.NIGHT);
         else
             setCaptureMode(CaptureMode.ZSL);

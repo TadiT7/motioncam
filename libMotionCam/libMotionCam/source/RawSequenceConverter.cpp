@@ -7,7 +7,6 @@
 #include <HalideBuffer.h>
 
 namespace motioncam {
-#ifdef DNG_SUPPORT
     void ConvertToDNG(const std::string& containerPath, const std::string& outputPath) {
         std::cout << "Opening " << containerPath << std::endl;
         
@@ -64,5 +63,4 @@ namespace motioncam {
         std::cout << "Estimated FPS: " << std::setprecision(2) << fps << std::endl;
         std::cout << "Done" << std::endl;
     }
-#endif
 }

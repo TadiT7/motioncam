@@ -1179,7 +1179,6 @@ namespace motioncam {
         const int offsetY = static_cast<int>(T * ceil(rawHeight / (double) T) - rawHeight);
 
         // Check if we should write a DNG file
-#ifdef DNG_SUPPORT
         if(rawContainer.getPostProcessSettings().dng) {
             std::vector<cv::Mat> rawChannels;
             rawChannels.reserve(4);
@@ -1212,7 +1211,6 @@ namespace motioncam {
             
             util::WriteDng(rawImage, metadata, referenceRawBuffer->metadata, rawOutputPath + ".dng");
         }
-#endif
         
         logger::log("Noise " + std::to_string(noise));
                 

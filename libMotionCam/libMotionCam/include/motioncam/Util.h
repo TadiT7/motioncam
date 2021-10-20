@@ -54,10 +54,8 @@ namespace motioncam {
         json11::Json ReadJsonFromFile(const std::string& path);
         void GetBasePath(const std::string& path, std::string& basePath, std::string& filename);
     
-#ifdef DNG_SUPPORT
         cv::Mat BuildRawImage(std::vector<cv::Mat> channels, int cropX, int cropY);
         void WriteDng(cv::Mat& rawImage, const RawCameraMetadata& cameraMetadata, const RawImageMetadata& imageMetadata, const std::string& outputPath);
-#endif
     }
 }
 

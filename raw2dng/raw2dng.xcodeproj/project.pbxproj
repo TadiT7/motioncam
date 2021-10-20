@@ -1,0 +1,392 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 55;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		45684D612720AF30004E7A12 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45684D602720AF30004E7A12 /* main.cpp */; };
+		45684D702720AF62004E7A12 /* libmotioncam-static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45684D6C2720AF45004E7A12 /* libmotioncam-static.a */; };
+		45684DC12720B823004E7A12 /* OpenCL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 45684DC02720B823004E7A12 /* OpenCL.framework */; };
+		45684DC32720B833004E7A12 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 45684DC22720B833004E7A12 /* CoreFoundation.framework */; };
+		45684DD42720B9FE004E7A12 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 45684DD32720B9FE004E7A12 /* CoreServices.framework */; };
+		45684DD72720BAE4004E7A12 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 45684DD62720BAE4004E7A12 /* libz.tbd */; };
+		45684E572720BD4D004E7A12 /* libtbb.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 45684DB92720B7A7004E7A12 /* libtbb.dylib */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		45684D6B2720AF45004E7A12 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 45684D672720AF44004E7A12 /* libMotionCam.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 45684CB12720ABB9004E7A12;
+			remoteInfo = "motioncam-static";
+		};
+		45684D6D2720AF5D004E7A12 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 45684D672720AF44004E7A12 /* libMotionCam.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 45684CB02720ABB9004E7A12;
+			remoteInfo = "motioncam-static";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		45684D5B2720AF30004E7A12 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		45684D5D2720AF30004E7A12 /* raw2dng */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = raw2dng; sourceTree = BUILT_PRODUCTS_DIR; };
+		45684D602720AF30004E7A12 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+		45684D672720AF44004E7A12 /* libMotionCam.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libMotionCam.xcodeproj; path = ../libMotionCam/libMotionCam.xcodeproj; sourceTree = "<group>"; };
+		45684DB92720B7A7004E7A12 /* libtbb.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.dylib; path = ../../../../../usr/local/lib/libtbb.dylib; sourceTree = "<group>"; };
+		45684DBB2720B7E4004E7A12 /* libtbb.12.4.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.12.4.dylib; path = ../../../../../usr/local/Cellar/tbb/2021.4.0/lib/libtbb.12.4.dylib; sourceTree = "<group>"; };
+		45684DBD2720B809004E7A12 /* libtbb.12.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.12.dylib; path = ../../../../../usr/local/lib/libtbb.12.dylib; sourceTree = "<group>"; };
+		45684DC02720B823004E7A12 /* OpenCL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenCL.framework; path = System/Library/Frameworks/OpenCL.framework; sourceTree = SDKROOT; };
+		45684DC22720B833004E7A12 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		45684DC42720B864004E7A12 /* libzstd.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libzstd.dylib; path = ../../../../../usr/local/lib/libzstd.dylib; sourceTree = "<group>"; };
+		45684DC62720B871004E7A12 /* libzstd.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libzstd.a; path = ../../../../../usr/local/lib/libzstd.a; sourceTree = "<group>"; };
+		45684DD32720B9FE004E7A12 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = System/Library/Frameworks/CoreServices.framework; sourceTree = SDKROOT; };
+		45684DD62720BAE4004E7A12 /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
+		45684E582720BD86004E7A12 /* raw2dng.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = raw2dng.entitlements; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		45684D5A2720AF30004E7A12 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				45684DD42720B9FE004E7A12 /* CoreServices.framework in Frameworks */,
+				45684DC32720B833004E7A12 /* CoreFoundation.framework in Frameworks */,
+				45684DC12720B823004E7A12 /* OpenCL.framework in Frameworks */,
+				45684DD72720BAE4004E7A12 /* libz.tbd in Frameworks */,
+				45684E572720BD4D004E7A12 /* libtbb.dylib in Frameworks */,
+				45684D702720AF62004E7A12 /* libmotioncam-static.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		45684D542720AF30004E7A12 = {
+			isa = PBXGroup;
+			children = (
+				45684D672720AF44004E7A12 /* libMotionCam.xcodeproj */,
+				45684D5F2720AF30004E7A12 /* raw2dng */,
+				45684D5E2720AF30004E7A12 /* Products */,
+				45684D6F2720AF62004E7A12 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		45684D5E2720AF30004E7A12 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				45684D5D2720AF30004E7A12 /* raw2dng */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		45684D5F2720AF30004E7A12 /* raw2dng */ = {
+			isa = PBXGroup;
+			children = (
+				45684E582720BD86004E7A12 /* raw2dng.entitlements */,
+				45684D602720AF30004E7A12 /* main.cpp */,
+			);
+			path = raw2dng;
+			sourceTree = "<group>";
+		};
+		45684D682720AF44004E7A12 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				45684D6C2720AF45004E7A12 /* libmotioncam-static.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		45684D6F2720AF62004E7A12 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				45684DD62720BAE4004E7A12 /* libz.tbd */,
+				45684DD32720B9FE004E7A12 /* CoreServices.framework */,
+				45684DC62720B871004E7A12 /* libzstd.a */,
+				45684DC42720B864004E7A12 /* libzstd.dylib */,
+				45684DC22720B833004E7A12 /* CoreFoundation.framework */,
+				45684DC02720B823004E7A12 /* OpenCL.framework */,
+				45684DBD2720B809004E7A12 /* libtbb.12.dylib */,
+				45684DBB2720B7E4004E7A12 /* libtbb.12.4.dylib */,
+				45684DB92720B7A7004E7A12 /* libtbb.dylib */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		45684D5C2720AF30004E7A12 /* raw2dng */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 45684D642720AF30004E7A12 /* Build configuration list for PBXNativeTarget "raw2dng" */;
+			buildPhases = (
+				45684D592720AF30004E7A12 /* Sources */,
+				45684D5A2720AF30004E7A12 /* Frameworks */,
+				45684D5B2720AF30004E7A12 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				45684D6E2720AF5D004E7A12 /* PBXTargetDependency */,
+			);
+			name = raw2dng;
+			productName = raw2dng;
+			productReference = 45684D5D2720AF30004E7A12 /* raw2dng */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		45684D552720AF30004E7A12 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 1300;
+				TargetAttributes = {
+					45684D5C2720AF30004E7A12 = {
+						CreatedOnToolsVersion = 13.0;
+					};
+				};
+			};
+			buildConfigurationList = 45684D582720AF30004E7A12 /* Build configuration list for PBXProject "raw2dng" */;
+			compatibilityVersion = "Xcode 13.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 45684D542720AF30004E7A12;
+			productRefGroup = 45684D5E2720AF30004E7A12 /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 45684D682720AF44004E7A12 /* Products */;
+					ProjectRef = 45684D672720AF44004E7A12 /* libMotionCam.xcodeproj */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				45684D5C2720AF30004E7A12 /* raw2dng */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		45684D6C2720AF45004E7A12 /* libmotioncam-static.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = "libmotioncam-static.a";
+			remoteRef = 45684D6B2720AF45004E7A12 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXSourcesBuildPhase section */
+		45684D592720AF30004E7A12 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				45684D612720AF30004E7A12 /* main.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		45684D6E2720AF5D004E7A12 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = "motioncam-static";
+			targetProxy = 45684D6D2720AF5D004E7A12 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		45684D622720AF30004E7A12 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 11.3;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		45684D632720AF30004E7A12 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 11.3;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		45684D652720AF30004E7A12 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = raw2dng/raw2dng.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				HEADER_SEARCH_PATHS = ../libMotionCam/libMotioncam/include;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/local/Cellar/tbb/2021.4.0/lib,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+			};
+			name = Debug;
+		};
+		45684D662720AF30004E7A12 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = raw2dng/raw2dng.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				HEADER_SEARCH_PATHS = ../libMotionCam/libMotioncam/include;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/local/Cellar/tbb/2021.4.0/lib,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		45684D582720AF30004E7A12 /* Build configuration list for PBXProject "raw2dng" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				45684D622720AF30004E7A12 /* Debug */,
+				45684D632720AF30004E7A12 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		45684D642720AF30004E7A12 /* Build configuration list for PBXNativeTarget "raw2dng" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				45684D652720AF30004E7A12 /* Debug */,
+				45684D662720AF30004E7A12 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 45684D552720AF30004E7A12 /* Project object */;
+}
