@@ -8,7 +8,7 @@
 #include <zstd.h>
 
 namespace motioncam {
-    const int NumCompressThreads = 3;
+    const int NumCompressThreads = 6;
     const int NumWriteThreads    = 1;
 
     RawBufferStreamer::RawBufferStreamer() : mRunning(false), mMemoryUsage(0) {
@@ -75,25 +75,25 @@ namespace motioncam {
             if(!mRawBufferQueue.wait_dequeue_timed(buffer, std::chrono::milliseconds(100))) {
                 continue;
             }
-            
-            auto compressedBuffer = std::make_shared<RawImageBuffer>();
+
+            auto compressedBuffer = std::make_shared<RawImageBuffer>(*buffer);
 
             buffer->data->lock(false);
-            
+
             std::vector<uint8_t> tmpBuffer;
             auto dstBound = ZSTD_compressBound(buffer->data->hostData().size());
-            
+
             tmpBuffer.resize(dstBound);
-            
+
             size_t writtenBytes =
                 ZSTD_compress(&tmpBuffer[0], tmpBuffer.size(), &buffer->data->hostData()[0], buffer->data->hostData().size(), 1);
 
             tmpBuffer.resize(writtenBytes);
-            
+
             buffer->data->unlock();
 
             compressedBuffer->data->copyHostData(tmpBuffer);
-            
+
             // Queue the compressed buffer
             compressedBuffer->width = buffer->width;
             compressedBuffer->height = buffer->height;
@@ -110,7 +110,7 @@ namespace motioncam {
             // Return the buffer
             RawBufferManager::get().discardBuffer(buffer);
 
-            logger::log(std::to_string(mMemoryUsage));
+            //logger::log(std::to_string(mMemoryUsage));
         }
     }
 

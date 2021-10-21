@@ -152,7 +152,7 @@ namespace motioncam {
             
             // Pick images older than HDR images because the auto exposure changes after the first HDR capture
             if(!hdrBuffers.empty()) {
-                hdrTimestamp = hdrBuffers.front()->metadata.timestampNs;
+                hdrTimestamp = hdrBuffers[0]->metadata.timestampNs;
             }
             
             for(auto & mReadyBuffer : mReadyBuffers) {
@@ -173,8 +173,8 @@ namespace motioncam {
             zslBuffers.erase(zslBuffers.begin(), zslBuffers.begin() + numToRemove);
             
             // Set reference timestamp
-            if(!hdrBuffers.empty() && hdrBuffers.size() > 1)
-                referenceTimestampNs = hdrBuffers.back()->metadata.timestampNs;
+            if(hdrBuffers.size() > 1)
+                referenceTimestampNs = hdrBuffers[1]->metadata.timestampNs;
             else if(!zslBuffers.empty())
                 referenceTimestampNs = zslBuffers.back()->metadata.timestampNs;
             else {
