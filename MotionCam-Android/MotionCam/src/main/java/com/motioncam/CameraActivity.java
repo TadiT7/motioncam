@@ -283,8 +283,33 @@ public class CameraActivity extends AppCompatActivity implements
     private ProcessorReceiver mProgressReceiver;
     private Location mLastLocation;
     private String mVideoOutputPath;
+    private long mRecordStartTime;
 
     private CameraCapturePreviewAdapter mCameraCapturePreviewAdapter;
+
+    private PostProcessSettings mPostProcessSettings = new PostProcessSettings();
+    private PostProcessSettings mEstimatedSettings = new PostProcessSettings();
+
+    private float mTemperatureOffset;
+    private float mTintOffset;
+
+    private boolean mManualControlsEnabled;
+    private boolean mManualControlsSet;
+    private CaptureMode mCaptureMode = CaptureMode.ZSL;
+    private PreviewControlMode mPreviewControlMode = PreviewControlMode.CONTRAST;
+    private boolean mUserCaptureModeOverride;
+
+    private FocusState mFocusState = FocusState.AUTO;
+    private PointF mAutoFocusPoint;
+    private PointF mAutoExposurePoint;
+    private int mIso;
+    private long mExposureTime;
+    private float mShadowOffset;
+    private AtomicBoolean mImageCaptureInProgress = new AtomicBoolean(false);
+    private long mFocusRequestedTimestampMs;
+    private Timer mFaceDetectionTimer;
+    private Timer mRecordingTimer;
+    private FaceDetectionMode mFaceDetectionMode = FaceDetectionMode.NORMAL;
 
     private final ViewPager2.OnPageChangeCallback mCapturedPreviewPagerListener = new ViewPager2.OnPageChangeCallback() {
         @Override
@@ -333,29 +358,6 @@ public class CameraActivity extends AppCompatActivity implements
         public void onStopTrackingTouch(SeekBar seekBar) {
         }
     };
-
-    private PostProcessSettings mPostProcessSettings = new PostProcessSettings();
-    private PostProcessSettings mEstimatedSettings = new PostProcessSettings();
-
-    private float mTemperatureOffset;
-    private float mTintOffset;
-
-    private boolean mManualControlsEnabled;
-    private boolean mManualControlsSet;
-    private CaptureMode mCaptureMode = CaptureMode.NIGHT;
-    private PreviewControlMode mPreviewControlMode = PreviewControlMode.CONTRAST;
-    private boolean mUserCaptureModeOverride;
-
-    private FocusState mFocusState = FocusState.AUTO;
-    private PointF mAutoFocusPoint;
-    private PointF mAutoExposurePoint;
-    private int mIso;
-    private long mExposureTime;
-    private float mShadowOffset;
-    private AtomicBoolean mImageCaptureInProgress = new AtomicBoolean(false);
-    private long mFocusRequestedTimestampMs;
-    private Timer mFaceDetectionTimer;
-    private FaceDetectionMode mFaceDetectionMode = FaceDetectionMode.NORMAL;
 
     @Override
     public void onBackPressed() {
@@ -545,7 +547,7 @@ public class CameraActivity extends AppCompatActivity implements
         setPostProcessingDefaults();
         updatePreviewTabUi(true);
 
-        setCaptureMode(mSettings.captureMode);
+        setCaptureMode(CaptureMode.ZSL);
         setSaveRaw(mSettings.saveDng);
         setHdr(mSettings.hdr);
 
@@ -1018,11 +1020,14 @@ public class CameraActivity extends AppCompatActivity implements
             if(mImageCaptureInProgress.get()) {
                 mImageCaptureInProgress.set(false);
 
-                mBinding.captureProgressBar.setVisibility(View.INVISIBLE);
-                mBinding.captureProgressBar.setIndeterminateMode(false);
-
                 mBinding.previewFrame.settingsBtn.setEnabled(true);
                 mBinding.switchCameraBtn.setEnabled(true);
+                mBinding.recordingTimer.setVisibility(View.GONE);
+
+                if(mRecordingTimer != null) {
+                    mRecordingTimer.cancel();
+                    mRecordingTimer = null;
+                }
 
                 finaliseRawVideo();
             }
@@ -1033,11 +1038,28 @@ public class CameraActivity extends AppCompatActivity implements
                 mNativeCamera.streamToFile(file.getPath());
                 mImageCaptureInProgress.set(true);
 
-                mBinding.captureProgressBar.setVisibility(View.VISIBLE);
-                mBinding.captureProgressBar.setIndeterminateMode(true);
-
                 mBinding.previewFrame.settingsBtn.setEnabled(false);
                 mBinding.switchCameraBtn.setEnabled(false);
+                mBinding.recordingTimer.setVisibility(View.VISIBLE);
+                mRecordStartTime = System.currentTimeMillis();
+
+                // Update recording time
+                mRecordingTimer = new Timer();
+                mRecordingTimer.scheduleAtFixedRate(new TimerTask() {
+                    @Override
+                    public void run() {
+                        long timeRecording = System.currentTimeMillis() - mRecordStartTime;
+
+                        float mins = (timeRecording / 1000.0f) / 60.0f;
+                        int seconds = (int) ((mins - ((int) mins)) * 60);
+
+                        String recordingText = String.format("00:%02d:%02d", (int) mins, seconds);
+
+                        runOnUiThread(() -> {
+                            mBinding.recordingTimerText.setText(recordingText);
+                        });
+                    }
+                }, 0, 1000);
 
                 mVideoOutputPath = file.getPath();
             }

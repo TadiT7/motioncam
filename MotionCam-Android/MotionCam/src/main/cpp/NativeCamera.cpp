@@ -6,6 +6,7 @@
 #include <motioncam/Settings.h>
 #include <motioncam/ImageProcessor.h>
 #include <motioncam/RawBufferManager.h>
+#include <json11/json11.hpp>
 
 #include "NativeCameraBridgeListener.h"
 #include "NativeRawPreviewListener.h"
@@ -682,8 +683,11 @@ JNIEXPORT jstring JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_Es
 
     ImageProcessor::estimateSettings(*imageBuffer, metadata, settings);
 
-    auto settingsJson = settings.toJson();
-    return env->NewStringUTF(settingsJson.dump().c_str());
+    json11::Json::object settingsJson;
+
+    settings.toJson(settingsJson);
+
+    return env->NewStringUTF(json11::Json(settingsJson).dump().c_str());
 }
 
 extern "C"
@@ -979,8 +983,11 @@ jstring JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GetRawPrevie
 
     sessionManager->getEstimatedPostProcessSettings(settings);
 
-    auto settingsJson = settings.toJson();
-    return env->NewStringUTF(settingsJson.dump().c_str());
+    json11::Json::object settingsJson;
+
+    settings.toJson(settingsJson);
+
+    return env->NewStringUTF(json11::Json(settingsJson).dump().c_str());
 }
 
 extern "C" JNIEXPORT

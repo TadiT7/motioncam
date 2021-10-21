@@ -341,6 +341,28 @@
             </LinearLayout>
 
         </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <LinearLayout
+            android:id="@+id/recordingTimer"
+            android:layout_width="80dp"
+            android:layout_height="20dp"
+            android:orientation="horizontal"
+            android:background="@color/black"
+            android:layout_marginTop="80dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toTopOf="@+id/cameraFrame"
+            app:layout_constraintLeft_toLeftOf="@+id/cameraFrame"
+            app:layout_constraintRight_toRightOf="@+id/cameraFrame">
+
+            <TextView
+                android:id="@+id/recordingTimerText"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="00:00:00"
+                android:textAppearance="@style/MotionCam.TextAppearance.Small"/>
+        </LinearLayout>
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.constraintlayout.motion.widget.MotionLayout>

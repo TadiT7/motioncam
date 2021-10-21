@@ -771,8 +771,8 @@ namespace motioncam {
         for (int i = 0; i < mRequestedHdrCaptures; i++)
             captureRequests[i] = mSessionContext->hdrCaptureRequests[0]->captureRequest;
 
-        // Interleave underexposed requests
-        captureRequests[mRequestedHdrCaptures / 2] = mSessionContext->hdrCaptureRequests[1]->captureRequest;
+        // First exposure is underexposed image
+        captureRequests[0] = mSessionContext->hdrCaptureRequests[1]->captureRequest;
 
         LOGI("Initiating HDR capture (numImages=%d, baseIso=%d, baseExposure=%ld, hdrIso=%d, hdrExposure=%ld)",
                 numImages, baseIso, baseExposure, hdrIso, hdrExposure);
