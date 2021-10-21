@@ -332,11 +332,13 @@
 		45684D652720AF30004E7A12 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = x86_64;
 				CODE_SIGN_ENTITLEMENTS = raw2dng/raw2dng.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
+				EXCLUDED_ARCHS = "";
 				HEADER_SEARCH_PATHS = ../libMotionCam/libMotioncam/include;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -350,11 +352,13 @@
 		45684D662720AF30004E7A12 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = x86_64;
 				CODE_SIGN_ENTITLEMENTS = raw2dng/raw2dng.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
+				EXCLUDED_ARCHS = "";
 				HEADER_SEARCH_PATHS = ../libMotionCam/libMotioncam/include;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
