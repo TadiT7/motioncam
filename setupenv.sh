@@ -264,7 +264,7 @@ if [ ! -f ".halide" ]; then
 fi
 
 # Generate halide libraries
-#halide_generate
+halide_generate
 
 popd # tmp
 
