@@ -18,89 +18,6 @@ set(libmotioncam-src
         ${PROJECT_SOURCE_DIR}/libMotionCam)
 
 #
-# DNG
-#
-
-add_library( # Sets the name of the library.
-        dng-sdk
-
-        # Sets the library as a static library.
-        STATIC
-
-        # Source files
-        ${thirdparty-libs}/dng_sdk/dng/dng_1d_function.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_1d_table.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_abort_sniffer.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_area_task.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_bad_pixels.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_bottlenecks.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_camera_profile.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_color_space.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_color_spec.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_date_time.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_exceptions.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_exif.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_file_stream.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_filter_task.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_fingerprint.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_gain_map.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_globals.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_host.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_hue_sat_map.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_ifd.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_image.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_image_writer.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_info.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_iptc.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_jpeg_image.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_jpeg_memory_source.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_lens_correction.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_linearization_info.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_lossless_jpeg.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_matrix.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_memory.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_memory_stream.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_misc_opcodes.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_mosaic_info.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_mutex.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_negative.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_opcode_list.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_opcodes.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_orientation.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_parse_utils.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_pixel_buffer.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_point.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_preview.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_pthread.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_rational.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_read_image.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_rect.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_ref_counted_block.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_reference.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_render.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_resample.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_safe_arithmetic.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_shared.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_simple_image.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_spline.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_stream.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_string.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_string_list.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_tag_types.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_temperature.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_tile_iterator.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_tone_curve.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_utils.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_validate.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_xmp.cpp
-        ${thirdparty-libs}/dng_sdk/dng/dng_xy_coord.cpp)
-
-# Include directories
-target_include_directories(
-        dng-sdk PRIVATE
-        ${thirdparty-libs}/dng_sdk)
-
-#
 # Halide libraries
 #
 
@@ -236,10 +153,6 @@ add_library(halide_runtime_host STATIC IMPORTED)
 set_target_properties(halide_runtime_host PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/host/halide_runtime_host.a)
 
-add_library(halide_runtime_opencl STATIC IMPORTED)
-set_target_properties(halide_runtime_opencl PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/host/halide_runtime_opencl.a)
-
 #
 # Processing library
 #
@@ -249,6 +162,74 @@ add_library( # Sets the name of the library.
 
         # Sets the library as a static library.
         STATIC
+
+        # DNG files
+        ${thirdparty-libs}/dng_sdk/dng/dng_1d_function.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_1d_table.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_abort_sniffer.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_area_task.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_bad_pixels.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_bottlenecks.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_camera_profile.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_color_space.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_color_spec.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_date_time.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_exceptions.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_exif.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_file_stream.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_filter_task.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_fingerprint.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_gain_map.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_globals.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_host.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_hue_sat_map.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_ifd.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_image.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_image_writer.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_info.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_iptc.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_jpeg_image.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_jpeg_memory_source.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_lens_correction.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_linearization_info.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_lossless_jpeg.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_matrix.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_memory.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_memory_stream.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_misc_opcodes.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_mosaic_info.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_mutex.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_negative.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_opcode_list.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_opcodes.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_orientation.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_parse_utils.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_pixel_buffer.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_point.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_preview.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_pthread.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_rational.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_read_image.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_rect.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_ref_counted_block.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_reference.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_render.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_resample.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_safe_arithmetic.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_shared.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_simple_image.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_spline.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_stream.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_string.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_string_list.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_tag_types.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_temperature.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_tile_iterator.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_tone_curve.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_utils.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_validate.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_xmp.cpp
+        ${thirdparty-libs}/dng_sdk/dng/dng_xy_coord.cpp
 
         # Source files
         ${thirdparty-libs}/json11/json11/json11.cpp
@@ -287,10 +268,6 @@ target_include_directories(motioncam-static PUBLIC
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DqDNGThreadSafe")
 
 target_link_libraries(motioncam-static
-        dng-sdk
-        
-        # Halide libraries
-        halide_runtime_host        
         fast_preview
         build_bayer
         hdr_mask
@@ -315,4 +292,16 @@ target_link_libraries(motioncam-static
         forward_transform
         fuse_image
         inverse_transform
+        halide_runtime_host
+
+        dl
+        z
+        exiv2
+        zstd
+        tbb
+        opencv_core
+        opencv_imgcodecs
+        opencv_imgproc
+        opencv_objdetect
+        opencv_video
 )
