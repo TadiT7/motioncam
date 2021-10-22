@@ -14,7 +14,8 @@ namespace motioncam {
     RawBufferManager::RawBufferManager() :
         mMemoryUseBytes(0),
         mNumBuffers(0),
-        mStreamer(new RawBufferStreamer())
+        mStreamer(new RawBufferStreamer()),
+        mDroppedFrames(0)
     {
     }
 
@@ -83,8 +84,12 @@ namespace motioncam {
     void RawBufferManager::enqueueReadyBuffer(const std::shared_ptr<RawImageBuffer>& buffer) {
         Lock lock(mMutex, __PRETTY_FUNCTION__);
 
-        if(mStreamer->isRunning())
-            mStreamer->add(buffer);
+        if(mStreamer->isRunning()) {
+            if(!mStreamer->add(buffer)) {
+                mReadyBuffers.push_back(buffer);
+                mDroppedFrames++;
+            }
+        }
         else
             mReadyBuffers.push_back(buffer);
     }
@@ -380,11 +385,20 @@ namespace motioncam {
         return latest->metadata.timestampNs;
     }
 
-    void RawBufferManager::enableStreaming(const std::string outputPath, const RawCameraMetadata& metadata) {        
+    void RawBufferManager::enableStreaming(const std::string outputPath, const RawCameraMetadata& metadata) {
         mStreamer->start(outputPath, metadata);
+    }
+
+    void RawBufferManager::setCropAmount(int amount) {
+        mStreamer->setCropAmount(amount);
+    }
+
+    uint32_t RawBufferManager::numDroppedFrames() const {
+        return mDroppedFrames;
     }
 
     void RawBufferManager::endStreaming() {
         mStreamer->stop();
+        mDroppedFrames = 0;
     }
 }

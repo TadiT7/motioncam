@@ -30,6 +30,8 @@ public class SettingsViewModel extends ViewModel {
     public static final String PREFS_KEY_UI_CAPTURE_MODE                    = "ui_capture_mode";
     public static final String PREFS_KEY_UI_SAVE_RAW                        = "ui_save_raw";
     public static final String PREFS_KEY_UI_HDR                             = "ui_hdr";
+    public static final String PREFS_KEY_UI_VIDEO_CROP                      = "ui_video_crop";
+    public static final String PREFS_KEY_UI_FRAME_RATE                      = "ui_frame_rate";
 
     public enum RawMode {
         RAW10,

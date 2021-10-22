@@ -1074,3 +1074,23 @@ extern "C"
 JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_EndStream(JNIEnv *env, jobject thiz, jlong handle) {
     RawBufferManager::get().endStreaming();
 }
+
+extern "C"
+JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_SetFrameRate(JNIEnv *env, jobject thiz, jlong handle, jint frameRate) {
+    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
+    if(!sessionManager) {
+        return;
+    }
+
+    sessionManager->setFrameRate(frameRate);
+}
+
+extern "C"
+JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_SetVideoCropPercentage(JNIEnv *env, jobject thiz, jlong handle, jint amount) {
+    RawBufferManager::get().setCropAmount(amount);
+}
+
+extern "C"
+JNIEXPORT jint JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GetNumDroppedFrames(JNIEnv *env, jobject thiz) {
+    return RawBufferManager::get().numDroppedFrames();
+}

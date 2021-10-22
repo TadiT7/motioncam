@@ -67,7 +67,8 @@ namespace motioncam {
         mRequestedFocusX(0),
         mRequestedFocusY(0),
         mUserIso(0),
-        mUserExposureTime(0)
+        mUserExposureTime(0),
+        mFrameRate(30)
     {
     }
 
@@ -164,6 +165,22 @@ namespace motioncam {
         LOGD("exposureCompensation=%d", exposureCompensation);
 
         mExposureCompensation = exposureCompensation;
+
+        if(mState == State::AUTO_FOCUS_ACTIVE) {
+            setAutoFocus();
+        }
+        else if(mState == State::USER_FOCUS_ACTIVE) {
+            setUserFocus();
+        }
+    }
+
+    void CameraStateManager::requestFrameRate(int frameRate) {
+        if(mFrameRate == frameRate)
+            return;
+
+        LOGD("frameRate=%d", frameRate);
+
+        mFrameRate = frameRate;
 
         if(mState == State::AUTO_FOCUS_ACTIVE) {
             setAutoFocus();
@@ -329,11 +346,13 @@ namespace motioncam {
         uint8_t afMode  = ACAMERA_CONTROL_AF_MODE_CONTINUOUS_PICTURE;
         uint8_t afTrigger = ACAMERA_CONTROL_AF_TRIGGER_IDLE;
         uint8_t aeTrigger = ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
+        int32_t frameDuration[2] = { 10, mFrameRate };
 
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_MODE, 1, &afMode);
         ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_EXPOSURE_COMPENSATION, 1, &mExposureCompensation);
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_TRIGGER, 1, &afTrigger);
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER, 1, &aeTrigger);
+        ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_TARGET_FPS_RANGE, 2, &frameDuration[0]);
 
         updateCaptureRequestExposure();
 

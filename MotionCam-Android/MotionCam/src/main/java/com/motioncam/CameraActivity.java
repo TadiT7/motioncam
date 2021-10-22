@@ -148,6 +148,8 @@ public class CameraActivity extends AppCompatActivity implements
         CaptureMode captureMode;
         SettingsViewModel.RawMode rawMode;
         int cameraPreviewQuality;
+        int videoCrop;
+        int frameRate;
 
         void load(SharedPreferences prefs) {
             this.jpegQuality = prefs.getInt(SettingsViewModel.PREFS_KEY_JPEG_QUALITY, CameraProfile.DEFAULT_JPEG_QUALITY);
@@ -158,6 +160,8 @@ public class CameraActivity extends AppCompatActivity implements
             this.saveDng = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_SAVE_RAW, false);
             this.autoNightMode = prefs.getBoolean(SettingsViewModel.PREFS_KEY_AUTO_NIGHT_MODE, true);
             this.hdr = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_HDR, true);
+            this.videoCrop = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_VIDEO_CROP, 0);
+            this.frameRate = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_FRAME_RATE, 30);
 
             long nativeCameraMemoryUseMb = prefs.getInt(SettingsViewModel.PREFS_KEY_MEMORY_USE_MBYTES, SettingsViewModel.MINIMUM_MEMORY_USE_MB);
             nativeCameraMemoryUseMb = Math.min(nativeCameraMemoryUseMb, SettingsViewModel.MAXIMUM_MEMORY_USE_MB);
@@ -194,6 +198,8 @@ public class CameraActivity extends AppCompatActivity implements
                     .putBoolean(SettingsViewModel.PREFS_KEY_UI_SAVE_RAW, this.saveDng)
                     .putBoolean(SettingsViewModel.PREFS_KEY_UI_HDR, this.hdr)
                     .putString(SettingsViewModel.PREFS_KEY_UI_CAPTURE_MODE, this.captureMode.name())
+                    .putInt(SettingsViewModel.PREFS_KEY_UI_VIDEO_CROP, this.videoCrop)
+                    .putInt(SettingsViewModel.PREFS_KEY_UI_FRAME_RATE, this.frameRate)
                     .apply();
         }
 
@@ -202,8 +208,8 @@ public class CameraActivity extends AppCompatActivity implements
             return "Settings{" +
                     "useDualExposure=" + useDualExposure +
                     ", saveDng=" + saveDng +
-                    ", hdr=" + hdr +
                     ", autoNightMode=" + autoNightMode +
+                    ", hdr=" + hdr +
                     ", contrast=" + contrast +
                     ", saturation=" + saturation +
                     ", temperatureOffset=" + temperatureOffset +
@@ -213,6 +219,8 @@ public class CameraActivity extends AppCompatActivity implements
                     ", captureMode=" + captureMode +
                     ", rawMode=" + rawMode +
                     ", cameraPreviewQuality=" + cameraPreviewQuality +
+                    ", videoCrop=" + videoCrop +
+                    ", frameRate=" + frameRate +
                     '}';
         }
     }
@@ -546,6 +554,7 @@ public class CameraActivity extends AppCompatActivity implements
 
         setPostProcessingDefaults();
         updatePreviewTabUi(true);
+        updateVideoUi();
 
         setCaptureMode(CaptureMode.ZSL);
         setSaveRaw(mSettings.saveDng);
@@ -606,7 +615,7 @@ public class CameraActivity extends AppCompatActivity implements
 
         if(mNativeCamera != null) {
             if(mImageCaptureInProgress.getAndSet(false) && mCaptureMode == CaptureMode.RAW_VIDEO) {
-                finaliseRawVideo();
+                finaliseRawVideo(false);
             }
 
             mNativeCamera.stopCapture();
@@ -633,19 +642,75 @@ public class CameraActivity extends AppCompatActivity implements
         }
     }
 
-    private void finaliseRawVideo() {
+    private void startRawVideoRecording() {
+        File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
+        File file = new File(dir, CameraProfile.generateFilename("VIDEO"));
+
+        mNativeCamera.streamToFile(file.getPath());
+        mImageCaptureInProgress.set(true);
+
+        mBinding.switchCameraBtn.setEnabled(false);
+        mBinding.recordingTimer.setVisibility(View.VISIBLE);
+
+        mRecordStartTime = System.currentTimeMillis();
+
+        // Update recording time
+        mRecordingTimer = new Timer();
+        mRecordingTimer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                long timeRecording = System.currentTimeMillis() - mRecordStartTime;
+
+                float mins = (timeRecording / 1000.0f) / 60.0f;
+                int seconds = (int) ((mins - ((int) mins)) * 60);
+
+                String recordingText = String.format("00:%02d:%02d", (int) mins, seconds);
+
+                runOnUiThread(() -> {
+                    mBinding.recordingTimerText.setText(recordingText);
+
+                    int droppedFrames = mNativeCamera.getNumDroppedFrames();
+                    String droppedFramesText = String.format("%d\nDROPPED FRAMES", mNativeCamera.getNumDroppedFrames());
+
+                    mBinding.previewFrame.videoStatus.setText(droppedFramesText);
+
+                    // End recording if too many dropped frames
+                    if(droppedFrames > 100) {
+                        Toast.makeText(CameraActivity.this, "Recording has ended because of too many dropped frames", Toast.LENGTH_LONG).show();
+                        finaliseRawVideo(true);
+                    }
+                });
+            }
+        }, 0, 1000);
+
+        mVideoOutputPath = file.getPath();
+    }
+
+    private void finaliseRawVideo(boolean showProgress) {
+        mBinding.switchCameraBtn.setEnabled(true);
+        mBinding.recordingTimer.setVisibility(View.GONE);
+
+        if(mRecordingTimer != null) {
+            mRecordingTimer.cancel();
+            mRecordingTimer = null;
+        }
+
         ProgressDialog dialog = new ProgressDialog(this, R.style.BasicDialog);
 
-        dialog.setIndeterminate(true);
-        dialog.setCancelable(false);
-        dialog.setTitle("Please Wait");
-        dialog.setMessage("Finalising video to " + mVideoOutputPath);
+        if(showProgress) {
+            dialog.setIndeterminate(true);
+            dialog.setCancelable(false);
+            dialog.setTitle("Please Wait");
+            dialog.setMessage("Finalising video to " + mVideoOutputPath);
 
-        dialog.show();
+            dialog.show();
+        }
 
         AsyncTask.execute(() -> {
             mNativeCamera.endStream();
-            dialog.dismiss();
+
+            if(showProgress)
+                dialog.dismiss();
         });
     }
 
@@ -746,6 +811,14 @@ public class CameraActivity extends AppCompatActivity implements
         }
     }
 
+    private void updateVideoUi() {
+        mBinding.previewFrame.videoCropBtn.setText(String.format("%d%%\nCROP", mSettings.videoCrop));
+
+        mBinding.previewFrame.videoFrameRateBtn.setText(String.format("%d\nFPS", mSettings.frameRate));
+
+        mBinding.previewFrame.videoStatus.setText("");
+    }
+
     private void updatePreviewTabUi(boolean updateModeSelection) {
         final float seekBarMax = mBinding.previewFrame.previewSeekBar.getMax();
         int progress = Math.round(seekBarMax / 2);
@@ -816,6 +889,10 @@ public class CameraActivity extends AppCompatActivity implements
 
         mCaptureMode = captureMode;
 
+        mBinding.previewFrame.previewControlBtns.setVisibility(View.VISIBLE);
+        mBinding.previewFrame.previewAdjustments.setVisibility(View.GONE);
+        mBinding.previewFrame.videoRecordingBtns.setVisibility(View.GONE);
+
         switch(mCaptureMode) {
             case NIGHT:
                 mBinding.nightModeBtn.setTextColor(getColor(R.color.colorAccent));
@@ -831,8 +908,25 @@ public class CameraActivity extends AppCompatActivity implements
 
             case RAW_VIDEO:
                 mBinding.rawVideoModeBtn.setTextColor(getColor(R.color.colorAccent));
-                Toast.makeText(this, "Warning: This is an experimental feature.", Toast.LENGTH_SHORT).show();
                 break;
+        }
+
+        if(mCaptureMode == CaptureMode.RAW_VIDEO) {
+            Toast.makeText(this, "Warning: This is an experimental feature.", Toast.LENGTH_SHORT).show();
+
+            mBinding.previewFrame.videoRecordingBtns.setVisibility(View.VISIBLE);
+            mBinding.previewFrame.previewControlBtns.setVisibility(View.GONE);
+            mBinding.previewFrame.previewAdjustments.setVisibility(View.GONE);
+
+            if(mNativeCamera != null) {
+                mNativeCamera.setFrameRate(mSettings.frameRate);
+                mNativeCamera.setVideoCropPercentage(mSettings.videoCrop);
+            }
+        }
+        // If previous capture mode was raw video, reset frame rate
+        else if(captureMode == CaptureMode.RAW_VIDEO) {
+            if(mNativeCamera != null)
+                mNativeCamera.setFrameRate(30);
         }
     }
 
@@ -847,6 +941,36 @@ public class CameraActivity extends AppCompatActivity implements
         }
 
         mSettings.hdr = hdr;
+    }
+
+    private void toggleVideoCrop() {
+        int crop = mSettings.videoCrop;
+
+        crop += 10;
+        if(crop > 50) {
+            crop = 0;
+        }
+
+        mSettings.videoCrop = crop;
+        updateVideoUi();
+
+        if(mNativeCamera != null)
+            mNativeCamera.setVideoCropPercentage(mSettings.videoCrop);
+    }
+
+    private void toggleFrameRate() {
+        int frameRate = mSettings.frameRate;
+
+        if(frameRate == 30)
+            frameRate = 24;
+        else
+            frameRate = 30;
+
+        mSettings.frameRate = frameRate;
+        updateVideoUi();
+
+        if(mNativeCamera != null)
+            mNativeCamera.setFrameRate(mSettings.frameRate);
     }
 
     private void setSaveRaw(boolean saveRaw) {
@@ -1020,53 +1144,16 @@ public class CameraActivity extends AppCompatActivity implements
             if(mImageCaptureInProgress.get()) {
                 mImageCaptureInProgress.set(false);
 
-                mBinding.previewFrame.settingsBtn.setEnabled(true);
-                mBinding.switchCameraBtn.setEnabled(true);
-                mBinding.recordingTimer.setVisibility(View.GONE);
-
-                if(mRecordingTimer != null) {
-                    mRecordingTimer.cancel();
-                    mRecordingTimer = null;
-                }
-
-                finaliseRawVideo();
+                finaliseRawVideo(true);
             }
             else {
-                File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
-                File file = new File(dir, CameraProfile.generateFilename());
-
-                mNativeCamera.streamToFile(file.getPath());
-                mImageCaptureInProgress.set(true);
-
-                mBinding.previewFrame.settingsBtn.setEnabled(false);
-                mBinding.switchCameraBtn.setEnabled(false);
-                mBinding.recordingTimer.setVisibility(View.VISIBLE);
-                mRecordStartTime = System.currentTimeMillis();
-
-                // Update recording time
-                mRecordingTimer = new Timer();
-                mRecordingTimer.scheduleAtFixedRate(new TimerTask() {
-                    @Override
-                    public void run() {
-                        long timeRecording = System.currentTimeMillis() - mRecordStartTime;
-
-                        float mins = (timeRecording / 1000.0f) / 60.0f;
-                        int seconds = (int) ((mins - ((int) mins)) * 60);
-
-                        String recordingText = String.format("00:%02d:%02d", (int) mins, seconds);
-
-                        runOnUiThread(() -> {
-                            mBinding.recordingTimerText.setText(recordingText);
-                        });
-                    }
-                }, 0, 1000);
-
-                mVideoOutputPath = file.getPath();
+                startRawVideoRecording();
             }
         }
         else if(mode == CaptureMode.NIGHT) {
             mBinding.captureBtn.setEnabled(false);
 
+            mBinding.captureProgressBar.setVisibility(View.VISIBLE);
             mBinding.captureProgressBar.setIndeterminateMode(false);
 
             PostProcessSettings settings = mPostProcessSettings.clone();
@@ -1528,6 +1615,9 @@ public class CameraActivity extends AppCompatActivity implements
 
         mBinding.previewFrame.rawEnableBtn.setOnClickListener(v -> setSaveRaw(!mPostProcessSettings.dng));
         mBinding.previewFrame.hdrEnableBtn.setOnClickListener(v -> setHdr(!mSettings.hdr));
+
+        mBinding.previewFrame.videoCropBtn.setOnClickListener(v -> toggleVideoCrop());
+        mBinding.previewFrame.videoFrameRateBtn.setOnClickListener(v -> toggleFrameRate());
 
         // Kill previous timer
         if(mFaceDetectionTimer != null) {

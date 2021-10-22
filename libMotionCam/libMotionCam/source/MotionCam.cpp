@@ -1,13 +1,15 @@
-#include "motioncam/RawSequenceConverter.h"
+#include "motioncam/MotionCam.h"
 #include "motioncam/RawContainer.h"
 #include "motioncam/Util.h"
+#include "motioncam/ImageProcessor.h"
 
 #include "build_bayer.h"
 
 #include <HalideBuffer.h>
 
 namespace motioncam {
-    void ConvertToDNG(const std::string& containerPath, const std::string& outputPath) {
+
+    void ConvertVideoToDNG(const std::string& containerPath, const std::string& outputPath) {
         std::cout << "Opening " << containerPath << std::endl;
         
         RawContainer container(containerPath);
@@ -62,5 +64,9 @@ namespace motioncam {
         
         std::cout << "Estimated FPS: " << std::setprecision(2) << fps << std::endl;
         std::cout << "Done" << std::endl;
+    }
+
+    void ProcessImage(const std::string& containerPath, const std::string& outputFilePath, const ImageProcessorProgress& progressListener) {
+        ImageProcessor::process(containerPath, outputFilePath, progressListener);    
     }
 }

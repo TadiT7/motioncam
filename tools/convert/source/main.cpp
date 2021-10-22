@@ -1,8 +1,8 @@
 #include <iostream>
-#include <motioncam/RawSequenceConverter.h>
+#include <motioncam/MotionCam.h>
 
 void printHelp() {
-    std::cout << "Usage: raw2dng file.zip /output/path" << std::endl;
+    std::cout << "Usage: convert file.zip /output/path" << std::endl;
 }
 
 int main(int argc, const char* argv[]) {
@@ -22,7 +22,7 @@ int main(int argc, const char* argv[]) {
     }
     
     try {
-        motioncam::ConvertToDNG(inputFile, outputPath);
+        motioncam::ConvertVideoToDNG(inputFile, outputPath);
     }
     catch(std::runtime_error& e) {
         std::cerr << "Error: " << e.what() << std::endl;

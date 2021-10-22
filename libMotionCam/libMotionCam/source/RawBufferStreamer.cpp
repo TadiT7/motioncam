@@ -4,14 +4,20 @@
 #include "motioncam/RawBufferManager.h"
 #include "motioncam/Logger.h"
 #include "motioncam/Util.h"
+#include "motioncam/Measure.h"
 
 #include <zstd.h>
 
 namespace motioncam {
-    const int NumCompressThreads = 6;
+    const int NumCompressThreads = 2;
     const int NumWriteThreads    = 1;
+    const int MaximumMemoryUsage = 1 * 1024 * 1024 * 1024; // Set maximum memory usage to 1 GB
 
-    RawBufferStreamer::RawBufferStreamer() : mRunning(false), mMemoryUsage(0) {
+    RawBufferStreamer::RawBufferStreamer() :
+        mRunning(false),
+        mMemoryUsage(0),
+        mCropAmount(0)
+    {
     }
 
     RawBufferStreamer::~RawBufferStreamer() {
@@ -47,8 +53,15 @@ namespace motioncam {
         }
     }
 
-    void RawBufferStreamer::add(std::shared_ptr<RawImageBuffer> frame) {
-        mRawBufferQueue.enqueue(frame);
+    bool RawBufferStreamer::add(std::shared_ptr<RawImageBuffer> frame) {
+        if(mMemoryUsage > MaximumMemoryUsage) {
+            return false;
+        }
+        else {
+            mRawBufferQueue.enqueue(frame);
+        }
+
+        return true;
     }
 
     void RawBufferStreamer::stop() {
@@ -68,25 +81,40 @@ namespace motioncam {
         mMemoryUsage = 0;
     }
 
+    void RawBufferStreamer::setCropAmount(int percentage) {
+        // Only allow cropping when not running
+        if(!mRunning)
+            mCropAmount = percentage;
+    }
+
     void RawBufferStreamer::doCompress() {
         std::shared_ptr<RawImageBuffer> buffer;
+        std::vector<uint8_t> tmpBuffer;
 
         while(mRunning) {
-            if(!mRawBufferQueue.wait_dequeue_timed(buffer, std::chrono::milliseconds(100))) {
+            if(!mRawBufferQueue.wait_dequeue_timed(buffer, std::chrono::milliseconds(33))) {
                 continue;
             }
 
             auto compressedBuffer = std::make_shared<RawImageBuffer>(*buffer);
+            auto data = buffer->data->lock(false);
 
-            buffer->data->lock(false);
+            float p = 0.5f * (mCropAmount / 100.0f);
+            int skipRows = (int) (buffer->height * p + 0.5f);
+            int croppedHeight = buffer->height - (2*skipRows);
+            
+            size_t startOffset = skipRows * buffer->rowStride;
+            size_t newSize = buffer->data->len() - (startOffset*2);
 
-            std::vector<uint8_t> tmpBuffer;
-            auto dstBound = ZSTD_compressBound(buffer->data->hostData().size());
-
+            auto dstBound = ZSTD_compressBound(newSize);
             tmpBuffer.resize(dstBound);
 
             size_t writtenBytes =
-                ZSTD_compress(&tmpBuffer[0], tmpBuffer.size(), &buffer->data->hostData()[0], buffer->data->hostData().size(), 1);
+                ZSTD_compress(&tmpBuffer[0],
+                              tmpBuffer.size(),
+                              data + startOffset,
+                              newSize,
+                              1);
 
             tmpBuffer.resize(writtenBytes);
 
@@ -96,7 +124,7 @@ namespace motioncam {
 
             // Queue the compressed buffer
             compressedBuffer->width = buffer->width;
-            compressedBuffer->height = buffer->height;
+            compressedBuffer->height = croppedHeight;
             compressedBuffer->rowStride = buffer->rowStride;
             compressedBuffer->isCompressed = true;
             compressedBuffer->pixelFormat = buffer->pixelFormat;
@@ -109,8 +137,6 @@ namespace motioncam {
                         
             // Return the buffer
             RawBufferManager::get().discardBuffer(buffer);
-
-            //logger::log(std::to_string(mMemoryUsage));
         }
     }
 
@@ -124,13 +150,13 @@ namespace motioncam {
         std::shared_ptr<RawImageBuffer> buffer;
         
         while(mRunning) {
-            if(!mCompressedBufferQueue.wait_dequeue_timed(buffer, std::chrono::milliseconds(100))) {
+            if(!mCompressedBufferQueue.wait_dequeue_timed(buffer, std::chrono::milliseconds(33))) {
                 continue;
             }
             
-            mMemoryUsage -= static_cast<int>(buffer->data->len());
-
             RawContainer::append(writer, buffer);
+
+            mMemoryUsage -= static_cast<int>(buffer->data->len());
         }
         
         //

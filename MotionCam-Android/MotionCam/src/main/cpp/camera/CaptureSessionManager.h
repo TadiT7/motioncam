@@ -49,6 +49,7 @@ namespace motioncam {
         void setManualExposure(int32_t iso, int64_t exposureTime);
         void setAutoExposure();
         void setExposureCompensation(float value);
+        void setFrameRate(int frameRate);
 
         void setFocusPoint(float focusX, float focusY, float exposureX, float exposureY);
         void setAutoFocus();

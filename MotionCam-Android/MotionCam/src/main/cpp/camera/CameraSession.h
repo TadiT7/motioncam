@@ -53,6 +53,7 @@ namespace motioncam {
         void setAutoExposure();
         void setManualExposure(int32_t iso, int64_t exposureTime);
         void setExposureCompensation(float value);
+        void setFrameRate(int frameRate);
 
         void captureHdr(
                 int numImages,
@@ -117,6 +118,7 @@ namespace motioncam {
         void doSetFocusPoint(double focusX, double focusY, double exposureX, double exposureY);
         void doSetAutoFocus();
         void doSetExposureCompensation(float value);
+        void doSetFrameRate(int frameRate);
         void doSave(int numImages);
         void doAttemptSaveHdrData();
         void doPrecaptureCaptureHdr(int iso, int64_t exposure);
@@ -133,8 +135,8 @@ namespace motioncam {
 
     private:
         CameraCaptureSessionState mState;
-        int32_t mLastIso;
-        int64_t mLastExposureTime;
+        std::atomic<int32_t> mLastIso;
+        std::atomic<int64_t> mLastExposureTime;
         std::atomic<float> mLastFocusDistance;
         CameraFocusState mLastFocusState;
         CameraExposureState mLastExposureState;

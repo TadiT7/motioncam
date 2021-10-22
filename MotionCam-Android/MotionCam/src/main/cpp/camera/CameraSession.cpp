@@ -30,6 +30,7 @@ namespace motioncam {
         ACTION_SET_AUTO_EXPOSURE,
         ACTION_SET_MANUAL_EXPOSURE,
         ACTION_SET_EXPOSURE_COMP_VALUE,
+        ACTION_SET_FRAME_RATE,
         ACTION_SET_AUTO_FOCUS,
         ACTION_SET_FOCUS_POINT,
         ACTION_PRECAPTURE_HDR,
@@ -272,6 +273,11 @@ namespace motioncam {
     void CameraSession::setExposureCompensation(float value) {
         json11::Json::object data = { { "value", value } };
         pushEvent(EventAction::ACTION_SET_EXPOSURE_COMP_VALUE, data);
+    }
+
+    void CameraSession::setFrameRate(int frameRate) {
+        json11::Json::object data = { { "value", frameRate } };
+        pushEvent(EventAction::ACTION_SET_FRAME_RATE, data);
     }
 
     void CameraSession::setFocusPoint(float focusX, float focusY, float exposureX, float exposureY) {
@@ -714,9 +720,12 @@ namespace motioncam {
         ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &iso);
         ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &exposure);
 
+        int32_t lastIso = mLastIso;
+        int64_t lastExposureTime = mLastExposureTime;
+
         ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_CONTROL_AE_MODE, 1, &aeMode);
-        ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &mLastIso);
-        ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &mLastExposureTime);
+        ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &lastIso);
+        ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &lastExposureTime);
 
         std::vector<ACaptureRequest*> captureRequests(2);
 
@@ -869,6 +878,10 @@ namespace motioncam {
         int exposureComp = static_cast<int>(std::round(value*range + mCameraDescription->exposureCompensationRange[0]));
 
         mCameraStateManager->requestExposureCompensation(exposureComp);
+    }
+
+    void CameraSession::doSetFrameRate(int frameRate) {
+        mCameraStateManager->requestFrameRate(frameRate);
     }
 
     void CameraSession::updateOrientation(ScreenOrientation orientation) {
@@ -1171,6 +1184,12 @@ namespace motioncam {
             case EventAction::ACTION_SET_EXPOSURE_COMP_VALUE: {
                 float expComp = static_cast<float>(eventLoopData->data["value"].number_value());
                 doSetExposureCompensation(expComp);
+                break;
+            }
+
+            case EventAction::ACTION_SET_FRAME_RATE: {
+                int frameRate = eventLoopData->data["value"].int_value();
+                doSetFrameRate(frameRate);
                 break;
             }
 

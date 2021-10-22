@@ -8,25 +8,24 @@
 
 /* Begin PBXBuildFile section */
 		45684D612720AF30004E7A12 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45684D602720AF30004E7A12 /* main.cpp */; };
-		45684D702720AF62004E7A12 /* libmotioncam-static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45684D6C2720AF45004E7A12 /* libmotioncam-static.a */; };
 		45684DC12720B823004E7A12 /* OpenCL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 45684DC02720B823004E7A12 /* OpenCL.framework */; };
 		45684DC32720B833004E7A12 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 45684DC22720B833004E7A12 /* CoreFoundation.framework */; };
 		45684DD42720B9FE004E7A12 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 45684DD32720B9FE004E7A12 /* CoreServices.framework */; };
-		45684DD72720BAE4004E7A12 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 45684DD62720BAE4004E7A12 /* libz.tbd */; };
-		45684E572720BD4D004E7A12 /* libtbb.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 45684DB92720B7A7004E7A12 /* libtbb.dylib */; };
+		45684E642722A97D004E7A12 /* libmotioncam-static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45684E612722A96C004E7A12 /* libmotioncam-static.a */; };
+		45684E7E2722AE16004E7A12 /* Accelerate.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 45684E7D2722AE16004E7A12 /* Accelerate.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		45684D6B2720AF45004E7A12 /* PBXContainerItemProxy */ = {
+		45684E602722A96C004E7A12 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 45684D672720AF44004E7A12 /* libMotionCam.xcodeproj */;
+			containerPortal = 45684E5C2722A96C004E7A12 /* libMotionCam.xcodeproj */;
 			proxyType = 2;
 			remoteGlobalIDString = 45684CB12720ABB9004E7A12;
 			remoteInfo = "motioncam-static";
 		};
-		45684D6D2720AF5D004E7A12 /* PBXContainerItemProxy */ = {
+		45684E622722A976004E7A12 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 45684D672720AF44004E7A12 /* libMotionCam.xcodeproj */;
+			containerPortal = 45684E5C2722A96C004E7A12 /* libMotionCam.xcodeproj */;
 			proxyType = 1;
 			remoteGlobalIDString = 45684CB02720ABB9004E7A12;
 			remoteInfo = "motioncam-static";
@@ -46,19 +45,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		45684D5D2720AF30004E7A12 /* raw2dng */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = raw2dng; sourceTree = BUILT_PRODUCTS_DIR; };
+		45684D5D2720AF30004E7A12 /* convert */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = convert; sourceTree = BUILT_PRODUCTS_DIR; };
 		45684D602720AF30004E7A12 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
-		45684D672720AF44004E7A12 /* libMotionCam.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libMotionCam.xcodeproj; path = ../libMotionCam/libMotionCam.xcodeproj; sourceTree = "<group>"; };
-		45684DB92720B7A7004E7A12 /* libtbb.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.dylib; path = ../../../../../usr/local/lib/libtbb.dylib; sourceTree = "<group>"; };
-		45684DBB2720B7E4004E7A12 /* libtbb.12.4.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.12.4.dylib; path = ../../../../../usr/local/Cellar/tbb/2021.4.0/lib/libtbb.12.4.dylib; sourceTree = "<group>"; };
-		45684DBD2720B809004E7A12 /* libtbb.12.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.12.dylib; path = ../../../../../usr/local/lib/libtbb.12.dylib; sourceTree = "<group>"; };
 		45684DC02720B823004E7A12 /* OpenCL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenCL.framework; path = System/Library/Frameworks/OpenCL.framework; sourceTree = SDKROOT; };
 		45684DC22720B833004E7A12 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
-		45684DC42720B864004E7A12 /* libzstd.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libzstd.dylib; path = ../../../../../usr/local/lib/libzstd.dylib; sourceTree = "<group>"; };
-		45684DC62720B871004E7A12 /* libzstd.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libzstd.a; path = ../../../../../usr/local/lib/libzstd.a; sourceTree = "<group>"; };
 		45684DD32720B9FE004E7A12 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = System/Library/Frameworks/CoreServices.framework; sourceTree = SDKROOT; };
-		45684DD62720BAE4004E7A12 /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
-		45684E582720BD86004E7A12 /* raw2dng.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = raw2dng.entitlements; sourceTree = "<group>"; };
+		45684E5C2722A96C004E7A12 /* libMotionCam.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libMotionCam.xcodeproj; path = ../../libMotionCam/libMotionCam.xcodeproj; sourceTree = "<group>"; };
+		45684E7D2722AE16004E7A12 /* Accelerate.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accelerate.framework; path = System/Library/Frameworks/Accelerate.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -66,12 +59,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				45684E7E2722AE16004E7A12 /* Accelerate.framework in Frameworks */,
 				45684DD42720B9FE004E7A12 /* CoreServices.framework in Frameworks */,
 				45684DC32720B833004E7A12 /* CoreFoundation.framework in Frameworks */,
 				45684DC12720B823004E7A12 /* OpenCL.framework in Frameworks */,
-				45684DD72720BAE4004E7A12 /* libz.tbd in Frameworks */,
-				45684E572720BD4D004E7A12 /* libtbb.dylib in Frameworks */,
-				45684D702720AF62004E7A12 /* libmotioncam-static.a in Frameworks */,
+				45684E642722A97D004E7A12 /* libmotioncam-static.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -81,8 +73,8 @@
 		45684D542720AF30004E7A12 = {
 			isa = PBXGroup;
 			children = (
-				45684D672720AF44004E7A12 /* libMotionCam.xcodeproj */,
-				45684D5F2720AF30004E7A12 /* raw2dng */,
+				45684E5C2722A96C004E7A12 /* libMotionCam.xcodeproj */,
+				45684D5F2720AF30004E7A12 /* source */,
 				45684D5E2720AF30004E7A12 /* Products */,
 				45684D6F2720AF62004E7A12 /* Frameworks */,
 			);
@@ -91,50 +83,44 @@
 		45684D5E2720AF30004E7A12 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				45684D5D2720AF30004E7A12 /* raw2dng */,
+				45684D5D2720AF30004E7A12 /* convert */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		45684D5F2720AF30004E7A12 /* raw2dng */ = {
+		45684D5F2720AF30004E7A12 /* source */ = {
 			isa = PBXGroup;
 			children = (
-				45684E582720BD86004E7A12 /* raw2dng.entitlements */,
 				45684D602720AF30004E7A12 /* main.cpp */,
 			);
-			path = raw2dng;
-			sourceTree = "<group>";
-		};
-		45684D682720AF44004E7A12 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				45684D6C2720AF45004E7A12 /* libmotioncam-static.a */,
-			);
-			name = Products;
+			path = source;
 			sourceTree = "<group>";
 		};
 		45684D6F2720AF62004E7A12 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				45684DD62720BAE4004E7A12 /* libz.tbd */,
+				45684E7D2722AE16004E7A12 /* Accelerate.framework */,
 				45684DD32720B9FE004E7A12 /* CoreServices.framework */,
-				45684DC62720B871004E7A12 /* libzstd.a */,
-				45684DC42720B864004E7A12 /* libzstd.dylib */,
 				45684DC22720B833004E7A12 /* CoreFoundation.framework */,
 				45684DC02720B823004E7A12 /* OpenCL.framework */,
-				45684DBD2720B809004E7A12 /* libtbb.12.dylib */,
-				45684DBB2720B7E4004E7A12 /* libtbb.12.4.dylib */,
-				45684DB92720B7A7004E7A12 /* libtbb.dylib */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		45684E5D2722A96C004E7A12 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				45684E612722A96C004E7A12 /* libmotioncam-static.a */,
+			);
+			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		45684D5C2720AF30004E7A12 /* raw2dng */ = {
+		45684D5C2720AF30004E7A12 /* convert */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 45684D642720AF30004E7A12 /* Build configuration list for PBXNativeTarget "raw2dng" */;
+			buildConfigurationList = 45684D642720AF30004E7A12 /* Build configuration list for PBXNativeTarget "convert" */;
 			buildPhases = (
 				45684D592720AF30004E7A12 /* Sources */,
 				45684D5A2720AF30004E7A12 /* Frameworks */,
@@ -143,11 +129,11 @@
 			buildRules = (
 			);
 			dependencies = (
-				45684D6E2720AF5D004E7A12 /* PBXTargetDependency */,
+				45684E632722A976004E7A12 /* PBXTargetDependency */,
 			);
-			name = raw2dng;
+			name = convert;
 			productName = raw2dng;
-			productReference = 45684D5D2720AF30004E7A12 /* raw2dng */;
+			productReference = 45684D5D2720AF30004E7A12 /* convert */;
 			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
@@ -164,7 +150,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 45684D582720AF30004E7A12 /* Build configuration list for PBXProject "raw2dng" */;
+			buildConfigurationList = 45684D582720AF30004E7A12 /* Build configuration list for PBXProject "convert" */;
 			compatibilityVersion = "Xcode 13.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -177,23 +163,23 @@
 			projectDirPath = "";
 			projectReferences = (
 				{
-					ProductGroup = 45684D682720AF44004E7A12 /* Products */;
-					ProjectRef = 45684D672720AF44004E7A12 /* libMotionCam.xcodeproj */;
+					ProductGroup = 45684E5D2722A96C004E7A12 /* Products */;
+					ProjectRef = 45684E5C2722A96C004E7A12 /* libMotionCam.xcodeproj */;
 				},
 			);
 			projectRoot = "";
 			targets = (
-				45684D5C2720AF30004E7A12 /* raw2dng */,
+				45684D5C2720AF30004E7A12 /* convert */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXReferenceProxy section */
-		45684D6C2720AF45004E7A12 /* libmotioncam-static.a */ = {
+		45684E612722A96C004E7A12 /* libmotioncam-static.a */ = {
 			isa = PBXReferenceProxy;
 			fileType = archive.ar;
 			path = "libmotioncam-static.a";
-			remoteRef = 45684D6B2720AF45004E7A12 /* PBXContainerItemProxy */;
+			remoteRef = 45684E602722A96C004E7A12 /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 /* End PBXReferenceProxy section */
@@ -210,10 +196,10 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		45684D6E2720AF5D004E7A12 /* PBXTargetDependency */ = {
+		45684E632722A976004E7A12 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			name = "motioncam-static";
-			targetProxy = 45684D6D2720AF5D004E7A12 /* PBXContainerItemProxy */;
+			targetProxy = 45684E622722A976004E7A12 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -337,13 +323,26 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = "";
-				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
 				EXCLUDED_ARCHS = "";
-				HEADER_SEARCH_PATHS = ../libMotionCam/libMotioncam/include;
+				HEADER_SEARCH_PATHS = ../../libMotionCam/libMotioncam/include;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					/usr/local/Cellar/tbb/2021.4.0/lib,
+					/usr/local/lib,
 				);
+				OTHER_LDFLAGS = (
+					"-lz",
+					"-lexiv2",
+					"-ltbb",
+					"-lzstd",
+					"-lOpenEXR",
+					"-lopencv_core",
+					"-lopencv_imgcodecs",
+					"-lopencv_objdetect",
+					"-lopencv_video",
+					"-lopencv_imgproc",
+				);
+				PRELINK_LIBS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 			};
@@ -357,13 +356,26 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = "";
-				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
 				EXCLUDED_ARCHS = "";
-				HEADER_SEARCH_PATHS = ../libMotionCam/libMotioncam/include;
+				HEADER_SEARCH_PATHS = ../../libMotionCam/libMotioncam/include;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					/usr/local/Cellar/tbb/2021.4.0/lib,
+					/usr/local/lib,
 				);
+				OTHER_LDFLAGS = (
+					"-lz",
+					"-lexiv2",
+					"-ltbb",
+					"-lzstd",
+					"-lOpenEXR",
+					"-lopencv_core",
+					"-lopencv_imgcodecs",
+					"-lopencv_objdetect",
+					"-lopencv_video",
+					"-lopencv_imgproc",
+				);
+				PRELINK_LIBS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 			};
@@ -372,7 +384,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		45684D582720AF30004E7A12 /* Build configuration list for PBXProject "raw2dng" */ = {
+		45684D582720AF30004E7A12 /* Build configuration list for PBXProject "convert" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				45684D622720AF30004E7A12 /* Debug */,
@@ -381,7 +393,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		45684D642720AF30004E7A12 /* Build configuration list for PBXNativeTarget "raw2dng" */ = {
+		45684D642720AF30004E7A12 /* Build configuration list for PBXNativeTarget "convert" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				45684D652720AF30004E7A12 /* Debug */,

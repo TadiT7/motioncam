@@ -386,6 +386,24 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         EndStream(mNativeCameraHandle);
     }
 
+    public void setFrameRate(int frameRate) {
+        ensureValidHandle();
+
+        SetFrameRate(mNativeCameraHandle, frameRate);
+    }
+
+    public void setVideoCropPercentage(int amount) {
+        ensureValidHandle();
+
+        SetVideoCropPercentage(mNativeCameraHandle, amount);
+    }
+
+    public int getNumDroppedFrames() {
+        ensureValidHandle();
+
+        return GetNumDroppedFrames(mNativeCameraHandle);
+    }
+
     @Override
     public void onCameraDisconnected() {
         mListener.onCameraDisconnected();
@@ -503,4 +521,8 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native String EstimatePostProcessSettings(long bufferHandle, float shadowsBias);
 
     private native RectF[] DetectFaces(long handle);
+
+    private native void SetFrameRate(long handle, int frameRate);
+    private native void SetVideoCropPercentage(long handle, int amount);
+    private native int GetNumDroppedFrames(long handle);
 }

@@ -41,6 +41,7 @@ namespace motioncam {
         void requestUserFocus(float x, float y);
         void requestAutoFocus();
         void requestExposureCompensation(int exposureCompensation);
+        void requestFrameRate(int frameRate);
 
         void requestUserExposure(int32_t iso, int64_t exposureTime);
         void requestMode(CameraMode mode);
@@ -71,6 +72,7 @@ namespace motioncam {
         Action mRequestedAction;
         CameraMode mCameraMode;
         int mExposureCompensation;
+        int mFrameRate;
 
         float mRequestedFocusX;
         float mRequestedFocusY;

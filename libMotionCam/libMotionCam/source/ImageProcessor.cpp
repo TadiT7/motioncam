@@ -45,8 +45,6 @@
 #include <memory>
 
 #include <exiv2/exiv2.hpp>
-#include <opencv2/features2d.hpp>
-#include <opencv2/xfeatures2d.hpp>
 #include <opencv2/core/ocl.hpp>
 
 using std::ios;
@@ -892,52 +890,54 @@ namespace motioncam {
     cv::Mat ImageProcessor::registerImage(
         const Halide::Runtime::Buffer<uint8_t>& referenceBuffer, const Halide::Runtime::Buffer<uint8_t>& toAlignBuffer)
     {
-        Measure measure("registerImage()");
+//        Measure measure("registerImage()");
+//
+//        cv::Mat referenceImage(referenceBuffer.height(), referenceBuffer.width(), CV_8U, (void*) referenceBuffer.data());
+//        cv::Mat toAlignImage(toAlignBuffer.height(), toAlignBuffer.width(), CV_8U, (void*) toAlignBuffer.data());
+//
+//        auto detector = cv::ORB::create(2000, 1.1, 12);
+//
+//        std::vector<cv::KeyPoint> keypoints1, keypoints2;
+//        cv::Mat descriptors1, descriptors2;
+//        auto extractor = cv::xfeatures2d::BriefDescriptorExtractor::create();
+//
+//        detector->detect(referenceImage, keypoints1);
+//        detector->detect(toAlignImage, keypoints2);
+//
+//        extractor->compute(referenceImage, keypoints1, descriptors1);
+//        extractor->compute(toAlignImage, keypoints2, descriptors2);
+//
+//        auto matcher = cv::BFMatcher::create(cv::NORM_HAMMING, false);
+//        std::vector< std::vector<cv::DMatch> > knn_matches;
+//
+//        matcher->knnMatch( descriptors1, descriptors2, knn_matches, 2 );
+//
+//        // Filter matches using the Lowe's ratio test
+//        const float ratioThresh = 0.9f;
+//        std::vector<cv::DMatch> goodMatches;
+//
+//        for (auto& m : knn_matches)
+//        {
+//            if (m[0].distance < ratioThresh * m[1].distance)
+//                goodMatches.push_back(m[0]);
+//        }
+//
+//        std::vector<cv::Point2f> obj;
+//        std::vector<cv::Point2f> scene;
+//
+//        for(auto& m : goodMatches)
+//        {
+//            obj.push_back( keypoints1[ m.queryIdx ].pt );
+//            scene.push_back( keypoints2[ m.trainIdx ].pt );
+//        }
+//
+//        if(obj.empty()) {
+//            return cv::Mat();
+//        }
+//
+//        return findHomography( scene, obj, cv::RANSAC );
         
-        cv::Mat referenceImage(referenceBuffer.height(), referenceBuffer.width(), CV_8U, (void*) referenceBuffer.data());
-        cv::Mat toAlignImage(toAlignBuffer.height(), toAlignBuffer.width(), CV_8U, (void*) toAlignBuffer.data());
-
-        auto detector = cv::ORB::create(2000, 1.1, 12);
-        
-        std::vector<cv::KeyPoint> keypoints1, keypoints2;
-        cv::Mat descriptors1, descriptors2;
-        auto extractor = cv::xfeatures2d::BriefDescriptorExtractor::create();
-
-        detector->detect(referenceImage, keypoints1);
-        detector->detect(toAlignImage, keypoints2);
-
-        extractor->compute(referenceImage, keypoints1, descriptors1);
-        extractor->compute(toAlignImage, keypoints2, descriptors2);
-
-        auto matcher = cv::BFMatcher::create(cv::NORM_HAMMING, false);
-        std::vector< std::vector<cv::DMatch> > knn_matches;
-        
-        matcher->knnMatch( descriptors1, descriptors2, knn_matches, 2 );
-        
-        // Filter matches using the Lowe's ratio test
-        const float ratioThresh = 0.9f;
-        std::vector<cv::DMatch> goodMatches;
-
-        for (auto& m : knn_matches)
-        {
-            if (m[0].distance < ratioThresh * m[1].distance)
-                goodMatches.push_back(m[0]);
-        }
-
-        std::vector<cv::Point2f> obj;
-        std::vector<cv::Point2f> scene;
-        
-        for(auto& m : goodMatches)
-        {
-            obj.push_back( keypoints1[ m.queryIdx ].pt );
-            scene.push_back( keypoints2[ m.trainIdx ].pt );
-        }
-        
-        if(obj.empty()) {
-            return cv::Mat();
-        }
-
-        return findHomography( scene, obj, cv::RANSAC );
+        return cv::Mat();
     }
 
     cv::Mat ImageProcessor::calcHistogram(const RawCameraMetadata& cameraMetadata,

@@ -16,7 +16,7 @@
 
     <style name="MotionCam.TextAppearance.Small" parent="TextAppearance.AppCompat.Small"></style>
     <style name="MotionCam.TextAppearance.Medium" parent="TextAppearance.AppCompat.Medium"></style>
-\
+
     <style name="MotionCam.TextAppearance.Medium.Bold" parent="TextAppearance.AppCompat.Medium">
         <item name="android:textStyle">bold</item>
     </style>

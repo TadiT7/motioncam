@@ -71,7 +71,9 @@ namespace motioncam {
                   const std::string& outputPath);
         
         void enableStreaming(const std::string outputPath, const RawCameraMetadata& metadata);
+        void setCropAmount(int amount);
         void endStreaming();
+        uint32_t numDroppedFrames() const;
         
     private:
         RawBufferManager();
@@ -87,6 +89,7 @@ namespace motioncam {
         moodycamel::ConcurrentQueue<std::shared_ptr<RawContainer>> mPendingContainers;
         
         std::unique_ptr<RawBufferStreamer> mStreamer;
+        uint32_t mDroppedFrames;
     };
 
 } // namespace motioncam
