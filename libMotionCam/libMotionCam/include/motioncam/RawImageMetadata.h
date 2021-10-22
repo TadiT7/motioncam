@@ -153,7 +153,7 @@ namespace motioncam {
         }
 
         std::unique_ptr<NativeBuffer> clone() {
-            return std::make_unique<NativeHostBuffer>(data);
+            return std::unique_ptr<NativeHostBuffer>(new NativeHostBuffer(data));
         }
 
         uint8_t* lock(bool write) {

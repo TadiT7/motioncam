@@ -27,6 +27,7 @@ DerivedData/
 
 # Misc
 .DS_Store
+build
 libMotionCam/halide/
 
 thirdparty/halide/

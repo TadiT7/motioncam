@@ -146,7 +146,7 @@ namespace motioncam {
             }
 
             // Sort them by timestmp
-            std::sort(hdrBuffers.begin(), hdrBuffers.end(), [](auto a, auto b) {
+            std::sort(hdrBuffers.begin(), hdrBuffers.end(), [](std::shared_ptr<RawImageBuffer> a, std::shared_ptr<RawImageBuffer> b) {
                 return a->metadata.timestampNs < b->metadata.timestampNs;
             });
 
@@ -168,7 +168,7 @@ namespace motioncam {
                 }
             }
             
-            std::sort(zslBuffers.begin(), zslBuffers.end(), [](auto a, auto b) {
+            std::sort(zslBuffers.begin(), zslBuffers.end(), [](std::shared_ptr<RawImageBuffer> a, std::shared_ptr<RawImageBuffer> b) {
                 return a->metadata.timestampNs < b->metadata.timestampNs;
             });
 
@@ -195,7 +195,7 @@ namespace motioncam {
                 std::remove_if(
                     mReadyBuffers.begin(),
                     mReadyBuffers.end(),
-                    [buffers](auto& e) { return std::find(buffers.begin(), buffers.end(), e) != buffers.end(); }),
+                    [buffers](std::shared_ptr<RawImageBuffer>& e) { return std::find(buffers.begin(), buffers.end(), e) != buffers.end(); }),
                 mReadyBuffers.end());
         }
 
@@ -353,7 +353,7 @@ namespace motioncam {
 
         auto it = std::find_if(
             mReadyBuffers.begin(), mReadyBuffers.end(),
-            [&](const auto& x) { return x->metadata.timestampNs == timestampNs; }
+            [&](const std::shared_ptr<RawImageBuffer>& x) { return x->metadata.timestampNs == timestampNs; }
         );
 
         if(it != mReadyBuffers.end()) {

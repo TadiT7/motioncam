@@ -264,6 +264,27 @@ if [ ! -f ".halide" ]; then
 fi
 
 # Generate halide libraries
-halide_generate
+#halide_generate
 
 popd # tmp
+
+# Compile utilities
+if [[ "$OSTYPE" == "darwin"* ]]; then        
+	export CPLUS_INCLUDE_PATH=/usr/include:/usr/local/include:/usr/local/include/opencv4
+fi
+
+pushd ./tools/convert
+
+mkdir -p build
+
+cd build
+
+cmake ../
+
+make -j${NUM_CORES}
+
+popd
+
+mkdir -p ./tools/bin
+
+cp tools/convert/build/convert ./tools/bin/convert

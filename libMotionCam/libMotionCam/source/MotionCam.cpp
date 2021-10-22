@@ -17,7 +17,7 @@ namespace motioncam {
         auto frames = container.getFrames();
         
         // Sort frames by timestamp
-        std::sort(frames.begin(), frames.end(), [&](auto& a, auto& b) {
+        std::sort(frames.begin(), frames.end(), [&](std::string& a, std::string& b) {
             return container.getFrame(a)->metadata.timestampNs < container.getFrame(b)->metadata.timestampNs;
         });
         
