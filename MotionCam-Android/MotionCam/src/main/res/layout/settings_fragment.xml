@@ -16,17 +16,8 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
             android:orientation="vertical">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="@dimen/preview_settings_margin"
-                android:background="@color/headerColor"
-                android:padding="@dimen/preview_settings_padding"
-                android:text="@string/general"
-                android:textAlignment="center"
-                android:textAppearance="@style/MotionCam.TextAppearance.Medium" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -70,6 +61,52 @@
                         android:paddingTop="@dimen/seekBarPadding"
                         android:paddingBottom="@dimen/seekBarPadding"
                         android:progress="@={viewModel.memoryUseMb}" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:layout_marginEnd="10dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="5dp"
+                    android:text="@string/raw_video_memory_usage"
+                    android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/raw_video_memory_use_description"
+                    android:textAppearance="@style/MotionCam.TextAppearance.Small"
+                    android:textColor="@color/silver" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/rawVideoMemoryUseText"
+                        android:layout_width="@dimen/preview_settings_value_width"
+                        android:layout_height="match_parent"
+                        android:gravity="end|center_vertical"
+                        android:textAppearance="@style/MotionCam.TextAppearance.Small" />
+
+                    <SeekBar
+                        android:id="@+id/rawVideoMemoryUseSeekBar"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:max="1024"
+                        android:paddingTop="@dimen/seekBarPadding"
+                        android:paddingBottom="@dimen/seekBarPadding"
+                        android:progress="@={viewModel.rawVideoMemoryUseMb}" />
                 </LinearLayout>
 
             </LinearLayout>

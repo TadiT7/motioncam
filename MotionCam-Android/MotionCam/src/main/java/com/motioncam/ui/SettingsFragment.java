@@ -26,12 +26,15 @@ public class SettingsFragment extends Fragment {
     }
 
     private void setupObservers(SettingsFragmentBinding dataBinding) {
-        // General
         mViewModel.memoryUseMb.observe(getViewLifecycleOwner(), (value) -> {
             value = SettingsViewModel.MINIMUM_MEMORY_USE_MB + value;
-
             dataBinding.memoryUseText.setText(String.format(Locale.US, "%d MB", value));
+            mViewModel.save(getContext());
+        });
 
+        mViewModel.rawVideoMemoryUseMb.observe(getViewLifecycleOwner(), (value) -> {
+            value = SettingsViewModel.MINIMUM_MEMORY_USE_MB + value;
+            dataBinding.rawVideoMemoryUseText.setText(String.format(Locale.US, "%d MB", value));
             mViewModel.save(getContext());
         });
 
@@ -96,10 +99,11 @@ public class SettingsFragment extends Fragment {
 
         activityManager.getMemoryInfo(memInfo);
 
-        long totalMemory = memInfo.totalMem / (1024 * 1024);
+        long totalMemory = memInfo.totalMem / (1024 * 1024) - (SettingsViewModel.MINIMUM_MEMORY_USE_MB*2);
         int maxMemory = Math.min( (int) totalMemory, SettingsViewModel.MAXIMUM_MEMORY_USE_MB);
 
         dataBinding.memoryUseSeekBar.setMax(maxMemory - SettingsViewModel.MINIMUM_MEMORY_USE_MB);
+        dataBinding.rawVideoMemoryUseSeekBar.setMax(maxMemory - SettingsViewModel.MINIMUM_MEMORY_USE_MB);
 
         // Set up observers
         setupObservers(dataBinding);

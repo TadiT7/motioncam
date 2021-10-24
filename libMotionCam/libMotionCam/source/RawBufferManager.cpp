@@ -78,6 +78,8 @@ namespace motioncam {
             }
         }
 
+        mDroppedFrames++;
+        
         return nullptr;
     }
 
@@ -385,8 +387,8 @@ namespace motioncam {
         return latest->metadata.timestampNs;
     }
 
-    void RawBufferManager::enableStreaming(const std::string outputPath, const RawCameraMetadata& metadata) {
-        mStreamer->start(outputPath, metadata);
+    void RawBufferManager::enableStreaming(const std::string outputPath, const int64_t maxMemoryUsageBytes, const RawCameraMetadata& metadata) {
+        mStreamer->start(outputPath, maxMemoryUsageBytes, metadata);
     }
 
     void RawBufferManager::setCropAmount(int amount) {

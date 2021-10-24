@@ -145,6 +145,7 @@ public class CameraActivity extends AppCompatActivity implements
         float tintOffset;
         int jpegQuality;
         long memoryUseBytes;
+        long rawVideoMemoryUseBytes;
         CaptureMode captureMode;
         SettingsViewModel.RawMode rawMode;
         int cameraPreviewQuality;
@@ -165,9 +166,13 @@ public class CameraActivity extends AppCompatActivity implements
 
             long nativeCameraMemoryUseMb = prefs.getInt(SettingsViewModel.PREFS_KEY_MEMORY_USE_MBYTES, SettingsViewModel.MINIMUM_MEMORY_USE_MB);
             nativeCameraMemoryUseMb = Math.min(nativeCameraMemoryUseMb, SettingsViewModel.MAXIMUM_MEMORY_USE_MB);
+            this.memoryUseBytes = nativeCameraMemoryUseMb * 1024 * 1024;
+
+            long nativeRawVideoMemoryUseMb = prefs.getInt(SettingsViewModel.PREFS_KEY_RAW_VIDEO_MEMORY_USE_MBYTES, SettingsViewModel.MINIMUM_MEMORY_USE_MB);
+            nativeRawVideoMemoryUseMb = Math.min(nativeRawVideoMemoryUseMb, SettingsViewModel.MAXIMUM_MEMORY_USE_MB);
+            this.rawVideoMemoryUseBytes = nativeRawVideoMemoryUseMb * 1024 * 1024;
 
             this.useDualExposure = prefs.getBoolean(SettingsViewModel.PREFS_KEY_DUAL_EXPOSURE_CONTROLS, false);
-            this.memoryUseBytes = nativeCameraMemoryUseMb * 1024 * 1024;
 
             this.captureMode =
                     CaptureMode.valueOf(prefs.getString(SettingsViewModel.PREFS_KEY_UI_CAPTURE_MODE, CaptureMode.ZSL.name()));
@@ -643,10 +648,16 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void startRawVideoRecording() {
-        File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
-        File file = new File(dir, CameraProfile.generateFilename("VIDEO"));
+        File docs = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
+        File videoOutputPath = new File(docs.getPath() + File.separator + "MotionCam");
+        File outputFile = new File(videoOutputPath, CameraProfile.generateFilename("VIDEO"));
 
-        mNativeCamera.streamToFile(file.getPath());
+        if(!videoOutputPath.exists() && !videoOutputPath.mkdirs()) {
+            Log.e(TAG, "Failed to create " + videoOutputPath.toString());
+        }
+
+        Log.i(TAG, "Starting RAW video recording (max memory usage: " + mSettings.rawVideoMemoryUseBytes + ")");
+        mNativeCamera.streamToFile(outputFile.getPath(), mSettings.rawVideoMemoryUseBytes);
         mImageCaptureInProgress.set(true);
 
         mBinding.switchCameraBtn.setEnabled(false);
@@ -683,7 +694,7 @@ public class CameraActivity extends AppCompatActivity implements
             }
         }, 0, 1000);
 
-        mVideoOutputPath = file.getPath();
+        mVideoOutputPath = outputFile.getPath();
     }
 
     private void finaliseRawVideo(boolean showProgress) {

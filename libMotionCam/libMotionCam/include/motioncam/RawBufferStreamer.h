@@ -17,7 +17,7 @@ namespace motioncam {
         RawBufferStreamer();
         ~RawBufferStreamer();
         
-        void start(const std::string& outputPath, const RawCameraMetadata& cameraMetadata);
+        void start(const std::string& outputPath, const int64_t maxMemoryUsageBytes, const RawCameraMetadata& cameraMetadata);
         bool add(std::shared_ptr<RawImageBuffer> frame);
         void stop();
         
@@ -33,14 +33,14 @@ namespace motioncam {
         std::vector<std::unique_ptr<std::thread>> mIoThreads;
         std::vector<std::unique_ptr<std::thread>> mCompressThreads;
         
-        std::string mContainerPath;
+        long mMaxMemoryUsageBytes;
         int mCropAmount;
         std::atomic<bool> mRunning;
         
         moodycamel::BlockingConcurrentQueue<std::shared_ptr<RawImageBuffer>> mRawBufferQueue;
         moodycamel::BlockingConcurrentQueue<std::shared_ptr<RawImageBuffer>> mCompressedBufferQueue;
         
-        std::atomic<size_t> mMemoryUsage;
+        std::atomic<int64_t> mMemoryUsage;
     };
 
 }
