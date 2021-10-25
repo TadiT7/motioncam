@@ -272,7 +272,7 @@ popd # tmp
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	export CPLUS_INCLUDE_PATH=/usr/local/include:/usr/local/include/opencv4	
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-	export CPLUS_INCLUDE_PATH=/usr/include:/usr/include/opencv4
+	export CPLUS_INCLUDE_PATH=/usr/include/opencv4
 fi
 
 pushd ./tools/convert
