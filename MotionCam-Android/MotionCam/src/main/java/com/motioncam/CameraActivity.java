@@ -898,13 +898,11 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.burstModeBtn.setTextColor(getColor(R.color.textColor));
         mBinding.rawVideoModeBtn.setTextColor(getColor(R.color.textColor));
 
-        mCaptureMode = captureMode;
-
         mBinding.previewFrame.previewControlBtns.setVisibility(View.VISIBLE);
         mBinding.previewFrame.previewAdjustments.setVisibility(View.GONE);
         mBinding.previewFrame.videoRecordingBtns.setVisibility(View.GONE);
 
-        switch(mCaptureMode) {
+        switch(captureMode) {
             case NIGHT:
                 mBinding.nightModeBtn.setTextColor(getColor(R.color.colorAccent));
                 break;
@@ -922,7 +920,7 @@ public class CameraActivity extends AppCompatActivity implements
                 break;
         }
 
-        if(mCaptureMode == CaptureMode.RAW_VIDEO) {
+        if(captureMode == CaptureMode.RAW_VIDEO) {
             Toast.makeText(this, "Warning: This is an experimental feature.", Toast.LENGTH_SHORT).show();
 
             mBinding.previewFrame.videoRecordingBtns.setVisibility(View.VISIBLE);
@@ -934,13 +932,16 @@ public class CameraActivity extends AppCompatActivity implements
                 mNativeCamera.setVideoCropPercentage(mSettings.videoCrop);
             }
         }
+
         // If previous capture mode was raw video, reset frame rate
-        else if(captureMode == CaptureMode.RAW_VIDEO) {
+        if(mCaptureMode == CaptureMode.RAW_VIDEO) {
             Log.i(TAG, "Switching to 30 FPS");
 
             if(mNativeCamera != null)
                 mNativeCamera.setFrameRate(30);
         }
+
+        mCaptureMode = captureMode;
     }
 
     private void setHdr(boolean hdr) {
