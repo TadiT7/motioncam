@@ -180,10 +180,10 @@ namespace motioncam {
             zslBuffers.erase(zslBuffers.begin(), zslBuffers.begin() + numToRemove);
             
             // Set reference timestamp
-            if(hdrBuffers.size() > 1)
-                referenceTimestampNs = hdrBuffers[1]->metadata.timestampNs;
-            else if(!zslBuffers.empty())
+            if(!zslBuffers.empty())
                 referenceTimestampNs = zslBuffers.back()->metadata.timestampNs;
+            else if(!hdrBuffers.empty())
+                referenceTimestampNs = hdrBuffers[hdrBuffers.size()/2]->metadata.timestampNs;
             else {
                 logger::log("No buffers. Something is not right");
                 return;
@@ -388,6 +388,7 @@ namespace motioncam {
     }
 
     void RawBufferManager::enableStreaming(const std::string outputPath, const int64_t maxMemoryUsageBytes, const RawCameraMetadata& metadata) {
+        mDroppedFrames = 0;
         mStreamer->start(outputPath, maxMemoryUsageBytes, metadata);
     }
 

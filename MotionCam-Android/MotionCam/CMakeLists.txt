@@ -133,6 +133,10 @@ set_target_properties(zstd PROPERTIES IMPORTED_LOCATION
 # Halide libraries
 #
 
+add_library(deghost STATIC IMPORTED)
+set_target_properties(deghost PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/deghost.a)
+
 add_library(fast_preview STATIC IMPORTED)
 set_target_properties(fast_preview PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/fast_preview.a)
@@ -468,6 +472,7 @@ set(native-camera-libs
         libexpat
 
         # Halide libraries
+        deghost
         fast_preview
         hdr_mask
         linear_image

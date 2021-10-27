@@ -124,20 +124,17 @@ namespace motioncam {
                                    const RawImageMetadata& metadata,
                                    const RawCameraMetadata& cameraMetadata,
                                    const PostProcessSettings& settings);
-            
+
         static std::shared_ptr<HdrMetadata> prepareHdr(const RawCameraMetadata& cameraMetadata,
                                                        const PostProcessSettings& settings,
                                                        const RawImageBuffer& reference,
-                                                       const RawImageBuffer& underexposed);
-        
+                                                       const std::vector<std::shared_ptr<RawImageBuffer>>& underexposed);
         
         static double calcEv(const RawCameraMetadata& cameraMetadata, const RawImageMetadata& metadata);
 
         static float adjustShadowsForFaces(cv::Mat input, PreviewMetadata& metadata);
         
         static std::vector<cv::Rect2f> detectFaces(const RawImageBuffer& buffer, const RawCameraMetadata& cameraMetadata);
-        
-        static float testAlignment(std::shared_ptr<RawData> refImage, std::shared_ptr<RawData> underexposedImage, cv::Mat warpMatrix);
     };
 }
 

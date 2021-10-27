@@ -936,6 +936,8 @@ public class CameraActivity extends AppCompatActivity implements
         }
         // If previous capture mode was raw video, reset frame rate
         else if(captureMode == CaptureMode.RAW_VIDEO) {
+            Log.i(TAG, "Switching to 30 FPS");
+
             if(mNativeCamera != null)
                 mNativeCamera.setFrameRate(30);
         }
@@ -1105,13 +1107,15 @@ public class CameraActivity extends AppCompatActivity implements
             float hdrEv = (float) Math.pow(2.0f, mEstimatedSettings.hdr);
 
             if(useHdr) {
-                hdrExposure = CameraManualControl.Exposure.Create(
-                        CameraManualControl.GetClosestShutterSpeed(Math.round(mExposureTime / hdrEv)),
-                        CameraManualControl.GetClosestIso(mIsoValues, mIso));
-
                 float a = 1.6f;
                 if (mCameraMetadata.cameraApertures.length > 0)
                     a = mCameraMetadata.cameraApertures[0];
+
+                long exposureTime = Math.round(mExposureTime / hdrEv);
+
+                hdrExposure = CameraManualControl.Exposure.Create(
+                        CameraManualControl.GetClosestShutterSpeed(exposureTime),
+                        CameraManualControl.GetClosestIso(mIsoValues, mIso));
 
                 hdrExposure = CameraManualControl.MapToExposureLine(a, hdrExposure, CameraManualControl.HDR_EXPOSURE_LINE);
 
@@ -1180,7 +1184,6 @@ public class CameraActivity extends AppCompatActivity implements
             // Map camera exposure to our own
             long cameraExposure;
             float hdr = Math.max(1.0f, mEstimatedSettings.hdr);
-
             float hdrEv = (float) Math.pow(2.0f, hdr);
 
             cameraExposure = Math.round(mExposureTime * Math.pow(2.0f, mEstimatedSettings.exposure));
@@ -1193,7 +1196,7 @@ public class CameraActivity extends AppCompatActivity implements
                     CameraManualControl.GetClosestIso(mIsoValues, mIso));
 
             CameraManualControl.Exposure hdrExposure = CameraManualControl.Exposure.Create(
-                    CameraManualControl.GetClosestShutterSpeed(Math.round(cameraExposure / hdrEv)),
+                    CameraManualControl.GetClosestShutterSpeed(Math.round(mExposureTime / hdrEv)),
                     CameraManualControl.GetClosestIso(mIsoValues, mIso));
 
             baseExposure = CameraManualControl.MapToExposureLine(a, baseExposure, CameraManualControl.EXPOSURE_LINE);

@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		452477F1272945E8005F2367 /* deghost.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 452477F0272945E8005F2367 /* deghost.a */; };
+		452477F3272945F4005F2367 /* deghost.h in Headers */ = {isa = PBXBuildFile; fileRef = 452477F2272945F4005F2367 /* deghost.h */; };
 		45684CB52720AC24004E7A12 /* CameraPreview.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45A340A1260B887700405A85 /* CameraPreview.cpp */; };
 		45684CB62720AC24004E7A12 /* CameraProfile.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45FA2E6D1FF8118A00BE34C3 /* CameraProfile.cpp */; };
 		45684CB72720AC24004E7A12 /* Color.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45FA2E771FF8333000BE34C3 /* Color.cpp */; };
@@ -180,6 +182,8 @@
 		4511F7B5225BEA8D001F0A37 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		4511F7BA225FCCEA001F0A37 /* libHalide.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libHalide.a; path = ../../halide/lib/libHalide.a; sourceTree = "<group>"; };
 		4513AFA326332A7B002C3BED /* libzstd.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libzstd.a; path = ../../../../../usr/local/lib/libzstd.a; sourceTree = "<group>"; };
+		452477F0272945E8005F2367 /* deghost.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = deghost.a; sourceTree = "<group>"; };
+		452477F2272945F4005F2367 /* deghost.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = deghost.h; sourceTree = "<group>"; };
 		452B6CC126A02FD100992FB4 /* BlueNoiseLUT.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BlueNoiseLUT.h; sourceTree = "<group>"; };
 		453ACCA120E431320083620E /* OpenCL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenCL.framework; path = System/Library/Frameworks/OpenCL.framework; sourceTree = SDKROOT; };
 		4541C94D27031D610067BED9 /* Lock.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Lock.h; sourceTree = "<group>"; };
@@ -433,7 +437,6 @@
 		45C149E9272312A700C15D5D /* measure_image.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = measure_image.h; sourceTree = "<group>"; };
 		45C3BBF42314206100EAABB8 /* blockingconcurrentqueue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = blockingconcurrentqueue.h; sourceTree = "<group>"; };
 		45C3BBF52314206100EAABB8 /* concurrentqueue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = concurrentqueue.h; sourceTree = "<group>"; };
-		45FA2E381FF7D56200BE34C3 /* test_main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = test_main.cpp; sourceTree = "<group>"; };
 		45FA2E6D1FF8118A00BE34C3 /* CameraProfile.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CameraProfile.cpp; sourceTree = "<group>"; };
 		45FA2E731FF82F6200BE34C3 /* Temperature.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Temperature.cpp; sourceTree = "<group>"; };
 		45FA2E771FF8333000BE34C3 /* Color.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Color.cpp; sourceTree = "<group>"; };
@@ -523,6 +526,7 @@
 				45684EBA2722B237004E7A12 /* preview_reverse_portrait4.a in Frameworks */,
 				45684EAE2722B237004E7A12 /* deinterleave_raw.a in Frameworks */,
 				45684EAF2722B237004E7A12 /* preview_portrait8.a in Frameworks */,
+				452477F1272945E8005F2367 /* deghost.a in Frameworks */,
 				45684EBE2722B237004E7A12 /* preview_reverse_landscape2.a in Frameworks */,
 				45684DD22720B9C7004E7A12 /* CoreServices.framework in Frameworks */,
 				45684EAC2722B237004E7A12 /* preview_reverse_portrait2.a in Frameworks */,
@@ -766,68 +770,70 @@
 		45CA974C2317214900698BBE /* host */ = {
 			isa = PBXGroup;
 			children = (
-				45C149D6272312A500C15D5D /* build_bayer.h */,
-				45C149D5272312A500C15D5D /* camera_preview2_raw10.h */,
-				45C149DA272312A500C15D5D /* camera_preview2_raw16.h */,
-				45C149D1272312A500C15D5D /* camera_preview3_raw10.h */,
-				45C149E4272312A600C15D5D /* camera_preview3_raw16.h */,
-				45C149E6272312A600C15D5D /* camera_preview4_raw10.h */,
-				45C149D7272312A500C15D5D /* camera_preview4_raw16.h */,
-				45C149E1272312A600C15D5D /* deinterleave_raw.h */,
-				45C149E3272312A600C15D5D /* fast_preview.h */,
-				45C149CC272312A400C15D5D /* forward_transform.h */,
-				45C149D9272312A500C15D5D /* fuse_denoise.h */,
-				45C149D8272312A500C15D5D /* fuse_image.h */,
-				45C149DF272312A600C15D5D /* generate_edges.h */,
-				45C149D4272312A500C15D5D /* hdr_mask.h */,
-				45C149E8272312A600C15D5D /* inverse_transform.h */,
-				45C149E5272312A600C15D5D /* linear_image.h */,
-				45C149E9272312A700C15D5D /* measure_image.h */,
-				45C149D2272312A500C15D5D /* postprocess.h */,
-				45C149D0272312A400C15D5D /* preview_landscape2.h */,
-				45C149DD272312A600C15D5D /* preview_landscape4.h */,
-				45C149E0272312A600C15D5D /* preview_landscape8.h */,
-				45C149CD272312A400C15D5D /* preview_portrait2.h */,
-				45C149DB272312A500C15D5D /* preview_portrait4.h */,
-				45C149DC272312A500C15D5D /* preview_portrait8.h */,
-				45C149CF272312A400C15D5D /* preview_reverse_landscape2.h */,
-				45C149E7272312A600C15D5D /* preview_reverse_landscape4.h */,
-				45C149DE272312A600C15D5D /* preview_reverse_landscape8.h */,
-				45C149D3272312A500C15D5D /* preview_reverse_portrait2.h */,
-				45C149CE272312A400C15D5D /* preview_reverse_portrait4.h */,
-				45C149E2272312A600C15D5D /* preview_reverse_portrait8.h */,
 				45684E9F2722B236004E7A12 /* build_bayer.a */,
+				45C149D6272312A500C15D5D /* build_bayer.h */,
 				45684E892722B235004E7A12 /* camera_preview2_raw10.a */,
+				45C149D5272312A500C15D5D /* camera_preview2_raw10.h */,
 				45684E982722B236004E7A12 /* camera_preview2_raw16.a */,
+				45C149DA272312A500C15D5D /* camera_preview2_raw16.h */,
 				45684E932722B235004E7A12 /* camera_preview3_raw10.a */,
+				45C149D1272312A500C15D5D /* camera_preview3_raw10.h */,
 				45684EA12722B236004E7A12 /* camera_preview3_raw16.a */,
+				45C149E4272312A600C15D5D /* camera_preview3_raw16.h */,
 				45684E9D2722B236004E7A12 /* camera_preview4_raw10.a */,
+				45C149E6272312A600C15D5D /* camera_preview4_raw10.h */,
 				45684E9B2722B236004E7A12 /* camera_preview4_raw16.a */,
+				45C149D7272312A500C15D5D /* camera_preview4_raw16.h */,
+				452477F0272945E8005F2367 /* deghost.a */,
+				452477F2272945F4005F2367 /* deghost.h */,
 				45684E8E2722B235004E7A12 /* deinterleave_raw.a */,
+				45C149E1272312A600C15D5D /* deinterleave_raw.h */,
 				45684EA02722B236004E7A12 /* fast_preview.a */,
+				45C149E3272312A600C15D5D /* fast_preview.h */,
 				45684E872722B235004E7A12 /* forward_transform.a */,
+				45C149CC272312A400C15D5D /* forward_transform.h */,
 				45684E842722B234004E7A12 /* fuse_denoise.a */,
+				45C149D9272312A500C15D5D /* fuse_denoise.h */,
 				45684E8B2722B235004E7A12 /* fuse_image.a */,
+				45C149D8272312A500C15D5D /* fuse_image.h */,
 				45684E862722B235004E7A12 /* generate_edges.a */,
+				45C149DF272312A600C15D5D /* generate_edges.h */,
 				45684E9C2722B236004E7A12 /* halide_runtime_host.a */,
 				45684E942722B236004E7A12 /* halide_runtime_opencl.a */,
 				45684E8A2722B235004E7A12 /* hdr_mask.a */,
+				45C149D4272312A500C15D5D /* hdr_mask.h */,
 				45684E8D2722B235004E7A12 /* inverse_transform.a */,
+				45C149E8272312A600C15D5D /* inverse_transform.h */,
 				45684E882722B235004E7A12 /* linear_image.a */,
+				45C149E5272312A600C15D5D /* linear_image.h */,
 				45684E992722B236004E7A12 /* measure_image.a */,
+				45C149E9272312A700C15D5D /* measure_image.h */,
 				45684E952722B236004E7A12 /* postprocess.a */,
+				45C149D2272312A500C15D5D /* postprocess.h */,
 				45684E922722B235004E7A12 /* preview_landscape2.a */,
+				45C149D0272312A400C15D5D /* preview_landscape2.h */,
 				45684E972722B236004E7A12 /* preview_landscape4.a */,
+				45C149DD272312A600C15D5D /* preview_landscape4.h */,
 				45684E962722B236004E7A12 /* preview_landscape8.a */,
+				45C149E0272312A600C15D5D /* preview_landscape8.h */,
 				45684EA22722B237004E7A12 /* preview_portrait2.a */,
+				45C149CD272312A400C15D5D /* preview_portrait2.h */,
 				45684E902722B235004E7A12 /* preview_portrait4.a */,
+				45C149DB272312A500C15D5D /* preview_portrait4.h */,
 				45684E8F2722B235004E7A12 /* preview_portrait8.a */,
+				45C149DC272312A500C15D5D /* preview_portrait8.h */,
 				45684E9E2722B236004E7A12 /* preview_reverse_landscape2.a */,
+				45C149CF272312A400C15D5D /* preview_reverse_landscape2.h */,
 				45684E852722B234004E7A12 /* preview_reverse_landscape4.a */,
+				45C149E7272312A600C15D5D /* preview_reverse_landscape4.h */,
 				45684E832722B234004E7A12 /* preview_reverse_landscape8.a */,
+				45C149DE272312A600C15D5D /* preview_reverse_landscape8.h */,
 				45684E8C2722B235004E7A12 /* preview_reverse_portrait2.a */,
+				45C149D3272312A500C15D5D /* preview_reverse_portrait2.h */,
 				45684E9A2722B236004E7A12 /* preview_reverse_portrait4.a */,
+				45C149CE272312A400C15D5D /* preview_reverse_portrait4.h */,
 				45684E912722B235004E7A12 /* preview_reverse_portrait8.a */,
+				45C149E2272312A600C15D5D /* preview_reverse_portrait8.h */,
 			);
 			path = host;
 			sourceTree = "<group>";
@@ -856,7 +862,6 @@
 				45CA974B2317214900698BBE /* halide */,
 				45086D92200155970034293E /* include */,
 				45FA2E3F1FF7D5A200BE34C3 /* source */,
-				45FA2E381FF7D56200BE34C3 /* test_main.cpp */,
 			);
 			path = libMotionCam;
 			sourceTree = "<group>";
@@ -1000,6 +1005,7 @@
 				45C14A06272312A700C15D5D /* inverse_transform.h in Headers */,
 				45C149F6272312A700C15D5D /* fuse_image.h in Headers */,
 				45C149F2272312A700C15D5D /* hdr_mask.h in Headers */,
+				452477F3272945F4005F2367 /* deghost.h in Headers */,
 				45C149FA272312A700C15D5D /* preview_portrait8.h in Headers */,
 				45C149FD272312A700C15D5D /* generate_edges.h in Headers */,
 				45C149EA272312A700C15D5D /* forward_transform.h in Headers */,

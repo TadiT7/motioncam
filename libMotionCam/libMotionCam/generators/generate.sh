@@ -45,6 +45,9 @@ function build_postprocess() {
 	ARCH=$2
 	FLAGS="no_runtime"
 
+	echo "[$ARCH] Building deghost_generator"
+	./tmp/postprocess_generator -g deghost_generator -f deghost -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} input.type=uint16 warpMatrix.type=float32 input.size=4 warpMatrix.size=4
+
 	echo "[$ARCH] Building build_bayer_generator"
 	./tmp/postprocess_generator -g build_bayer_generator -f build_bayer -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS}
 

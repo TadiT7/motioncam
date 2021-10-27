@@ -2328,6 +2328,80 @@ void EnhanceGenerator::schedule_for_cpu() {
         .parallel(v_y);
 }
 
+class DeghostGenerator : public Halide::Generator<DeghostGenerator>, public PostProcessBase {
+public:
+    Input<Func[]> input{"input", 3};    
+    Input<Func[]> warpMatrix{"warpMatrix", 2};
+
+    Input<int> width{"width"};
+    Input<int> height{"height"};
+
+    Output<Buffer<uint16_t>> output{"output", 3};
+
+    void generate();
+
+private:
+    void warp(Func& output, const Func& in, const Func& m);
+};
+
+void DeghostGenerator::warp(Func& output, const Func& in, const Func& m) {
+    Func clamped = BoundaryConditions::repeat_edge(in, { {0, width}, {0, height} } );
+    Func inputF32{"inputF32"};
+
+    inputF32(v_x, v_y, v_c) = cast<float>(clamped(v_x, v_y, v_c));
+
+    Expr fx = m(0, 0)*v_x + m(1, 0)*v_y + m(2, 0);
+    Expr fy = m(0, 1)*v_x + m(1, 1)*v_y + m(2, 1);
+    Expr fw = m(0, 2)*v_x + m(1, 2)*v_y + m(2, 2);
+
+    fx = fx / fw;
+    fy = fy / fw;
+
+    Expr x = cast<int16_t>(fx);
+    Expr y = cast<int16_t>(fy);
+    
+    Expr a = fx - x;
+    Expr b = fy - y;
+    
+    Expr p0 = lerp(inputF32(x, y, v_c), inputF32(x + 1, y, v_c), a);
+    Expr p1 = lerp(inputF32(x, y + 1, v_c), inputF32(x + 1, y + 1, v_c), a);
+    
+    output(v_x, v_y, v_c) = saturating_cast<uint16_t>(lerp(p0, p1, b) + 0.5f);
+}
+
+void DeghostGenerator::generate() {
+    std::vector<Func> warped;
+
+    // Align
+    for(int i = 0; i < input.size(); i++) {
+        Func w{"w" + std::to_string(i)};
+
+        warp(w, input.at(i), warpMatrix.at(i));
+
+        warped.push_back(w);
+    }
+
+    // Deghost
+    Expr m = cast<uint16_t>(0);
+    for(int i = 0; i < warped.size(); i++) {
+        m = max(m, warped.at(i)(v_x, v_y, v_c));
+    }
+
+    output(v_x, v_y, v_c) = m;
+
+    output.compute_root()
+        .bound(v_c, 0, 4)
+        .parallel(v_y, 32)
+        .unroll(v_c)
+        .vectorize(v_x, 8);
+
+    width.set_estimate(2048);
+    height.set_estimate(1536);
+
+    output.set_estimates({{0, 2048}, {0, 1536}, {0, 4}});
+
+}
+
 class PostProcessGenerator : public Halide::Generator<PostProcessGenerator>, public PostProcessBase {
 public:
     Input<Buffer<uint16_t>> in0{"in0", 2 };
@@ -2435,18 +2509,38 @@ void PostProcessGenerator::generate()
 
     chromaEps(v_x, v_y) = 65535.0f*65535.0f*eps*eps;
 
+    //
     // Merge HDR images
+    // Only merge parts of the image which is overexposed with the HDR image
+    //
+
     tonemapInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(0.5f + pow(2.0f, exposure) * demosaic->output(v_x, v_y, v_c));
 
-    Expr L = 1.0f/65535.0f * (0.299f*demosaic->output(v_x, v_y, 0) + 0.587f*demosaic->output(v_x, v_y, 1) + 0.114f*demosaic->output(v_x, v_y, 2));
+    Func hdrInputRepeated{"hdrInputRepeated"};
+    Func baseInput{"baseInput"};
+    Func Linput{"Linput"};
+    Func Minput{"Minput"};
 
-    hdrMask(v_x, v_y) = exp(-16.0f * (L - 1.0f) * (L - 1.0f));
+    baseInput(v_x, v_y, v_c) = demosaic->output(v_x, v_y, v_c)/65535.0f;
+    hdrInputRepeated(v_x, v_y, v_c) = Halide::BoundaryConditions::repeat_edge(hdrInput)(v_x, v_y, v_c)/65535.0f;
 
-    highlights(v_x, v_y, v_c) = (hdrMask(v_x, v_y)*Halide::BoundaryConditions::repeat_edge(hdrInput)(v_x, v_y, v_c)/65535.0f) + ((1.0f - hdrMask(v_x, v_y))*hdrScale*demosaic->output(v_x, v_y, v_c)/65535.0f);
+    Expr L0 = clamp(1.0f/hdrScale * (0.299f*hdrInputRepeated(v_x, v_y, 0) + 0.587f*hdrInputRepeated(v_x, v_y, 1) + 0.114f*hdrInputRepeated(v_x, v_y, 2)), 0.0f, 1.0f);
+    Expr L1 = 0.299f*baseInput(v_x, v_y, 0) + 0.587f*baseInput(v_x, v_y, 1) + 0.114f*baseInput(v_x, v_y, 2);
+
+    Linput(v_x, v_y, v_c) = select(v_c == 0, L0, L1);
+    Minput(v_x, v_y, v_c) = exp(-16.0f * (Linput(v_x, v_y, v_c) - 1.0f) * (Linput(v_x, v_y, v_c) - 1.0f));
+
+    hdrMask(v_x, v_y) = Minput(v_x, v_y, 0) * Minput(v_x, v_y, 1);
+
+    highlights(v_x, v_y, v_c) = (hdrMask(v_x, v_y)*hdrInputRepeated(v_x, v_y, v_c)) + ((1.0f - hdrMask(v_x, v_y))*hdrScale*baseInput(v_x, v_y, v_c));
 
     hdrTonemapInput(v_x, v_y, v_c) = select(useHdr, 
         saturating_cast<uint16_t>(hdrInputGain * highlights(v_x, v_y, v_c) * 65535.0f),
         tonemapInput(v_x, v_y, v_c));
+
+    //
+    // Tonemap
+    //
 
     tonemap = create<TonemapGenerator>();
 
@@ -3426,7 +3520,6 @@ public:
     Input<float> c{"c"};
 
     Output<Buffer<uint8_t>> outputGhost{"outputGhost", 2};
-    Output<Buffer<uint8_t>> outputMask{"outputMask", 2};
 
     void generate();
 
@@ -3461,15 +3554,12 @@ void HdrMaskGenerator::generate() {
     outputGhost(v_x, v_y) = cast<uint8_t>(1);
     outputGhost(v_x, v_y) = outputGhost(v_x, v_y) & ghostMap(v_x + r.x, v_y + r.y);
 
-    outputMask(v_x, v_y) = saturating_cast<uint8_t>((mask0(v_x, v_y)) * 255.0f);
-
     c.set_estimate(4.0f);
 
     input0.set_estimates({{0, 2048}, {0, 1536}});
     input1.set_estimates({{0, 2048}, {0, 1536}});
 
     outputGhost.set_estimates({{0, 2048}, {0, 1536}});
-    outputMask.set_estimates({{0, 2048}, {0, 1536}});
 
     if(!auto_schedule) {
         schedule_for_cpu(get_pipeline(), get_target());
@@ -3493,7 +3583,6 @@ void HdrMaskGenerator::schedule_for_cpu(::Halide::Pipeline pipeline, ::Halide::T
 
     Func f6 = pipeline.get_func(12);
     Func outputGhost = pipeline.get_func(13);
-    Func outputMask = pipeline.get_func(14);
 
     {
         Var x = f6.args()[0];
@@ -3522,16 +3611,6 @@ void HdrMaskGenerator::schedule_for_cpu(::Halide::Pipeline pipeline, ::Halide::T
             .parallel(y_o)
             .parallel(x_o);
     }
-    {
-        Var x = outputMask.args()[0];
-        Var y = outputMask.args()[1];
-        outputMask
-            .compute_root()
-            .split(x, x_vo, x_vi, 32)
-            .vectorize(x_vi)
-            .parallel(y);
-    }
-
 }
 
 //////////////
@@ -3698,5 +3777,6 @@ HALIDE_REGISTER_GENERATOR(PreviewGenerator, preview_generator)
 HALIDE_REGISTER_GENERATOR(HdrMaskGenerator, hdr_mask_generator)
 HALIDE_REGISTER_GENERATOR(LinearImageGenerator, linear_image_generator)
 HALIDE_REGISTER_GENERATOR(BuildBayerGenerator, build_bayer_generator)
+HALIDE_REGISTER_GENERATOR(DeghostGenerator, deghost_generator)
 
 // HALIDE_REGISTER_GENERATOR(TestGenerator, test_generator)

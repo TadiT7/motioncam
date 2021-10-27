@@ -25,6 +25,10 @@ add_library(fast_preview STATIC IMPORTED)
 set_target_properties(fast_preview PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/host/fast_preview.a)
 
+add_library(deghost STATIC IMPORTED)
+set_target_properties(deghost PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/host/deghost.a)
+
 add_library(build_bayer STATIC IMPORTED)
 set_target_properties(build_bayer PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/host/build_bayer.a)
@@ -268,6 +272,7 @@ target_include_directories(motioncam-static PUBLIC
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DqDNGThreadSafe")
 
 target_link_libraries(motioncam-static
+        deghost
         fast_preview
         build_bayer
         hdr_mask
@@ -304,4 +309,8 @@ target_link_libraries(motioncam-static
         opencv_imgproc
         opencv_objdetect
         opencv_video
+        opencv_highgui
+        opencv_xfeatures2d
+        opencv_features2d
+        opencv_calib3d
 )

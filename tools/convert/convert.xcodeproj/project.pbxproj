@@ -319,7 +319,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = x86_64;
-				CODE_SIGN_ENTITLEMENTS = raw2dng/raw2dng.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = "";
@@ -341,6 +341,10 @@
 					"-lopencv_objdetect",
 					"-lopencv_video",
 					"-lopencv_imgproc",
+					"-lopencv_highgui",
+					"-lopencv_xfeatures2d",
+					"-lopencv_features2d",
+					"-lopencv_calib3d",
 				);
 				PRELINK_LIBS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -352,7 +356,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = x86_64;
-				CODE_SIGN_ENTITLEMENTS = raw2dng/raw2dng.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = "";
@@ -374,6 +378,10 @@
 					"-lopencv_objdetect",
 					"-lopencv_video",
 					"-lopencv_imgproc",
+					"-lopencv_highgui",
+					"-lopencv_xfeatures2d",
+					"-lopencv_features2d",
+					"-lopencv_calib3d",
 				);
 				PRELINK_LIBS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
