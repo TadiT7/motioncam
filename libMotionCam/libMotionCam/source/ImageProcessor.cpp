@@ -88,9 +88,9 @@ static std::vector<Halide::Runtime::Buffer<float>> createWaveletBuffers(int widt
 
 namespace motioncam {
     const int EXPANDED_RANGE            = 16384;
-    const float MAX_HDR_ERROR           = 0.02f;
+    const float MAX_HDR_ERROR           = 0.005f;
     const float WHITEPOINT_THRESHOLD    = 1.0f;
-    const float SHADOW_BIAS             = 14.0f;
+    const float SHADOW_BIAS             = 24.0f;
 
     typedef Halide::Runtime::Buffer<float> WaveletBuffer;
 
@@ -398,8 +398,8 @@ namespace motioncam {
                 
         // Estimate black point
         const float minDehazePercent = 0.000f;
-        const float maxDehazePercent = 0.001f;
-        const int maxBlackPointBin = 0.05f * histBins[0] + 0.5f;
+        const float maxDehazePercent = 0.0015f;
+        const int maxBlackPointBin = 0.07f * histBins[0] + 0.5f;
 
         int endBin = 1;
         
@@ -488,16 +488,16 @@ namespace motioncam {
 
     std::vector<float>& ImageProcessor::estimateDenoiseWeights(const float noise) {
         const float NOISE_MAP[] = {
-            0.15f,
-            0.09f,
+            0.08f,
             0.06f,
             0.04f,
             0.02f,
-            0.01f
+            0.01f,
+            0.005f
         };
         
         static std::vector<std::vector<float>> WEIGHTS = {
-            { 12, 6,   2,   1  },
+            { 12, 8,   2,   1  },
             { 8,  4,   2,   1  },
             { 6,  4,   1,   1  },
             { 4,  2,   1,   0  },
@@ -1521,7 +1521,7 @@ namespace motioncam {
                 float p = reference->rawBuffer(x, y, c) - rawContainer.getCameraMetadata().blackLevel[c];
                 float s = EXPANDED_RANGE / (float) (rawContainer.getCameraMetadata().whiteLevel-rawContainer.getCameraMetadata().blackLevel[c]);
                 
-                denoiseInput(x, y, c) = static_cast<uint16_t>( std::max(0.0f, std::min(p * s, (float) EXPANDED_RANGE) )) ;
+                denoiseInput(x, y, c) = static_cast<uint16_t>( std::max(0.0f, std::min(p * s + 0.5f, (float) EXPANDED_RANGE) )) ;
             });
         else {
             const float n = (float) processFrames.size() - 1;
@@ -1530,7 +1530,7 @@ namespace motioncam {
                 float p = fuseOutput(x, y, c) / n - rawContainer.getCameraMetadata().blackLevel[c];
                 float s = EXPANDED_RANGE / (float) (rawContainer.getCameraMetadata().whiteLevel-rawContainer.getCameraMetadata().blackLevel[c]);
                 
-                denoiseInput(x, y, c) = static_cast<uint16_t>( std::max(0.0f, std::min(p * s, (float) EXPANDED_RANGE) ) ) ;
+                denoiseInput(x, y, c) = static_cast<uint16_t>( std::max(0.0f, std::min(p * s + 0.5f, (float) EXPANDED_RANGE) ) ) ;
             });
         }
         
@@ -1565,7 +1565,7 @@ namespace motioncam {
             
             float noiseSigma = estimateNoise(hh);
             float n = noiseSigma / (1e-5f + cv::mean(ll)[0]);
-            
+                        
             normalisedNoise.push_back(n);
             
             if(c == 0) {

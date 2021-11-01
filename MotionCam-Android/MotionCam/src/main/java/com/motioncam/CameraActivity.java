@@ -1682,7 +1682,7 @@ public class CameraActivity extends AppCompatActivity implements
         }
 
         // Switch to night mode if we high ISO/shutter speed
-        if(mIso > 1000 || mExposureTime > CameraManualControl.SHUTTER_SPEED.EXPOSURE_1_40.getExposureTime())
+        if(mIso >= 1600 || mExposureTime > CameraManualControl.SHUTTER_SPEED.EXPOSURE_1_40.getExposureTime())
             setCaptureMode(CaptureMode.NIGHT);
         else
             setCaptureMode(CaptureMode.ZSL);

@@ -2530,7 +2530,7 @@ void PostProcessGenerator::generate()
     Linput(v_x, v_y, v_c) = select(v_c == 0, L0, L1);
     Minput(v_x, v_y, v_c) = exp(-16.0f * (Linput(v_x, v_y, v_c) - 1.0f) * (Linput(v_x, v_y, v_c) - 1.0f));
 
-    hdrMask(v_x, v_y) = Minput(v_x, v_y, 0) * Minput(v_x, v_y, 1);
+    hdrMask(v_x, v_y) = (Minput(v_x, v_y, 0)*Minput(v_x, v_y, 0)) * (Minput(v_x, v_y, 1)*Minput(v_x, v_y, 1));
 
     highlights(v_x, v_y, v_c) = (hdrMask(v_x, v_y)*hdrInputRepeated(v_x, v_y, v_c)) + ((1.0f - hdrMask(v_x, v_y))*hdrScale*baseInput(v_x, v_y, v_c));
 
