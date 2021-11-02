@@ -42,28 +42,24 @@ static Func transpose(Func f) {
 
 class DenoiseGenerator : public Generator<DenoiseGenerator> {
 public:
-    Input<Func> input0{"input0", 3};
-    Input<Func> input1{"input1", 3};
-    Input<Func> pendingOutput{"pendingOutput", 3};
-
+    Input<Buffer<uint16_t>> input0{"input0", 3};
+    Input<Buffer<uint16_t>> input1{"input1", 3};
+    Input<Buffer<float>> pendingOutput{"pendingOutput", 3};
     Input<Buffer<float>> flowMap{"flowMap", 3};
 
     Input<int32_t> width{"width"};
     Input<int32_t> height{"height"};
-    Input<int32_t> whiteLevel{"whiteLevel"};
     
     Input<float> w{"w"};
 
-    Output<Func> output{"output", 3};
+    Output<Buffer<float>> noise{"noise", 1};
+    Output<Buffer<float>> output{"output", 3};
 
     void generate();
 
 private:
     Func blockMean(Func in);
-    void cmpSwap(Expr& a, Expr& b);
-    Expr mean(Expr A, Expr B, Expr C, Expr D);
     Func registeredInput();
-    Func calcThreshold(Func inHigh);
 
     Var v_i{"i"};
     Var v_x{"x"};
@@ -120,67 +116,6 @@ Func DenoiseGenerator::blockMean(Func in) {
     return out;
 }
 
-void DenoiseGenerator::cmpSwap(Expr& a, Expr& b) {
-    Expr tmp = min(a, b);
-    b = max(a, b);
-    a = tmp;
-}
-
-Expr DenoiseGenerator::mean(Expr A, Expr B, Expr C, Expr D) {
-    return sqrt(0.25f * (A+B+C+D));
-}
-
-Func DenoiseGenerator::calcThreshold(Func inHigh) {
-    Func T{"T"};
-
-    // Expr T0 = mean(
-    //     abs(inHigh(v_x-1,  v_y-1,  v_c, v_i)),
-    //     abs(inHigh(v_x,    v_y-1,  v_c, v_i)),
-    //     abs(inHigh(v_x,    v_y,    v_c, v_i)),
-    //     abs(inHigh(v_x-1,  v_y,    v_c, v_i ))
-    // );
-
-    // Expr T1 = mean(
-    //     abs(inHigh(v_x,    v_y-1,  v_c, v_i)),
-    //     abs(inHigh(v_x+1,  v_y-1,  v_c, v_i)),
-    //     abs(inHigh(v_x+1,  v_y,    v_c, v_i)),
-    //     abs(inHigh(v_x,    v_y,    v_c, v_i))
-    // );
-
-    // Expr T2 = mean(
-    //     abs(inHigh(v_x,    v_y,    v_c, v_i)),
-    //     abs(inHigh(v_x+1,  v_y,    v_c, v_i)),
-    //     abs(inHigh(v_x,    v_y+1,  v_c, v_i)),
-    //     abs(inHigh(v_x+1,  v_y+1,  v_c, v_i))
-    // );
-
-    // Expr T3 = mean(
-    //     abs(inHigh(v_x-1,  v_y,    v_c, v_i)),
-    //     abs(inHigh(v_x,    v_y,    v_c, v_i)),
-    //     abs(inHigh(v_x,    v_y+1,  v_c, v_i)),
-    //     abs(inHigh(v_x-1,  v_y+1,  v_c, v_i))
-    // );
-
-    // T(v_x, v_y, v_c, v_i) =
-    //     select( v_i == 0, T0,
-    //             v_i == 1, T1,
-    //             v_i == 2, T2,
-    //                       T3 );
-
-    const int R = 1;
-    Expr M = 0.0f;
-
-    for(int y = -R; y <= R; y++) {
-        for(int x = -R; x <= R; x++) {
-            M += abs(inHigh(v_x + x, v_y + y, v_c, 2));
-        }
-    }
-
-    T(v_x, v_y, v_c) = sqrt(M / 9.0f);
-
-    return T;
-}
-
 Func DenoiseGenerator::registeredInput() {
     Func result{"registeredInput"};
     Func inputF32{"inputF32"};
@@ -216,6 +151,13 @@ Func DenoiseGenerator::registeredInput() {
 void DenoiseGenerator::generate() {    
     Func inRepeated1 = registeredInput();
 
+    RDom r(0, input0.width(), 0, input0.height());
+    Func difference{"difference"};
+
+    difference(v_x, v_y, v_c) = abs(cast<float>(input0(v_x, v_y, v_c)) - cast<float>(inRepeated1(v_x, v_y, v_c)));
+
+    noise(v_c) = sum(difference(r.x, r.y, v_c)) / (input0.width()*input0.height());
+
     Func inSigned0{"inSigned0"}, inSigned1{"inSigned1"};
 
     inSigned0(v_x, v_y, v_c) = cast<int16_t>(input0(clamp(v_x, 0, width - 1), clamp(v_y, 0, height - 1), v_c));
@@ -229,22 +171,19 @@ void DenoiseGenerator::generate() {
 
     inHigh0(v_x, v_y, v_c, v_i) = inSigned0(v_x, v_y, v_c) - inMean0(v_x, v_y, v_c, v_i);
     inHigh1(v_x, v_y, v_c, v_i) = inSigned1(v_x, v_y, v_c) - inMean1(v_x, v_y, v_c, v_i);
-
-    Func T = calcThreshold(inHigh0);
     
     Expr Wh = w;
-    Expr Wm = max(1.0f, w / 2.0f);
+    Expr Wm = w;;
 
     Func outMean{"outMean"}, outHigh{"outHigh"};
 
-    Expr d0 = inHigh0(v_x, v_y, v_c, v_i) - inHigh1(v_x, v_y, v_c, v_i);
-    Expr m0 = abs(d0) / (1e-15f + abs(d0) + Wh*T(v_x, v_y, v_c));
+    Expr d0 = inHigh0(v_x, v_y, v_c, 2) - inHigh1(v_x, v_y, v_c, 2);
+    Expr m0 = abs(d0) / (1e-15f + abs(d0) + Wh*noise(v_c));
+
+    Expr d1 = inMean0(v_x, v_y, v_c, 2) - inMean1(v_x, v_y, v_c, 2);
+    Expr m1 = abs(d1) / (1e-15f + abs(d1) + Wm*noise(v_c));
 
     outHigh(v_x, v_y, v_c, v_i) = inHigh1(v_x, v_y, v_c, v_i) + m0*d0;
-
-    Expr d1 = inMean0(v_x, v_y, v_c, v_i) - inMean1(v_x, v_y, v_c, v_i);
-    Expr m1 = abs(d1) / (1e-15f + abs(d1) + Wm*T(v_x, v_y, v_c));
-
     outMean(v_x, v_y, v_c, v_i) = inMean1(v_x, v_y, v_c, v_i) + m1*d1;
 
     output(v_x, v_y, v_c) = pendingOutput(v_x, v_y, v_c) + 0.25f *
@@ -256,39 +195,32 @@ void DenoiseGenerator::generate() {
     );
 
     input0.set_estimates({{0, 2000}, {0, 1500}, {0, 4}});
+    input1.set_estimates({{0, 2000}, {0, 1500}, {0, 4}});
     width.set_estimate(2000);
     height.set_estimate(1500);
-    whiteLevel.set_estimate(1023);
-    input1.set_estimates({{0, 2000}, {0, 1500}, {0, 4}});
+    w.set_estimate(1.0f);
     pendingOutput.set_estimates({{0, 2000}, {0, 1500}, {0, 4}});
     flowMap.set_estimates({{0, 2000}, {0, 1500}, {0, 4}});
 
+    noise.set_estimates({{0, 4}});
     output.set_estimates({{0, 2000}, {0, 1500}, {0, 4}});
         
     if (!auto_schedule) {
-        inSigned0
-            .compute_at(output, v_yo)
-            .store_in(MemoryType::Stack)
-            .reorder(v_x, v_y, v_c)
-            .unroll(v_c)
-            .vectorize(v_x, 8);
-
-        inSigned1
-            .compute_at(output, v_yo)
-            .store_in(MemoryType::Stack)
-            .reorder(v_x, v_y, v_c)
-            .unroll(v_c)
-            .vectorize(v_x, 8);
+        noise
+            .compute_root()
+            .parallel(v_c);
 
         output
             .compute_root()
-            .reorder(v_x, v_y, v_c)
-            .bound(v_c, 0, 4)
-            .split(v_y, v_yo, v_yi, 64)
-            .unroll(v_yi, 2)
-            .unroll(v_c)
-            .vectorize(v_x, 8)
-            .parallel(v_yo);
+            .split(v_x, v_xo, v_xi, 8)
+            .vectorize(v_xi)
+            .parallel(v_c);
+
+        inRepeated1
+            .compute_root()
+            .split(v_x, v_xo, v_xi, 16)
+            .vectorize(v_xi)
+            .parallel(v_c);
     }
 }
 

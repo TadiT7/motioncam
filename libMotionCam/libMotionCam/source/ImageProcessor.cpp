@@ -1420,50 +1420,11 @@ namespace motioncam {
         
         auto processFrames = rawContainer.getFrames();
         auto it = processFrames.begin();
-        
-        // # frames -> maximum weight
-        std::vector<int> MAX_WEIGHT_FOR_FRAMES = {
-            4,  2,
-            8,  4,
-            12, 12,
-            16, 16,
-        };
-        
-        // ev -> weight
-        std::vector<int> WEIGHT_FOR_EV = {
-            16, 2,
-            8,  4,
-            4,  8,
-            0,  12,
-            -4, 16
-        };
-        
+
         int ev = (int) (0.5f + calcEv(rawContainer.getCameraMetadata(), reference->metadata));
-
-        //
-        // Get weight when merging frames. We'll want a higher weight with more noise but we reduce the weight when
-        // the number of frames is lower. The fewer frames we have to merge the less aggressive we can be when merging because
-        // of a higher chance of introducing artifacts into the final output.
-        //
         
-        int w0 = MAX_WEIGHT_FOR_FRAMES[MAX_WEIGHT_FOR_FRAMES.size()-1];
-        int w1 = WEIGHT_FOR_EV[WEIGHT_FOR_EV.size()-1];
-        
-        for(int i = 0; i < MAX_WEIGHT_FOR_FRAMES.size(); i+=2) {
-            if(processFrames.size() <= MAX_WEIGHT_FOR_FRAMES[i] ) {
-                w0 = MAX_WEIGHT_FOR_FRAMES[i + 1];
-                break;
-            }
-        }
-
-        for(int i = 0; i < WEIGHT_FOR_EV.size(); i+=2) {
-            if(ev >= WEIGHT_FOR_EV[i] ) {
-                w1 = WEIGHT_FOR_EV[i + 1];
-                break;
-            }
-        }
-
-        int w = std::min(w0, w1);
+        float w = std::max(0.5f, -ev / 3.0f + 3.0f);
+        int patchSize = ev < 8 ? 32 : 16;
                 
         while(it != processFrames.end()) {
             if(rawContainer.getReferenceImage() == *it) {
@@ -1483,8 +1444,8 @@ namespace motioncam {
             cv::Ptr<cv::DISOpticalFlow> opticalFlow =
                 cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_ULTRAFAST);
                                 
-            opticalFlow->setPatchSize(16);
-            opticalFlow->setPatchStride(8);
+            opticalFlow->setPatchSize(patchSize);
+            opticalFlow->setPatchStride(patchSize/2);
             opticalFlow->setGradientDescentIterations(16);
             opticalFlow->setUseMeanNormalization(true);
             opticalFlow->setUseSpatialPropagation(true);
@@ -1493,15 +1454,17 @@ namespace motioncam {
             
             Halide::Runtime::Buffer<float> flowBuffer =
                 Halide::Runtime::Buffer<float>::make_interleaved((float*) flow.data, flow.cols, flow.rows, 2);
-                    
+
+            Halide::Runtime::Buffer<float> noise(4);
+
             fuse_denoise(reference->rawBuffer,
                          current->rawBuffer,
                          fuseOutput,
                          flowBuffer,
                          reference->rawBuffer.width(),
                          reference->rawBuffer.height(),
-                         rawContainer.getCameraMetadata().whiteLevel,
                          w,
+                         noise,
                          fuseOutput);
             
             progressHelper.nextFusedImage();
@@ -1565,7 +1528,7 @@ namespace motioncam {
             
             float noiseSigma = estimateNoise(hh);
             float n = noiseSigma / (1e-5f + cv::mean(ll)[0]);
-                        
+        
             normalisedNoise.push_back(n);
             
             if(c == 0) {
