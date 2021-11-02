@@ -40,19 +40,134 @@ static Func transpose(Func f) {
     return fT;
 }
 
+class MeasureNoiseGenerator : public Generator<MeasureNoiseGenerator> {
+public:
+    Input<Buffer<uint16_t>> input{"input", 3};
+    Output<Buffer<float>> output{"output", 3};
+
+    Input<int> blockSize{"blockSize"};
+
+    void generate();
+    void apply_schedule_measure_noise(::Halide::Pipeline pipeline, ::Halide::Target target);
+
+    Var v_x{"x"};
+    Var v_y{"y"};
+    Var v_c{"c"};    
+};
+
+void MeasureNoiseGenerator::generate() {
+    Func blocks{"blocks"};
+    Func mean{"mean"};
+    Func noise{"noise"};
+
+    RDom r(0, blockSize, 0, blockSize);
+
+    blocks(v_x, v_y, v_c) = cast<float>(BoundaryConditions::repeat_edge(input)(v_x, v_y, v_c));
+    mean(v_x, v_y, v_c) = sum(blocks(v_x*blockSize+r.x, v_y*blockSize+r.y, v_c)) / (blockSize*blockSize);
+    noise(v_x, v_y, v_c) = abs(input(v_x, v_y, v_c) - mean(v_x/blockSize, v_y/blockSize, v_c));
+
+    output(v_x, v_y, v_c) = sum(noise(v_x*blockSize+r.x, v_y*blockSize+r.y, v_c)) / (blockSize*blockSize);
+
+    input.set_estimates({{0, 2048}, {0, 1536}, {0, 4}});
+    blockSize.set_estimate(16);
+    output.set_estimates({{0, 128}, {0, 96}, {0, 4}});
+
+    if (!auto_schedule) {
+        apply_schedule_measure_noise(get_pipeline(), get_target());
+    }
+}
+
+void MeasureNoiseGenerator::apply_schedule_measure_noise(::Halide::Pipeline pipeline, ::Halide::Target target) {
+    using ::Halide::Func;
+    using ::Halide::MemoryType;
+    using ::Halide::RVar;
+    using ::Halide::TailStrategy;
+    using ::Halide::Var;
+    Var x_vi("x_vi");
+    Var x_vo("x_vo");
+
+    Func mean = pipeline.get_func(5);
+    Func output = pipeline.get_func(8);
+    Func sum = pipeline.get_func(4);
+    Func sum_1 = pipeline.get_func(7);
+
+    {
+        Var x = mean.args()[0];
+        Var y = mean.args()[1];
+        Var c = mean.args()[2];
+        mean
+            .compute_root()
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+    }
+    {
+        Var x = output.args()[0];
+        Var y = output.args()[1];
+        Var c = output.args()[2];
+        output
+            .compute_root()
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+    }
+    {
+        Var x = sum.args()[0];
+        Var y = sum.args()[1];
+        Var c = sum.args()[2];
+        RVar r7$x(sum.update(0).get_schedule().rvars()[0].var);
+        RVar r7$y(sum.update(0).get_schedule().rvars()[1].var);
+        sum
+            .compute_root()
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+        sum.update(0)
+            .reorder(r7$x, x, r7$y, y, c)
+            .split(x, x_vo, x_vi, 8, TailStrategy::GuardWithIf)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+    }
+    {
+        Var x = sum_1.args()[0];
+        Var y = sum_1.args()[1];
+        Var c = sum_1.args()[2];
+        RVar r7$x(sum_1.update(0).get_schedule().rvars()[0].var);
+        RVar r7$y(sum_1.update(0).get_schedule().rvars()[1].var);
+        sum_1
+            .compute_root()
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+        sum_1.update(0)
+            .reorder(r7$x, x, r7$y, y, c)
+            .split(x, x_vo, x_vi, 8, TailStrategy::GuardWithIf)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+    }
+}
+
 class DenoiseGenerator : public Generator<DenoiseGenerator> {
 public:
+    GeneratorParam<int> window{"window", 1};
+
     Input<Buffer<uint16_t>> input0{"input0", 3};
     Input<Buffer<uint16_t>> input1{"input1", 3};
     Input<Buffer<float>> pendingOutput{"pendingOutput", 3};
     Input<Buffer<float>> flowMap{"flowMap", 3};
+    Input<Buffer<float>> noise{"noise", 1};
 
     Input<int32_t> width{"width"};
     Input<int32_t> height{"height"};
     
     Input<float> w{"w"};
 
-    Output<Buffer<float>> noise{"noise", 1};
     Output<Buffer<float>> output{"output", 3};
 
     void generate();
@@ -81,39 +196,22 @@ private:
 };
 
 Func DenoiseGenerator::blockMean(Func in) {
-    Expr M0 =
-        (in(v_x - 1,  v_y - 1,    v_c) + 
-         in(v_x,      v_y - 1,    v_c) + 
-         in(v_x,      v_y,        v_c) +
-         in(v_x - 1,  v_y,        v_c)) / 4;
+    const int32_t R = window / 2;
+    const int32_t WINDOW = window;
 
-    Expr M1 =
-        (in(v_x,      v_y - 1,    v_c) + 
-         in(v_x + 1,  v_y - 1,    v_c) + 
-         in(v_x + 1,  v_y,        v_c) +
-         in(v_x,      v_y,        v_c)) / 4;
+    Func M{"blockMean"};
 
-    Expr M2 =
-        (in(v_x,      v_y,        v_c) + 
-         in(v_x + 1,  v_y,        v_c) + 
-         in(v_x,      v_y + 1,    v_c) +
-         in(v_x + 1,  v_y + 1,    v_c)) / 4;
+    M(v_x, v_y, v_c) = cast<int32_t>(0);
 
-    Expr M3 =
-        (in(v_x - 1,  v_y,        v_c) + 
-         in(v_x,      v_y,        v_c) + 
-         in(v_x,      v_y + 1,    v_c) +
-         in(v_x - 1,  v_y + 1,    v_c)) / 4;
+    for(int y = -R; y <= R; y++) {
+        for(int x = -R; x <= R; x++) {
+            M(v_x, v_y, v_c) += in(v_x+x, v_y+y, v_c);
+        }
+    }
 
-    Func out;
+    M(v_x, v_y, v_c) /= (WINDOW*WINDOW);
 
-    out(v_x, v_y, v_c, v_i) =
-        select( v_i == 0, M0,
-                v_i == 1, M1,
-                v_i == 2, M2,
-                          M3);
-
-    return out;
+    return M;
 }
 
 Func DenoiseGenerator::registeredInput() {
@@ -150,14 +248,6 @@ Func DenoiseGenerator::registeredInput() {
 
 void DenoiseGenerator::generate() {    
     Func inRepeated1 = registeredInput();
-
-    RDom r(0, input0.width(), 0, input0.height());
-    Func difference{"difference"};
-
-    difference(v_x, v_y, v_c) = abs(cast<float>(input0(v_x, v_y, v_c)) - cast<float>(inRepeated1(v_x, v_y, v_c)));
-
-    noise(v_c) = sum(difference(r.x, r.y, v_c)) / (input0.width()*input0.height());
-
     Func inSigned0{"inSigned0"}, inSigned1{"inSigned1"};
 
     inSigned0(v_x, v_y, v_c) = cast<int16_t>(input0(clamp(v_x, 0, width - 1), clamp(v_y, 0, height - 1), v_c));
@@ -169,31 +259,21 @@ void DenoiseGenerator::generate() {
     inMean0 = blockMean(inSigned0);
     inMean1 = blockMean(inSigned1);
 
-    inHigh0(v_x, v_y, v_c, v_i) = inSigned0(v_x, v_y, v_c) - inMean0(v_x, v_y, v_c, v_i);
-    inHigh1(v_x, v_y, v_c, v_i) = inSigned1(v_x, v_y, v_c) - inMean1(v_x, v_y, v_c, v_i);
+    inHigh0(v_x, v_y, v_c) = inSigned0(v_x, v_y, v_c) - inMean0(v_x, v_y, v_c);
+    inHigh1(v_x, v_y, v_c) = inSigned1(v_x, v_y, v_c) - inMean1(v_x, v_y, v_c);
     
-    Expr Wh = w;
-    Expr Wm = w;;
-
     Func outMean{"outMean"}, outHigh{"outHigh"};
 
-    Expr d0 = inHigh0(v_x, v_y, v_c, 2) - inHigh1(v_x, v_y, v_c, 2);
-    Expr m0 = abs(d0) / (1e-15f + abs(d0) + Wh*noise(v_c));
+    Expr d0 = inHigh0(v_x, v_y, v_c) - inHigh1(v_x, v_y, v_c);
+    Expr d1 = inMean0(v_x, v_y, v_c) - inMean1(v_x, v_y, v_c);
 
-    Expr d1 = inMean0(v_x, v_y, v_c, 2) - inMean1(v_x, v_y, v_c, 2);
-    Expr m1 = abs(d1) / (1e-15f + abs(d1) + Wm*noise(v_c));
+    Expr m = abs(d1) / (1e-15f + abs(d1) + w*noise(v_c));
 
-    outHigh(v_x, v_y, v_c, v_i) = inHigh1(v_x, v_y, v_c, v_i) + m0*d0;
-    outMean(v_x, v_y, v_c, v_i) = inMean1(v_x, v_y, v_c, v_i) + m1*d1;
+    outHigh(v_x, v_y, v_c) = inHigh1(v_x, v_y, v_c) + m*d0;
+    outMean(v_x, v_y, v_c) = inMean1(v_x, v_y, v_c) + m*d1;
 
-    output(v_x, v_y, v_c) = pendingOutput(v_x, v_y, v_c) + 0.25f *
-    (
-        (outMean(v_x, v_y, v_c, 0) + outHigh(v_x, v_y, v_c, 0)) +
-        (outMean(v_x, v_y, v_c, 1) + outHigh(v_x, v_y, v_c, 1)) +
-        (outMean(v_x, v_y, v_c, 2) + outHigh(v_x, v_y, v_c, 2)) +
-        (outMean(v_x, v_y, v_c, 3) + outHigh(v_x, v_y, v_c, 3))
-    );
-
+    output(v_x, v_y, v_c) = pendingOutput(v_x, v_y, v_c) + outMean(v_x, v_y, v_c) + outHigh(v_x, v_y, v_c);
+    
     input0.set_estimates({{0, 2000}, {0, 1500}, {0, 4}});
     input1.set_estimates({{0, 2000}, {0, 1500}, {0, 4}});
     width.set_estimate(2000);
@@ -206,21 +286,21 @@ void DenoiseGenerator::generate() {
     output.set_estimates({{0, 2000}, {0, 1500}, {0, 4}});
         
     if (!auto_schedule) {
-        noise
-            .compute_root()
-            .parallel(v_c);
-
         output
             .compute_root()
-            .split(v_x, v_xo, v_xi, 8)
-            .vectorize(v_xi)
-            .parallel(v_c);
+            .bound(v_c, 0, 4)
+            .reorder(v_c, v_x, v_y)
+            .vectorize(v_x, 8)
+            .unroll(v_c)
+            .parallel(v_y);
 
         inRepeated1
             .compute_root()
-            .split(v_x, v_xo, v_xi, 16)
-            .vectorize(v_xi)
-            .parallel(v_c);
+            .bound(v_c, 0, 4)
+            .reorder(v_c, v_x, v_y)
+            .vectorize(v_x, 8)
+            .unroll(v_c)
+            .parallel(v_y);
     }
 }
 
@@ -1097,6 +1177,7 @@ void FuseImageGenerator::schedule_for_cpu() {
     }
 }
 
+HALIDE_REGISTER_GENERATOR(MeasureNoiseGenerator, measure_noise_generator)
 HALIDE_REGISTER_GENERATOR(DenoiseGenerator, denoise_generator)
 HALIDE_REGISTER_GENERATOR(ForwardTransformGenerator, forward_transform_generator)
 HALIDE_REGISTER_GENERATOR(FuseImageGenerator, fuse_image_generator)

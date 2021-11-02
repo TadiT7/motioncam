@@ -652,8 +652,15 @@ public class CameraActivity extends AppCompatActivity implements
         File videoOutputPath = new File(docs.getPath() + File.separator + "MotionCam");
         File outputFile = new File(videoOutputPath, CameraProfile.generateFilename("VIDEO"));
 
-        if(!videoOutputPath.exists() && !videoOutputPath.mkdirs()) {
-            Log.e(TAG, "Failed to create " + videoOutputPath.toString());
+        try {
+            if (!videoOutputPath.exists() && !videoOutputPath.mkdirs()) {
+                Log.e(TAG, "Failed to create " + videoOutputPath.toString());
+                return;
+            }
+        }
+        catch(Exception e) {
+            Log.e(TAG, "Documents directory is not available");
+            return;
         }
 
         Log.i(TAG, "Starting RAW video recording (max memory usage: " + mSettings.rawVideoMemoryUseBytes + ")");

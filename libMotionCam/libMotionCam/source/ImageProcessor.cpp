@@ -18,8 +18,11 @@
 #include "forward_transform.h"
 #include "inverse_transform.h"
 #include "fuse_image.h"
-#include "fuse_denoise.h"
+#include "fuse_denoise_3x3.h"
+#include "fuse_denoise_7x7.h"
+#include "fuse_denoise_11x11.h"
 #include "fast_preview.h"
+#include "measure_noise.h"
 
 #include "linear_image.h"
 #include "hdr_mask.h"
@@ -90,7 +93,7 @@ namespace motioncam {
     const int EXPANDED_RANGE            = 16384;
     const float MAX_HDR_ERROR           = 0.005f;
     const float WHITEPOINT_THRESHOLD    = 1.0f;
-    const float SHADOW_BIAS             = 24.0f;
+    const float SHADOW_BIAS             = 20.0f;
 
     typedef Halide::Runtime::Buffer<float> WaveletBuffer;
 
@@ -372,7 +375,7 @@ namespace motioncam {
         settings.whitePoint = 1.0f;
         settings.sharpen0   = 1.0f;
         settings.sharpen1   = 1.0f;
-        settings.contrast   = 0.0f;
+        settings.contrast   = 0.35f;
         settings.pop        = 1.25f;
                 
         auto previewBuffer = createPreview(rawBuffer, 2, cameraMetadata, settings);
@@ -398,8 +401,8 @@ namespace motioncam {
                 
         // Estimate black point
         const float minDehazePercent = 0.000f;
-        const float maxDehazePercent = 0.0015f;
-        const int maxBlackPointBin = 0.07f * histBins[0] + 0.5f;
+        const float maxDehazePercent = 0.00125f;
+        const int maxBlackPointBin = 0.06f * histBins[0] + 0.5f;
 
         int endBin = 1;
         
@@ -1423,8 +1426,36 @@ namespace motioncam {
 
         int ev = (int) (0.5f + calcEv(rawContainer.getCameraMetadata(), reference->metadata));
         
-        float w = std::max(0.5f, -ev / 3.0f + 3.0f);
+        float w = 1.0f/sqrt(2.0f);
         int patchSize = ev < 8 ? 32 : 16;
+        auto method = &fuse_denoise_3x3;
+
+        if(ev < 0)
+            method = &fuse_denoise_11x11;
+        else if(ev < 8)
+            method = &fuse_denoise_7x7;
+        else
+            method = &fuse_denoise_3x3;
+        
+        //
+        // Measure noise
+        //
+        
+        Halide::Runtime::Buffer<float> noiseBuffer(reference->rawBuffer.width()/patchSize, reference->rawBuffer.height()/patchSize, 4);
+        float N[4] = { 0, 0, 0, 0 };
+        
+        measure_noise(reference->rawBuffer, patchSize, noiseBuffer);
+        
+        for(int c = 0; c < 4; c++) {
+            cv::Mat noise(noiseBuffer.height(), noiseBuffer.width(), CV_32F, noiseBuffer.data() + c*noiseBuffer.stride(2));
+            N[c] = findMedian(noise);
+        }
+        
+        Halide::Runtime::Buffer<float> thresholdBuffer(&N[0], 4);
+        
+        //
+        // Fuse
+        //
                 
         while(it != processFrames.end()) {
             if(rawContainer.getReferenceImage() == *it) {
@@ -1456,16 +1487,17 @@ namespace motioncam {
                 Halide::Runtime::Buffer<float>::make_interleaved((float*) flow.data, flow.cols, flow.rows, 2);
 
             Halide::Runtime::Buffer<float> noise(4);
-
-            fuse_denoise(reference->rawBuffer,
-                         current->rawBuffer,
-                         fuseOutput,
-                         flowBuffer,
-                         reference->rawBuffer.width(),
-                         reference->rawBuffer.height(),
-                         w,
-                         noise,
-                         fuseOutput);
+            
+            method(
+                reference->rawBuffer,
+                current->rawBuffer,
+                fuseOutput,
+                flowBuffer,
+                thresholdBuffer,
+                reference->rawBuffer.width(),
+                reference->rawBuffer.height(),
+                w,
+                fuseOutput);
             
             progressHelper.nextFusedImage();
 
@@ -1788,7 +1820,7 @@ namespace motioncam {
             float sum = 0;
 
             for(int x = histogram.rows - 1; x >= 0; x--) {
-                if( sum > 0.0f )
+                if( sum > 1e-5f )
                     break;
 
                 p[c] = x + 1;

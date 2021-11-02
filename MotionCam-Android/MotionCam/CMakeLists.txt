@@ -245,9 +245,21 @@ add_library(postprocess STATIC IMPORTED)
 set_target_properties(postprocess PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/postprocess.a)
 
-add_library(fuse_denoise STATIC IMPORTED)
-set_target_properties(fuse_denoise PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/fuse_denoise.a)
+add_library(measure_noise STATIC IMPORTED)
+set_target_properties(measure_noise PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/measure_noise.a)
+
+add_library(fuse_denoise_3x3 STATIC IMPORTED)
+set_target_properties(fuse_denoise_3x3 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/fuse_denoise_3x3.a)
+
+add_library(fuse_denoise_7x7 STATIC IMPORTED)
+set_target_properties(fuse_denoise_7x7 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/fuse_denoise_7x7.a)
+
+add_library(fuse_denoise_11x11 STATIC IMPORTED)
+set_target_properties(fuse_denoise_11x11 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/fuse_denoise_11x11.a)
 
 add_library(forward_transform STATIC IMPORTED)
 set_target_properties(forward_transform PROPERTIES IMPORTED_LOCATION
@@ -492,7 +504,10 @@ set(native-camera-libs
         preview_landscape8
         preview_reverse_landscape8
         postprocess
-        fuse_denoise
+        measure_noise
+        fuse_denoise_3x3
+        fuse_denoise_7x7
+        fuse_denoise_11x11
         forward_transform
         fuse_image
         inverse_transform
