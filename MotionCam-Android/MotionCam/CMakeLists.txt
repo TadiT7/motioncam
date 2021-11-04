@@ -137,6 +137,10 @@ add_library(deghost STATIC IMPORTED)
 set_target_properties(deghost PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/deghost.a)
 
+add_library(build_bayer STATIC IMPORTED)
+set_target_properties(build_bayer PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/build_bayer.a)
+
 add_library(fast_preview STATIC IMPORTED)
 set_target_properties(fast_preview PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/fast_preview.a)
@@ -249,9 +253,9 @@ add_library(measure_noise STATIC IMPORTED)
 set_target_properties(measure_noise PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/measure_noise.a)
 
-add_library(fuse_denoise_3x3 STATIC IMPORTED)
-set_target_properties(fuse_denoise_3x3 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/fuse_denoise_3x3.a)
+add_library(fuse_denoise_5x5 STATIC IMPORTED)
+set_target_properties(fuse_denoise_5x5 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/fuse_denoise_5x5.a)
 
 add_library(fuse_denoise_7x7 STATIC IMPORTED)
 set_target_properties(fuse_denoise_7x7 PROPERTIES IMPORTED_LOCATION
@@ -397,6 +401,7 @@ add_library( # Sets the name of the library.
         ${libmotioncam-src}/source/Measure.cpp
         ${libmotioncam-src}/source/RawBufferManager.cpp
         ${libmotioncam-src}/source/RawBufferStreamer.cpp
+        ${libmotioncam-src}/source/MotionCam.cpp
         ${libmotioncam-src}/source/RawContainer.cpp
         ${libmotioncam-src}/source/Temperature.cpp
         ${libmotioncam-src}/source/Settings.cpp
@@ -424,6 +429,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDNG_SUPPORT -DqAndroid -DqDNGThreadSaf
 set(native-camera-cpp
         src/main/cpp/NativeCamera.cpp
         src/main/cpp/Processor.cpp
+        src/main/cpp/ImageProcessorListener.cpp
+        src/main/cpp/DngConverterListener.cpp
         src/main/cpp/JavaUtils.cpp
         src/main/cpp/NativeCameraBridgeListener.cpp
         src/main/cpp/NativeRawPreviewListener.cpp
@@ -485,6 +492,7 @@ set(native-camera-libs
 
         # Halide libraries
         deghost
+        build_bayer
         fast_preview
         hdr_mask
         linear_image
@@ -505,7 +513,7 @@ set(native-camera-libs
         preview_reverse_landscape8
         postprocess
         measure_noise
-        fuse_denoise_3x3
+        fuse_denoise_5x5
         fuse_denoise_7x7
         fuse_denoise_11x11
         forward_transform

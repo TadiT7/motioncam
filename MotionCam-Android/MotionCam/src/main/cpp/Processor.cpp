@@ -1,75 +1,13 @@
 #include <jni.h>
 #include <string>
-#include <future>
 
-#include <motioncam/ImageProcessor.h>
+#include <motioncam/MotionCam.h>
 #include <motioncam/RawBufferManager.h>
-#include <motioncam/Settings.h>
-#include <motioncam/Exceptions.h>
-#include <motioncam/Logger.h>
+
+#include "ImageProcessorListener.h"
+#include "DngConverterListener.h"
 
 using namespace motioncam;
-
-class ImageProcessListener : public ImageProcessorProgress {
-public:
-    ImageProcessListener(JNIEnv* env, jobject progressListener) :
-        mEnv(env), mProgressListenerRef(env->NewGlobalRef(progressListener)) {
-    }
-
-    ~ImageProcessListener() {
-        mEnv->DeleteGlobalRef(mProgressListenerRef);
-    }
-
-    std::string onPreviewSaved(const std::string& outputPath) const override {
-        jmethodID onCompletedMethod = mEnv->GetMethodID(
-                mEnv->GetObjectClass(mProgressListenerRef),
-                "onPreviewSaved",
-                "(Ljava/lang/String;)Ljava/lang/String;");
-
-        auto result = (jstring)
-                mEnv->CallObjectMethod(mProgressListenerRef, onCompletedMethod, mEnv->NewStringUTF(outputPath.c_str()));
-
-        const char *resultStr = mEnv->GetStringUTFChars(result, nullptr);
-        std::string metadata(resultStr);
-
-        mEnv->ReleaseStringUTFChars(result, resultStr);
-
-        return metadata;
-    }
-
-    bool onProgressUpdate(int progress) const override {
-        jmethodID onProgressMethod = mEnv->GetMethodID(
-                mEnv->GetObjectClass(mProgressListenerRef),
-                "onProgressUpdate",
-                "(I)Z");
-
-        jboolean result = mEnv->CallBooleanMethod(mProgressListenerRef, onProgressMethod, progress);
-
-        return result == 1;
-    }
-
-    void onCompleted() const override {
-        jmethodID onCompletedMethod = mEnv->GetMethodID(
-                mEnv->GetObjectClass(mProgressListenerRef),
-                "onCompleted",
-                "()V");
-
-        mEnv->CallVoidMethod(mProgressListenerRef, onCompletedMethod);
-    }
-
-    void onError(const std::string& error) const override {
-        jmethodID onErrorMethod = mEnv->GetMethodID(
-                mEnv->GetObjectClass(mProgressListenerRef),
-                "onError",
-                "(Ljava/lang/String;)V");
-
-        mEnv->CallObjectMethod(mProgressListenerRef, onErrorMethod, mEnv->NewStringUTF(error.c_str()));
-    }
-
-private:
-    JNIEnv* mEnv;
-    jobject mProgressListenerRef;
-};
 
 static std::string gLastError;
 
@@ -92,7 +30,7 @@ jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_ProcessInMemory(
     try {
         ImageProcessListener listener(env, progressListener);
 
-        motioncam::ImageProcessor::process(*container, outputPath, listener);
+        motioncam::ProcessImage(*container, outputPath, listener);
     }
     catch(std::runtime_error& e) {
         jclass exClass = env->FindClass("java/lang/RuntimeException");
@@ -100,6 +38,7 @@ jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_ProcessInMemory(
             return JNI_FALSE;
         }
 
+        gLastError = e.what();
         env->ThrowNew(exClass, e.what());
     }
 
@@ -123,14 +62,11 @@ jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_ProcessFile(
     env->ReleaseStringUTFChars(inputPath_, javaInputPath);
     env->ReleaseStringUTFChars(outputPath_, javaOutputPath);
 
-    //
     // Process the image
-    //
-
     try {
         ImageProcessListener listener(env, progressListener);
 
-        motioncam::ImageProcessor::process(inputPath, outputPath, listener);
+        motioncam::ProcessImage(inputPath, outputPath, listener);
     }
     catch(std::runtime_error& e) {
         jclass exClass = env->FindClass("java/lang/RuntimeException");
@@ -138,6 +74,33 @@ jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_ProcessFile(
             return JNI_FALSE;
         }
 
+        gLastError = e.what();
+        env->ThrowNew(exClass, e.what());
+    }
+
+    return JNI_TRUE;
+}
+
+extern "C" JNIEXPORT
+jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_ProcessVideo(
+        JNIEnv *env, jobject thiz, jstring inputPath_, jobject progressListener) {
+
+    const char* javaInputPath = env->GetStringUTFChars(inputPath_, nullptr);
+    std::string inputPath(javaInputPath);
+
+    // Process the video
+    try {
+        DngConverterListener listener(env, progressListener);
+
+        motioncam::ConvertVideoToDNG(inputPath, listener, 4);
+    }
+    catch(std::runtime_error& e) {
+        jclass exClass = env->FindClass("java/lang/RuntimeException");
+        if (exClass == nullptr) {
+            return JNI_FALSE;
+        }
+
+        gLastError = e.what();
         env->ThrowNew(exClass, e.what());
     }
 

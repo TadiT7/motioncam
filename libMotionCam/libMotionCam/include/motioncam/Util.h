@@ -16,16 +16,19 @@ namespace motioncam {
         
         class ZipWriter {
         public:
+            ZipWriter(const int fd);
             ZipWriter(const std::string& pathname, bool append=false);
             ~ZipWriter();
             
             void addFile(const std::string& filename, const std::string& data);
+            void addFile(const std::string& filename, const void* data, const size_t numBytes);
             void addFile(const std::string& filename, const std::vector<uint8_t>& data, const size_t numBytes);
             
             void commit();
             
         private:
             mz_zip_archive mZip;
+            FILE* mFile;
             bool mCommited;
         };
 
@@ -55,7 +58,18 @@ namespace motioncam {
         void GetBasePath(const std::string& path, std::string& basePath, std::string& filename);
     
         cv::Mat BuildRawImage(std::vector<cv::Mat> channels, int cropX, int cropY);
-        void WriteDng(cv::Mat& rawImage, const RawCameraMetadata& cameraMetadata, const RawImageMetadata& imageMetadata, const std::string& outputPath);
+    
+        void WriteDng(cv::Mat& rawImage,
+                      const RawCameraMetadata& cameraMetadata,
+                      const RawImageMetadata& imageMetadata,
+                      const std::string& outputPath);
+    
+        void WriteDng(cv::Mat& rawImage,
+                      const RawCameraMetadata& cameraMetadata,
+                      const RawImageMetadata& imageMetadata,
+                      ZipWriter& zipWriter,
+                      const std::string& outputName);
+
     }
 }
 

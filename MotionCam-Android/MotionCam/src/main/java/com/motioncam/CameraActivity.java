@@ -19,8 +19,6 @@ import android.location.Location;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Environment;
-import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.util.Size;
@@ -48,6 +46,10 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.widget.ImageViewCompat;
 import androidx.viewpager2.widget.ViewPager2;
+import androidx.work.Data;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkManager;
 
 import com.bumptech.glide.Glide;
 import com.google.android.gms.location.FusedLocationProviderClient;
@@ -66,10 +68,11 @@ import com.motioncam.camera.PostProcessSettings;
 import com.motioncam.databinding.CameraActivityBinding;
 import com.motioncam.model.CameraProfile;
 import com.motioncam.model.SettingsViewModel;
-import com.motioncam.processor.ProcessorReceiver;
-import com.motioncam.processor.ProcessorService;
 import com.motioncam.ui.BitmapDrawView;
 import com.motioncam.ui.CameraCapturePreviewAdapter;
+import com.motioncam.worker.ImageProcessWorker;
+import com.motioncam.worker.State;
+import com.motioncam.worker.VideoProcessWorker;
 
 import java.io.File;
 import java.io.IOException;
@@ -80,7 +83,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -94,7 +96,6 @@ public class CameraActivity extends AppCompatActivity implements
         NativeCameraSessionBridge.CameraSessionListener,
         NativeCameraSessionBridge.CameraRawPreviewListener,
         View.OnTouchListener,
-        ProcessorReceiver.Receiver,
         MotionLayout.TransitionListener, AsyncNativeCameraOps.CaptureImageListener {
 
     public static final String TAG = "MotionCam";
@@ -102,7 +103,11 @@ public class CameraActivity extends AppCompatActivity implements
     private static final int PERMISSION_REQUEST_CODE = 1;
     private static final int SETTINGS_ACTIVITY_REQUEST_CODE = 0x10;
 
-    private static final CameraManualControl.SHUTTER_SPEED MAX_EXPOSURE_TIME = CameraManualControl.SHUTTER_SPEED.EXPOSURE_30__0;
+    public static final String WORKER_IMAGE_PROCESSOR = "ImageProcessor";
+    public static final String WORKER_VIDEO_PROCESSOR = "VideoProcessor";
+
+    private static final CameraManualControl.SHUTTER_SPEED MAX_EXPOSURE_TIME =
+            CameraManualControl.SHUTTER_SPEED.EXPOSURE_30__0;
 
     private static final String[] REQUEST_PERMISSIONS = {
             Manifest.permission.CAMERA,
@@ -293,7 +298,6 @@ public class CameraActivity extends AppCompatActivity implements
     private NativeCameraMetadata mCameraMetadata;
     private SensorEventManager mSensorEventManager;
     private FusedLocationProviderClient mFusedLocationClient;
-    private ProcessorReceiver mProgressReceiver;
     private Location mLastLocation;
     private String mVideoOutputPath;
     private long mRecordStartTime;
@@ -381,6 +385,23 @@ public class CameraActivity extends AppCompatActivity implements
         }
     }
 
+    private void prunePreviews() {
+        // Clear out previous preview files
+        AsyncTask.execute(() -> {
+            File previewDirectory = new File(getFilesDir(), ImageProcessWorker.PREVIEW_PATH);
+            long now = new Date().getTime();
+
+            File[] previewFiles = previewDirectory.listFiles();
+            if(previewFiles != null) {
+                for (File f : previewFiles) {
+                    long diff = now - f.lastModified();
+                    if (diff > 2 * 24 * 60 * 60 * 1000) // 2 days old
+                        f.delete();
+                }
+            }
+        });
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -388,24 +409,12 @@ public class CameraActivity extends AppCompatActivity implements
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         onWindowFocusChanged(true);
 
-        // Clear out previous preview files
-        File previewDirectory = new File(getFilesDir(), ProcessorService.PREVIEW_PATH);
-        long now = new Date().getTime();
-
-        File[] previewFiles = previewDirectory.listFiles();
-        if(previewFiles != null) {
-            for (File f : previewFiles) {
-                long diff = now - f.lastModified();
-                if (diff > 2 * 24 * 60 * 60 * 1000) // 2 days old
-                    f.delete();
-            }
-        }
+        prunePreviews();
 
         mBinding = CameraActivityBinding.inflate(getLayoutInflater());
         setContentView(mBinding.getRoot());
 
         mSettings = new Settings();
-        mProgressReceiver = new ProcessorReceiver(new Handler());
 
         mBinding.focusLockPointFrame.setOnClickListener(v -> onFixedFocusCancelled());
         mBinding.previewFrame.settingsBtn.setOnClickListener(v -> onSettingsClicked());
@@ -546,7 +555,6 @@ public class CameraActivity extends AppCompatActivity implements
         super.onResume();
 
         mSensorEventManager.enable();
-        mProgressReceiver.setReceiver(this);
 
         mBinding.rawCameraPreview.setBitmap(null);
         mBinding.main.transitionToStart();
@@ -610,7 +618,6 @@ public class CameraActivity extends AppCompatActivity implements
         mSettings.save(sharedPrefs);
 
         mSensorEventManager.disable();
-        mProgressReceiver.setReceiver(null);
         mBinding.previewPager.unregisterOnPageChangeCallback(mCapturedPreviewPagerListener);
 
         if(mFaceDetectionTimer != null) {
@@ -648,22 +655,23 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void startRawVideoRecording() {
-        File docs = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
-        File videoOutputPath = new File(docs.getPath() + File.separator + "MotionCam");
-        File outputFile = new File(videoOutputPath, CameraProfile.generateFilename("VIDEO"));
+        File outputDirectory = new File(getFilesDir(), VideoProcessWorker.VIDEOS_PATH);
+        File outputFile = new File(outputDirectory, CameraProfile.generateFilename("VIDEO"));
 
         try {
-            if (!videoOutputPath.exists() && !videoOutputPath.mkdirs()) {
-                Log.e(TAG, "Failed to create " + videoOutputPath.toString());
+            if (!outputDirectory.exists() && !outputDirectory.mkdirs()) {
+                Log.e(TAG, "Failed to create " + outputDirectory.toString());
                 return;
             }
         }
         catch(Exception e) {
-            Log.e(TAG, "Documents directory is not available");
+            e.printStackTrace();
+            Log.e(TAG, "Error creating path: " + outputDirectory.toString());
             return;
         }
 
         Log.i(TAG, "Starting RAW video recording (max memory usage: " + mSettings.rawVideoMemoryUseBytes + ")");
+
         mNativeCamera.streamToFile(outputFile.getPath(), mSettings.rawVideoMemoryUseBytes);
         mImageCaptureInProgress.set(true);
 
@@ -729,6 +737,8 @@ public class CameraActivity extends AppCompatActivity implements
 
             if(showProgress)
                 dialog.dismiss();
+
+            startVideoProcessor();
         });
     }
 
@@ -1764,13 +1774,45 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void startImageProcessor() {
-        // Start service to process the image
-        Intent intent = new Intent(this, ProcessorService.class);
+        OneTimeWorkRequest request =
+                new OneTimeWorkRequest.Builder(ImageProcessWorker.class).build();
 
-        intent.putExtra(ProcessorService.METADATA_PATH_KEY, CameraProfile.getRootOutputPath(this).getPath());
-        intent.putExtra(ProcessorService.RECEIVER_KEY, mProgressReceiver);
+        WorkManager.getInstance(this)
+                .enqueueUniqueWork(
+                        WORKER_IMAGE_PROCESSOR,
+                        ExistingWorkPolicy.KEEP,
+                        request);
 
-        Objects.requireNonNull(startService(intent));
+        WorkManager.getInstance(getApplicationContext())
+                .getWorkInfoByIdLiveData(request.getId())
+                .observe(this, workInfo -> {
+                    if (workInfo != null) {
+                        Data progress = workInfo.getProgress();
+                        int state = progress.getInt(State.PROGRESS_STATE_KEY, -1);
+
+                        Log.d(TAG, "Received processing state " + progress.toString());
+
+                        if(state == State.STATE_PREVIEW_CREATED) {
+                            onPreviewSaved(progress.getString(State.PROGRESS_PREVIEW_PATH));
+                        }
+                        else if(state == State.STATE_COMPLETED) {
+                            onProcessingCompleted(
+                                    new File(progress.getString(State.PROGRESS_IMAGE_PATH)),
+                                    Uri.parse(progress.getString(State.PROGRESS_URI_KEY)));
+                        }
+                    }
+                });
+    }
+
+    private void startVideoProcessor() {
+        OneTimeWorkRequest request =
+                new OneTimeWorkRequest.Builder(VideoProcessWorker.class).build();
+
+        WorkManager.getInstance(this)
+                .enqueueUniqueWork(
+                        WORKER_VIDEO_PROCESSOR,
+                        ExistingWorkPolicy.KEEP,
+                        request);
     }
 
     @Override
@@ -2089,17 +2131,6 @@ public class CameraActivity extends AppCompatActivity implements
         return true;
     }
 
-    @Override
-    public void onProcessingStarted() {
-
-    }
-
-    @Override
-    public void onProcessingProgress(int progress) {
-
-    }
-
-    @Override
     public void onPreviewSaved(String outputPath) {
         Glide.with(this)
                 .load(outputPath)
@@ -2119,7 +2150,6 @@ public class CameraActivity extends AppCompatActivity implements
                 .start();
     }
 
-    @Override
     public void onProcessingCompleted(File internalPath, Uri contentUri) {
         mCameraCapturePreviewAdapter.complete(internalPath, contentUri);
 

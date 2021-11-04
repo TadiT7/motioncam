@@ -18,7 +18,7 @@
 #include "forward_transform.h"
 #include "inverse_transform.h"
 #include "fuse_image.h"
-#include "fuse_denoise_3x3.h"
+#include "fuse_denoise_5x5.h"
 #include "fuse_denoise_7x7.h"
 #include "fuse_denoise_11x11.h"
 #include "fast_preview.h"
@@ -47,7 +47,8 @@
 #include <fstream>
 #include <algorithm>
 #include <memory>
-
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <exiv2/exiv2.hpp>
 #include <opencv2/core/ocl.hpp>
 #include <opencv2/xfeatures2d.hpp>
@@ -1206,7 +1207,13 @@ namespace motioncam {
             
             metadata.whiteLevel = EXPANDED_RANGE;
             
-            util::WriteDng(rawImage, metadata, referenceRawBuffer->metadata, rawOutputPath + ".dng");
+            std::string dngFile = rawOutputPath + ".dng";
+            
+            try {
+                util::WriteDng(rawImage, metadata, referenceRawBuffer->metadata, dngFile);
+            }
+            catch(std::runtime_error& e) {
+            }
         }
         
         cv::Mat outputImage = postProcess(
@@ -1428,14 +1435,14 @@ namespace motioncam {
         
         float w = 1.0f/sqrt(2.0f);
         int patchSize = ev < 8 ? 32 : 16;
-        auto method = &fuse_denoise_3x3;
+        auto method = &fuse_denoise_5x5;
 
         if(ev < 0)
             method = &fuse_denoise_11x11;
         else if(ev < 8)
             method = &fuse_denoise_7x7;
         else
-            method = &fuse_denoise_3x3;
+            method = &fuse_denoise_5x5;
         
         //
         // Measure noise

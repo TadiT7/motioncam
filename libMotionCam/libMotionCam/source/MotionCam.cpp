@@ -2,52 +2,66 @@
 #include "motioncam/RawContainer.h"
 #include "motioncam/Util.h"
 #include "motioncam/ImageProcessor.h"
+
 #include "build_bayer.h"
 
 #include <HalideBuffer.h>
+
+#include <queue/concurrentqueue.h>
 #include <queue/blockingconcurrentqueue.h>
 
 #include <chrono>
 #include <thread>
+#include <unistd.h>
 
 namespace motioncam {
     struct Job {
         Job(cv::Mat bayerImage,
             const RawCameraMetadata& cameraMetadata,
             const RawImageMetadata& frameMetadata,
-            const std::string& outputPath) :
+            const std::string& filename) :
         bayerImage(bayerImage.clone()),
         cameraMetadata(cameraMetadata),
         frameMetadata(frameMetadata),
-        outputPath(outputPath)
+        filename(filename)
         {
         }
-                
+        
         cv::Mat bayerImage;
         const RawCameraMetadata& cameraMetadata;
         const RawImageMetadata& frameMetadata;
-        std::string outputPath;
+        const std::string filename;
+        std::string error;
     };
 
-    moodycamel::BlockingConcurrentQueue<std::shared_ptr<Job>> QUEUE;
+    moodycamel::BlockingConcurrentQueue<std::shared_ptr<Job>> JOB_QUEUE;
     std::atomic<bool> RUNNING;
 
-    static void WriteDNG() {
+    static void WriteDNG(int fd) {
+        util::ZipWriter zipWriter(fd);
+        
         while(RUNNING) {
             std::shared_ptr<Job> job;
             
-            if(QUEUE.wait_dequeue_timed(job, std::chrono::milliseconds(100))) {
-                util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, job->outputPath);
+            JOB_QUEUE.wait_dequeue_timed(job, std::chrono::milliseconds(100));
+            if(!job)
+                continue;
+            
+            try {
+                util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, zipWriter, job->filename);
+            }
+            catch(std::runtime_error& e) {
+                job->error = e.what();
             }
         }
+        
+        zipWriter.commit();
     }
 
-    void ConvertVideoToDNG(const std::string& containerPath, const std::string& outputPath, const int numThreads) {
+    float ConvertVideoToDNG(const std::string& containerPath, const DngProcessorProgress& progress, const int numThreads) {
         if(RUNNING)
             throw std::runtime_error("Already running");
-        
-        std::cout << "Opening " << containerPath << std::endl;
-                
+                        
         RawContainer container(containerPath);
         
         auto frames = container.getFrames();
@@ -56,9 +70,7 @@ namespace motioncam {
         std::sort(frames.begin(), frames.end(), [&](std::string& a, std::string& b) {
             return container.getFrame(a)->metadata.timestampNs < container.getFrame(b)->metadata.timestampNs;
         });
-        
-        std::cout << "Found " << frames.size() << " frames" << std::endl;
-        
+                
         int64_t timestampOffset = 0;
         float timestamp = 0;
 
@@ -66,18 +78,27 @@ namespace motioncam {
         RUNNING = true;
         
         std::vector<std::unique_ptr<std::thread>> threads;
+        std::vector<int> fds;
         
         for(int i = 0; i < numThreads; i++) {
-            auto t = std::unique_ptr<std::thread>(new std::thread(&WriteDNG));
+            int fd = progress.onNeedFd(i);
+            if(fd < 0)
+                continue;
+            
+            auto t = std::unique_ptr<std::thread>(new std::thread(&WriteDNG, fd));
             
             threads.push_back(std::move(t));
+            
+            fds.push_back(fd);
         }
-
+        
+        if(threads.empty())
+            return 0;
+        
         for(int i = 0; i < frames.size(); i++) {
             auto frame = container.loadFrame(frames[i]);
             
             if(frame->width <= 0 || frame->height <= 0) {
-                std::cout << "Skipping " << frames[i] << std::endl;
                 continue;
             }
             
@@ -97,43 +118,57 @@ namespace motioncam {
             }
             
             timestamp = (frame->metadata.timestampNs - timestampOffset) / (1000.0f*1000.0f*1000.0f);
-        
+                    
+            cv::Mat bayerImage(bayerBuffer.height(), bayerBuffer.width(), CV_16U, bayerBuffer.data());
+            
             std::ostringstream str;
+            
             str << std::setw(4) << std::setfill('0') << i;
             
-            cv::Mat bayerImage(bayerBuffer.height(), bayerBuffer.width(), CV_16U, bayerBuffer.data());
-            std::string outputDngPath = outputPath + "/frame" + str.str() + ".dng";
+            std::string dngFileName = "frame" + str.str() + ".dng";
 
-            std::cout << "[" << i+1 << "/" << frames.size() << "] [" << std::fixed << std::setprecision(2) << timestamp << "] " << outputDngPath << std::endl;
-            
-            while(!QUEUE.try_enqueue(std::make_shared<Job>(bayerImage, container.getCameraMetadata(), frame->metadata, outputDngPath))) {
+            while(!JOB_QUEUE.try_enqueue(std::make_shared<Job>(bayerImage, container.getCameraMetadata(), frame->metadata, dngFileName))) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             
-            while(QUEUE.size_approx() > numThreads) {
+            // Finalise finished jobs
+            std::shared_ptr<Job> job;
+            
+            // Wait until jobs are completed
+            while(JOB_QUEUE.size_approx() > numThreads) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
+            
+            progress.onProgressUpdate((i*100)/frames.size());
         }
         
         // Stop threads
         RUNNING = false;
+        
+        // Stop the threads
         for(int i = 0; i < threads.size(); i++)
             threads[i]->join();
-
-        // Flush buffers
-        std::shared_ptr<Job> job;
         
-        while(QUEUE.try_dequeue(job)) {
-            util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, job->outputPath);
-        }
-
-        float fps = frames.size() / (1e-5f + timestamp);
+        for(int i = 0; i < fds.size(); i++)
+            progress.onCompleted(i);
         
-        std::cout << "Estimated FPS: " << std::setprecision(2) << fps << std::endl;
-        std::cout << "Done" << std::endl;
+//         Flush buffers
+//        std::shared_ptr<Job> job;
+//
+//        while(JOB_QUEUE.try_dequeue(job)) {
+//            util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, job->outputFd);
+//        }
+
+        progress.onCompleted();
+
+        return frames.size() / (1e-5f + timestamp);
     }
 
     void ProcessImage(const std::string& containerPath, const std::string& outputFilePath, const ImageProcessorProgress& progressListener) {
         ImageProcessor::process(containerPath, outputFilePath, progressListener);    
+    }
+
+    void ProcessImage(RawContainer& rawContainer, const std::string& outputFilePath, const ImageProcessorProgress& progressListener) {
+        ImageProcessor::process(rawContainer, outputFilePath, progressListener);
     }
 }

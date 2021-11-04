@@ -1,24 +1,65 @@
 #include <iostream>
+#include <iomanip>
+#include <sstream>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include <motioncam/MotionCam.h>
 
 class ProgressListener : public motioncam::ImageProcessorProgress {
 public:
     bool onProgressUpdate(int progress) const {
-        std::cout << "Progress update: " << progress << std::endl;
+        std::cout << progress << "%" << std::endl;
         return true;
     }
     
     std::string onPreviewSaved(const std::string& outputPath) const {
-        return "";
+        return "{}";
     }
     
     void onCompleted() const {
-        
+        std::cout << "DONE" << std::endl;
     }
     
     void onError(const std::string& error) const {
-        
+        std::cout << "ERROR: " << error << std::endl;
     }
+};
+
+class DngOutputListener : public motioncam::DngProcessorProgress {
+public:
+    DngOutputListener(const std::string& outputPath) : outputPath(outputPath) {
+    }
+    
+    int onNeedFd(int threadNumber) const {
+        std::ostringstream str;
+
+        str << std::setw(2) << std::setfill('0') << threadNumber;
+
+        std::string outputDngPath = outputPath + "/VIDEO-" + str.str() + ".zip";
+
+        return open(outputDngPath.c_str(), O_WRONLY|O_CREAT|O_TRUNC, S_IWUSR|S_IWGRP|S_IRUSR|S_IRGRP);
+    }
+    
+    void onCompleted(int fd) const {
+    }
+    
+    bool onProgressUpdate(int progress) const {
+        std::cout << progress << "%" << std::endl;
+        return true;
+    }
+    
+    void onCompleted() const {
+        std::cout << "DONE" << std::endl;
+    }
+    
+    void onError(const std::string& error) const {
+        std::cout << "ERROR: " << error << std::endl;
+    }
+    
+private:
+    std::string outputPath;
 };
 
 void printHelp() {
@@ -71,19 +112,23 @@ int main(int argc, const char* argv[]) {
     }
     
     try {
+        std::cout << "Opening " << inputFile << std::endl;
+
         if(processAsImage) {
             ProgressListener progressListener;
             
             motioncam::ProcessImage(inputFile, outputPath, progressListener);
         }
         else {
+            DngOutputListener listener(outputPath);
+
             std::cout << "Using " << numThreads << " threads" << std::endl;
-            
-            motioncam::ConvertVideoToDNG(inputFile, outputPath, numThreads);
+
+            motioncam::ConvertVideoToDNG(inputFile, listener, numThreads);
         }
     }
     catch(std::runtime_error& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
+        std::cerr << "ERROR: " << e.what() << std::endl;
         return 1;
     }
     

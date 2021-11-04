@@ -30,8 +30,8 @@ function build_denoise() {
 	echo "[$ARCH] Building measure_noise_generator"
 	./tmp/denoise_generator -g measure_noise_generator -f measure_noise -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS}
 
-	echo "[$ARCH] Building denoise_generator_3x3"
-	./tmp/denoise_generator -g denoise_generator -f fuse_denoise_3x3 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} window=3
+	echo "[$ARCH] Building denoise_generator_5x5"
+	./tmp/denoise_generator -g denoise_generator -f fuse_denoise_5x5 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} window=5
 
 	echo "[$ARCH] Building denoise_generator_7x7"
 	./tmp/denoise_generator -g denoise_generator -f fuse_denoise_7x7 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} window=7

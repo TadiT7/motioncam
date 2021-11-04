@@ -1,11 +1,11 @@
 package com.motioncam.ui;
 
+import static com.motioncam.CameraActivity.TAG;
+import static com.motioncam.CameraActivity.WORKER_IMAGE_PROCESSOR;
+
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
-import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
 import android.util.Log;
 import android.util.Pair;
 import android.view.LayoutInflater;
@@ -23,6 +23,10 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
+import androidx.work.Data;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkManager;
 
 import com.motioncam.R;
 import com.motioncam.camera.AsyncNativeCameraOps;
@@ -35,19 +39,14 @@ import com.motioncam.databinding.PreviewSettingsBinding;
 import com.motioncam.model.CameraProfile;
 import com.motioncam.model.PostProcessViewModel;
 import com.motioncam.model.SettingsViewModel;
-import com.motioncam.processor.ProcessorReceiver;
-import com.motioncam.processor.ProcessorService;
+import com.motioncam.worker.ImageProcessWorker;
+import com.motioncam.worker.State;
 
-import java.io.File;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
-
-import static com.motioncam.CameraActivity.TAG;
 
 public class PostProcessFragment extends Fragment implements
-        AsyncNativeCameraOps.CaptureImageListener,
-        ProcessorReceiver.Receiver, AsyncNativeCameraOps.SharpnessMeasuredListener {
+        AsyncNativeCameraOps.CaptureImageListener, AsyncNativeCameraOps.SharpnessMeasuredListener {
 
     public static final String ARGUMENT_NATIVE_CAMERA_HANDLE            = "nativeCameraHandle";
     public static final String ARGUMENT_NATIVE_CAMERA_ID                = "nativeCameraId";
@@ -61,7 +60,6 @@ public class PostProcessFragment extends Fragment implements
     private AsyncNativeCameraOps mAsyncNativeCameraOps;
     private NativeCameraSessionBridge mNativeCamera;
     private NativeCameraInfo mSelectedCamera;
-    private ProcessorReceiver mProgressReceiver;
 
     private ViewPager2.OnPageChangeCallback mPreviewPageChanged = new ViewPager2.OnPageChangeCallback() {
         @Override
@@ -172,15 +170,15 @@ public class PostProcessFragment extends Fragment implements
 
             if(spatialNoiseWeight == PostProcessViewModel.SpatialDenoiseAggressiveness.OFF) {
                 dataBinding.spatialNoiseText.setText(
-                        Objects.requireNonNull(getActivity()).getString(R.string.denoise_off));
+                        requireActivity().getString(R.string.denoise_off));
             }
             else if(spatialNoiseWeight == PostProcessViewModel.SpatialDenoiseAggressiveness.NORMAL) {
                 dataBinding.spatialNoiseText.setText(
-                        Objects.requireNonNull(getActivity()).getString(R.string.denoise_normal));
+                        requireActivity().getString(R.string.denoise_normal));
             }
             else {
                 dataBinding.spatialNoiseText.setText(
-                        Objects.requireNonNull(getActivity()).getString(R.string.denoise_aggressive));
+                        requireActivity().getString(R.string.denoise_aggressive));
             }
         });
 
@@ -238,7 +236,7 @@ public class PostProcessFragment extends Fragment implements
 
         mViewModel = new ViewModelProvider(this).get(PostProcessViewModel.class);
 
-        mSmallPreviewList = Objects.requireNonNull(getView()).findViewById(R.id.previewList);
+        mSmallPreviewList = requireView().findViewById(R.id.previewList);
         mPreviewPager = getView().findViewById(R.id.previewPager);
 
         // Set layout manager for preview list
@@ -274,9 +272,6 @@ public class PostProcessFragment extends Fragment implements
         mSelectedCamera = new NativeCameraInfo(cameraId, cameraFrontFacing, 0, 0);
 
         mNativeCamera.initImageProcessor();
-
-        // Progress receiver for processor
-        mProgressReceiver = new ProcessorReceiver(new Handler());
 
         // Create preview generator
         mAsyncNativeCameraOps = new AsyncNativeCameraOps(mNativeCamera);
@@ -384,7 +379,7 @@ public class PostProcessFragment extends Fragment implements
 
         if(adapter != null) {
             // Disable save button and show progress until we have captured the image
-            Objects.requireNonNull(getView()).findViewById(R.id.saveBtn).setEnabled(false);
+            requireView().findViewById(R.id.saveBtn).setEnabled(false);
 
             // Flash preview frame to indicate capture
             getView().findViewById(R.id.previewFrame).setAlpha(0.25f);
@@ -420,7 +415,7 @@ public class PostProcessFragment extends Fragment implements
         String isoText = String.valueOf(images.get(index).iso);
         String shutterSpeedText = CameraManualControl.GetClosestShutterSpeed(images.get(index).exposureTime).toString();
 
-        ((TextView) Objects.requireNonNull(getView()).findViewById(R.id.isoText)).setText(isoText);
+        ((TextView) requireView().findViewById(R.id.isoText)).setText(isoText);
         ((TextView) getView().findViewById(R.id.shutterSpeedText)).setText(shutterSpeedText);
 
         updatePreview(AsyncNativeCameraOps.PreviewSize.LARGE);
@@ -429,8 +424,6 @@ public class PostProcessFragment extends Fragment implements
     @Override
     public void onPause() {
         super.onPause();
-
-        mProgressReceiver.setReceiver(null);
     }
 
     @Override
@@ -442,8 +435,6 @@ public class PostProcessFragment extends Fragment implements
         if(v != null) {
             v.findViewById(R.id.saveProgressBar).setVisibility(View.INVISIBLE);
         }
-
-        mProgressReceiver.setReceiver(this);
     }
 
     @Override
@@ -463,19 +454,42 @@ public class PostProcessFragment extends Fragment implements
         Log.i(TAG, "Image captured!");
 
         // Restore save button
-        Objects.requireNonNull(getView())
-                .findViewById(R.id.saveBtn).setEnabled(true);
+        requireView().findViewById(R.id.saveBtn).setEnabled(true);
 
-        // Start service to process the image
-        Intent intent = new Intent(getActivity(), ProcessorService.class);
-
-        intent.putExtra(ProcessorService.METADATA_PATH_KEY, CameraProfile.getRootOutputPath(getContext()).getPath());
-        intent.putExtra(ProcessorService.RECEIVER_KEY, mProgressReceiver);
-
-        Objects.requireNonNull(getActivity()).startService(intent);
+        startImageProcessor();
     }
 
-    @Override
+    private void startImageProcessor() {
+        OneTimeWorkRequest request =
+                new OneTimeWorkRequest.Builder(ImageProcessWorker.class).build();
+
+        WorkManager.getInstance(getContext())
+                .enqueueUniqueWork(
+                        WORKER_IMAGE_PROCESSOR,
+                        ExistingWorkPolicy.KEEP,
+                        request);
+
+        onProcessingStarted();
+
+        WorkManager.getInstance(getContext().getApplicationContext())
+                .getWorkInfosForUniqueWorkLiveData(WORKER_IMAGE_PROCESSOR)
+                .observe(this, workInfo -> {
+                    if (workInfo != null && !workInfo.isEmpty()) {
+                        Data progress = workInfo.get(0).getProgress();
+                        int state = progress.getInt(State.PROGRESS_STATE_KEY, -1);
+
+                        Log.d(TAG, "Received processing state " + progress.toString());
+
+                        if(state == State.STATE_PROCESSING) {
+                            onProcessingProgress(progress.getInt(State.PROGRESS_PROGRESS_KEY, 0));
+                        }
+                        else if(state == State.STATE_COMPLETED) {
+                            onProcessingCompleted();
+                        }
+                    }
+                });
+    }
+
     public void onProcessingStarted() {
         View v = getView();
         if(v != null) {
@@ -484,7 +498,6 @@ public class PostProcessFragment extends Fragment implements
         }
     }
 
-    @Override
     public void onProcessingProgress(int progress) {
         View v = getView();
         if(v != null) {
@@ -493,16 +506,11 @@ public class PostProcessFragment extends Fragment implements
         }
     }
 
-    @Override
-    public void onProcessingCompleted(File internalPath, Uri contentUri) {
+    public void onProcessingCompleted() {
         View v = getView();
         if(v != null) {
             v.findViewById(R.id.saveProgressBar).setVisibility(View.INVISIBLE);
         }
-    }
-
-    @Override
-    public void onPreviewSaved(String outputPath) {
     }
 
     @Override

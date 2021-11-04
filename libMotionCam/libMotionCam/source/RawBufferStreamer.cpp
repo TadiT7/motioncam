@@ -168,10 +168,10 @@ namespace motioncam {
                 writer = std::unique_ptr<util::ZipWriter>(new util::ZipWriter(containerOutputPath, true));
 
                 ++containerNum;
-                writtenFrames = 0;
+                writtenFrames = 1;
             }
 
-            if(!mCompressedBufferQueue.wait_dequeue_timed(buffer, std::chrono::milliseconds(67))) {
+            if(!mCompressedBufferQueue.wait_dequeue_timed(buffer, std::chrono::milliseconds(100))) {
                 logger::log("Out of buffers to write");
                 continue;
             }

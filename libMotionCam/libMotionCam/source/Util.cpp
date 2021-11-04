@@ -3,6 +3,7 @@
 #include "motioncam/RawImageMetadata.h"
 
 #include <fstream>
+#include <unistd.h>
 #include <zstd.h>
 
 #include <dng/dng_host.h>
@@ -24,8 +25,16 @@ namespace motioncam {
         //
         // Very basic zip writer
         //
+    
+        ZipWriter::ZipWriter(const int fd) : mZip{ 0 }, mCommited(false) {
+            mFile = fdopen(fd, "w");
             
-        ZipWriter::ZipWriter(const string& filename, bool append) : mZip{ 0 }, mCommited(false) {
+            if(!mz_zip_writer_init_cfile(&mZip, mFile, 0)) {
+                throw IOException("Can't create from fd");
+            }
+        }
+    
+        ZipWriter::ZipWriter(const string& filename, bool append) : mZip{ 0 }, mCommited(false), mFile(nullptr) {
             if(append) {
                 if(!mz_zip_reader_init_file(&mZip, filename.c_str(), 0)) {
                     throw IOException("Can't read " + filename);
@@ -47,11 +56,15 @@ namespace motioncam {
         }
 
         void ZipWriter::addFile(const std::string& filename, const std::vector<uint8_t>& data, const size_t numBytes) {
+            addFile(filename, data.data(), numBytes);
+        }
+    
+        void ZipWriter::addFile(const std::string& filename, const void* data, const size_t numBytes) {
             if(mCommited) {
                 throw IOException("Can't add " + filename + " because archive has been commited");
             }
             
-            if(!mz_zip_writer_add_mem(&mZip, filename.c_str(), data.data(), numBytes, MZ_NO_COMPRESSION)) {
+            if(!mz_zip_writer_add_mem(&mZip, filename.c_str(), data, numBytes, MZ_NO_COMPRESSION)) {
                 throw IOException("Can't add " + filename);
             }
         }
@@ -73,6 +86,9 @@ namespace motioncam {
                 mz_zip_writer_finalize_archive(&mZip);
                 mz_zip_writer_end(&mZip);
             }
+            
+            if(mFile)
+                fclose(mFile);
         }
     
         //
@@ -339,7 +355,7 @@ namespace motioncam {
         void WriteDng(cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
-                      const std::string& outputPath)
+                      dng_stream& dngStream)
         {
             const int width  = rawImage.cols;
             const int height = rawImage.rows;
@@ -582,14 +598,48 @@ namespace motioncam {
             negative->BuildStage3Image(host);
             
             negative->SynchronizeMetadata();
-            
-            // Create stream writer for output file
-            dng_file_stream dngStream(outputPath.c_str(), true);
-            
+
             // Write DNG file to disk
             AutoPtr<dng_image_writer> dngWriter(new dng_image_writer());
             
             dngWriter->WriteDNG(host, dngStream, *negative.Get(), nullptr, ccUncompressed);
         }
+
+        void WriteDng(cv::Mat& rawImage,
+                      const RawCameraMetadata& cameraMetadata,
+                      const RawImageMetadata& imageMetadata,
+                      const std::string& outputPath)
+        {
+            dng_file_stream stream(outputPath.c_str());
+            
+            WriteDng(rawImage, cameraMetadata, imageMetadata, stream);
+            
+            stream.Flush();
+        }
+    
+        void WriteDng(cv::Mat& rawImage,
+                      const RawCameraMetadata& cameraMetadata,
+                      const RawImageMetadata& imageMetadata,
+                      ZipWriter& zipWriter,
+                      const std::string& outputName)
+        {
+            dng_memory_stream stream(gDefaultDNGMemoryAllocator);
+            
+            WriteDng(rawImage, cameraMetadata, imageMetadata, stream);
+            
+            stream.Flush();
+            
+            auto memoryBlock = stream.AsMemoryBlock(gDefaultDNGMemoryAllocator);
+            
+            try {
+                if(memoryBlock)
+                    zipWriter.addFile(outputName, memoryBlock->Buffer_uint8(), memoryBlock->LogicalSize());
+            }
+            catch(std::runtime_error& e) {
+            }
+            
+            delete memoryBlock;
+        }
+
     }
 }
