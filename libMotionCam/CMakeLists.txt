@@ -141,9 +141,9 @@ add_library(measure_noise STATIC IMPORTED)
 set_target_properties(measure_noise PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/host/measure_noise.a)
 
-add_library(fuse_denoise_3x3 STATIC IMPORTED)
-set_target_properties(fuse_denoise_3x3 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/host/fuse_denoise_3x3.a)
+add_library(fuse_denoise_5x5 STATIC IMPORTED)
+set_target_properties(fuse_denoise_5x5 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/host/fuse_denoise_5x5.a)
 
 add_library(fuse_denoise_7x7 STATIC IMPORTED)
 set_target_properties(fuse_denoise_7x7 PROPERTIES IMPORTED_LOCATION
@@ -306,7 +306,7 @@ target_link_libraries(motioncam-static
         preview_reverse_landscape8
         postprocess
         measure_noise
-        fuse_denoise_3x3
+        fuse_denoise_5x5
         fuse_denoise_7x7
         fuse_denoise_11x11
         forward_transform

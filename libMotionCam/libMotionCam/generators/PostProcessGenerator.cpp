@@ -42,7 +42,9 @@ protected:
         Func& output, Func hsvInput, Expr blues, Expr greens, Expr saturation);
 
     void linearScale(Func& result, Func image, Expr fromWidth, Expr fromHeight, Expr toWidth, Expr toHeight);
-    
+
+    void warp(Func& output, const Func& in, const Func& m);
+
 private:
     Func deinterleaveRaw16(Func in, int c, Expr stride);
     Func deinterleaveRaw10(Func in, int c, Expr stride);
@@ -66,6 +68,30 @@ protected:
     Var subtile_idx{"subtile_idx"};
     Var tile_idx{"tile_idx"};
 };
+
+void PostProcessBase::warp(Func& output, const Func& in, const Func& m) {
+    Func inputF32{"inputF32"};
+
+    inputF32(v_x, v_y, v_c) = cast<float>(in(v_x, v_y, v_c));
+
+    Expr fx = m(0, 0)*v_x + m(1, 0)*v_y + m(2, 0);
+    Expr fy = m(0, 1)*v_x + m(1, 1)*v_y + m(2, 1);
+    Expr fw = m(0, 2)*v_x + m(1, 2)*v_y + m(2, 2);
+
+    fx = fx / fw;
+    fy = fy / fw;
+
+    Expr x = cast<int16_t>(fx);
+    Expr y = cast<int16_t>(fy);
+    
+    Expr a = fx - x;
+    Expr b = fy - y;
+    
+    Expr p0 = lerp(inputF32(x, y, v_c), inputF32(x + 1, y, v_c), a);
+    Expr p1 = lerp(inputF32(x, y + 1, v_c), inputF32(x + 1, y + 1, v_c), a);
+    
+    output(v_x, v_y, v_c) = saturating_cast<uint16_t>(lerp(p0, p1, b) + 0.5f);
+}
 
 void PostProcessBase::deinterleave(Func& result, Func in, int c, Expr stride, Expr rawFormat) {
     result(v_x, v_y) =
@@ -1996,6 +2022,7 @@ public:
     Input<float> blackPoint{"blackPoint"};
     Input<float> whitePoint{"whitePoint"};
     Input<float> contrast{"contrast"};
+    Input<float> brightness{"brightness"};
     Input<float> blues{"blues"};
     Input<float> greens{"greens"};
     Input<float> saturation{"saturation"};
@@ -2069,21 +2096,25 @@ void EnhanceGenerator::generate() {
     // Apply black/white point + contrast curve
     {
         Expr p = max(1e-05f, contrast);
-        Expr a = p*8.0f;
-        Expr b = p*4.0f;
 
-        Expr M = 1.0f / (1 + exp(b));
-        Expr N = 1.0f / (1 + exp(-a + b)) - M;
+        Expr A = p*6.0f;
+        Expr B = p*4.0f;
+
+        Expr M = 1.0f / (1 + exp(B));
+        Expr N = 1.0f / (1 + exp(-A + B)) - M;
 
         Expr i = v_i / 65535.0f;
         Expr j = select(i < 0.0031308f, i * 12.92f, pow(i, 1.0f / 2.4f) * 1.055f - 0.055f);
-        Expr k = clamp(j - blackPoint, 0.0f, 1.0f) * (1.0f / (1.0f - blackPoint + 1e-5f));
-        Expr m = k / whitePoint;
 
-        Expr S = 1.0f / (1.0f + exp(-a*m + b));
+        Expr S = 1.0f / (1.0f + exp(-A*j + B));
         Expr T = (S - M) / N;
 
-        contrastLut(v_i) = saturating_cast<uint16_t>(T*65535.0f+0.5f);
+        Expr k = clamp(T - blackPoint, 0.0f, 1.0f) * (1.0f / (1.0f - blackPoint + 1e-5f));
+        Expr m = k / whitePoint;
+
+        Expr n = pow(m, 1.0f/brightness);
+
+        contrastLut(v_i) = saturating_cast<uint16_t>(n*65535.0f+0.5f);
         if(!auto_schedule)
             contrastLut.compute_root().vectorize(v_i, 8);
     }
@@ -2328,79 +2359,6 @@ void EnhanceGenerator::schedule_for_cpu() {
         .parallel(v_y);
 }
 
-class DeghostGenerator : public Halide::Generator<DeghostGenerator>, public PostProcessBase {
-public:
-    Input<Func[]> input{"input", 3};    
-    Input<Func[]> warpMatrix{"warpMatrix", 2};
-
-    Input<int> width{"width"};
-    Input<int> height{"height"};
-
-    Output<Buffer<uint16_t>> output{"output", 3};
-
-    void generate();
-
-private:
-    void warp(Func& output, const Func& in, const Func& m);
-};
-
-void DeghostGenerator::warp(Func& output, const Func& in, const Func& m) {
-    Func clamped = BoundaryConditions::repeat_edge(in, { {0, width}, {0, height} } );
-    Func inputF32{"inputF32"};
-
-    inputF32(v_x, v_y, v_c) = cast<float>(clamped(v_x, v_y, v_c));
-
-    Expr fx = m(0, 0)*v_x + m(1, 0)*v_y + m(2, 0);
-    Expr fy = m(0, 1)*v_x + m(1, 1)*v_y + m(2, 1);
-    Expr fw = m(0, 2)*v_x + m(1, 2)*v_y + m(2, 2);
-
-    fx = fx / fw;
-    fy = fy / fw;
-
-    Expr x = cast<int16_t>(fx);
-    Expr y = cast<int16_t>(fy);
-    
-    Expr a = fx - x;
-    Expr b = fy - y;
-    
-    Expr p0 = lerp(inputF32(x, y, v_c), inputF32(x + 1, y, v_c), a);
-    Expr p1 = lerp(inputF32(x, y + 1, v_c), inputF32(x + 1, y + 1, v_c), a);
-    
-    output(v_x, v_y, v_c) = saturating_cast<uint16_t>(lerp(p0, p1, b) + 0.5f);
-}
-
-void DeghostGenerator::generate() {
-    std::vector<Func> warped;
-
-    // Align
-    for(int i = 0; i < input.size(); i++) {
-        Func w{"w" + std::to_string(i)};
-
-        warp(w, input.at(i), warpMatrix.at(i));
-
-        warped.push_back(w);
-    }
-
-    // Deghost
-    Expr m = cast<uint16_t>(0);
-    for(int i = 0; i < warped.size(); i++) {
-        m = max(m, warped.at(i)(v_x, v_y, v_c));
-    }
-
-    output(v_x, v_y, v_c) = m;
-
-    output.compute_root()
-        .bound(v_c, 0, 4)
-        .parallel(v_y, 32)
-        .unroll(v_c)
-        .vectorize(v_x, 8);
-
-    width.set_estimate(2048);
-    height.set_estimate(1536);
-
-    output.set_estimates({{0, 2048}, {0, 1536}, {0, 4}});
-
-}
 
 class PostProcessGenerator : public Halide::Generator<PostProcessGenerator>, public PostProcessBase {
 public:
@@ -2433,6 +2391,7 @@ public:
     Input<float> exposure{"exposure"};
     Input<float> whitePoint{"whitePoint"};
     Input<float> contrast{"contrast"};
+    Input<float> brightness{"brightness"};
     Input<float> blues{"blues"};
     Input<float> greens{"greens"};
     Input<float> saturation{"saturation"};
@@ -2487,12 +2446,15 @@ void PostProcessGenerator::generate()
 {
     std::vector<Expr> asShot{ asShotVector[0], asShotVector[1], asShotVector[2] };
 
+    Expr WIDTH = in0.width();
+    Expr HEIGHT = in0.height();
+
     // Demosaic image
     demosaic = create<Demosaic>();
     demosaic->apply(
         in0, in1, in2, in3,
         inShadingMap0, inShadingMap1, inShadingMap2, inShadingMap3,
-        in0.width(), in0.height(),
+        WIDTH, HEIGHT,
         inShadingMap0.width(), inShadingMap0.height(),
         cast<float>(range),
         sensorArrangement,
@@ -2530,7 +2492,7 @@ void PostProcessGenerator::generate()
     Linput(v_x, v_y, v_c) = select(v_c == 0, L0, L1);
     Minput(v_x, v_y, v_c) = exp(-16.0f * (Linput(v_x, v_y, v_c) - 1.0f) * (Linput(v_x, v_y, v_c) - 1.0f));
 
-    hdrMask(v_x, v_y) = (Minput(v_x, v_y, 0)*Minput(v_x, v_y, 1))*(Minput(v_x, v_y, 0)*Minput(v_x, v_y, 1));
+    hdrMask(v_x, v_y) = Minput(v_x, v_y, 0) * Minput(v_x, v_y, 1);
 
     highlights(v_x, v_y, v_c) = (hdrMask(v_x, v_y)*hdrInputRepeated(v_x, v_y, v_c)) + ((1.0f - hdrMask(v_x, v_y))*hdrScale*baseInput(v_x, v_y, v_c));
 
@@ -2546,14 +2508,14 @@ void PostProcessGenerator::generate()
 
     tonemap->output_type.set(UInt(16));
     tonemap->tonemap_levels.set(TONEMAP_LEVELS);
-    tonemap->apply(tonemapInput, hdrTonemapInput, in0.width() * 2, in0.height() * 2, tonemapVariance, shadows);
+    tonemap->apply(tonemapInput, hdrTonemapInput, WIDTH * 2, HEIGHT * 2, tonemapVariance, shadows);
 
-    defringeVertical.define_extern("extern_defringe", { (Func) tonemap->output, in0.width()*2, in0.height()*2 }, UInt(16), 3);
+    defringeVertical.define_extern("extern_defringe", { (Func) tonemap->output, WIDTH*2, HEIGHT*2 }, UInt(16), 3);
     defringeVertical.compute_root();
 
     defringeVerticalTransposed(v_x, v_y, v_c) = defringeVertical(v_y, v_x, v_c);
 
-    defringeHorizontal.define_extern("extern_defringe", { defringeVerticalTransposed, in0.height()*2, in0.width()*2 }, UInt(16), 3);
+    defringeHorizontal.define_extern("extern_defringe", { defringeVerticalTransposed, HEIGHT*2, WIDTH*2 }, UInt(16), 3);
     defringeHorizontal.compute_root();
 
     defringe(v_x, v_y, v_c) = defringeHorizontal(v_y, v_x, v_c);
@@ -2568,11 +2530,12 @@ void PostProcessGenerator::generate()
     enhance->apply(
         defringe,
         chromaEps,
-        in0.width()*2,
-        in0.height()*2,
+        WIDTH*2,
+        HEIGHT*2,
         blackPoint,
         whitePoint,
         contrast,
+        brightness,
         blues,
         greens,
         saturation,
@@ -2627,8 +2590,6 @@ void PostProcessGenerator::generate()
     in1.set_estimates({{0, 2048}, {0, 1536}});
     in2.set_estimates({{0, 2048}, {0, 1536}});
     in3.set_estimates({{0, 2048}, {0, 1536}});
-
-    hdrInput.set_estimates({{0, 4096}, {0, 3072}, {0, 3}});
 
     inShadingMap0.set_estimates({{0, 17}, {0, 13}});
     inShadingMap1.set_estimates({{0, 17}, {0, 13}});
@@ -2718,7 +2679,7 @@ void PostProcessGenerator::schedule_for_cpu() {
 class PreviewGenerator : public Halide::Generator<PreviewGenerator>, public PostProcessBase {
 public:
     GeneratorParam<int> rotation{"rotation", 0};
-    GeneratorParam<int> tonemap_levels{"tonemap_levels", 8};
+    GeneratorParam<int> tonemapLevels{"tonemap_levels", 8};
     GeneratorParam<int> downscaleFactor{"downscale_factor", 1};
     GeneratorParam<bool> enableSharpen{"enable_sharpen", true};
     GeneratorParam<int> popRadius{"pop_radius", 25};
@@ -2749,6 +2710,7 @@ public:
     Input<float> blackPoint{"blackPoint"};
     Input<float> exposure{"exposure"};
     Input<float> contrast{"contrast"};
+    Input<float> brightness{"brightness"};
     Input<float> blues{"blues"};
     Input<float> greens{"greens"};
     Input<float> saturation{"saturation"};
@@ -2784,9 +2746,7 @@ private:
     Func linearRgb{"linearRgb"};
     Func tonemapped{"tonemapped"};
     Func tonemapInput{"tonemapInput"};    
-    Func gammaLut{"gammaContrastLut"};
-
-    std::vector<Func> d;
+    Func gammaLut{"gammaContrastLut"};    
 };
 
 Func PreviewGenerator::downscale(Func f, Func& downx) {
@@ -2816,6 +2776,8 @@ void PreviewGenerator::generate() {
 
     int iterations = (int) (std::log((float)downscaleFactor) / std::log(2.0f));
 
+    std::vector<Func> d;
+
     d.push_back(inDownscale);
 
     for(int i = 0; i < iterations; i++) {
@@ -2833,15 +2795,16 @@ void PreviewGenerator::generate() {
 
     downscaledInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(0.5f + d[d.size()-1](v_x, v_y, v_c));
 
-    for(int i = 0; i < iterations - 1; i++)
-        d[i].compute_at(downscaledInput, v_y).vectorize(v_x, 8).unroll(v_c);
-    
-    downscaledInput
-        .compute_root()
-        .reorder(v_c, v_x, v_y)
+    d[d.size()-1].compute_root()
+        .vectorize(v_x, 8)
         .unroll(v_c)
-        .parallel(v_y)
-        .vectorize(v_x, 8);
+        .parallel(v_y);
+
+    for(int i = 0; i < iterations - 1; i++) {
+        d[i].compute_at(d[d.size()-1], v_y)
+            .unroll(v_c)
+            .vectorize(v_x, 8);
+    }
 
     rearrange(demosaicInput, downscaledInput, sensorArrangement);
 
@@ -2861,7 +2824,7 @@ void PreviewGenerator::generate() {
     tonemap = create<TonemapGenerator>();
 
     tonemap->output_type.set(UInt(16));
-    tonemap->tonemap_levels.set(tonemap_levels);
+    tonemap->tonemap_levels.set(tonemapLevels);
     tonemap->apply(tonemapInput, tonemapInput, width, height, tonemapVariance, shadows);
 
     enhance = create<EnhanceGenerator>();
@@ -2882,6 +2845,7 @@ void PreviewGenerator::generate() {
         blackPoint,
         whitePoint,
         contrast,
+        brightness,
         blues,
         greens,
         saturation,
@@ -3512,10 +3476,18 @@ void GenerateEdgesGenerator::generate() {
 
 //////////////
 
-class HdrMaskGenerator : public Halide::Generator<HdrMaskGenerator> {
+class HdrMaskGenerator : public Halide::Generator<HdrMaskGenerator>, public PostProcessBase {
 public:
-    Input<Buffer<uint8_t>> input0{"input0", 2};
-    Input<Buffer<uint8_t>> input1{"input1", 2};    
+    Input<Buffer<uint16_t>> input0{"input0", 3};
+    Input<Buffer<uint16_t>> input1{"input1", 3};
+
+    Input<Buffer<float>> warpMatrix{"warpMatrix", 2};
+
+    Input<int16_t[4]> blackLevel{"blackLevel"};
+    Input<uint16_t> whiteLevel{"whiteLevel"};
+
+    Input<float> scale0{"scale0"};
+    Input<float> scale1{"scale1"};
 
     Input<float> c{"c"};
 
@@ -3533,16 +3505,40 @@ private:
 };
 
 void HdrMaskGenerator::generate() {
-    Func inputf0, inputf1;
-    Func mask0, mask1;
-    Func map0, map1;
-    Func ghostMap;
+    Func inputf0{"inputf0"}, inputf1{"inputf1"};
+    Func inMax0{"inMax0"}, inMax1{"inMax1"};
+    Func warped{"warped"};
+    Func mask0{"mask0"}, mask1{"mask1"};
+    Func map0{"map0"}, map1{"map1"};
+    Func ghostMap{"ghostMap"};
+    Func bl{"bl"};
 
-    inputf0(v_x, v_y) = cast<float>(BoundaryConditions::repeat_edge(input0)(v_x, v_y)) / 255.0f;
-    inputf1(v_x, v_y) = cast<float>(BoundaryConditions::repeat_edge(input1)(v_x, v_y)) / 255.0f;
+    bl(v_c) =
+        mux(v_c,
+            {   blackLevel[0],
+                blackLevel[1],
+                blackLevel[2],
+                blackLevel[3] });
 
-    mask0(v_x, v_y) = exp(-c * (inputf0(v_x, v_y) - 1.0f) * (inputf0(v_x, v_y) - 1.0f));
-    mask1(v_x, v_y) = exp(-c * (inputf1(v_x, v_y) - 1.0f) * (inputf1(v_x, v_y) - 1.0f));
+    warp(warped, BoundaryConditions::repeat_edge(input1), warpMatrix);
+
+    inputf0(v_x, v_y, v_c) = clamp(scale0*(cast<float>(BoundaryConditions::repeat_edge(input0)(v_x, v_y, v_c))-bl(v_c)) / whiteLevel, 0.0f, 1.0f);
+    inputf1(v_x, v_y, v_c) = clamp(scale1*(cast<float>(warped(v_x, v_y, v_c))-bl(v_c)) / whiteLevel, 0.0f, 1.0f);
+
+    inMax0(v_x, v_y) = max(
+        inputf0(v_x, v_y, 0),
+        inputf0(v_x, v_y, 1),
+        inputf0(v_x, v_y, 2),
+        inputf0(v_x, v_y, 3));
+
+    inMax1(v_x, v_y) = max(
+        inputf1(v_x, v_y, 0),
+        inputf1(v_x, v_y, 1),
+        inputf1(v_x, v_y, 2),
+        inputf1(v_x, v_y, 3));
+
+    mask0(v_x, v_y) = exp(-c * (inMax0(v_x, v_y) - 1.0f) * (inMax0(v_x, v_y) - 1.0f));
+    mask1(v_x, v_y) = exp(-c * (inMax1(v_x, v_y) - 1.0f) * (inMax1(v_x, v_y) - 1.0f));
 
     map0(v_x, v_y) = cast<bool>(select(mask0(v_x, v_y) > 0.05f, 1, 0));
     map1(v_x, v_y) = cast<bool>(select(mask1(v_x, v_y) > 0.05f, 1, 0));
@@ -3556,8 +3552,17 @@ void HdrMaskGenerator::generate() {
 
     c.set_estimate(4.0f);
 
-    input0.set_estimates({{0, 2048}, {0, 1536}});
-    input1.set_estimates({{0, 2048}, {0, 1536}});
+    input0.set_estimates({{0, 2048}, {0, 1536}, {0, 4}});
+    input1.set_estimates({{0, 2048}, {0, 1536}, {0, 4}});
+    
+    warpMatrix.set_estimates({{0, 3}, {0, 3}});
+
+    blackLevel.set_estimate(0, 64);
+    blackLevel.set_estimate(1, 64);
+    blackLevel.set_estimate(2, 64);
+    blackLevel.set_estimate(3, 64);
+
+    whiteLevel.set_estimate(1023);
 
     outputGhost.set_estimates({{0, 2048}, {0, 1536}});
 
@@ -3572,44 +3577,27 @@ void HdrMaskGenerator::schedule_for_cpu(::Halide::Pipeline pipeline, ::Halide::T
     using ::Halide::RVar;
     using ::Halide::TailStrategy;
     using ::Halide::Var;
-    Var x_i("x_i");
-    Var x_i_vi("x_i_vi");
-    Var x_i_vo("x_i_vo");
-    Var x_o("x_o");
     Var x_vi("x_vi");
     Var x_vo("x_vo");
-    Var y_i("y_i");
-    Var y_o("y_o");
 
-    Func f6 = pipeline.get_func(12);
-    Func outputGhost = pipeline.get_func(13);
+    Func outputGhost = pipeline.get_func(19);
 
-    {
-        Var x = f6.args()[0];
-        f6
-            .compute_at(outputGhost, x_o)
-            .split(x, x_vo, x_vi, 32)
-            .vectorize(x_vi);
-    }
     {
         Var x = outputGhost.args()[0];
         Var y = outputGhost.args()[1];
-        RVar r30$x(outputGhost.update(0).get_schedule().rvars()[0].var);
-        RVar r30$y(outputGhost.update(0).get_schedule().rvars()[1].var);
+        RVar r51$x(outputGhost.update(0).get_schedule().rvars()[0].var);
+        RVar r51$y(outputGhost.update(0).get_schedule().rvars()[1].var);
         outputGhost
             .compute_root()
             .split(x, x_vo, x_vi, 32)
             .vectorize(x_vi)
             .parallel(y);
         outputGhost.update(0)
-            .reorder(r30$x, x, r30$y, y)
-            .split(x, x_o, x_i, 256, TailStrategy::GuardWithIf)
-            .split(y, y_o, y_i, 256, TailStrategy::GuardWithIf)
-            .reorder(r30$x, x_i, r30$y, y_i, x_o, y_o)
-            .split(x_i, x_i_vo, x_i_vi, 32, TailStrategy::GuardWithIf)
-            .vectorize(x_i_vi)
-            .parallel(y_o)
-            .parallel(x_o);
+            .reorder(r51$x, x, r51$y, y)
+            .reorder(r51$x, r51$y, x, y)
+            .split(x, x_vo, x_vi, 32, TailStrategy::GuardWithIf)
+            .vectorize(x_vi)
+            .parallel(y);
     }
 }
 
@@ -3617,10 +3605,8 @@ void HdrMaskGenerator::schedule_for_cpu(::Halide::Pipeline pipeline, ::Halide::T
 
 class LinearImageGenerator : public Halide::Generator<LinearImageGenerator>, public PostProcessBase {
 public:
-    Input<Buffer<uint16_t>> input0{"input0", 2};
-    Input<Buffer<uint16_t>> input1{"input1", 2};
-    Input<Buffer<uint16_t>> input2{"input2", 2};
-    Input<Buffer<uint16_t>> input3{"input3", 2};
+    Input<Buffer<uint16_t>> input{"input", 3};
+    Input<Buffer<float>> warpMatrix{"warpMatrix", 2};
 
     Input<Buffer<float>> inShadingMap0{"inShadingMap0", 2 };
     Input<Buffer<float>> inShadingMap1{"inShadingMap1", 2 };
@@ -3650,16 +3636,9 @@ private:
 void LinearImageGenerator::generate() {
     Func inDemosaic[4];
 
-    Func input{"input"};
     Func b{"b"};
     Func scaled{"scaled"};
-
-    input(v_x, v_y, v_c) =
-        mux(v_c,
-            {   input0(v_x, v_y),
-                input1(v_x, v_y),
-                input2(v_x, v_y),
-                input3(v_x, v_y) });
+    Func warped{"warped"};
 
     b(v_c) =
         mux(v_c,
@@ -3668,7 +3647,9 @@ void LinearImageGenerator::generate() {
                 blackLevel[2],
                 blackLevel[3] });
 
-    scaled(v_x, v_y, v_c) = cast<uint16_t>(clamp((cast<float>(input(v_x, v_y, v_c)) - b(v_c)) / cast<float>(whiteLevel - b(v_c)) * range + 0.5f, 0, range));
+    warp(warped, BoundaryConditions::repeat_edge(input), warpMatrix);
+
+    scaled(v_x, v_y, v_c) = cast<uint16_t>(clamp((cast<float>(warped(v_x, v_y, v_c)) - b(v_c)) / cast<float>(whiteLevel - b(v_c)) * range + 0.5f, 0, range));
 
     inDemosaic[0](v_x, v_y) = scaled(v_x, v_y, 0);
     inDemosaic[1](v_x, v_y) = scaled(v_x, v_y, 1);
@@ -3682,7 +3663,7 @@ void LinearImageGenerator::generate() {
     demosaic->apply(
         inDemosaic[0], inDemosaic[1], inDemosaic[2], inDemosaic[3],
         inShadingMap0, inShadingMap1, inShadingMap2, inShadingMap3,
-        input0.width(), input0.height(),
+        input.width(), input.height(),
         inShadingMap0.width(), inShadingMap0.height(),
         cast<float>(range),
         sensorArrangement,
@@ -3764,8 +3745,201 @@ public:
     }
 };
 
+///////////////
+
+class MeasureNoiseGenerator : public Generator<MeasureNoiseGenerator>, public PostProcessBase {
+public:
+    Input<Buffer<uint8_t>> input{"input", 1};
+    Output<Buffer<float>> output{"output", 3};
+    Output<Buffer<float>> snr{"snr", 3};
+
+    Input<int> width{"width"};
+    Input<int> height{"height"};
+
+    Input<int> stride{"stride"};
+    Input<int> pixelFormat{"pixelFormat"};
+    Input<int> blockSize{"blockSize"};
+
+    void generate();
+    void apply_auto_schedule(::Halide::Pipeline pipeline, ::Halide::Target target);
+
+    Var v_x{"x"};
+    Var v_y{"y"};
+    Var v_c{"c"};    
+};
+
+void MeasureNoiseGenerator::generate() {
+    Func blocks{"blocks"};
+    Func mean{"mean"};
+    Func noise{"noise"};
+    Func deinterleaved{"deinterleaved"};
+    Func channels[4];
+
+    // Deinterleave
+    deinterleave(channels[0], input, 0, stride, pixelFormat);
+    deinterleave(channels[1], input, 1, stride, pixelFormat);
+    deinterleave(channels[2], input, 2, stride, pixelFormat);
+    deinterleave(channels[3], input, 3, stride, pixelFormat);
+
+    deinterleaved(v_x, v_y, v_c) = select(
+        v_c == 0, channels[0](v_x, v_y),
+        v_c == 1, channels[1](v_x, v_y),
+        v_c == 2, channels[2](v_x, v_y),
+                  channels[3](v_x, v_y));
+
+    RDom r(0, blockSize, 0, blockSize);
+
+    blocks(v_x, v_y, v_c) = cast<float>(deinterleaved(v_x, v_y, v_c));
+    mean(v_x, v_y, v_c) = sum(blocks(v_x*blockSize+r.x, v_y*blockSize+r.y, v_c)) / (blockSize*blockSize);
+    noise(v_x, v_y, v_c) = (deinterleaved(v_x, v_y, v_c) - mean(v_x/blockSize, v_y/blockSize, v_c))*(deinterleaved(v_x, v_y, v_c) - mean(v_x/blockSize, v_y/blockSize, v_c));
+
+    output(v_x, v_y, v_c) = sqrt(sum(noise(v_x*blockSize+r.x, v_y*blockSize+r.y, v_c)) / (blockSize*blockSize));
+    snr(v_x, v_y, v_c) = mean(v_x, v_y, v_c);
+
+    input.set_estimates({ {0, 18000000} });
+    stride.set_estimate(4000);
+    pixelFormat.set_estimate(0);
+    blockSize.set_estimate(16);
+    output.set_estimates({{0, 128}, {0, 96}, {0, 4}});
+    snr.set_estimates({{0, 128}, {0, 96}, {0, 4}});
+
+    if (!auto_schedule) {
+        apply_auto_schedule(get_pipeline(), get_target());
+    }
+}
+
+void MeasureNoiseGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::Halide::Target target)
+{
+    using ::Halide::Func;
+    using ::Halide::MemoryType;
+    using ::Halide::RVar;
+    using ::Halide::TailStrategy;
+    using ::Halide::Var;
+    Var x_vi("x_vi");
+    Var x_vo("x_vo");
+
+    Func f0 = pipeline.get_func(4);
+    Func f1 = pipeline.get_func(8);
+    Func f2 = pipeline.get_func(12);
+    Func f3 = pipeline.get_func(16);
+    Func mean = pipeline.get_func(20);
+    Func output = pipeline.get_func(23);
+    Func snr = pipeline.get_func(24);
+    Func sum = pipeline.get_func(19);
+    Func sum_1 = pipeline.get_func(22);
+
+    {
+        Var x = f0.args()[0];
+        Var y = f0.args()[1];
+        f0
+            .compute_root()
+            .split(x, x_vo, x_vi, 16)
+            .vectorize(x_vi)
+            .parallel(y);
+    }
+    {
+        Var x = f1.args()[0];
+        Var y = f1.args()[1];
+        f1
+            .compute_root()
+            .split(x, x_vo, x_vi, 16)
+            .vectorize(x_vi)
+            .parallel(y);
+    }
+    {
+        Var x = f2.args()[0];
+        Var y = f2.args()[1];
+        f2
+            .compute_root()
+            .split(x, x_vo, x_vi, 16)
+            .vectorize(x_vi)
+            .parallel(y);
+    }
+    {
+        Var x = f3.args()[0];
+        Var y = f3.args()[1];
+        f3
+            .compute_root()
+            .split(x, x_vo, x_vi, 16)
+            .vectorize(x_vi)
+            .parallel(y);
+    }
+    {
+        Var x = mean.args()[0];
+        Var y = mean.args()[1];
+        Var c = mean.args()[2];
+        mean
+            .compute_root()
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+    }
+    {
+        Var x = output.args()[0];
+        Var y = output.args()[1];
+        Var c = output.args()[2];
+        output
+            .compute_root()
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+    }
+    {
+        Var x = snr.args()[0];
+        Var y = snr.args()[1];
+        Var c = snr.args()[2];
+        snr
+            .compute_root()
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+    }
+    {
+        Var x = sum.args()[0];
+        Var y = sum.args()[1];
+        Var c = sum.args()[2];
+        RVar r36$x(sum.update(0).get_schedule().rvars()[0].var);
+        RVar r36$y(sum.update(0).get_schedule().rvars()[1].var);
+        sum
+            .compute_root()
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+        sum.update(0)
+            .reorder(r36$x, x, r36$y, y, c)
+            .split(x, x_vo, x_vi, 8, TailStrategy::GuardWithIf)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+    }
+    {
+        Var x = sum_1.args()[0];
+        Var y = sum_1.args()[1];
+        Var c = sum_1.args()[2];
+        RVar r36$x(sum_1.update(0).get_schedule().rvars()[0].var);
+        RVar r36$y(sum_1.update(0).get_schedule().rvars()[1].var);
+        sum_1
+            .compute_root()
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+        sum_1.update(0)
+            .reorder(r36$x, x, r36$y, y, c)
+            .split(x, x_vo, x_vi, 8, TailStrategy::GuardWithIf)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+    }
+}
+
 HALIDE_REGISTER_GENERATOR(GenerateEdgesGenerator, generate_edges_generator)
 HALIDE_REGISTER_GENERATOR(MeasureImageGenerator, measure_image_generator)
+HALIDE_REGISTER_GENERATOR(MeasureNoiseGenerator, measure_noise_generator)
 HALIDE_REGISTER_GENERATOR(DeinterleaveRawGenerator, deinterleave_raw_generator)
 HALIDE_REGISTER_GENERATOR(PostProcessGenerator, postprocess_generator)
 HALIDE_REGISTER_GENERATOR(FastPreviewGenerator, fast_preview_generator)
@@ -3777,6 +3951,3 @@ HALIDE_REGISTER_GENERATOR(PreviewGenerator, preview_generator)
 HALIDE_REGISTER_GENERATOR(HdrMaskGenerator, hdr_mask_generator)
 HALIDE_REGISTER_GENERATOR(LinearImageGenerator, linear_image_generator)
 HALIDE_REGISTER_GENERATOR(BuildBayerGenerator, build_bayer_generator)
-HALIDE_REGISTER_GENERATOR(DeghostGenerator, deghost_generator)
-
-// HALIDE_REGISTER_GENERATOR(TestGenerator, test_generator)

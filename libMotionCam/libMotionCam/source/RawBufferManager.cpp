@@ -10,6 +10,7 @@
 
 namespace motioncam {
     static const bool AlwaysSaveToDisk = false;
+    static const int NumContainersToKeepInMemory = 2;
 
     RawBufferManager::RawBufferManager() :
         mMemoryUseBytes(0),
@@ -159,9 +160,9 @@ namespace motioncam {
             
             // Pick images older than HDR images because the auto exposure changes after the first HDR capture
             if(!hdrBuffers.empty()) {
-                hdrTimestamp = hdrBuffers[0]->metadata.timestampNs;
+                hdrTimestamp = hdrBuffers.back()->metadata.timestampNs;
             }
-            
+
             for(auto & mReadyBuffer : mReadyBuffers) {
                 if(mReadyBuffer->metadata.rawType == RawType::ZSL &&
                    mReadyBuffer->metadata.timestampNs < hdrTimestamp)
@@ -178,12 +179,12 @@ namespace motioncam {
             int numToRemove = ((int)zslBuffers.size() - numSaveBuffers);
             
             zslBuffers.erase(zslBuffers.begin(), zslBuffers.begin() + numToRemove);
-            
+
             // Set reference timestamp
             if(!zslBuffers.empty())
                 referenceTimestampNs = zslBuffers.back()->metadata.timestampNs;
             else if(!hdrBuffers.empty())
-                referenceTimestampNs = hdrBuffers[hdrBuffers.size()/2]->metadata.timestampNs;
+                referenceTimestampNs = hdrBuffers.back()->metadata.timestampNs;
             else {
                 logger::log("No buffers. Something is not right");
                 return;
@@ -217,7 +218,7 @@ namespace motioncam {
         }
 
         // Save the container
-        if(AlwaysSaveToDisk || mPendingContainers.size_approx() > 1) {
+        if(AlwaysSaveToDisk || mPendingContainers.size_approx() > NumContainersToKeepInMemory) {
             rawContainer->save(outputPath);
         }
         else {
@@ -320,7 +321,7 @@ namespace motioncam {
         }
 
         // Save container
-        if(AlwaysSaveToDisk || mPendingContainers.size_approx() > 1) {
+        if(AlwaysSaveToDisk || mPendingContainers.size_approx() > NumContainersToKeepInMemory) {
             rawContainer->save(outputPath);
         }
         else {

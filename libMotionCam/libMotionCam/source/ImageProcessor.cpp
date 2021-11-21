@@ -18,9 +18,9 @@
 #include "forward_transform.h"
 #include "inverse_transform.h"
 #include "fuse_image.h"
+#include "fuse_denoise_3x3.h"
 #include "fuse_denoise_5x5.h"
 #include "fuse_denoise_7x7.h"
-#include "fuse_denoise_11x11.h"
 #include "fast_preview.h"
 #include "measure_noise.h"
 
@@ -41,12 +41,12 @@
 #include "preview_reverse_landscape8.h"
 
 #include "postprocess.h"
-#include "deghost.h"
 
 #include <iostream>
 #include <fstream>
 #include <algorithm>
 #include <memory>
+#include <numeric>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <exiv2/exiv2.hpp>
@@ -92,9 +92,9 @@ static std::vector<Halide::Runtime::Buffer<float>> createWaveletBuffers(int widt
 
 namespace motioncam {
     const int EXPANDED_RANGE            = 16384;
-    const float MAX_HDR_ERROR           = 0.005f;
+    const float MAX_HDR_ERROR           = 0.0001f;
     const float WHITEPOINT_THRESHOLD    = 1.0f;
-    const float SHADOW_BIAS             = 20.0f;
+    const float SHADOW_BIAS             = 16.0f;
 
     typedef Halide::Runtime::Buffer<float> WaveletBuffer;
 
@@ -299,14 +299,13 @@ namespace motioncam {
         
         float shadows = settings.shadows;
         
-        float tonemapVariance = 0.27f;
+        float tonemapVariance = 0.25f;
         bool useHdr = false;
         float hdrInputGain = 1.0f;
         float hdrScale = 1.0f;
         
-        if(hdrMetadata && hdrMetadata->error < MAX_HDR_ERROR) {
+        if(hdrMetadata) {
             hdrInput = hdrMetadata->hdrInput;
-            
             hdrInputGain = hdrMetadata->gain;
             hdrScale = 1.0f / hdrMetadata->exposureScale;
             useHdr = true;
@@ -314,8 +313,7 @@ namespace motioncam {
         }
         else {
             // Don't apply underexposed image when error is too high
-            if(hdrMetadata)
-                logger::log("Not using HDR image, error too high (" + std::to_string(hdrMetadata->error) + ")");
+            logger::log("Not using HDR image");
             
             hdrInput = Halide::Runtime::Buffer<uint16_t>(inputBuffers[0].width()*2, inputBuffers[0].height()*2, 3);
             
@@ -347,6 +345,7 @@ namespace motioncam {
                     settings.exposure,
                     settings.whitePoint,
                     settings.contrast,
+                    settings.brightness,
                     settings.blues,
                     settings.greens,
                     settings.saturation,
@@ -374,22 +373,20 @@ namespace motioncam {
             
         settings.blacks     = 0.0f;
         settings.whitePoint = 1.0f;
-        settings.sharpen0   = 1.0f;
-        settings.sharpen1   = 1.0f;
-        settings.contrast   = 0.35f;
-        settings.pop        = 1.25f;
-                
-        auto previewBuffer = createPreview(rawBuffer, 2, cameraMetadata, settings);
+        
+        Halide::Runtime::Buffer<uint8_t> previewBuffer;
+        
+        previewBuffer = createPreview(rawBuffer, 2, cameraMetadata, settings);
 
         cv::Mat preview(previewBuffer.height(), previewBuffer.width(), CV_8UC4, previewBuffer.data());
         cv::Mat histogram;
-        
-        cv::cvtColor(preview, preview, cv::COLOR_BGRA2GRAY);
+                
+        cv::cvtColor(preview, preview, cv::COLOR_RGBA2GRAY);
         
         vector<cv::Mat> inputImages     = { preview };
         const vector<int> channels      = { 0 };
-        const vector<int> histBins      = { 255 };
-        const vector<float> histRange   = { 0, 256 };
+        const vector<int> histBins      = { 256 };
+        const vector<float> histRange   = { 0, 255 };
 
         cv::calcHist(inputImages, channels, cv::Mat(), histogram, histBins, histRange);
         
@@ -401,32 +398,35 @@ namespace motioncam {
         }
                 
         // Estimate black point
-        const float minDehazePercent = 0.000f;
-        const float maxDehazePercent = 0.00125f;
-        const int maxBlackPointBin = 0.06f * histBins[0] + 0.5f;
+        const float maxDehazePercent = 0.004f;
+        const int maxBlackPointBin = 0.07f * histBins[0] + 0.5f;
 
         int endBin = 1;
         
-        while(true) {
-            float p = histogram.at<float>(endBin);
+        for(; endBin < maxBlackPointBin; endBin++) {
+            float p0 = histogram.at<float>(endBin - 1);
+            float p1 = histogram.at<float>(endBin);
             
-            if( p > maxDehazePercent || (p > minDehazePercent && endBin >= maxBlackPointBin) )
+            if(p1 - p0 < 0.001f)
+                continue;
+            
+            if( p1 > maxDehazePercent )
                 break;
-            
-            ++endBin;
         }
-
+                
         outBlackPoint = (endBin - 1) / (float) (histogram.rows - 1);
         
         // Estimate white point
-        const int maxWhitePointBin = 0.9f * histBins[0] + 0.5f;
-        for(endBin = histogram.rows - 1; endBin >= maxWhitePointBin; endBin--) {
+        const int maxWhitePointBin = 0.75f * histBins[0] + 0.5f;
+        const float whitePoint = 0.999f;
+        
+        for(endBin = histogram.rows - 2; endBin >= maxWhitePointBin; endBin--) {
             float p = histogram.at<float>(endBin);
 
-            if(p < 0.99995f)
+            if(p > whitePoint)
                 break;
         }
-
+        
         outWhitePoint = static_cast<float>(endBin + 1) / ((float) histogram.rows);
     }
 
@@ -447,30 +447,9 @@ namespace motioncam {
         return std::max(1.0f, std::min(keyValue / avgLuminance, 24.0f));
     }
 
-    float ImageProcessor::estimateHdr(const cv::Mat& histogram) {
-        float total = 0;
-        
-        for(int i = histogram.cols - 1; i >= (int) (0.99f*histogram.cols); i--) {
-            total += histogram.at<float>(i);
-        }
-
-        std::vector<float> EV_MAP = {
-            0.03f, 3.5f,
-            0.02f, 3.0f,
-            0.01f, 2.5f,
-            0.00f, 2.0f,
-        };
-
-        float ev = EV_MAP[EV_MAP.size()-1];
-
-        for(int i = 0; i < EV_MAP.size(); i+=2) {
-            if(total >= EV_MAP[i]) {
-                ev = EV_MAP[i + 1];
-                break;
-            }
-        }
-        
-        return ev;
+    void ImageProcessor::estimateHdr(const cv::Mat& histogram, float& outLows, float& outHighs) {
+        outLows = histogram.at<float>(0);
+        outHighs = histogram.at<float>(histogram.cols - 1);
     }
 
     float ImageProcessor::estimateExposureCompensation(const cv::Mat& histogram, float threshold) {
@@ -479,11 +458,19 @@ namespace motioncam {
         
         // Exposure compensation
         for(int i = histogram.cols - 1; i >= 0; i--) {
-            total += histogram.at<float>(i);
-            if(total >= threshold) {
+            float p = total + histogram.at<float>(i);
+        
+            if(p - total < 0.001f) {
+                total = p;
+                continue;
+            }
+        
+            if(p >= threshold) {
                 bin = i;
                 break;
             }
+            
+            total = p;
         }
         
         double m = histogram.cols / static_cast<double>(bin + 1);
@@ -492,16 +479,16 @@ namespace motioncam {
 
     std::vector<float>& ImageProcessor::estimateDenoiseWeights(const float noise) {
         const float NOISE_MAP[] = {
-            0.08f,
-            0.06f,
-            0.04f,
-            0.02f,
+            0.001f,
+            0.005f,
             0.01f,
-            0.005f
+            0.03f,
+            0.05f,
+            0.07f,
         };
         
         static std::vector<std::vector<float>> WEIGHTS = {
-            { 12, 8,   2,   1  },
+            { 12, 4,   2,   1  },
             { 8,  4,   2,   1  },
             { 6,  4,   1,   1  },
             { 4,  2,   1,   0  },
@@ -526,10 +513,10 @@ namespace motioncam {
 
     float ImageProcessor::getShadowKeyValue(const RawImageBuffer& rawBuffer, const RawCameraMetadata& cameraMetadata, bool nightMode) {
         float ev = calcEv(cameraMetadata, rawBuffer.metadata);
-        float minKv = 1.03;
+        float minKv = 1.05;
         
         if(nightMode)
-            minKv = 1.05f;
+            minKv = 1.07f;
         
         return minKv - SHADOW_BIAS / (SHADOW_BIAS + std::log10(std::pow(10.0f, ev) + 1));
     }
@@ -553,7 +540,8 @@ namespace motioncam {
         outSettings.tint           = static_cast<float>(temperature.tint());
         outSettings.shadows        = estimateShadows(histogram, keyValue);
         outSettings.exposure       = estimateExposureCompensation(histogram, 1e-3f);
-        outSettings.hdr            = estimateHdr(histogram);
+
+        estimateHdr(histogram, outSettings.clippedLows, outSettings.clippedHighs);
     }
 
     void ImageProcessor::createSrgbMatrix(const RawCameraMetadata& cameraMetadata,
@@ -723,6 +711,7 @@ namespace motioncam {
             settings.blacks,
             settings.exposure,
             settings.contrast,
+            settings.brightness,
             settings.blues,
             settings.greens,
             settings.saturation,
@@ -845,12 +834,40 @@ namespace motioncam {
         outSceneLuminosity = 0;
     }
 
+    void ImageProcessor::measureNoise(const RawImageBuffer& rawBuffer, std::vector<float>& outNoise, std::vector<float>& outSignal, const int patchSize) {
+        NativeBufferContext context(*rawBuffer.data, false);
+
+        Halide::Runtime::Buffer<float> noiseBuffer(rawBuffer.width / 2 / patchSize, rawBuffer.height / 2 / patchSize, 4);
+        Halide::Runtime::Buffer<float> signalBuffer(rawBuffer.width / 2 / patchSize, rawBuffer.height / 2 / patchSize, 4);
+        
+        measure_noise(context.getHalideBuffer(),
+                      rawBuffer.width/2,
+                      rawBuffer.height/2,
+                      rawBuffer.rowStride,
+                      static_cast<int>(rawBuffer.pixelFormat),
+                      patchSize,
+                      noiseBuffer,
+                      signalBuffer);
+        
+
+        for(int c = 0; c < 4; c++) {
+            cv::Mat noiseImage(noiseBuffer.height(), noiseBuffer.width(), CV_32F, noiseBuffer.data() + c*noiseBuffer.stride(2));
+            cv::Mat signalImage(signalBuffer.height(), signalBuffer.width(), CV_32F, signalBuffer.data() + c*signalBuffer.stride(2));
+            
+            float noise = findMedian(noiseImage);
+            float signal = findMedian(signalImage) / (rawBuffer.metadata.iso / 100.0f);
+            
+            outNoise.push_back(noise);
+            outSignal.push_back(signal);
+        }
+    }
+
     cv::Mat ImageProcessor::registerImage2(
         const Halide::Runtime::Buffer<uint8_t>& referenceBuffer, const Halide::Runtime::Buffer<uint8_t>& toAlignBuffer)
     {
         Measure measure("registerImage2()");
 
-        static const cv::TermCriteria termCriteria = cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 50, 0.0001f);
+        static const cv::TermCriteria termCriteria = cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 50, 0.001f);
 
         static const float scaleWarpMatrix[] = {
            1,   1,   2,
@@ -866,10 +883,9 @@ namespace motioncam {
     
         // Create pyramid from reference
         vector<cv::Mat> refPyramid;
-       
-        cv::buildPyramid(referenceImage, refPyramid, ALIGN_PYRAMID_LEVELS);
-
         vector<cv::Mat> curPyramid;
+
+        cv::buildPyramid(referenceImage, refPyramid, ALIGN_PYRAMID_LEVELS);
         cv::buildPyramid(toAlignImage, curPyramid, ALIGN_PYRAMID_LEVELS);
 
         cv::Mat warpMatrix = cv::Mat::eye(3, 3, CV_32F);
@@ -897,7 +913,7 @@ namespace motioncam {
     cv::Mat ImageProcessor::registerImage(
         const Halide::Runtime::Buffer<uint8_t>& referenceBuffer, const Halide::Runtime::Buffer<uint8_t>& toAlignBuffer)
     {
-        Measure measure("registerImage()");
+        //Measure measure("registerImage()");
 
         cv::Mat referenceImage(referenceBuffer.height(), referenceBuffer.width(), CV_8U, (void*) referenceBuffer.data());
         cv::Mat toAlignImage(toAlignBuffer.height(), toAlignBuffer.width(), CV_8U, (void*) toAlignBuffer.data());
@@ -938,7 +954,7 @@ namespace motioncam {
             scene.push_back( keypoints2[ m.trainIdx ].pt );
         }
 
-        if(obj.empty()) {
+        if(obj.size() < 4 || scene.size() < 4) {
             return cv::Mat();
         }
 
@@ -1074,14 +1090,15 @@ namespace motioncam {
         
         auto referenceRawBuffer = rawContainer.loadFrame(rawContainer.getReferenceImage());
         PostProcessSettings settings = rawContainer.getPostProcessSettings();
-                
+        
+        // Remove all underexposed images
         if(rawContainer.isHdr()) {
             auto refEv = calcEv(rawContainer.getCameraMetadata(), referenceRawBuffer->metadata);
             
             for(auto frameName : rawContainer.getFrames()) {
                 auto frame = rawContainer.getFrame(frameName);
                 auto ev = calcEv(rawContainer.getCameraMetadata(), frame->metadata);
-                            
+                        
                 if(ev - refEv > 0.25f) {
                     // Load the frame since we intend to remove it from the container
                     auto raw = rawContainer.loadFrame(frameName);
@@ -1091,7 +1108,7 @@ namespace motioncam {
                 }
             }
         }
-                                
+                        
         // Estimate shadows if not set
         if(settings.shadows < 0) {
             float keyValue = getShadowKeyValue(*referenceRawBuffer, rawContainer.getCameraMetadata(), settings.captureMode == "NIGHT");
@@ -1099,14 +1116,9 @@ namespace motioncam {
             
             settings.shadows = estimateShadows(histogram, keyValue);
         }
-                
+        
         if(settings.blacks < 0 || settings.whitePoint < 0) {
-            float blackPoint, whitePoint;
-            
-            ImageProcessor::estimateBlackWhitePoint(*referenceRawBuffer, rawContainer.getCameraMetadata(), settings, blackPoint, whitePoint);
-            
-            settings.blacks = blackPoint;
-            settings.whitePoint = whitePoint;
+            estimateBlackWhitePoint(*referenceRawBuffer, rawContainer.getCameraMetadata(), settings, settings.blacks, settings.whitePoint);
         }
         
         //
@@ -1114,8 +1126,9 @@ namespace motioncam {
         //
         
         Halide::Runtime::Buffer<uint8_t> preview;
+        PostProcessSettings previewSettings = settings;
         
-        preview = createPreview(*referenceRawBuffer, 2, rawContainer.getCameraMetadata(), settings);
+        preview = createPreview(*referenceRawBuffer, 2, rawContainer.getCameraMetadata(), previewSettings);
         
         std::string basePath, filename;
 
@@ -1137,18 +1150,13 @@ namespace motioncam {
         
         shared_ptr<HdrMetadata> hdrMetadata;
   
-        hdrMetadata = prepareHdr(rawContainer.getCameraMetadata(),
-                   settings,
-                   *referenceRawBuffer,
-                   underexposedImages);
-        
-        // Don't adjust whitepoint if using HDR since we already adjust it from the HDR image
-        if(hdrMetadata) {
-            settings.whitePoint = 1.0f;
+        if(!underexposedImages.empty() && settings.whitePoint > 0.99f) {
+            hdrMetadata = prepareHdr(rawContainer.getCameraMetadata(),
+                       settings,
+                       *referenceRawBuffer,
+                       *underexposedImages[0]);
         }
         
-        auto exifMetadata = hdrMetadata == nullptr ? referenceRawBuffer->metadata : underexposedImages[0]->metadata;
-
         underexposedImages.clear();
                 
         //
@@ -1163,7 +1171,7 @@ namespace motioncam {
         denoiseOutput = denoise(rawContainer, referenceRawBuffer, &noise, progressHelper);
         
         progressHelper.denoiseCompleted();
-        
+                
         //
         // Post process
         //
@@ -1241,6 +1249,8 @@ namespace motioncam {
         cv::resize(outputImage, thumbnail, cv::Size(width, height));
 
         // Add exif data to the output image
+        auto exifMetadata = referenceRawBuffer->metadata;
+
         addExifMetadata(exifMetadata,
                         thumbnail,
                         rawContainer.getCameraMetadata(),
@@ -1418,9 +1428,29 @@ namespace motioncam {
         ImageProgressHelper& progressHelper)
     {
         Measure measure("denoise()");
+        
+        //
+        // Measure noise
+        //
+        
+        int ev = (int) (0.5f + calcEv(rawContainer.getCameraMetadata(), referenceRawBuffer->metadata));
+        int patchSize = ev < 8 ? 16 : 8;
+        
+        std::vector<float> noise, signal;
+        
+        measureNoise(*referenceRawBuffer, noise, signal, patchSize);
+        
+        float signalAverage = std::accumulate(signal.begin(), signal.end(), 0.0f) / signal.size();
+        signalAverage /= rawContainer.getCameraMetadata().whiteLevel;
                 
+        Halide::Runtime::Buffer<float> thresholdBuffer(&noise[0], 4);
+
+        //
+        // Init
+        //
+        
         auto reference = loadRawImage(*referenceRawBuffer, rawContainer.getCameraMetadata());
-                
+        
         std::vector<Halide::Runtime::Buffer<uint16_t>> result;
         
         cv::Mat referenceFlowImage(reference->previewBuffer.height(), reference->previewBuffer.width(), CV_8U, reference->previewBuffer.data());
@@ -1431,34 +1461,22 @@ namespace motioncam {
         auto processFrames = rawContainer.getFrames();
         auto it = processFrames.begin();
 
-        int ev = (int) (0.5f + calcEv(rawContainer.getCameraMetadata(), reference->metadata));
+        float w = 1.0f/(2.0f*sqrt(2.0f));
+        auto method = &fuse_denoise_3x3;
         
-        float w = 1.0f/sqrt(2.0f);
-        int patchSize = ev < 8 ? 32 : 16;
-        auto method = &fuse_denoise_5x5;
-
-        if(ev < 0)
-            method = &fuse_denoise_11x11;
-        else if(ev < 8)
+        if(signalAverage < 0.01f) {
             method = &fuse_denoise_7x7;
-        else
-            method = &fuse_denoise_5x5;
-        
-        //
-        // Measure noise
-        //
-        
-        Halide::Runtime::Buffer<float> noiseBuffer(reference->rawBuffer.width()/patchSize, reference->rawBuffer.height()/patchSize, 4);
-        float N[4] = { 0, 0, 0, 0 };
-        
-        measure_noise(reference->rawBuffer, patchSize, noiseBuffer);
-        
-        for(int c = 0; c < 4; c++) {
-            cv::Mat noise(noiseBuffer.height(), noiseBuffer.width(), CV_32F, noiseBuffer.data() + c*noiseBuffer.stride(2));
-            N[c] = findMedian(noise);
+            w *= 2.0f;
         }
-        
-        Halide::Runtime::Buffer<float> thresholdBuffer(&N[0], 4);
+        else if(signalAverage < 0.02f) {
+            method = &fuse_denoise_7x7;
+        }
+        else if(signalAverage < 0.04f) {
+            method = &fuse_denoise_5x5;
+        }
+        else {
+            method = &fuse_denoise_3x3;
+        }
         
         //
         // Fuse
@@ -1492,8 +1510,6 @@ namespace motioncam {
             
             Halide::Runtime::Buffer<float> flowBuffer =
                 Halide::Runtime::Buffer<float>::make_interleaved((float*) flow.data, flow.cols, flow.rows, 2);
-
-            Halide::Runtime::Buffer<float> noise(4);
             
             method(
                 reference->rawBuffer,
@@ -1544,11 +1560,13 @@ namespace motioncam {
         //
 
         std::vector<Halide::Runtime::Buffer<uint16_t>> denoiseOutput;
-
-        Halide::Runtime::Buffer<float> weightsBuffer;
-        std::vector<float> normalisedNoise;
         
         auto wavelet = createWaveletBuffers(denoiseInput.width(), denoiseInput.height());
+
+        std::vector<float> normalisedNoise;
+
+        auto weights = estimateDenoiseWeights(signalAverage);
+        auto weightsBuffer = Halide::Runtime::Buffer<float>(&weights[0], 4);
 
         for(int c = 0; c < 4; c++) {
             forward_transform(denoiseInput,
@@ -1569,11 +1587,6 @@ namespace motioncam {
             float n = noiseSigma / (1e-5f + cv::mean(ll)[0]);
         
             normalisedNoise.push_back(n);
-            
-            if(c == 0) {
-                std::vector<float>& weights = estimateDenoiseWeights(n);
-                weightsBuffer = Halide::Runtime::Buffer<float>(&weights[0], 4);
-            }
             
             Halide::Runtime::Buffer<uint16_t> outputBuffer(width, height);
 
@@ -1597,159 +1610,76 @@ namespace motioncam {
         return denoiseOutput;
     }
 
+    float ImageProcessor::testAlignment(std::shared_ptr<RawData> refImage,
+                                        std::shared_ptr<RawData> underexposedImage,
+                                        const RawCameraMetadata& cameraMetadata,
+                                        cv::Mat warpMatrix,
+                                        float exposureScale) {
+        Measure measure("testAlignment()");
+
+        if(warpMatrix.empty())
+            return 1e10f;
+
+        Halide::Runtime::Buffer<uint8_t> ghostMapBuffer(refImage->rawBuffer.width(), refImage->rawBuffer.height());
+        Halide::Runtime::Buffer<float> warpBuffer = ToHalideBuffer<float>(warpMatrix);
+
+        hdr_mask(refImage->rawBuffer,
+                 underexposedImage->rawBuffer,
+                 warpBuffer,
+                 cameraMetadata.blackLevel[0],
+                 cameraMetadata.blackLevel[1],
+                 cameraMetadata.blackLevel[2],
+                 cameraMetadata.blackLevel[3],
+                 cameraMetadata.whiteLevel,
+                 1.0f,
+                 exposureScale,
+                 16.0f,
+                 ghostMapBuffer);
+
+        // Calculate error
+        cv::Mat ghostMap(ghostMapBuffer.height(), ghostMapBuffer.width(), CV_8U, ghostMapBuffer.data());
+
+        auto trimmedGhostMap = ghostMap(cv::Rect(32, 32, ghostMap.cols - 64, ghostMap.rows - 64));
+        
+        return cv::mean(trimmedGhostMap)[0];
+    }
+
     std::shared_ptr<HdrMetadata> ImageProcessor::prepareHdr(const RawCameraMetadata& cameraMetadata,
                                                             const PostProcessSettings& settings,
                                                             const RawImageBuffer& reference,
-                                                            const std::vector<std::shared_ptr<RawImageBuffer>>& underexposed)
+                                                            const RawImageBuffer& underexposed)
     {
         Measure measure("prepareHdr()");
         
-        if(underexposed.empty())
-            return nullptr;
-        
-        auto refImage = loadRawImage(reference, cameraMetadata, true, 1.0);
-        
-        // Align to reference
-        std::vector<std::shared_ptr<RawData>> images;
-        std::vector<cv::Mat> warpMatrixList;
+        // Match exposures
+        float exposureScale;
+                        
+        auto a = calcEv(cameraMetadata, reference.metadata);
+        auto b = calcEv(cameraMetadata, underexposed.metadata);
 
-        float exposureScale = 1.0f;
-        
-        for(int i = 0; i < underexposed.size(); i++) {
-            auto a = calcEv(cameraMetadata, reference.metadata);
-            auto b = calcEv(cameraMetadata, underexposed[i]->metadata);
-
-            exposureScale = std::pow(2.0f, std::abs(b - a));
-            auto underexposedImage = loadRawImage(*underexposed[i], cameraMetadata, true, exposureScale);
-            auto warpMatrix = registerImage(refImage->previewBuffer, underexposedImage->previewBuffer);
-                 
-            // Ignore if we can't align
-            if(warpMatrix.empty())
-                continue;
-            
-            warpMatrixList.push_back(warpMatrix);
-            images.push_back(underexposedImage);
-            
-            underexposed[i]->data.release();
-        }
-        
+        exposureScale = std::pow(2.0f, std::abs(b - a));
+                
         //
-        // Test alignment
+        // Register images
         //
         
-        cv::Mat finalGhostMap(images[0]->previewBuffer.height(), images[0]->previewBuffer.width(), CV_8U);
+        const bool extendEdges = true;
+
+        auto refImage = loadRawImage(reference, cameraMetadata, extendEdges, 1.0);
+        auto underexposedImage = loadRawImage(underexposed, cameraMetadata, extendEdges, exposureScale);
+
+        // Try to register the image two different ways
+        auto warpMatrix = registerImage2(refImage->previewBuffer, underexposedImage->previewBuffer);
         
-        finalGhostMap.setTo(1);
-        
-        for(int i = 0; i < images.size(); i++) {
-            cv::Mat misaligned(images[i]->previewBuffer.height(), images[i]->previewBuffer.width(), CV_8U, images[i]->previewBuffer.data());
-            cv::Mat aligned;
-            
-            cv::warpPerspective(misaligned, aligned, warpMatrixList[i], aligned.size(), cv::INTER_LINEAR, cv::BORDER_REPLICATE);
+        warpMatrix = warpMatrix.inv();
+        warpMatrix.convertTo(warpMatrix, CV_32F);
 
-            Halide::Runtime::Buffer<uint8_t> alignedBuffer = ToHalideBuffer<uint8_t>(aligned);
-            Halide::Runtime::Buffer<uint8_t> ghostMapBuffer(alignedBuffer.width(), alignedBuffer.height());
-            
-            hdr_mask(refImage->previewBuffer, alignedBuffer, 16.0f, ghostMapBuffer);
-            
-            cv::Mat ghostMap(ghostMapBuffer.height(), ghostMapBuffer.width(), CV_8U, ghostMapBuffer.data());
+        float error = testAlignment(refImage, underexposedImage, cameraMetadata, warpMatrix, exposureScale);
 
-            finalGhostMap &= ghostMap;
-        }
-
-        float error = cv::mean(finalGhostMap)[0] * 100;
         logger::log("HDR error: " + std::to_string(error));
-        
-        if(error >= MAX_HDR_ERROR)
+        if(error > MAX_HDR_ERROR)
             return nullptr;
-        
-        // Need at least 4 images to contiue
-        while(images.size() < 4) {
-            images.push_back(images[images.size()-1]);
-            warpMatrixList.push_back(warpMatrixList[warpMatrixList.size()-1]);
-        }
-        
-        auto output = images[0]->rawBuffer.copy();
-        
-        for(int i = 0; i < warpMatrixList.size(); i++) {
-            warpMatrixList[i] = warpMatrixList[i].inv();
-            warpMatrixList[i].convertTo(warpMatrixList[i], CV_32F);
-        }
-        
-        deghost(images[0]->rawBuffer,
-                images[1]->rawBuffer,
-                images[2]->rawBuffer,
-                images[3]->rawBuffer,
-                ToHalideBuffer<float>(warpMatrixList[0]),
-                ToHalideBuffer<float>(warpMatrixList[1]),
-                ToHalideBuffer<float>(warpMatrixList[2]),
-                ToHalideBuffer<float>(warpMatrixList[3]),
-                images[0]->rawBuffer.width(),
-                images[0]->rawBuffer.height(),
-                output);
-        
-        // Free memory
-        images.clear();
-        warpMatrixList.clear();
-                
-        //
-        // Denoise
-        //
-        
-        std::vector<Halide::Runtime::Buffer<uint16_t>> denoiseOutput;
-
-        // Denoise when underexposing >= -2 EV
-        if(exposureScale >= 4) {
-            Halide::Runtime::Buffer<float> weightsBuffer;
-            
-            auto wavelet = createWaveletBuffers(output.width(), output.height());
-
-            for(int c = 0; c < 4; c++) {
-                forward_transform(output,
-                                  output.width(),
-                                  output.height(),
-                                  c,
-                                  wavelet[0],
-                                  wavelet[1],
-                                  wavelet[2],
-                                  wavelet[3]);
-
-                int offset = wavelet[0].stride(2);
-
-                cv::Mat ll(wavelet[0].height(), wavelet[0].width(), CV_32F, wavelet[0].data() + 4);
-                cv::Mat hh(wavelet[0].height(), wavelet[0].width(), CV_32F, wavelet[0].data() + offset*7);
-
-                float noiseSigma = estimateNoise(hh, 0.75f);
-                float n = noiseSigma / (1e-5f + cv::mean(ll)[0]);
-                                
-                if(c == 0) {
-                    std::vector<float>& weights = estimateDenoiseWeights(n);
-                    weightsBuffer = Halide::Runtime::Buffer<float>(&weights[0], 4);
-                }
-
-                Halide::Runtime::Buffer<uint16_t> outputBuffer(output.width(), output.height());
-
-                inverse_transform(wavelet[0],
-                                  wavelet[1],
-                                  wavelet[2],
-                                  wavelet[3],
-                                  noiseSigma,
-                                  false,
-                                  weightsBuffer,
-                                  outputBuffer);
-
-                denoiseOutput.push_back(outputBuffer);
-            }
-        }
-        else {
-            for(int c = 0; c < 4; c++) {
-                int offset = c * output.stride(2);
-                cv::Mat channel(output.height(), output.width(), CV_16U, output.data() + offset);
-                
-                denoiseOutput.push_back(ToHalideBuffer<uint16_t>(channel));
-            }
-        }
-        
+                  
         //
         // Create the underexposed image
         //
@@ -1761,26 +1691,25 @@ namespace motioncam {
         if(settings.temperature > 0 || settings.tint > 0) {
             Temperature t(settings.temperature, settings.tint);
 
-            createSrgbMatrix(cameraMetadata, underexposed[0]->metadata, t, cameraWhite, cameraToPcs, pcsToSrgb);
+            createSrgbMatrix(cameraMetadata, underexposed.metadata, t, cameraWhite, cameraToPcs, pcsToSrgb);
         }
         else {
-            createSrgbMatrix(cameraMetadata, underexposed[0]->metadata, underexposed[0]->metadata.asShot, cameraWhite, cameraToPcs, pcsToSrgb);
+            createSrgbMatrix(cameraMetadata, underexposed.metadata, underexposed.metadata.asShot, cameraWhite, cameraToPcs, pcsToSrgb);
         }
         
         cv::Mat cameraToSrgb = pcsToSrgb * cameraToPcs;
 
         Halide::Runtime::Buffer<float> shadingMapBuffer[4];
         for(int i = 0; i < 4; i++) {
-            shadingMapBuffer[i] = ToHalideBuffer<float>(underexposed[0]->metadata.lensShadingMap[i]);
+            shadingMapBuffer[i] = ToHalideBuffer<float>(underexposedImage->metadata.lensShadingMap[i]);
         }
         
         Halide::Runtime::Buffer<float> colorTransformBuffer = ToHalideBuffer<float>(cameraToSrgb);
-        Halide::Runtime::Buffer<uint16_t> outputBuffer(denoiseOutput[0].width()*2, denoiseOutput[0].height()*2, 3);
-        
-        linear_image(denoiseOutput[0],
-                     denoiseOutput[1],
-                     denoiseOutput[2],
-                     denoiseOutput[3],
+        Halide::Runtime::Buffer<uint16_t> outputBuffer(underexposedImage->rawBuffer.width()*2, underexposedImage->rawBuffer.height()*2, 3);
+        Halide::Runtime::Buffer<float> warpBuffer = ToHalideBuffer<float>(warpMatrix);
+                
+        linear_image(underexposedImage->rawBuffer,
+                     warpBuffer,
                      shadingMapBuffer[0],
                      shadingMapBuffer[1],
                      shadingMapBuffer[2],
@@ -1789,8 +1718,8 @@ namespace motioncam {
                      cameraWhite[1],
                      cameraWhite[2],
                      colorTransformBuffer,
-                     denoiseOutput[0].width(),
-                     denoiseOutput[0].height(),
+                     underexposedImage->rawBuffer.width(),
+                     underexposedImage->rawBuffer.height(),
                      static_cast<int>(cameraMetadata.sensorArrangment),
                      cameraMetadata.blackLevel[0],
                      cameraMetadata.blackLevel[1],
@@ -1827,7 +1756,7 @@ namespace motioncam {
             float sum = 0;
 
             for(int x = histogram.rows - 1; x >= 0; x--) {
-                if( sum > 1e-5f )
+                if( sum > 0.00005f )
                     break;
 
                 p[c] = x + 1;

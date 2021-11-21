@@ -27,17 +27,14 @@ function build_denoise() {
 	ARCH=$2
 	FLAGS="no_runtime"
 
-	echo "[$ARCH] Building measure_noise_generator"
-	./tmp/denoise_generator -g measure_noise_generator -f measure_noise -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS}
+	echo "[$ARCH] Building denoise_generator_3x3"
+	./tmp/denoise_generator -g denoise_generator -f fuse_denoise_3x3 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} window=3
 
 	echo "[$ARCH] Building denoise_generator_5x5"
 	./tmp/denoise_generator -g denoise_generator -f fuse_denoise_5x5 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} window=5
 
 	echo "[$ARCH] Building denoise_generator_7x7"
 	./tmp/denoise_generator -g denoise_generator -f fuse_denoise_7x7 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} window=7
-
-	echo "[$ARCH] Building denoise_generator_11x11"
-	./tmp/denoise_generator -g denoise_generator -f fuse_denoise_11x11 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} window=11
 
 	echo "[$ARCH] Building forward_transform_generator"
 	./tmp/denoise_generator -g forward_transform_generator -f forward_transform -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} input.type=uint16 levels=4
@@ -54,8 +51,8 @@ function build_postprocess() {
 	ARCH=$2
 	FLAGS="no_runtime"
 
-	echo "[$ARCH] Building deghost_generator"
-	./tmp/postprocess_generator -g deghost_generator -f deghost -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} input.type=uint16 warpMatrix.type=float32 input.size=4 warpMatrix.size=4
+	echo "[$ARCH] Building measure_noise_generator"
+	./tmp/postprocess_generator -g measure_noise_generator -f measure_noise -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS}
 
 	echo "[$ARCH] Building build_bayer_generator"
 	./tmp/postprocess_generator -g build_bayer_generator -f build_bayer -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS}

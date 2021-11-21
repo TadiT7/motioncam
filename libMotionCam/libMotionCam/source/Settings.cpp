@@ -47,10 +47,12 @@ namespace motioncam {
         tonemapVariance(0.25f),
         shadows(1.0f),
         exposure(0.0f),
-        hdr(0.0f),
+        clippedLows(0.0f),
+        clippedHighs(0.0f),
         noiseSigma(0.0f),
         sceneLuminance(0.0f),
         contrast(0.5f),
+        brightness(1.0f),
         sharpen0(2.0f),
         sharpen1(2.0f),
         pop(1.25f),
@@ -79,8 +81,10 @@ namespace motioncam {
         shadows                         = getSetting(json, "shadows",           shadows);
         whitePoint                      = getSetting(json, "whitePoint",        whitePoint);
         contrast                        = getSetting(json, "contrast",          contrast);
+        brightness                      = getSetting(json, "brightness",        brightness);
         exposure                        = getSetting(json, "exposure",          exposure);
-        hdr                             = getSetting(json, "hdr",               hdr);
+        clippedLows                     = getSetting(json, "clippedLows",       clippedLows);
+        clippedHighs                    = getSetting(json, "clippedHighs",      clippedHighs);
         blacks                          = getSetting(json, "blacks",            blacks);
         
         noiseSigma                      = getSetting(json, "noiseSigma",        noiseSigma);
@@ -113,12 +117,14 @@ namespace motioncam {
         json["shadows"]                         = shadows;
         json["whitePoint"]                      = whitePoint;
         json["contrast"]                        = contrast;
+        json["brightness"]                      = brightness;
         json["sharpen0"]                        = sharpen0;
         json["sharpen1"]                        = sharpen1;
         json["pop"]                             = pop;
         json["blacks"]                          = blacks;
         json["exposure"]                        = exposure;
-        json["hdr"]                             = hdr;
+        json["clippedLows"]                     = clippedLows;
+        json["clippedHighs"]                    = clippedHighs;
         json["temperature"]                     = temperature;
         json["tint"]                            = tint;
         

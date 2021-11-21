@@ -29,9 +29,11 @@ namespace motioncam {
     
     float estimateNoise(cv::Mat& input, float p) {
         cv::Mat d = cv::abs(input);
-        return findMedian(d, p);
+                
+        float median = findMedian(d, p);
+        d = cv::abs(d - median);
 
-//        return mad / 0.6745;
+        return findMedian(d) / 0.6745;
     }
         
     float calculateEnergy(cv::Mat& image) {

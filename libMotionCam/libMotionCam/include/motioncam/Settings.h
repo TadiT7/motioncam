@@ -27,12 +27,14 @@ namespace motioncam {
         float shadows;
         float whitePoint;
         float contrast;
+        float brightness;
         float sharpen0;
         float sharpen1;
         float pop;
         float blacks;
         float exposure;
-        float hdr;
+        float clippedLows;
+        float clippedHighs;
         
         float noiseSigma;
         float sceneLuminance;

@@ -21,6 +21,7 @@ public class SettingsViewModel extends ViewModel {
     public static final String PREFS_KEY_AUTO_NIGHT_MODE            = "auto_night_mode";
     public static final String PREFS_KEY_DUAL_EXPOSURE_CONTROLS     = "dual_exposure_controls";
     public static final String PREFS_KEY_CAPTURE_MODE               = "capture_mode";
+    public static final String PREFS_KEY_RAW_VIDEO_TO_DNG           = "raw_video_to_dng";
 
     public static final String PREFS_KEY_IGNORE_CAMERA_IDS                  = "ignore_camera_ids";
     public static final String PREFS_KEY_UI_PREVIEW_CONTRAST                = "ui_preview_contrast";
@@ -46,6 +47,7 @@ public class SettingsViewModel extends ViewModel {
     final public MutableLiveData<Integer> jpegQuality = new MutableLiveData<>();
     final public MutableLiveData<Boolean> autoNightMode = new MutableLiveData<>();
     final public MutableLiveData<Boolean> dualExposureControls = new MutableLiveData<>();
+    final public MutableLiveData<Boolean> rawVideoToDng = new MutableLiveData<>();
 
     public void load(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(CAMERA_SHARED_PREFS, Context.MODE_PRIVATE);
@@ -56,6 +58,7 @@ public class SettingsViewModel extends ViewModel {
         jpegQuality.setValue(prefs.getInt(PREFS_KEY_JPEG_QUALITY, CameraProfile.DEFAULT_JPEG_QUALITY));
         autoNightMode.setValue(prefs.getBoolean(PREFS_KEY_AUTO_NIGHT_MODE, true));
         dualExposureControls.setValue(prefs.getBoolean(PREFS_KEY_DUAL_EXPOSURE_CONTROLS, false));
+        rawVideoToDng.setValue(prefs.getBoolean(PREFS_KEY_RAW_VIDEO_TO_DNG, true));
 
         // Capture mode
         String rawModeStr = prefs.getString(PREFS_KEY_CAPTURE_MODE, RawMode.RAW10.name());
@@ -84,6 +87,7 @@ public class SettingsViewModel extends ViewModel {
         editor.putInt(PREFS_KEY_JPEG_QUALITY, getSetting(jpegQuality, 95));
         editor.putBoolean(PREFS_KEY_AUTO_NIGHT_MODE, getSetting(autoNightMode, true));
         editor.putBoolean(PREFS_KEY_DUAL_EXPOSURE_CONTROLS, getSetting(dualExposureControls, false));
+        editor.putBoolean(PREFS_KEY_RAW_VIDEO_TO_DNG, getSetting(rawVideoToDng, true));
 
         // Capture mode
         RawMode rawMode = RawMode.RAW10;

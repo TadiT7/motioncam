@@ -4,6 +4,7 @@ import android.app.NotificationManager;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
@@ -14,21 +15,24 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
+import androidx.core.content.FileProvider;
 import androidx.work.Data;
 import androidx.work.ForegroundInfo;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
 import com.motioncam.R;
+import com.motioncam.model.SettingsViewModel;
 import com.motioncam.processor.NativeDngConverterListener;
 import com.motioncam.processor.NativeProcessor;
 
+import org.apache.commons.io.FileUtils;
+
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
 
 public class VideoProcessWorker extends Worker implements NativeDngConverterListener {
     public static final String TAG = "MotionVideoCamWorker";
@@ -39,21 +43,38 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
     private NativeProcessor mNativeProcessor;
     private NotificationCompat.Builder mNotificationBuilder;
     private NotificationManager mNotifyManager;
-    private Map<Integer, Uri> mFileMap;
     private File mActiveFile;
 
     public VideoProcessWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
     }
 
-    private void processVideo(File file) {
-        mActiveFile = file;
-        mNativeProcessor.processVideo(file.getPath(), this);
+    private void processVideo(File inputFile, boolean rawVideoToDng) {
 
-        mNotifyManager.cancel(NOTIFICATION_ID);
+        File filesPath  = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "MotionCam");
+        File outputPath = new File(filesPath, inputFile.getName());
 
-        if(!file.delete()) {
-            Log.w(TAG, "Failed to delete " + file.toString());
+        Log.d(TAG, "Writing to " + outputPath.getPath());
+
+        if(!filesPath.exists() && !filesPath.mkdirs()) {
+            Log.e(TAG, "Failed to create " + filesPath.toString());
+            return;
+        }
+
+        if(rawVideoToDng) {
+            mActiveFile = inputFile;
+            mNativeProcessor.processVideo(inputFile.getPath(), this);
+        }
+        else {
+            try {
+                FileUtils.copyFile(inputFile, outputPath);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        if(!inputFile.delete()) {
+            Log.w(TAG, "Failed to delete " + inputFile.toString());
         }
     }
 
@@ -74,7 +95,6 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
                 .setOngoing(true);
 
         mNativeProcessor = new NativeProcessor();
-        mFileMap = new HashMap<>();
 
         return true;
     }
@@ -96,16 +116,25 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         // Process all files
         Arrays.sort(pendingFiles);
 
+        SharedPreferences prefs =
+                getApplicationContext().getSharedPreferences(SettingsViewModel.CAMERA_SHARED_PREFS, Context.MODE_PRIVATE);
+
+        boolean rawVideoToDng = prefs.getBoolean(SettingsViewModel.PREFS_KEY_RAW_VIDEO_TO_DNG, true);
+
         for(File file : pendingFiles) {
             try {
                 Log.d(TAG, "Processing video " + file.getPath());
-                processVideo(file);
+                processVideo(file, rawVideoToDng);
             }
             catch (Exception e) {
                 Log.e(TAG, "Failed to process " + file.getPath(), e);
-                file.delete();
+                if(!file.delete()) {
+                    Log.e(TAG, "Failed to delete " + file.toString());
+                }
             }
         }
+
+        mNotifyManager.cancel(NOTIFICATION_ID);
 
         return Result.success();
     }
@@ -120,42 +149,65 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
                 "%s%02d.zip",
                 ImageProcessWorker.fileNoExtension(mActiveFile.getName()), threadNumber);
 
-        ContentResolver resolver = getApplicationContext().getContentResolver();
-        Uri collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
-        ContentValues details = new ContentValues();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContentResolver resolver = getApplicationContext().getContentResolver();
+            Uri collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+            ContentValues details = new ContentValues();
 
-        details.put(MediaStore.Files.FileColumns.DISPLAY_NAME,  zipOutputName);
-        details.put(MediaStore.Files.FileColumns.MIME_TYPE,     "application/zip");
-        details.put(MediaStore.Files.FileColumns.DATE_ADDED,    System.currentTimeMillis());
-        details.put(MediaStore.Files.FileColumns.DATE_TAKEN,    System.currentTimeMillis());
+            details.put(MediaStore.Files.FileColumns.DISPLAY_NAME,  zipOutputName);
+            details.put(MediaStore.Files.FileColumns.MIME_TYPE,     "application/zip");
+            details.put(MediaStore.Files.FileColumns.DATE_ADDED,    System.currentTimeMillis());
+            details.put(MediaStore.Files.FileColumns.DATE_TAKEN,    System.currentTimeMillis());
 
-        String outputDirectory = Environment.DIRECTORY_DOCUMENTS
-                + File.separator
-                + "MotionCam"
-                + File.separator
-                + ImageProcessWorker.fileNoExtension(mActiveFile.getName());
+            String outputDirectory = Environment.DIRECTORY_DOCUMENTS
+                    + File.separator
+                    + "MotionCam"
+                    + File.separator
+                    + ImageProcessWorker.fileNoExtension(mActiveFile.getName());
 
-        details.put(MediaStore.Files.FileColumns.RELATIVE_PATH, outputDirectory);
+            details.put(MediaStore.Files.FileColumns.RELATIVE_PATH, outputDirectory);
 
-        Uri imageContentUri = resolver.insert(collection, details);
-        if(imageContentUri == null)
-            return -1;
+            Uri imageContentUri = resolver.insert(collection, details);
+            if(imageContentUri == null)
+                return -1;
 
-        ParcelFileDescriptor pfd;
+            ParcelFileDescriptor pfd;
 
-        try {
-            pfd = resolver.openFileDescriptor(imageContentUri, "w", null);
+            try {
+                pfd = resolver.openFileDescriptor(imageContentUri, "w", null);
+            }
+            catch (FileNotFoundException e) {
+                e.printStackTrace();
+                return -1;
+            }
+
+            if(pfd != null) {
+                return pfd.detachFd();
+            }
         }
-        catch (FileNotFoundException e) {
-            e.printStackTrace();
-            return -1;
-        }
+        // Legacy
+        else {
+            File outputPath = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "MotionCam");
+            File videoPath  = new File(outputPath, zipOutputName);
 
-        if(pfd != null) {
-            int fd = pfd.detachFd();
-            mFileMap.put(fd, imageContentUri);
+            if(!outputPath.exists() && !outputPath.mkdirs()) {
+                Log.e(TAG, "Failed to create " + outputPath.toString());
+                return -1;
+            }
 
-            return fd;
+            FileProvider.getUriForFile(getApplicationContext(), ImageProcessWorker.AUTHORITY, videoPath);
+
+            try {
+                ParcelFileDescriptor pfd = ParcelFileDescriptor.open(videoPath, ParcelFileDescriptor.MODE_CREATE|ParcelFileDescriptor.MODE_WRITE_ONLY);
+
+                if(pfd != null) {
+                    return pfd.detachFd();
+                }
+            }
+            catch (FileNotFoundException e) {
+                Log.e(TAG, "Error creating fd", e);
+                return -1;
+            }
         }
 
         return -1;
@@ -176,7 +228,6 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
 
     @Override
     public void onCompleted(int fd) {
-        mFileMap.remove(fd);
     }
 
     @Override

@@ -79,6 +79,10 @@ namespace motioncam {
             }
             
             mCommited = true;
+            
+            if(mFile) {
+                fflush(mFile);
+            }
         }
         
         ZipWriter::~ZipWriter() {
@@ -87,8 +91,9 @@ namespace motioncam {
                 mz_zip_writer_end(&mZip);
             }
             
-            if(mFile)
+            if(mFile) {
                 fclose(mFile);
+            }
         }
     
         //
@@ -352,7 +357,7 @@ namespace motioncam {
             return outputImage(cv::Rect(cropX, cropY, width - cropX*2, height - cropY*2)).clone();
         }
 
-        void WriteDng(cv::Mat& rawImage,
+        void WriteDng(cv::Mat rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
                       dng_stream& dngStream)
@@ -605,19 +610,19 @@ namespace motioncam {
             dngWriter->WriteDNG(host, dngStream, *negative.Get(), nullptr, ccUncompressed);
         }
 
-        void WriteDng(cv::Mat& rawImage,
+        void WriteDng(cv::Mat rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
                       const std::string& outputPath)
         {
-            dng_file_stream stream(outputPath.c_str());
+            dng_file_stream stream(outputPath.c_str(), true);
             
             WriteDng(rawImage, cameraMetadata, imageMetadata, stream);
             
             stream.Flush();
         }
     
-        void WriteDng(cv::Mat& rawImage,
+        void WriteDng(cv::Mat rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
                       ZipWriter& zipWriter,

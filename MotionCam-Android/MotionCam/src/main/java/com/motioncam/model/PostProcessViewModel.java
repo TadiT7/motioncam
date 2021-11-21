@@ -226,6 +226,8 @@ public class PostProcessViewModel extends ViewModel {
             postProcessSettings.saturation = getSaturationSetting();
             postProcessSettings.blues = getBluesSetting();
             postProcessSettings.greens = getGreensSetting();
+            postProcessSettings.blacks = getBlacksSetting();
+            postProcessSettings.whitePoint = getWhitePointSetting();
 
             postProcessSettings.sharpen0 = getSharpnessSetting();
             postProcessSettings.sharpen1 = getDetailSetting();

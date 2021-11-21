@@ -10,7 +10,6 @@
 		4521DFBC2732B1C600DEBD25 /* DngProcessorProgress.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFBB2732B1C600DEBD25 /* DngProcessorProgress.h */; };
 		4521E0032732E69800DEBD25 /* measure_image.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFBD2732E68700DEBD25 /* measure_image.a */; };
 		4521E0042732E69800DEBD25 /* deinterleave_raw.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFBE2732E68800DEBD25 /* deinterleave_raw.a */; };
-		4521E0052732E69800DEBD25 /* fuse_denoise_11x11.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFBF2732E68800DEBD25 /* fuse_denoise_11x11.h */; };
 		4521E0062732E69800DEBD25 /* preview_reverse_portrait2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFC02732E68800DEBD25 /* preview_reverse_portrait2.a */; };
 		4521E0072732E69800DEBD25 /* halide_runtime_opencl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFC12732E68800DEBD25 /* halide_runtime_opencl.a */; };
 		4521E0082732E69800DEBD25 /* generate_edges.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFC22732E68800DEBD25 /* generate_edges.a */; };
@@ -25,25 +24,18 @@
 		4521E0112732E69800DEBD25 /* preview_reverse_landscape2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFCB2732E68D00DEBD25 /* preview_reverse_landscape2.a */; };
 		4521E0122732E69800DEBD25 /* camera_preview2_raw10.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFCC2732E68E00DEBD25 /* camera_preview2_raw10.h */; };
 		4521E0132732E69800DEBD25 /* preview_landscape8.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFCD2732E68E00DEBD25 /* preview_landscape8.h */; };
-		4521E0142732E69800DEBD25 /* fuse_denoise_5x5.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFCE2732E68E00DEBD25 /* fuse_denoise_5x5.h */; };
-		4521E0152732E69800DEBD25 /* hdr_mask.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFCF2732E68E00DEBD25 /* hdr_mask.a */; };
 		4521E0162732E69800DEBD25 /* camera_preview2_raw16.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFD02732E68E00DEBD25 /* camera_preview2_raw16.h */; };
 		4521E0172732E69800DEBD25 /* preview_portrait2.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFD12732E68F00DEBD25 /* preview_portrait2.h */; };
 		4521E0182732E69800DEBD25 /* generate_edges.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFD22732E68F00DEBD25 /* generate_edges.h */; };
-		4521E0192732E69800DEBD25 /* fuse_denoise_11x11.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFD32732E68F00DEBD25 /* fuse_denoise_11x11.a */; };
 		4521E01A2732E69800DEBD25 /* preview_portrait8.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFD42732E68F00DEBD25 /* preview_portrait8.h */; };
 		4521E01B2732E69800DEBD25 /* fuse_image.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFD52732E68F00DEBD25 /* fuse_image.a */; };
 		4521E01C2732E69800DEBD25 /* postprocess.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFD62732E68F00DEBD25 /* postprocess.a */; };
 		4521E01D2732E69800DEBD25 /* preview_portrait4.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFD72732E69000DEBD25 /* preview_portrait4.a */; };
-		4521E01E2732E69800DEBD25 /* fuse_denoise_7x7.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFD82732E69000DEBD25 /* fuse_denoise_7x7.a */; };
 		4521E01F2732E69800DEBD25 /* measure_noise.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFD92732E69000DEBD25 /* measure_noise.a */; };
 		4521E0202732E69800DEBD25 /* preview_reverse_portrait8.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFDA2732E69100DEBD25 /* preview_reverse_portrait8.a */; };
 		4521E0212732E69800DEBD25 /* preview_reverse_landscape4.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFDB2732E69100DEBD25 /* preview_reverse_landscape4.h */; };
-		4521E0222732E69800DEBD25 /* deghost.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFDC2732E69100DEBD25 /* deghost.a */; };
 		4521E0232732E69900DEBD25 /* build_bayer.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFDD2732E69100DEBD25 /* build_bayer.h */; };
-		4521E0242732E69900DEBD25 /* deghost.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFDE2732E69100DEBD25 /* deghost.h */; };
 		4521E0252732E69900DEBD25 /* halide_runtime_host.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFDF2732E69100DEBD25 /* halide_runtime_host.a */; };
-		4521E0262732E69900DEBD25 /* hdr_mask.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFE02732E69200DEBD25 /* hdr_mask.h */; };
 		4521E0272732E69900DEBD25 /* postprocess.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFE12732E69200DEBD25 /* postprocess.h */; };
 		4521E0282732E69900DEBD25 /* camera_preview4_raw10.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFE22732E69200DEBD25 /* camera_preview4_raw10.a */; };
 		4521E0292732E69900DEBD25 /* preview_reverse_landscape2.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFE32732E69200DEBD25 /* preview_reverse_landscape2.h */; };
@@ -58,10 +50,8 @@
 		4521E0322732E69900DEBD25 /* preview_portrait2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFEC2732E69400DEBD25 /* preview_portrait2.a */; };
 		4521E0332732E69900DEBD25 /* preview_landscape4.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFED2732E69400DEBD25 /* preview_landscape4.h */; };
 		4521E0342732E69900DEBD25 /* camera_preview3_raw10.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFEE2732E69400DEBD25 /* camera_preview3_raw10.a */; };
-		4521E0352732E69900DEBD25 /* fuse_denoise_7x7.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFEF2732E69400DEBD25 /* fuse_denoise_7x7.h */; };
 		4521E0362732E69900DEBD25 /* preview_landscape2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFF02732E69400DEBD25 /* preview_landscape2.a */; };
 		4521E0372732E69900DEBD25 /* fast_preview.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFF12732E69400DEBD25 /* fast_preview.h */; };
-		4521E0382732E69900DEBD25 /* fuse_denoise_5x5.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFF22732E69500DEBD25 /* fuse_denoise_5x5.a */; };
 		4521E0392732E69900DEBD25 /* linear_image.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFF32732E69500DEBD25 /* linear_image.a */; };
 		4521E03A2732E69900DEBD25 /* fast_preview.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFF42732E69500DEBD25 /* fast_preview.a */; };
 		4521E03B2732E69900DEBD25 /* preview_reverse_landscape8.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFF52732E69500DEBD25 /* preview_reverse_landscape8.a */; };
@@ -164,6 +154,14 @@
 		45684DCE2720B93D004E7A12 /* miniz_tinfl.c in Sources */ = {isa = PBXBuildFile; fileRef = 458976B02449DACF008F348E /* miniz_tinfl.c */; };
 		45684DCF2720B93F004E7A12 /* miniz_tdef.c in Sources */ = {isa = PBXBuildFile; fileRef = 458976AD2449DACF008F348E /* miniz_tdef.c */; };
 		45684DD22720B9C7004E7A12 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 45684DD12720B9C7004E7A12 /* CoreServices.framework */; };
+		4576A647273E910400657DFC /* fuse_denoise_5x5.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4576A641273E910300657DFC /* fuse_denoise_5x5.a */; };
+		4576A648273E910400657DFC /* fuse_denoise_3x3.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4576A642273E910300657DFC /* fuse_denoise_3x3.a */; };
+		4576A64A273E910400657DFC /* fuse_denoise_3x3.h in Headers */ = {isa = PBXBuildFile; fileRef = 4576A644273E910400657DFC /* fuse_denoise_3x3.h */; };
+		4576A64C273E910400657DFC /* fuse_denoise_5x5.h in Headers */ = {isa = PBXBuildFile; fileRef = 4576A646273E910400657DFC /* fuse_denoise_5x5.h */; };
+		4576A64F273EB24800657DFC /* hdr_mask.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4576A64D273EB24800657DFC /* hdr_mask.a */; };
+		4576A650273EB24800657DFC /* hdr_mask.h in Headers */ = {isa = PBXBuildFile; fileRef = 4576A64E273EB24800657DFC /* hdr_mask.h */; };
+		4576A6532740582300657DFC /* fuse_denoise_7x7.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4576A6512740582300657DFC /* fuse_denoise_7x7.a */; };
+		4576A6542740582300657DFC /* fuse_denoise_7x7.h in Headers */ = {isa = PBXBuildFile; fileRef = 4576A6522740582300657DFC /* fuse_denoise_7x7.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -192,7 +190,6 @@
 		4521DFBB2732B1C600DEBD25 /* DngProcessorProgress.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DngProcessorProgress.h; sourceTree = "<group>"; };
 		4521DFBD2732E68700DEBD25 /* measure_image.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = measure_image.a; sourceTree = "<group>"; };
 		4521DFBE2732E68800DEBD25 /* deinterleave_raw.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = deinterleave_raw.a; sourceTree = "<group>"; };
-		4521DFBF2732E68800DEBD25 /* fuse_denoise_11x11.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fuse_denoise_11x11.h; sourceTree = "<group>"; };
 		4521DFC02732E68800DEBD25 /* preview_reverse_portrait2.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = preview_reverse_portrait2.a; sourceTree = "<group>"; };
 		4521DFC12732E68800DEBD25 /* halide_runtime_opencl.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = halide_runtime_opencl.a; sourceTree = "<group>"; };
 		4521DFC22732E68800DEBD25 /* generate_edges.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = generate_edges.a; sourceTree = "<group>"; };
@@ -207,25 +204,18 @@
 		4521DFCB2732E68D00DEBD25 /* preview_reverse_landscape2.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = preview_reverse_landscape2.a; sourceTree = "<group>"; };
 		4521DFCC2732E68E00DEBD25 /* camera_preview2_raw10.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_preview2_raw10.h; sourceTree = "<group>"; };
 		4521DFCD2732E68E00DEBD25 /* preview_landscape8.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = preview_landscape8.h; sourceTree = "<group>"; };
-		4521DFCE2732E68E00DEBD25 /* fuse_denoise_5x5.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fuse_denoise_5x5.h; sourceTree = "<group>"; };
-		4521DFCF2732E68E00DEBD25 /* hdr_mask.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = hdr_mask.a; sourceTree = "<group>"; };
 		4521DFD02732E68E00DEBD25 /* camera_preview2_raw16.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_preview2_raw16.h; sourceTree = "<group>"; };
 		4521DFD12732E68F00DEBD25 /* preview_portrait2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = preview_portrait2.h; sourceTree = "<group>"; };
 		4521DFD22732E68F00DEBD25 /* generate_edges.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = generate_edges.h; sourceTree = "<group>"; };
-		4521DFD32732E68F00DEBD25 /* fuse_denoise_11x11.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = fuse_denoise_11x11.a; sourceTree = "<group>"; };
 		4521DFD42732E68F00DEBD25 /* preview_portrait8.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = preview_portrait8.h; sourceTree = "<group>"; };
 		4521DFD52732E68F00DEBD25 /* fuse_image.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = fuse_image.a; sourceTree = "<group>"; };
 		4521DFD62732E68F00DEBD25 /* postprocess.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = postprocess.a; sourceTree = "<group>"; };
 		4521DFD72732E69000DEBD25 /* preview_portrait4.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = preview_portrait4.a; sourceTree = "<group>"; };
-		4521DFD82732E69000DEBD25 /* fuse_denoise_7x7.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = fuse_denoise_7x7.a; sourceTree = "<group>"; };
 		4521DFD92732E69000DEBD25 /* measure_noise.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = measure_noise.a; sourceTree = "<group>"; };
 		4521DFDA2732E69100DEBD25 /* preview_reverse_portrait8.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = preview_reverse_portrait8.a; sourceTree = "<group>"; };
 		4521DFDB2732E69100DEBD25 /* preview_reverse_landscape4.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = preview_reverse_landscape4.h; sourceTree = "<group>"; };
-		4521DFDC2732E69100DEBD25 /* deghost.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = deghost.a; sourceTree = "<group>"; };
 		4521DFDD2732E69100DEBD25 /* build_bayer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = build_bayer.h; sourceTree = "<group>"; };
-		4521DFDE2732E69100DEBD25 /* deghost.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = deghost.h; sourceTree = "<group>"; };
 		4521DFDF2732E69100DEBD25 /* halide_runtime_host.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = halide_runtime_host.a; sourceTree = "<group>"; };
-		4521DFE02732E69200DEBD25 /* hdr_mask.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hdr_mask.h; sourceTree = "<group>"; };
 		4521DFE12732E69200DEBD25 /* postprocess.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = postprocess.h; sourceTree = "<group>"; };
 		4521DFE22732E69200DEBD25 /* camera_preview4_raw10.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_preview4_raw10.a; sourceTree = "<group>"; };
 		4521DFE32732E69200DEBD25 /* preview_reverse_landscape2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = preview_reverse_landscape2.h; sourceTree = "<group>"; };
@@ -240,10 +230,8 @@
 		4521DFEC2732E69400DEBD25 /* preview_portrait2.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = preview_portrait2.a; sourceTree = "<group>"; };
 		4521DFED2732E69400DEBD25 /* preview_landscape4.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = preview_landscape4.h; sourceTree = "<group>"; };
 		4521DFEE2732E69400DEBD25 /* camera_preview3_raw10.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_preview3_raw10.a; sourceTree = "<group>"; };
-		4521DFEF2732E69400DEBD25 /* fuse_denoise_7x7.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fuse_denoise_7x7.h; sourceTree = "<group>"; };
 		4521DFF02732E69400DEBD25 /* preview_landscape2.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = preview_landscape2.a; sourceTree = "<group>"; };
 		4521DFF12732E69400DEBD25 /* fast_preview.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fast_preview.h; sourceTree = "<group>"; };
-		4521DFF22732E69500DEBD25 /* fuse_denoise_5x5.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = fuse_denoise_5x5.a; sourceTree = "<group>"; };
 		4521DFF32732E69500DEBD25 /* linear_image.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = linear_image.a; sourceTree = "<group>"; };
 		4521DFF42732E69500DEBD25 /* fast_preview.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = fast_preview.a; sourceTree = "<group>"; };
 		4521DFF52732E69500DEBD25 /* preview_reverse_landscape8.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = preview_reverse_landscape8.a; sourceTree = "<group>"; };
@@ -286,6 +274,14 @@
 		456B91E721565C6700E6CFED /* libtiff.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libtiff.a; path = ../../../../../usr/local/lib/libtiff.a; sourceTree = "<group>"; };
 		4571F8272330211500B5E5E8 /* libexiv2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libexiv2.dylib; path = ../../../../../usr/local/lib/libexiv2.dylib; sourceTree = "<group>"; };
 		4571F8292330211900B5E5E8 /* libexiv2-xmp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libexiv2-xmp.a"; path = "../../../../../usr/local/lib/libexiv2-xmp.a"; sourceTree = "<group>"; };
+		4576A641273E910300657DFC /* fuse_denoise_5x5.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = fuse_denoise_5x5.a; sourceTree = "<group>"; };
+		4576A642273E910300657DFC /* fuse_denoise_3x3.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = fuse_denoise_3x3.a; sourceTree = "<group>"; };
+		4576A644273E910400657DFC /* fuse_denoise_3x3.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fuse_denoise_3x3.h; sourceTree = "<group>"; };
+		4576A646273E910400657DFC /* fuse_denoise_5x5.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fuse_denoise_5x5.h; sourceTree = "<group>"; };
+		4576A64D273EB24800657DFC /* hdr_mask.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = hdr_mask.a; sourceTree = "<group>"; };
+		4576A64E273EB24800657DFC /* hdr_mask.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hdr_mask.h; sourceTree = "<group>"; };
+		4576A6512740582300657DFC /* fuse_denoise_7x7.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = fuse_denoise_7x7.a; sourceTree = "<group>"; };
+		4576A6522740582300657DFC /* fuse_denoise_7x7.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fuse_denoise_7x7.h; sourceTree = "<group>"; };
 		457B8EB42218401F004E4E7A /* dng_tone_curve.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = dng_tone_curve.cpp; sourceTree = "<group>"; };
 		457B8EB52218401F004E4E7A /* dng_stream.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = dng_stream.cpp; sourceTree = "<group>"; };
 		457B8EB62218401F004E4E7A /* dng_negative.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = dng_negative.h; sourceTree = "<group>"; };
@@ -517,33 +513,32 @@
 			buildActionMask = 2147483647;
 			files = (
 				4521E0392732E69900DEBD25 /* linear_image.a in Frameworks */,
-				4521E0192732E69800DEBD25 /* fuse_denoise_11x11.a in Frameworks */,
 				4521E01F2732E69800DEBD25 /* measure_noise.a in Frameworks */,
 				4521E03A2732E69900DEBD25 /* fast_preview.a in Frameworks */,
-				4521E0222732E69800DEBD25 /* deghost.a in Frameworks */,
+				4576A6532740582300657DFC /* fuse_denoise_7x7.a in Frameworks */,
 				4521E0112732E69800DEBD25 /* preview_reverse_landscape2.a in Frameworks */,
 				4521E0032732E69800DEBD25 /* measure_image.a in Frameworks */,
 				4521E0362732E69900DEBD25 /* preview_landscape2.a in Frameworks */,
 				4521E0432732E69900DEBD25 /* camera_preview2_raw10.a in Frameworks */,
 				4521E0402732E69900DEBD25 /* forward_transform.a in Frameworks */,
-				4521E0152732E69800DEBD25 /* hdr_mask.a in Frameworks */,
 				4521E0082732E69800DEBD25 /* generate_edges.a in Frameworks */,
 				4521E03E2732E69900DEBD25 /* preview_reverse_portrait4.a in Frameworks */,
 				4521E03B2732E69900DEBD25 /* preview_reverse_landscape8.a in Frameworks */,
 				4521E02A2732E69900DEBD25 /* camera_preview4_raw16.a in Frameworks */,
 				4521E0482732E69900DEBD25 /* preview_reverse_landscape4.a in Frameworks */,
+				4576A647273E910400657DFC /* fuse_denoise_5x5.a in Frameworks */,
 				4521E00A2732E69800DEBD25 /* camera_preview2_raw16.a in Frameworks */,
 				4521E0282732E69900DEBD25 /* camera_preview4_raw10.a in Frameworks */,
 				4521E00D2732E69800DEBD25 /* camera_preview3_raw16.a in Frameworks */,
 				4521E01C2732E69800DEBD25 /* postprocess.a in Frameworks */,
 				4521E02D2732E69900DEBD25 /* inverse_transform.a in Frameworks */,
-				4521E01E2732E69800DEBD25 /* fuse_denoise_7x7.a in Frameworks */,
 				4521E0342732E69900DEBD25 /* camera_preview3_raw10.a in Frameworks */,
 				4521E0072732E69800DEBD25 /* halide_runtime_opencl.a in Frameworks */,
 				4521E0062732E69800DEBD25 /* preview_reverse_portrait2.a in Frameworks */,
 				45684DD22720B9C7004E7A12 /* CoreServices.framework in Frameworks */,
 				4521E02C2732E69900DEBD25 /* preview_portrait8.a in Frameworks */,
 				4521E0412732E69900DEBD25 /* build_bayer.a in Frameworks */,
+				4576A64F273EB24800657DFC /* hdr_mask.a in Frameworks */,
 				4521E0322732E69900DEBD25 /* preview_portrait2.a in Frameworks */,
 				4521E0202732E69800DEBD25 /* preview_reverse_portrait8.a in Frameworks */,
 				4521E01B2732E69800DEBD25 /* fuse_image.a in Frameworks */,
@@ -551,8 +546,8 @@
 				4521E0102732E69800DEBD25 /* preview_landscape4.a in Frameworks */,
 				4521E0042732E69800DEBD25 /* deinterleave_raw.a in Frameworks */,
 				4521E0252732E69900DEBD25 /* halide_runtime_host.a in Frameworks */,
-				4521E0382732E69900DEBD25 /* fuse_denoise_5x5.a in Frameworks */,
 				4521E00F2732E69800DEBD25 /* preview_landscape8.a in Frameworks */,
+				4576A648273E910400657DFC /* fuse_denoise_3x3.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -802,28 +797,26 @@
 				4521DFEA2732E69300DEBD25 /* camera_preview4_raw10.h */,
 				4521DFE42732E69200DEBD25 /* camera_preview4_raw16.a */,
 				4521DFC82732E68A00DEBD25 /* camera_preview4_raw16.h */,
-				4521DFDC2732E69100DEBD25 /* deghost.a */,
-				4521DFDE2732E69100DEBD25 /* deghost.h */,
 				4521DFBE2732E68800DEBD25 /* deinterleave_raw.a */,
 				4521DFF92732E69600DEBD25 /* deinterleave_raw.h */,
 				4521DFF42732E69500DEBD25 /* fast_preview.a */,
 				4521DFF12732E69400DEBD25 /* fast_preview.h */,
 				4521DFFA2732E69600DEBD25 /* forward_transform.a */,
 				4521DFF72732E69600DEBD25 /* forward_transform.h */,
-				4521DFF22732E69500DEBD25 /* fuse_denoise_5x5.a */,
-				4521DFCE2732E68E00DEBD25 /* fuse_denoise_5x5.h */,
-				4521DFD82732E69000DEBD25 /* fuse_denoise_7x7.a */,
-				4521DFEF2732E69400DEBD25 /* fuse_denoise_7x7.h */,
-				4521DFD32732E68F00DEBD25 /* fuse_denoise_11x11.a */,
-				4521DFBF2732E68800DEBD25 /* fuse_denoise_11x11.h */,
+				4576A642273E910300657DFC /* fuse_denoise_3x3.a */,
+				4576A644273E910400657DFC /* fuse_denoise_3x3.h */,
+				4576A641273E910300657DFC /* fuse_denoise_5x5.a */,
+				4576A646273E910400657DFC /* fuse_denoise_5x5.h */,
+				4576A6512740582300657DFC /* fuse_denoise_7x7.a */,
+				4576A6522740582300657DFC /* fuse_denoise_7x7.h */,
 				4521DFD52732E68F00DEBD25 /* fuse_image.a */,
 				4521DFFE2732E69600DEBD25 /* fuse_image.h */,
 				4521DFC22732E68800DEBD25 /* generate_edges.a */,
 				4521DFD22732E68F00DEBD25 /* generate_edges.h */,
 				4521DFDF2732E69100DEBD25 /* halide_runtime_host.a */,
 				4521DFC12732E68800DEBD25 /* halide_runtime_opencl.a */,
-				4521DFCF2732E68E00DEBD25 /* hdr_mask.a */,
-				4521DFE02732E69200DEBD25 /* hdr_mask.h */,
+				4576A64D273EB24800657DFC /* hdr_mask.a */,
+				4576A64E273EB24800657DFC /* hdr_mask.h */,
 				4521DFE72732E69300DEBD25 /* inverse_transform.a */,
 				4521DFFC2732E69600DEBD25 /* inverse_transform.h */,
 				4521DFF32732E69500DEBD25 /* linear_image.a */,
@@ -1025,13 +1018,12 @@
 				4521E03F2732E69900DEBD25 /* deinterleave_raw.h in Headers */,
 				4521E0232732E69900DEBD25 /* build_bayer.h in Headers */,
 				4521E0422732E69900DEBD25 /* inverse_transform.h in Headers */,
-				4521E0142732E69800DEBD25 /* fuse_denoise_5x5.h in Headers */,
-				4521E0052732E69800DEBD25 /* fuse_denoise_11x11.h in Headers */,
 				4521E0312732E69900DEBD25 /* measure_noise.h in Headers */,
 				4521E0372732E69900DEBD25 /* fast_preview.h in Headers */,
 				4521E0122732E69800DEBD25 /* camera_preview2_raw10.h in Headers */,
 				4521E00E2732E69800DEBD25 /* camera_preview4_raw16.h in Headers */,
 				4521E0092732E69800DEBD25 /* preview_landscape2.h in Headers */,
+				4576A64A273E910400657DFC /* fuse_denoise_3x3.h in Headers */,
 				4521E00C2732E69800DEBD25 /* camera_preview3_raw10.h in Headers */,
 				4521E0172732E69800DEBD25 /* preview_portrait2.h in Headers */,
 				4521E0292732E69900DEBD25 /* preview_reverse_landscape2.h in Headers */,
@@ -1040,20 +1032,20 @@
 				4521E0452732E69900DEBD25 /* preview_reverse_landscape8.h in Headers */,
 				4521E00B2732E69800DEBD25 /* preview_reverse_portrait4.h in Headers */,
 				4521E0272732E69900DEBD25 /* postprocess.h in Headers */,
-				4521E0262732E69900DEBD25 /* hdr_mask.h in Headers */,
 				4521E02B2732E69900DEBD25 /* measure_image.h in Headers */,
 				4521E01A2732E69800DEBD25 /* preview_portrait8.h in Headers */,
 				4521E03D2732E69900DEBD25 /* forward_transform.h in Headers */,
 				4521E0472732E69900DEBD25 /* camera_preview3_raw16.h in Headers */,
 				4521E0162732E69800DEBD25 /* camera_preview2_raw16.h in Headers */,
 				4521E0442732E69900DEBD25 /* fuse_image.h in Headers */,
-				4521E0352732E69900DEBD25 /* fuse_denoise_7x7.h in Headers */,
 				4521E0302732E69900DEBD25 /* camera_preview4_raw10.h in Headers */,
 				4521E0212732E69800DEBD25 /* preview_reverse_landscape4.h in Headers */,
-				4521E0242732E69900DEBD25 /* deghost.h in Headers */,
+				4576A6542740582300657DFC /* fuse_denoise_7x7.h in Headers */,
+				4576A650273EB24800657DFC /* hdr_mask.h in Headers */,
 				4521E0132732E69800DEBD25 /* preview_landscape8.h in Headers */,
 				4521E0462732E69900DEBD25 /* preview_reverse_portrait2.h in Headers */,
 				4521E02E2732E69900DEBD25 /* preview_reverse_portrait8.h in Headers */,
+				4576A64C273E910400657DFC /* fuse_denoise_5x5.h in Headers */,
 				4521DFBC2732B1C600DEBD25 /* DngProcessorProgress.h in Headers */,
 				4521E02F2732E69900DEBD25 /* preview_portrait4.h in Headers */,
 			);

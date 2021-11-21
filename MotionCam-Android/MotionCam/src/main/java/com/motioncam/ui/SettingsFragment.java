@@ -70,6 +70,7 @@ public class SettingsFragment extends Fragment {
         mViewModel.autoNightMode.observe(getViewLifecycleOwner(), (value) -> mViewModel.save(getContext()));
         mViewModel.raw10.observe(getViewLifecycleOwner(), (value) -> mViewModel.save(getContext()));
         mViewModel.raw16.observe(getViewLifecycleOwner(), (value) -> mViewModel.save(getContext()));
+        mViewModel.rawVideoToDng.observe(getViewLifecycleOwner(), (value) -> mViewModel.save(getContext()));
     }
 
     @Nullable

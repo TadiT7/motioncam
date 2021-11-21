@@ -369,8 +369,7 @@ namespace motioncam {
         const uint8_t lensShadingMapStats   = ACAMERA_STATISTICS_LENS_SHADING_MAP_MODE_ON;
         const uint8_t lensShadingMapApplied = ACAMERA_SENSOR_INFO_LENS_SHADING_APPLIED_FALSE;
         const uint8_t antiBandingMode       = ACAMERA_CONTROL_AE_ANTIBANDING_MODE_AUTO;
-        const uint8_t noiseReduction        = ACAMERA_NOISE_REDUCTION_MODE_MINIMAL;
-        const int32_t frameDuration[2]      = { 10, 30 };
+        const uint8_t noiseReduction        = ACAMERA_NOISE_REDUCTION_MODE_FAST;
 
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_SHADING_MODE, 1, &shadingMode);
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_STATISTICS_LENS_SHADING_MAP_MODE, 1, &lensShadingMapStats);
@@ -378,7 +377,6 @@ namespace motioncam {
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_CONTROL_AE_ANTIBANDING_MODE, 1, &antiBandingMode);
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_NOISE_REDUCTION_MODE, 1, &noiseReduction);
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_COLOR_CORRECTION_MODE, 1, &colorCorrectionMode);
-        ACaptureRequest_setEntry_i32(captureRequest, ACAMERA_CONTROL_AE_TARGET_FPS_RANGE, 2, &frameDuration[0]);
 
         // Enable OIS
         uint8_t omode = ACAMERA_LENS_OPTICAL_STABILIZATION_MODE_ON;
@@ -714,33 +712,32 @@ namespace motioncam {
         if(iso < 0 || exposure < 0)
             return;
 
-        uint8_t aeMode  = ACAMERA_CONTROL_AE_MODE_OFF;
+        uint8_t mode  = ACAMERA_CONTROL_MODE_OFF_KEEP_STATE;
 
-        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_CONTROL_AE_MODE, 1, &aeMode);
+        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_CONTROL_MODE, 1, &mode);
         ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &iso);
         ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &exposure);
 
-        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_CONTROL_AE_MODE, 1, &aeMode);
-        ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &iso);
-        ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &exposure);
+        int32_t lastIso = mLastIso;
+        int64_t lastExposureTime = mLastExposureTime;
 
-        std::vector<ACaptureRequest*> captureRequests(5);
+        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_CONTROL_MODE, 1, &mode);
+        ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &lastIso);
+        ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &lastExposureTime);
+
+        std::vector<ACaptureRequest*> captureRequests(2);
 
         // Set up list of capture requests
         captureRequests[0] = mSessionContext->hdrCaptureRequests[0]->captureRequest;
-        captureRequests[1] = mSessionContext->hdrCaptureRequests[0]->captureRequest;
-        captureRequests[2] = mSessionContext->hdrCaptureRequests[0]->captureRequest;
-        captureRequests[3] = mSessionContext->hdrCaptureRequests[0]->captureRequest;
 
-        // Capture last image using previous exposure settings. This helps the AE
-        // behave a bit better
-        captureRequests[4] = mSessionContext->hdrCaptureRequests[1]->captureRequest;
+        // Capture last image using previous exposure settings. This helps the AE behave a bit better
+        captureRequests[1] = mSessionContext->hdrCaptureRequests[1]->captureRequest;
 
         LOGI("Initiating HDR precapture (hdrIso=%d, hdrExposure=%ld)", iso, exposure);
 
         // Keep timestamp of latest buffer as our reference
         mRequestHdrCaptureTimestamp = RawBufferManager::get().latestTimeStamp();
-        mRequestedHdrCaptures = 4; // We don't care about the last one
+        mRequestedHdrCaptures = 1;
 
         ACameraCaptureSession_capture(
                 mSessionContext->captureSession.get(),
@@ -756,19 +753,16 @@ namespace motioncam {
             return;
         }
 
-        uint8_t afMode  = ACAMERA_CONTROL_AF_MODE_OFF;
-        uint8_t aeMode  = ACAMERA_CONTROL_AE_MODE_OFF;
+        uint8_t mode  = ACAMERA_CONTROL_MODE_OFF_KEEP_STATE;
 
         float focusDistance = mLastFocusDistance;
 
-        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_CONTROL_AF_MODE, 1, &afMode);
-        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_CONTROL_AE_MODE, 1, &aeMode);
+        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_CONTROL_MODE, 1, &mode);
         ACaptureRequest_setEntry_float(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_LENS_FOCUS_DISTANCE, 1, &focusDistance);
         ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &baseIso);
         ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[0]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &baseExposure);
 
-        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_CONTROL_AF_MODE, 1, &afMode);
-        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_CONTROL_AE_MODE, 1, &aeMode);
+        ACaptureRequest_setEntry_u8(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_CONTROL_MODE, 1, &mode);
         ACaptureRequest_setEntry_float(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_LENS_FOCUS_DISTANCE, 1, &focusDistance);
         ACaptureRequest_setEntry_i32(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &hdrIso);
         ACaptureRequest_setEntry_i64(mSessionContext->hdrCaptureRequests[1]->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &hdrExposure);
@@ -783,8 +777,8 @@ namespace motioncam {
         for (int i = 0; i < mRequestedHdrCaptures; i++)
             captureRequests[i] = mSessionContext->hdrCaptureRequests[0]->captureRequest;
 
-        // First exposure is underexposed image
-        captureRequests[0] = mSessionContext->hdrCaptureRequests[1]->captureRequest;
+        // Second capture is underexposed image
+        captureRequests[1] = mSessionContext->hdrCaptureRequests[1]->captureRequest;
 
         LOGI("Initiating HDR capture (numImages=%d, baseIso=%d, baseExposure=%ld, hdrIso=%d, hdrExposure=%ld)",
                 numImages, baseIso, baseExposure, hdrIso, hdrExposure);

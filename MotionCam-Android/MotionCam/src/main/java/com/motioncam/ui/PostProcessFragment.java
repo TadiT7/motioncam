@@ -5,6 +5,7 @@ import static com.motioncam.CameraActivity.WORKER_IMAGE_PROCESSOR;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.Pair;
@@ -42,6 +43,7 @@ import com.motioncam.model.SettingsViewModel;
 import com.motioncam.worker.ImageProcessWorker;
 import com.motioncam.worker.State;
 
+import java.io.File;
 import java.util.List;
 import java.util.Locale;
 
@@ -269,7 +271,7 @@ public class PostProcessFragment extends Fragment implements
         mViewModel.isFlipped.setValue(cameraFrontFacing);
 
         mNativeCamera = new NativeCameraSessionBridge(nativeCameraHandle);
-        mSelectedCamera = new NativeCameraInfo(cameraId, cameraFrontFacing, 0, 0);
+        mSelectedCamera = new NativeCameraInfo(cameraId, cameraFrontFacing, 0, 0, 0, 0);
 
         mNativeCamera.initImageProcessor();
 
@@ -477,8 +479,6 @@ public class PostProcessFragment extends Fragment implements
                     if (workInfo != null && !workInfo.isEmpty()) {
                         Data progress = workInfo.get(0).getProgress();
                         int state = progress.getInt(State.PROGRESS_STATE_KEY, -1);
-
-                        Log.d(TAG, "Received processing state " + progress.toString());
 
                         if(state == State.STATE_PROCESSING) {
                             onProcessingProgress(progress.getInt(State.PROGRESS_PROGRESS_KEY, 0));

@@ -2,6 +2,7 @@
 #include "motioncam/RawContainer.h"
 #include "motioncam/Util.h"
 #include "motioncam/ImageProcessor.h"
+#include "motioncam/Logger.h"
 
 #include "build_bayer.h"
 
@@ -52,6 +53,7 @@ namespace motioncam {
             }
             catch(std::runtime_error& e) {
                 job->error = e.what();
+                logger::log(std::string("WriteDNG error: ") + e.what());
             }
         }
         
@@ -61,7 +63,7 @@ namespace motioncam {
     float ConvertVideoToDNG(const std::string& containerPath, const DngProcessorProgress& progress, const int numThreads) {
         if(RUNNING)
             throw std::runtime_error("Already running");
-                        
+        
         RawContainer container(containerPath);
         
         auto frames = container.getFrames();
@@ -142,22 +144,29 @@ namespace motioncam {
             progress.onProgressUpdate((i*100)/frames.size());
         }
         
-        // Stop threads
-        RUNNING = false;
+        // Flush buffers
+        int numTries = 10;
         
+        while(JOB_QUEUE.size_approx() > 0 && numTries > 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            --numTries;
+        }
+
+        RUNNING = false;
+
         // Stop the threads
         for(int i = 0; i < threads.size(); i++)
             threads[i]->join();
         
         for(int i = 0; i < fds.size(); i++)
             progress.onCompleted(i);
+
+        // Clear the queue if there are items in there
+        std::shared_ptr<Job> job;
         
-//         Flush buffers
-//        std::shared_ptr<Job> job;
-//
-//        while(JOB_QUEUE.try_dequeue(job)) {
-//            util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, job->outputFd);
-//        }
+        while(JOB_QUEUE.try_dequeue(job)) {
+            logger::log("Discarding video frame!");
+        }
 
         progress.onCompleted();
 

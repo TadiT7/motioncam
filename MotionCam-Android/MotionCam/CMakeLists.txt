@@ -133,13 +133,13 @@ set_target_properties(zstd PROPERTIES IMPORTED_LOCATION
 # Halide libraries
 #
 
-add_library(deghost STATIC IMPORTED)
-set_target_properties(deghost PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/deghost.a)
-
 add_library(build_bayer STATIC IMPORTED)
 set_target_properties(build_bayer PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/build_bayer.a)
+
+add_library(measure_noise STATIC IMPORTED)
+set_target_properties(measure_noise PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/measure_noise.a)
 
 add_library(fast_preview STATIC IMPORTED)
 set_target_properties(fast_preview PROPERTIES IMPORTED_LOCATION
@@ -169,13 +169,13 @@ add_library(camera_preview4_raw16 STATIC IMPORTED)
 set_target_properties(camera_preview4_raw16 PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview4_raw16.a)
 
-add_library(hdr_mask STATIC IMPORTED)
-set_target_properties(hdr_mask PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/hdr_mask.a)
-
 add_library(linear_image STATIC IMPORTED)
 set_target_properties(linear_image PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/linear_image.a)
+
+add_library(hdr_mask STATIC IMPORTED)
+set_target_properties(hdr_mask PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/hdr_mask.a)
 
 add_library(generate_edges STATIC IMPORTED)
 set_target_properties(generate_edges PROPERTIES IMPORTED_LOCATION
@@ -249,9 +249,9 @@ add_library(postprocess STATIC IMPORTED)
 set_target_properties(postprocess PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/postprocess.a)
 
-add_library(measure_noise STATIC IMPORTED)
-set_target_properties(measure_noise PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/measure_noise.a)
+add_library(fuse_denoise_3x3 STATIC IMPORTED)
+set_target_properties(fuse_denoise_3x3 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/fuse_denoise_3x3.a)
 
 add_library(fuse_denoise_5x5 STATIC IMPORTED)
 set_target_properties(fuse_denoise_5x5 PROPERTIES IMPORTED_LOCATION
@@ -260,10 +260,6 @@ set_target_properties(fuse_denoise_5x5 PROPERTIES IMPORTED_LOCATION
 add_library(fuse_denoise_7x7 STATIC IMPORTED)
 set_target_properties(fuse_denoise_7x7 PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/fuse_denoise_7x7.a)
-
-add_library(fuse_denoise_11x11 STATIC IMPORTED)
-set_target_properties(fuse_denoise_11x11 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/fuse_denoise_11x11.a)
 
 add_library(forward_transform STATIC IMPORTED)
 set_target_properties(forward_transform PROPERTIES IMPORTED_LOCATION
@@ -491,11 +487,11 @@ set(native-camera-libs
         libexpat
 
         # Halide libraries
-        deghost
         build_bayer
+        measure_noise
         fast_preview
-        hdr_mask
         linear_image
+        hdr_mask
         generate_edges
         measure_image
         deinterleave_raw
@@ -512,10 +508,9 @@ set(native-camera-libs
         preview_landscape8
         preview_reverse_landscape8
         postprocess
-        measure_noise
+        fuse_denoise_3x3
         fuse_denoise_5x5
         fuse_denoise_7x7
-        fuse_denoise_11x11
         forward_transform
         fuse_image
         inverse_transform

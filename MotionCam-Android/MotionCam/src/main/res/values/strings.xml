@@ -36,7 +36,7 @@
     <string name="camera_profile_description">The camera profile describes the default settings to use for captured images.</string>
     <string name="general">General</string>
     <string name="memory_usage">Memory Usage</string>
-    <string name="raw_video_memory_usage">Raw Video Memory Usage</string>
+    <string name="raw_video_memory_usage">RAW Video Memory Usage</string>
     <string name="camera_preview_quality">Camera Preview Quality</string>
     <string name="overall_saturation">Overall Saturation</string>
     <string name="greens">Greens</string>
@@ -84,4 +84,7 @@
     <string name="preview_colour">COLOUR</string>
     <string name="preview_tint">TINT</string>
     <string name="preview_warmth">WARMTH</string>
+    <string name="convert_raw_video">Convert RAW video</string>
+    <string name="convert_raw_video_description">Convert RAW video to DNG files after capture. They are stored in the Documents folder.</string>
+    <string name="convert_to_dng">Convert to DNG</string>
 </resources>

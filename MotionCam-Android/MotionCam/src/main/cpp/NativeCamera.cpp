@@ -717,11 +717,13 @@ JNIEXPORT jobjectArray JNICALL Java_com_motioncam_camera_NativeCameraSessionBrid
         jobject obj =
                 env->NewObject(
                         nativeCameraInfoClass,
-                        env->GetMethodID(nativeCameraInfoClass, "<init>", "(Ljava/lang/String;ZII)V"),
+                        env->GetMethodID(nativeCameraInfoClass, "<init>", "(Ljava/lang/String;ZIIII)V"),
                         jcameraId,
                         desc->lensFacing == ACAMERA_LENS_FACING_FRONT,
                         desc->exposureCompensationRange[0],
-                        desc->exposureCompensationRange[1]);
+                        desc->exposureCompensationRange[1],
+                        desc->exposureCompensationStepFraction[0],
+                        desc->exposureCompensationStepFraction[1]);
 
         env->DeleteLocalRef(jcameraId);
 
@@ -1091,6 +1093,6 @@ JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_SetVi
 }
 
 extern "C"
-JNIEXPORT jint JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GetNumDroppedFrames(JNIEnv *env, jobject thiz) {
+JNIEXPORT jint JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GetNumDroppedFrames(JNIEnv *env, jobject thiz, jlong handle) {
     return RawBufferManager::get().numDroppedFrames();
 }

@@ -67,15 +67,16 @@ namespace motioncam {
                                             float& outWhitePoint);
         
         static float estimateShadows(const cv::Mat& histogram, float keyValue=0.22f);
-        static float estimateHdr(const cv::Mat& histogram);
+        static void estimateHdr(const cv::Mat& histogram, float& outLows, float& outHighs);
         static float estimateExposureCompensation(const cv::Mat& histogram, float threshold=1e-4f);
-
+        
         static std::vector<float>& estimateDenoiseWeights(const float noise);
         
         static double measureSharpness(const RawImageBuffer& rawBuffer);
 
         static void measureImage(RawImageBuffer& rawImage, const RawCameraMetadata& cameraMetadata, float& outSceneLuminosity);
-        
+        static void measureNoise(const RawImageBuffer& rawBuffer, std::vector<float>& outNoise, std::vector<float>& outSignal, const int patchSize=8);
+
         static cv::Mat registerImage(const Halide::Runtime::Buffer<uint8_t>& referenceBuffer,
                                      const Halide::Runtime::Buffer<uint8_t>& toAlignBuffer);
 
@@ -125,11 +126,17 @@ namespace motioncam {
                                    const RawCameraMetadata& cameraMetadata,
                                    const PostProcessSettings& settings);
 
+        static float testAlignment(std::shared_ptr<RawData> refImage,
+                                   std::shared_ptr<RawData> underexposedImage,
+                                   const RawCameraMetadata& cameraMetadata,
+                                   cv::Mat warpMatrix,
+                                   float exposureScale);
+        
         static std::shared_ptr<HdrMetadata> prepareHdr(const RawCameraMetadata& cameraMetadata,
                                                        const PostProcessSettings& settings,
                                                        const RawImageBuffer& reference,
-                                                       const std::vector<std::shared_ptr<RawImageBuffer>>& underexposed);
-        
+                                                       const RawImageBuffer& underexposed);
+
         static double calcEv(const RawCameraMetadata& cameraMetadata, const RawImageMetadata& metadata);
 
         static float adjustShadowsForFaces(cv::Mat input, PreviewMetadata& metadata);

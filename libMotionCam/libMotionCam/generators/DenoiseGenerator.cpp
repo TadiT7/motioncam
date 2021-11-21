@@ -40,119 +40,6 @@ static Func transpose(Func f) {
     return fT;
 }
 
-class MeasureNoiseGenerator : public Generator<MeasureNoiseGenerator> {
-public:
-    Input<Buffer<uint16_t>> input{"input", 3};
-    Output<Buffer<float>> output{"output", 3};
-
-    Input<int> blockSize{"blockSize"};
-
-    void generate();
-    void apply_schedule_measure_noise(::Halide::Pipeline pipeline, ::Halide::Target target);
-
-    Var v_x{"x"};
-    Var v_y{"y"};
-    Var v_c{"c"};    
-};
-
-void MeasureNoiseGenerator::generate() {
-    Func blocks{"blocks"};
-    Func mean{"mean"};
-    Func noise{"noise"};
-
-    RDom r(0, blockSize, 0, blockSize);
-
-    blocks(v_x, v_y, v_c) = cast<float>(BoundaryConditions::repeat_edge(input)(v_x, v_y, v_c));
-    mean(v_x, v_y, v_c) = sum(blocks(v_x*blockSize+r.x, v_y*blockSize+r.y, v_c)) / (blockSize*blockSize);
-    noise(v_x, v_y, v_c) = abs(input(v_x, v_y, v_c) - mean(v_x/blockSize, v_y/blockSize, v_c));
-
-    output(v_x, v_y, v_c) = sum(noise(v_x*blockSize+r.x, v_y*blockSize+r.y, v_c)) / (blockSize*blockSize);
-
-    input.set_estimates({{0, 2048}, {0, 1536}, {0, 4}});
-    blockSize.set_estimate(16);
-    output.set_estimates({{0, 128}, {0, 96}, {0, 4}});
-
-    if (!auto_schedule) {
-        apply_schedule_measure_noise(get_pipeline(), get_target());
-    }
-}
-
-void MeasureNoiseGenerator::apply_schedule_measure_noise(::Halide::Pipeline pipeline, ::Halide::Target target) {
-    using ::Halide::Func;
-    using ::Halide::MemoryType;
-    using ::Halide::RVar;
-    using ::Halide::TailStrategy;
-    using ::Halide::Var;
-    Var x_vi("x_vi");
-    Var x_vo("x_vo");
-
-    Func mean = pipeline.get_func(5);
-    Func output = pipeline.get_func(8);
-    Func sum = pipeline.get_func(4);
-    Func sum_1 = pipeline.get_func(7);
-
-    {
-        Var x = mean.args()[0];
-        Var y = mean.args()[1];
-        Var c = mean.args()[2];
-        mean
-            .compute_root()
-            .split(x, x_vo, x_vi, 8)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-    }
-    {
-        Var x = output.args()[0];
-        Var y = output.args()[1];
-        Var c = output.args()[2];
-        output
-            .compute_root()
-            .split(x, x_vo, x_vi, 8)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-    }
-    {
-        Var x = sum.args()[0];
-        Var y = sum.args()[1];
-        Var c = sum.args()[2];
-        RVar r7$x(sum.update(0).get_schedule().rvars()[0].var);
-        RVar r7$y(sum.update(0).get_schedule().rvars()[1].var);
-        sum
-            .compute_root()
-            .split(x, x_vo, x_vi, 8)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-        sum.update(0)
-            .reorder(r7$x, x, r7$y, y, c)
-            .split(x, x_vo, x_vi, 8, TailStrategy::GuardWithIf)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-    }
-    {
-        Var x = sum_1.args()[0];
-        Var y = sum_1.args()[1];
-        Var c = sum_1.args()[2];
-        RVar r7$x(sum_1.update(0).get_schedule().rvars()[0].var);
-        RVar r7$y(sum_1.update(0).get_schedule().rvars()[1].var);
-        sum_1
-            .compute_root()
-            .split(x, x_vo, x_vi, 8)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-        sum_1.update(0)
-            .reorder(r7$x, x, r7$y, y, c)
-            .split(x, x_vo, x_vi, 8, TailStrategy::GuardWithIf)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-    }
-}
-
 class DenoiseGenerator : public Generator<DenoiseGenerator> {
 public:
     GeneratorParam<int> window{"window", 1};
@@ -196,20 +83,57 @@ private:
 };
 
 Func DenoiseGenerator::blockMean(Func in) {
-    const int32_t R = window / 2;
+    const std::vector<std::vector<int32_t>> MASK_3x3 = {
+        { 1, 2, 1 },
+        { 2, 4, 2 },
+        { 1, 2, 1 }
+    };
+
+    const std::vector<std::vector<int32_t>> MASK_5x5 = {
+        { 1, 4,  6,  4,  1 },
+        { 4, 16, 24, 16, 4 },
+        { 6, 24, 36, 24, 6 },
+        { 4, 16, 24, 16, 4 },
+        { 1, 4,  6,  4,  1 }
+    };
+
+    const std::vector<std::vector<int32_t>> MASK_7x7 = {
+        { 1,  6,   15,  20,  15,  6,   1  },
+        { 6,  36,  90,  120, 90,  36,  6  },
+        { 15, 90,  225, 300, 225, 90,  15 },
+        { 20, 120, 300, 400, 300, 120, 20 },
+        { 15, 90,  225, 300, 225, 90,  15 },
+        { 6,  36,  90,  120, 90,  36,  6  },
+        { 1,  6,   15,  20,  15,  6,   1  }
+    };
+
     const int32_t WINDOW = window;
+    std::vector<std::vector<int32_t>> MASK;
+
+    if(WINDOW == 3)
+        MASK = MASK_3x3;
+    else if(WINDOW == 5)
+        MASK = MASK_5x5;
+    else if(WINDOW == 7)
+        MASK = MASK_7x7;
+    else
+        throw std::runtime_error("Invalid window size");
 
     Func M{"blockMean"};
 
     M(v_x, v_y, v_c) = cast<int32_t>(0);
+    Expr sum = 0;
+
+    const int32_t R = WINDOW / 2;
 
     for(int y = -R; y <= R; y++) {
         for(int x = -R; x <= R; x++) {
-            M(v_x, v_y, v_c) += in(v_x+x, v_y+y, v_c);
+            M(v_x, v_y, v_c) += static_cast<Expr>(MASK[x+R][y+R])*in(v_x+x, v_y+y, v_c);
+            sum += MASK[x+R][y+R];
         }
     }
 
-    M(v_x, v_y, v_c) /= (WINDOW*WINDOW);
+    M(v_x, v_y, v_c) /= sum;
 
     return M;
 }
@@ -1177,7 +1101,6 @@ void FuseImageGenerator::schedule_for_cpu() {
     }
 }
 
-HALIDE_REGISTER_GENERATOR(MeasureNoiseGenerator, measure_noise_generator)
 HALIDE_REGISTER_GENERATOR(DenoiseGenerator, denoise_generator)
 HALIDE_REGISTER_GENERATOR(ForwardTransformGenerator, forward_transform_generator)
 HALIDE_REGISTER_GENERATOR(FuseImageGenerator, fuse_image_generator)

@@ -23,7 +23,7 @@ public class DenoiseSettings {
         float chromaBlendWeight;
 
         sharpen0 = 2.0f;
-        sharpen1 = 2.5f;
+        sharpen1 = 2.0f;
 
         if(ev > 7.99) {
             mergeImages             = 4;
@@ -36,12 +36,12 @@ public class DenoiseSettings {
         }
         else if(ev > 0) {
             mergeImages             = 12;
-            sharpen0                = 1.5f;
+            sharpen0                = 2.0f;
             sharpen1                = 3.0f;
         }
         else {
             mergeImages             = 12;
-            sharpen0                = 1.5f;
+            sharpen0                = 2.0f;
             sharpen1                = 3.0f;
         }
 

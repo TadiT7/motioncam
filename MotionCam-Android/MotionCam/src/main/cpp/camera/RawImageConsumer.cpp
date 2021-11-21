@@ -265,7 +265,7 @@ namespace motioncam {
             if(mEnableRawPreview)
                 shadowBoost = mShadowBoost;
 
-            float userShadows = std::pow(2.0f, std::log(mEstimatedSettings.shadows) / std::log(2.0f) + mShadowBoost);
+            float userShadows = std::pow(2.0f, std::log(mEstimatedSettings.shadows) / std::log(2.0f) + shadowBoost);
             mEstimatedSettings.shadows = std::max(1.0f, std::min(32.0f, userShadows));
 
             // Store noise profile
