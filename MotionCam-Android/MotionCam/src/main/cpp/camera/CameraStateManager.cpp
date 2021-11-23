@@ -182,6 +182,13 @@ namespace motioncam {
 
         mFrameRate = frameRate;
 
+        int32_t startRange = mFrameRate < 30 ? mFrameRate : 10;
+        int32_t endRange = mFrameRate;
+
+        int32_t frameDuration[2] = { startRange, endRange };
+
+        ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_TARGET_FPS_RANGE, 2, &frameDuration[0]);
+
         if(mState == State::AUTO_FOCUS_ACTIVE) {
             setAutoFocus();
         }
@@ -351,14 +358,6 @@ namespace motioncam {
         ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_EXPOSURE_COMPENSATION, 1, &mExposureCompensation);
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_TRIGGER, 1, &afTrigger);
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER, 1, &aeTrigger);
-
-//        if(mFrameRate < 30) {
-//            int32_t frameDuration[2] = { 10, mFrameRate };
-//            ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_TARGET_FPS_RANGE, 2, &frameDuration[0]);
-//        }
-//        else {
-//            ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_TARGET_FPS_RANGE, 0, nullptr);
-//        }
 
         updateCaptureRequestExposure();
 

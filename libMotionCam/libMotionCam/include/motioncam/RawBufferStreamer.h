@@ -18,7 +18,7 @@ namespace motioncam {
         ~RawBufferStreamer();
         
         void start(const std::string& outputPath, const int64_t maxMemoryUsageBytes, const RawCameraMetadata& cameraMetadata);
-        bool add(std::shared_ptr<RawImageBuffer> frame);
+        bool add(const std::shared_ptr<RawImageBuffer>& frame);
         void stop();
         
         void setCropAmount(int percentage);
@@ -26,8 +26,9 @@ namespace motioncam {
         bool isRunning() const;
         
     private:
+        std::shared_ptr<RawImageBuffer> compressBuffer(const std::shared_ptr<RawImageBuffer>& buffer, std::vector<uint8_t>& tmpBuffer) const;
         void doCompress();
-        void doStream(std::string outputContainerPath, RawCameraMetadata cameraMetadata);
+        void doStream(const std::string& outputContainerPath, const RawCameraMetadata& cameraMetadata);
         
     private:
         std::vector<std::unique_ptr<std::thread>> mIoThreads;

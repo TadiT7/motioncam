@@ -32,12 +32,12 @@ public:
     DngOutputListener(const std::string& outputPath) : outputPath(outputPath) {
     }
     
-    int onNeedFd(int threadNumber) const {
+    int onNeedFd(int frameNumber) const {
         std::ostringstream str;
 
-        str << std::setw(2) << std::setfill('0') << threadNumber;
+        str << std::setw(6) << std::setfill('0') << frameNumber;
 
-        std::string outputDngPath = outputPath + "/VIDEO-" + str.str() + ".zip";
+        std::string outputDngPath = outputPath + "/frame-" + str.str() + ".dng";
 
         return open(outputDngPath.c_str(), O_WRONLY|O_CREAT|O_TRUNC, S_IWUSR|S_IWGRP|S_IRUSR|S_IRGRP);
     }

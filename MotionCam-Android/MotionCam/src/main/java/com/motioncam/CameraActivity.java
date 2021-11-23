@@ -317,7 +317,7 @@ public class CameraActivity extends AppCompatActivity implements
     private boolean mUserCaptureModeOverride;
 
     private FocusState mFocusState = FocusState.AUTO;
-    private NativeCameraSessionBridge.CameraExposureState nExposureState;
+    private NativeCameraSessionBridge.CameraExposureState mExposureState;
     private PointF mAutoFocusPoint;
     private PointF mAutoExposurePoint;
     private int mIso;
@@ -535,7 +535,7 @@ public class CameraActivity extends AppCompatActivity implements
         mPostProcessSettings.shadows = -1.0f;
         mPostProcessSettings.contrast = mSettings.contrast;
         mPostProcessSettings.saturation = mSettings.saturation;
-        mPostProcessSettings.brightness = 1.125f;
+        mPostProcessSettings.brightness = 1.25f;
         mPostProcessSettings.greens = 0.0f;
         mPostProcessSettings.blues = 0.0f;
         mPostProcessSettings.sharpen0 = 2.25f;
@@ -777,6 +777,7 @@ public class CameraActivity extends AppCompatActivity implements
 
         // Update selection
         ViewGroup cameraSelectionFrame = findViewById(R.id.cameraSelection);
+
         for(int i = 0; i < cameraSelectionFrame.getChildCount(); i++) {
             View cameraSelection = cameraSelectionFrame.getChildAt(i);
 
@@ -955,8 +956,9 @@ public class CameraActivity extends AppCompatActivity implements
         if(mCaptureMode == CaptureMode.RAW_VIDEO) {
             Log.i(TAG, "Switching to 30 FPS");
 
-            if(mNativeCamera != null)
+            if(mNativeCamera != null) {
                 mNativeCamera.setFrameRate(30);
+            }
         }
 
         mCaptureMode = captureMode;
@@ -995,6 +997,12 @@ public class CameraActivity extends AppCompatActivity implements
 
         if(frameRate == 30)
             frameRate = 24;
+        else if(frameRate == 24)
+            frameRate = 12;
+        else if(frameRate == 12)
+            frameRate = 5;
+        else if(frameRate == 5)
+            frameRate = 1;
         else
             frameRate = 30;
 
@@ -2042,11 +2050,14 @@ public class CameraActivity extends AppCompatActivity implements
     private void setAutoExposureState(NativeCameraSessionBridge.CameraExposureState state) {
         boolean timePassed = System.currentTimeMillis() - mFocusRequestedTimestampMs > 3000;
 
-        if(state == NativeCameraSessionBridge.CameraExposureState.SEARCHING && timePassed) {
+        if(mCaptureMode != CaptureMode.RAW_VIDEO
+                && state == NativeCameraSessionBridge.CameraExposureState.SEARCHING
+                && timePassed)
+        {
             setFocusState(FocusState.AUTO, null);
         }
 
-        nExposureState = state;
+        mExposureState = state;
     }
 
     private void setFocusState(FocusState state, PointF focusPt) {

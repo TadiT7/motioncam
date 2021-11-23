@@ -20,27 +20,25 @@ namespace motioncam {
         Job(cv::Mat bayerImage,
             const RawCameraMetadata& cameraMetadata,
             const RawImageMetadata& frameMetadata,
-            const std::string& filename) :
+            const int fd) :
         bayerImage(bayerImage.clone()),
         cameraMetadata(cameraMetadata),
         frameMetadata(frameMetadata),
-        filename(filename)
+        fd(fd)
         {
         }
         
         cv::Mat bayerImage;
         const RawCameraMetadata& cameraMetadata;
         const RawImageMetadata& frameMetadata;
-        const std::string filename;
+        const int fd;
         std::string error;
     };
 
     moodycamel::BlockingConcurrentQueue<std::shared_ptr<Job>> JOB_QUEUE;
     std::atomic<bool> RUNNING;
 
-    static void WriteDNG(int fd) {
-        util::ZipWriter zipWriter(fd);
-        
+    static void WriteDNG() {
         while(RUNNING) {
             std::shared_ptr<Job> job;
             
@@ -49,15 +47,13 @@ namespace motioncam {
                 continue;
             
             try {
-                util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, zipWriter, job->filename);
+                util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, job->fd);
             }
             catch(std::runtime_error& e) {
                 job->error = e.what();
                 logger::log(std::string("WriteDNG error: ") + e.what());
             }
         }
-        
-        zipWriter.commit();
     }
 
     float ConvertVideoToDNG(const std::string& containerPath, const DngProcessorProgress& progress, const int numThreads) {
@@ -83,15 +79,9 @@ namespace motioncam {
         std::vector<int> fds;
         
         for(int i = 0; i < numThreads; i++) {
-            int fd = progress.onNeedFd(i);
-            if(fd < 0)
-                continue;
-            
-            auto t = std::unique_ptr<std::thread>(new std::thread(&WriteDNG, fd));
+            auto t = std::unique_ptr<std::thread>(new std::thread(&WriteDNG));
             
             threads.push_back(std::move(t));
-            
-            fds.push_back(fd);
         }
         
         if(threads.empty())
@@ -123,13 +113,13 @@ namespace motioncam {
                     
             cv::Mat bayerImage(bayerBuffer.height(), bayerBuffer.width(), CV_16U, bayerBuffer.data());
             
-            std::ostringstream str;
-            
-            str << std::setw(4) << std::setfill('0') << i;
-            
-            std::string dngFileName = "frame" + str.str() + ".dng";
+            int fd = progress.onNeedFd(i);
+            if(fd < 0) {
+                progress.onError("Did not get valid fd");
+                break;
+            }
 
-            while(!JOB_QUEUE.try_enqueue(std::make_shared<Job>(bayerImage, container.getCameraMetadata(), frame->metadata, dngFileName))) {
+            while(!JOB_QUEUE.try_enqueue(std::make_shared<Job>(bayerImage, container.getCameraMetadata(), frame->metadata, fd))) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             

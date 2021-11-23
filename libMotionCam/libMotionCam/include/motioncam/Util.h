@@ -63,7 +63,12 @@ namespace motioncam {
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
                       const std::string& outputPath);
-    
+
+        void WriteDng(cv::Mat rawImage,
+                      const RawCameraMetadata& cameraMetadata,
+                      const RawImageMetadata& imageMetadata,
+                      const int fd);
+
         void WriteDng(cv::Mat rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,

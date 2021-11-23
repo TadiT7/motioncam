@@ -460,7 +460,7 @@ namespace motioncam {
         for(int i = histogram.cols - 1; i >= 0; i--) {
             float p = total + histogram.at<float>(i);
         
-            if(p - total < 0.001f) {
+            if(p - total < 0.0001f) {
                 total = p;
                 continue;
             }

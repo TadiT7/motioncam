@@ -140,22 +140,19 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
     }
 
     @Override
-    public int onNeedFd(int threadNumber) {
+    public int onNeedFd(int frameNumber) {
         if(mActiveFile == null)
             return -1;
 
-        String zipOutputName = String.format(
-                Locale.US,
-                "%s%02d.zip",
-                ImageProcessWorker.fileNoExtension(mActiveFile.getName()), threadNumber);
+        String dngOutputName = String.format(Locale.US, "frame-%06d.dng", frameNumber);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ContentResolver resolver = getApplicationContext().getContentResolver();
             Uri collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
             ContentValues details = new ContentValues();
 
-            details.put(MediaStore.Files.FileColumns.DISPLAY_NAME,  zipOutputName);
-            details.put(MediaStore.Files.FileColumns.MIME_TYPE,     "application/zip");
+            details.put(MediaStore.Files.FileColumns.DISPLAY_NAME,  dngOutputName);
+            details.put(MediaStore.Files.FileColumns.MIME_TYPE,     "image/x-adobe-dng");
             details.put(MediaStore.Files.FileColumns.DATE_ADDED,    System.currentTimeMillis());
             details.put(MediaStore.Files.FileColumns.DATE_TAKEN,    System.currentTimeMillis());
 
@@ -187,13 +184,18 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         }
         // Legacy
         else {
-            File outputPath = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "MotionCam");
-            File videoPath  = new File(outputPath, zipOutputName);
+            File outputPath = new File(Environment.DIRECTORY_DOCUMENTS
+                    + File.separator
+                    + "MotionCam"
+                    + File.separator
+                    + ImageProcessWorker.fileNoExtension(mActiveFile.getName()));
 
             if(!outputPath.exists() && !outputPath.mkdirs()) {
                 Log.e(TAG, "Failed to create " + outputPath.toString());
                 return -1;
             }
+
+            File videoPath = new File(outputPath, dngOutputName);
 
             FileProvider.getUriForFile(getApplicationContext(), ImageProcessWorker.AUTHORITY, videoPath);
 
