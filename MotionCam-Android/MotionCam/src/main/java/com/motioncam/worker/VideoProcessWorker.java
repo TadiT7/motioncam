@@ -148,21 +148,22 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ContentResolver resolver = getApplicationContext().getContentResolver();
-            Uri collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
             ContentValues details = new ContentValues();
 
-            details.put(MediaStore.Files.FileColumns.DISPLAY_NAME,  dngOutputName);
-            details.put(MediaStore.Files.FileColumns.MIME_TYPE,     "image/x-adobe-dng");
-            details.put(MediaStore.Files.FileColumns.DATE_ADDED,    System.currentTimeMillis());
-            details.put(MediaStore.Files.FileColumns.DATE_TAKEN,    System.currentTimeMillis());
+            Uri collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI;
 
-            String outputDirectory = Environment.DIRECTORY_DOCUMENTS
+            details.put(MediaStore.DownloadColumns.DISPLAY_NAME,  dngOutputName);
+            details.put(MediaStore.DownloadColumns.MIME_TYPE,     "image/x-adobe-dng");
+            details.put(MediaStore.DownloadColumns.DATE_ADDED,    System.currentTimeMillis());
+            details.put(MediaStore.DownloadColumns.DATE_TAKEN,    System.currentTimeMillis());
+
+            String outputDirectory = Environment.DIRECTORY_DOWNLOADS
                     + File.separator
                     + "MotionCam"
                     + File.separator
                     + ImageProcessWorker.fileNoExtension(mActiveFile.getName());
 
-            details.put(MediaStore.Files.FileColumns.RELATIVE_PATH, outputDirectory);
+            details.put(MediaStore.DownloadColumns.RELATIVE_PATH, outputDirectory);
 
             Uri imageContentUri = resolver.insert(collection, details);
             if(imageContentUri == null)
@@ -184,11 +185,11 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         }
         // Legacy
         else {
-            File outputPath = new File(Environment.DIRECTORY_DOCUMENTS
-                    + File.separator
-                    + "MotionCam"
-                    + File.separator
-                    + ImageProcessWorker.fileNoExtension(mActiveFile.getName()));
+            File basePath = new File(
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                    "MotionCam");
+
+            File outputPath = new File(basePath, ImageProcessWorker.fileNoExtension(mActiveFile.getName()));
 
             if(!outputPath.exists() && !outputPath.mkdirs()) {
                 Log.e(TAG, "Failed to create " + outputPath.toString());

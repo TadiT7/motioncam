@@ -741,6 +741,8 @@ public class CameraActivity extends AppCompatActivity implements
 
             startVideoProcessor();
         });
+
+        Toast.makeText(CameraActivity.this, "The recording will be processed to the Downloads folder", Toast.LENGTH_LONG).show();
     }
 
     @Override
@@ -996,6 +998,8 @@ public class CameraActivity extends AppCompatActivity implements
         int frameRate = mSettings.frameRate;
 
         if(frameRate == 30)
+            frameRate = 25;
+        else if(frameRate == 25)
             frameRate = 24;
         else if(frameRate == 24)
             frameRate = 12;

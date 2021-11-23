@@ -2095,26 +2095,31 @@ void EnhanceGenerator::generate() {
 
     // Apply black/white point + contrast curve
     {
-        Expr p = max(1e-05f, contrast);
 
-        Expr A = p*6.0f;
-        Expr B = p*4.0f;
-
-        Expr M = 1.0f / (1 + exp(B));
-        Expr N = 1.0f / (1 + exp(-A + B)) - M;
-
+        // Gamma
         Expr i = v_i / 65535.0f;
         Expr j = select(i < 0.0031308f, i * 12.92f, pow(i, 1.0f / 2.4f) * 1.055f - 0.055f);
 
-        Expr S = 1.0f / (1.0f + exp(-A*j + B));
-        Expr T = (S - M) / N;
+        // Midtones
+        Expr k = pow(j, 1.0f/brightness);
 
-        Expr k = clamp(T - blackPoint, 0.0f, 1.0f) * (1.0f / (1.0f - blackPoint + 1e-5f));
-        Expr m = k / whitePoint;
+        // Contrast
+        Expr K = max(1e-05f, contrast);
 
-        Expr n = pow(m, 1.0f/brightness);
+        Expr A = K*6.0f;
+        Expr B = K*4.0f;
 
-        contrastLut(v_i) = saturating_cast<uint16_t>(n*65535.0f+0.5f);
+        Expr m = 1.0f / (1 + exp(B));
+        Expr n = 1.0f / (1 + exp(-A + B)) - m;
+        
+        Expr s = 1.0f / (1.0f + exp(-A*k + B));
+        Expr t = (s - m) / n;
+
+        // Black/white point
+        Expr u = clamp(t - blackPoint, 0.0f, 1.0f) * (1.0f / (1.0f - blackPoint + 1e-5f));
+        Expr v = u / whitePoint;
+
+        contrastLut(v_i) = saturating_cast<uint16_t>(v*65535.0f+0.5f);
         if(!auto_schedule)
             contrastLut.compute_root().vectorize(v_i, 8);
     }
