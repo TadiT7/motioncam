@@ -110,7 +110,7 @@ namespace motioncam {
             std::shared_ptr<RawImageBuffer> referenceRawBuffer,
             float* outNoise,
             ImageProgressHelper& progressHelper);
-        
+
         static void addExifMetadata(const RawImageMetadata& metadata,
                                     const cv::Mat& thumbnail,
                                     const RawCameraMetadata& cameraMetadata,

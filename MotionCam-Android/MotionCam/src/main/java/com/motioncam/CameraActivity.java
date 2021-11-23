@@ -535,7 +535,7 @@ public class CameraActivity extends AppCompatActivity implements
         mPostProcessSettings.shadows = -1.0f;
         mPostProcessSettings.contrast = mSettings.contrast;
         mPostProcessSettings.saturation = mSettings.saturation;
-        mPostProcessSettings.brightness = 1.25f;
+        mPostProcessSettings.brightness = 1.125f;
         mPostProcessSettings.greens = 0.0f;
         mPostProcessSettings.blues = 0.0f;
         mPostProcessSettings.sharpen0 = 2.25f;

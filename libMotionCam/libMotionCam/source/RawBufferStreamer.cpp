@@ -42,7 +42,7 @@ namespace motioncam {
         
         // Create IO threads
         for(int i = 0; i < NumWriteThreads; i++) {
-            auto t = std::make_unique<std::thread>(&RawBufferStreamer::doStream, this, outputName, cameraMetadata);
+            auto t = std::unique_ptr<std::thread>(new std::thread(&RawBufferStreamer::doStream, this, outputName, cameraMetadata));
             
             // Set priority on IO thread
             sched_param priority{};
@@ -55,7 +55,7 @@ namespace motioncam {
         
         // Create compression threads
         for(int i = 0; i < NumCompressThreads; i++) {
-            auto t = std::make_unique<std::thread>(&RawBufferStreamer::doCompress, this);
+            auto t = std::unique_ptr<std::thread>(new std::thread(&RawBufferStreamer::doCompress, this));
             
             mCompressThreads.push_back(std::move(t));
         }
@@ -170,10 +170,10 @@ namespace motioncam {
                 std::string containerOutputPath = containerName + "_" + std::to_string(containerNum) + ".zip";
 
                 logger::log("Creating " + containerOutputPath);
-                container = std::make_unique<RawContainer>(cameraMetadata);
+                container = std::unique_ptr<RawContainer>(new RawContainer(cameraMetadata));
                 container->save(containerOutputPath);
 
-                writer = std::make_unique<util::ZipWriter>(containerOutputPath, true);
+                writer = std::unique_ptr<util::ZipWriter>(new util::ZipWriter(containerOutputPath, true));
 
                 ++containerNum;
                 writtenFrames = 1;

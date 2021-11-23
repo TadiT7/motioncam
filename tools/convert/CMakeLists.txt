@@ -9,6 +9,7 @@ project(convert)
 # Homebrew
 if (APPLE)
         LINK_DIRECTORIES(/usr/local/lib)
+        include_directories(include /usr/local/include /usr/local/include/opencv4)
 endif (APPLE)
 
 set(libmotioncam-src ${PROJECT_SOURCE_DIR}/../../libMotionCam)
