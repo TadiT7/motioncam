@@ -27,7 +27,7 @@ namespace motioncam {
         
         static void pcsToSrgb(cv::Mat& outPcsToSrgb, cv::Mat& outSrgbToPcs);
 
-        __unused void cameraToSrgb(cv::Mat& cameraToSrgb) const;
+        void cameraToSrgb(cv::Mat& cameraToSrgb) const;
         
     private:
         static cv::Mat normalizeForwardMatrix(const cv::Mat& forwardMatrix);

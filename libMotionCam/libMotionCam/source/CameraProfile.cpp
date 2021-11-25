@@ -264,7 +264,7 @@ namespace motioncam {
         return bradfordAdaptationMatrix.inv() * A * bradfordAdaptationMatrix;
     }
 
-    __unused void CameraProfile::cameraToSrgb(cv::Mat& cameraToSrgb) const {
+    void CameraProfile::cameraToSrgb(cv::Mat& cameraToSrgb) const {
         static const float srgbToXyz[] = { 0.4124564f, 0.3575761f, 0.1804375f,
                                            0.2126729f, 0.7151522f, 0.0721750f,
                                            0.0193339f, 0.1191920f, 0.9503041f };

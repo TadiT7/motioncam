@@ -316,7 +316,6 @@ target_link_libraries(motioncam-static
         opencv_objdetect
         opencv_video
         opencv_highgui
-        opencv_xfeatures2d
         opencv_features2d
         opencv_calib3d
 )

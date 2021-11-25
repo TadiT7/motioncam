@@ -20,7 +20,6 @@ public class DenoiseSettings {
 
     private void estimateFromExposure(float ev, float shadows) {
         int mergeImages;
-        float chromaBlendWeight;
 
         sharpen0 = 2.0f;
         sharpen1 = 2.0f;
@@ -37,12 +36,12 @@ public class DenoiseSettings {
         else if(ev > 0) {
             mergeImages             = 12;
             sharpen0                = 2.0f;
-            sharpen1                = 3.0f;
+            sharpen1                = 3.5f;
         }
         else {
             mergeImages             = 12;
             sharpen0                = 2.0f;
-            sharpen1                = 3.0f;
+            sharpen1                = 3.5f;
         }
 
         if(shadows > 7.99) {
