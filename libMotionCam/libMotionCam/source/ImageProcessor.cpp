@@ -414,13 +414,12 @@ namespace motioncam {
         
         // Estimate white point
         const int maxWhitePointBin = 0.75f * histBins[0] + 0.5f;
-        const float whitePoint = 0.999f;
+        const float whitePoint = 0.995f;
         
         for(endBin = histogram.rows - 2; endBin >= maxWhitePointBin; endBin--) {
-            float p0 = histogram.at<float>(endBin);
-            float p1 = histogram.at<float>(endBin - 1);
+            float p = histogram.at<float>(endBin);
 
-            if(p0 > whitePoint && (p0 - p1) > 0.001f)
+            if(p > whitePoint)
                 break;
         }
         
@@ -1755,7 +1754,7 @@ namespace motioncam {
             float sum = 0;
 
             for(int x = histogram.rows - 1; x >= 0; x--) {
-                if( sum > 0.0001f )
+                if( sum > 0.00007f )
                     break;
 
                 p[c] = x + 1;

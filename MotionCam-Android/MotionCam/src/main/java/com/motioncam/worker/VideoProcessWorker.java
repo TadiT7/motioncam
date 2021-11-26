@@ -4,7 +4,6 @@ import android.app.NotificationManager;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
@@ -22,7 +21,6 @@ import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
 import com.motioncam.R;
-import com.motioncam.model.SettingsViewModel;
 import com.motioncam.processor.NativeDngConverterListener;
 import com.motioncam.processor.NativeProcessor;
 
@@ -31,11 +29,12 @@ import org.apache.commons.io.FileUtils;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Locale;
 
 public class VideoProcessWorker extends Worker implements NativeDngConverterListener {
     public static final String TAG = "MotionVideoCamWorker";
+
+    public static final String INPUT_PATH_KEY = "input_path";
 
     public static final int NOTIFICATION_ID = 1;
     public static final String VIDEOS_PATH = "videos";
@@ -101,38 +100,63 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
     @NonNull
     @Override
     public Result doWork() {
+        Data inputData = getInputData();
+
+        String inputPath = inputData.getString(INPUT_PATH_KEY);
+        if(inputPath == null) {
+            Log.e(TAG, "Invalid input file");
+            return Result.failure();
+        }
+
+        File inputFile = new File(inputPath);
+        if(!inputFile.exists()) {
+            Log.e(TAG, "Input file " + inputPath + " does not exist");
+            return Result.failure();
+        }
+
         if(!init())
             return Result.failure();
 
         setForegroundAsync(new ForegroundInfo(NOTIFICATION_ID, mNotificationBuilder.build()));
 
-        // Find all pending files and process them
-        File root = new File(getApplicationContext().getFilesDir(), VIDEOS_PATH);
-        File[] pendingFiles = root.listFiles((dir, name) -> name.toLowerCase().endsWith("zip"));
-
-        if(pendingFiles == null)
-            return Result.success();
-
-        // Process all files
-        Arrays.sort(pendingFiles);
-
-        SharedPreferences prefs =
-                getApplicationContext().getSharedPreferences(SettingsViewModel.CAMERA_SHARED_PREFS, Context.MODE_PRIVATE);
-
-        boolean rawVideoToDng = prefs.getBoolean(SettingsViewModel.PREFS_KEY_RAW_VIDEO_TO_DNG, true);
-
-        for(File file : pendingFiles) {
-            try {
-                Log.d(TAG, "Processing video " + file.getPath());
-                processVideo(file, rawVideoToDng);
-            }
-            catch (Exception e) {
-                Log.e(TAG, "Failed to process " + file.getPath(), e);
-                if(!file.delete()) {
-                    Log.e(TAG, "Failed to delete " + file.toString());
-                }
+        try {
+            Log.d(TAG, "Processing video " + inputFile.getPath());
+            processVideo(inputFile, true);
+        }
+        catch (Exception e) {
+            Log.e(TAG, "Failed to process " + inputFile.getPath(), e);
+            if(!inputFile.delete()) {
+                Log.e(TAG, "Failed to delete " + inputFile.toString());
             }
         }
+
+//        // Find all pending files and process them
+//        File root = new File(getApplicationContext().getFilesDir(), VIDEOS_PATH);
+//        File[] pendingFiles = root.listFiles((dir, name) -> name.toLowerCase().endsWith("zip"));
+//
+//        if(pendingFiles == null)
+//            return Result.success();
+//
+//        // Process all files
+//        Arrays.sort(pendingFiles);
+//
+//        SharedPreferences prefs =
+//                getApplicationContext().getSharedPreferences(SettingsViewModel.CAMERA_SHARED_PREFS, Context.MODE_PRIVATE);
+//
+//        boolean rawVideoToDng = prefs.getBoolean(SettingsViewModel.PREFS_KEY_RAW_VIDEO_TO_DNG, true);
+//
+//        for(File file : pendingFiles) {
+//            try {
+//                Log.d(TAG, "Processing video " + file.getPath());
+//                processVideo(file, rawVideoToDng);
+//            }
+//            catch (Exception e) {
+//                Log.e(TAG, "Failed to process " + file.getPath(), e);
+//                if(!file.delete()) {
+//                    Log.e(TAG, "Failed to delete " + file.toString());
+//                }
+//            }
+//        }
 
         mNotifyManager.cancel(NOTIFICATION_ID);
 

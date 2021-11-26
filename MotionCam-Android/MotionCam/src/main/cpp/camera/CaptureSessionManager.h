@@ -56,7 +56,15 @@ namespace motioncam {
 
         void enableRawPreview(std::shared_ptr<RawPreviewListener> listener, const int previewQuality, bool overrideWb);
         void updateRawPreviewSettings(
-                float shadows, float contrast, float saturation, float blacks, float whitePoint, float tempOffset, float tintOffset);
+                float shadows,
+                float contrast,
+                float saturation,
+                float blacks,
+                float whitePoint,
+                float tempOffset,
+                float tintOffset,
+                bool useVideoPreview);
+
         void disableRawPreview();
         void getEstimatedPostProcessSettings(PostProcessSettings& outSettings);
 

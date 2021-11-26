@@ -12,6 +12,12 @@ namespace motioncam {
         static void generate(const RawImageBuffer& rawBuffer,
                              const RawCameraMetadata& cameraMetadata,
                              const int downscaleFactor,
+                             Halide::Runtime::Buffer<uint8_t>& inputBuffer,
+                             Halide::Runtime::Buffer<uint8_t>& outputBuffer);
+
+        static void generate(const RawImageBuffer& rawBuffer,
+                             const RawCameraMetadata& cameraMetadata,
+                             const int downscaleFactor,
                              const bool flipped,
                              const float shadows,
                              const float contrast,
@@ -23,7 +29,6 @@ namespace motioncam {
                              const float tonemapVariance,
                              Halide::Runtime::Buffer<uint8_t>& inputBuffer,
                              Halide::Runtime::Buffer<uint8_t>& outputBuffer);
-
     };
 }
 

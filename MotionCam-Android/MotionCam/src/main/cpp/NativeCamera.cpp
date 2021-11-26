@@ -794,7 +794,8 @@ jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_SetRawPrevi
         jfloat blacks,
         jfloat whitePoint,
         jfloat tempOffset,
-        jfloat tintOffset)
+        jfloat tintOffset,
+        jboolean useVideoPreview)
 {
     std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
     if(!sessionManager) {
@@ -802,7 +803,15 @@ jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_SetRawPrevi
     }
 
     sessionManager->updateRawPreviewSettings(
-            shadows, contrast, saturation, blacks, whitePoint, tempOffset, tintOffset);
+            shadows,
+            contrast,
+            saturation,
+            blacks,
+            whitePoint,
+            tempOffset,
+            tintOffset,
+            useVideoPreview);
+
 
     return JNI_TRUE;
 }

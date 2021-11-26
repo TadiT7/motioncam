@@ -29,6 +29,12 @@
         </activity>
 
         <activity
+            android:name=".ConvertVideoActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme.NoActionBar">
+        </activity>
+
+        <activity
             android:name=".CameraActivity"
             android:exported="true"
             android:screenOrientation="portrait">

@@ -50,6 +50,7 @@ namespace motioncam {
         mShadowBoost(0.0f),
         mTempOffset(0.0f),
         mTintOffset(0.0f),
+        mUseVideoPreview(false),
         mPreviewShadows(4.0f),
         mPreviewShadowStep(0.0f),
         mCameraDesc(std::move(cameraDescription))
@@ -479,21 +480,26 @@ namespace motioncam {
 
             previewTimestamp = std::chrono::steady_clock::now();
 
-            motioncam::CameraPreview::generate(
-                    *buffer,
-                    mCameraDesc->metadata,
-                    downscaleFactor,
-                    mCameraDesc->lensFacing == ACAMERA_LENS_FACING_FRONT,
-                    mPreviewShadows,
-                    mEstimatedSettings.contrast,
-                    mEstimatedSettings.saturation,
-                    mEstimatedSettings.blacks,
-                    mEstimatedSettings.whitePoint,
-                    mTempOffset,
-                    mTintOffset,
-                    0.25f,
-                    inputBuffer,
-                    outputBuffer);
+            if(mUseVideoPreview) {
+                motioncam::CameraPreview::generate(*buffer, mCameraDesc->metadata, downscaleFactor, inputBuffer, outputBuffer);
+            }
+            else {
+                motioncam::CameraPreview::generate(
+                        *buffer,
+                        mCameraDesc->metadata,
+                        downscaleFactor,
+                        mCameraDesc->lensFacing == ACAMERA_LENS_FACING_FRONT,
+                        mPreviewShadows,
+                        mEstimatedSettings.contrast,
+                        mEstimatedSettings.saturation,
+                        mEstimatedSettings.blacks,
+                        mEstimatedSettings.whitePoint,
+                        mTempOffset,
+                        mTintOffset,
+                        0.25f,
+                        inputBuffer,
+                        outputBuffer);
+            }
 
             totalPreviewTimeMs +=
                     std::chrono::duration <double, std::milli>(std::chrono::steady_clock::now() - previewTimestamp).count();
@@ -563,7 +569,14 @@ namespace motioncam {
     }
 
     void RawImageConsumer::updateRawPreviewSettings(
-            float shadowBoost, float contrast, float saturation, float blacks, float whitePoint, float tempOffset, float tintOffset)
+            float shadowBoost,
+            float contrast,
+            float saturation,
+            float blacks,
+            float whitePoint,
+            float tempOffset,
+            float tintOffset,
+            bool useVideoPreview)
     {
         mShadowBoost = shadowBoost;
         mEstimatedSettings.contrast = contrast;
@@ -572,6 +585,7 @@ namespace motioncam {
         mEstimatedSettings.whitePoint = whitePoint;
         mTempOffset = tempOffset;
         mTintOffset = tintOffset;
+        mUseVideoPreview = useVideoPreview;
     }
 
     void RawImageConsumer::getEstimatedSettings(PostProcessSettings& outSettings) {
@@ -592,6 +606,10 @@ namespace motioncam {
     }
 
     void RawImageConsumer::setWhiteBalanceOverride(bool override) {
+    }
+
+    void RawImageConsumer::setUseVideoPreview(bool useVideoPreview) {
+        mUseVideoPreview = useVideoPreview;
     }
 
     void RawImageConsumer::doCopyImage() {

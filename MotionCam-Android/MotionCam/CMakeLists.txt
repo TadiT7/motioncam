@@ -145,6 +145,18 @@ add_library(fast_preview STATIC IMPORTED)
 set_target_properties(fast_preview PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/fast_preview.a)
 
+add_library(camera_video_preview2_raw10 STATIC IMPORTED)
+set_target_properties(camera_video_preview2_raw10 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview2_raw10.a)
+
+add_library(camera_video_preview3_raw10 STATIC IMPORTED)
+set_target_properties(camera_video_preview3_raw10 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview3_raw10.a)
+
+add_library(camera_video_preview4_raw10 STATIC IMPORTED)
+set_target_properties(camera_video_preview4_raw10 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview4_raw10.a)
+
 add_library(camera_preview2_raw10 STATIC IMPORTED)
 set_target_properties(camera_preview2_raw10 PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview2_raw10.a)
@@ -156,6 +168,18 @@ set_target_properties(camera_preview3_raw10 PROPERTIES IMPORTED_LOCATION
 add_library(camera_preview4_raw10 STATIC IMPORTED)
 set_target_properties(camera_preview4_raw10 PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview4_raw10.a)
+
+add_library(camera_video_preview2_raw16 STATIC IMPORTED)
+set_target_properties(camera_video_preview2_raw16 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview2_raw16.a)
+
+add_library(camera_video_preview3_raw16 STATIC IMPORTED)
+set_target_properties(camera_video_preview3_raw16 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview3_raw16.a)
+
+add_library(camera_video_preview4_raw16 STATIC IMPORTED)
+set_target_properties(camera_video_preview4_raw16 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview4_raw16.a)
 
 add_library(camera_preview2_raw16 STATIC IMPORTED)
 set_target_properties(camera_preview2_raw16 PROPERTIES IMPORTED_LOCATION
@@ -557,9 +581,15 @@ target_link_libraries(native-camera-host
 target_link_libraries(native-camera-opencl
         halide_runtime_opencl
         ${native-camera-libs}
+        camera_video_preview2_raw10
+        camera_video_preview3_raw10
+        camera_video_preview4_raw10
         camera_preview2_raw10
         camera_preview3_raw10
         camera_preview4_raw10
+        camera_video_preview2_raw16
+        camera_video_preview3_raw16
+        camera_video_preview4_raw16
         camera_preview2_raw16
         camera_preview3_raw16
         camera_preview4_raw16

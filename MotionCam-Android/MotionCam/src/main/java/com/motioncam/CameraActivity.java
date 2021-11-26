@@ -101,6 +101,7 @@ public class CameraActivity extends AppCompatActivity implements
 
     private static final int PERMISSION_REQUEST_CODE = 1;
     private static final int SETTINGS_ACTIVITY_REQUEST_CODE = 0x10;
+    private static final int CONVERT_VIDEO_ACTIVITY_REQUEST_CODE = 0x20;
 
     public static final String WORKER_IMAGE_PROCESSOR = "ImageProcessor";
     public static final String WORKER_VIDEO_PROCESSOR = "VideoProcessor";
@@ -420,6 +421,7 @@ public class CameraActivity extends AppCompatActivity implements
 
         mBinding.focusLockPointFrame.setOnClickListener(v -> onFixedFocusCancelled());
         mBinding.previewFrame.settingsBtn.setOnClickListener(v -> onSettingsClicked());
+        mBinding.previewFrame.processVideoBtn.setOnClickListener(v -> OnProcessVideoClicked());
 
         mCameraCapturePreviewAdapter = new CameraCapturePreviewAdapter(getApplicationContext());
         mBinding.previewPager.setAdapter(mCameraCapturePreviewAdapter);
@@ -500,6 +502,11 @@ public class CameraActivity extends AppCompatActivity implements
         startActivityForResult(intent, SETTINGS_ACTIVITY_REQUEST_CODE);
     }
 
+    private void OnProcessVideoClicked() {
+        Intent intent = new Intent(this, ConvertVideoActivity.class);
+        startActivityForResult(intent, CONVERT_VIDEO_ACTIVITY_REQUEST_CODE);
+    }
+
     private void onFixedFocusCancelled() {
         setFocusState(FocusState.AUTO, null);
     }
@@ -570,7 +577,6 @@ public class CameraActivity extends AppCompatActivity implements
 
         setPostProcessingDefaults();
         updatePreviewTabUi(true);
-        updateVideoUi();
 
         setCaptureMode(CaptureMode.ZSL);
         setSaveRaw(mSettings.saveDng);
@@ -699,9 +705,6 @@ public class CameraActivity extends AppCompatActivity implements
                     mBinding.recordingTimerText.setText(recordingText);
 
                     int droppedFrames = mNativeCamera.getNumDroppedFrames();
-                    String droppedFramesText = String.format("%d\nDROPPED FRAMES", mNativeCamera.getNumDroppedFrames());
-
-                    mBinding.previewFrame.videoStatus.setText(droppedFramesText);
 
                     // End recording if too many dropped frames
                     if(droppedFrames > 100) {
@@ -741,8 +744,6 @@ public class CameraActivity extends AppCompatActivity implements
 
             startVideoProcessor();
         });
-
-        Toast.makeText(CameraActivity.this, "The recording will be processed to the Downloads folder", Toast.LENGTH_LONG).show();
     }
 
     @Override
@@ -844,11 +845,20 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void updateVideoUi() {
-        mBinding.previewFrame.videoCropBtn.setText(String.format("%d%%\nCROP", mSettings.videoCrop));
+        mBinding.previewFrame.videoCropToggle.setText(String.format("%d%%\nCROP", mSettings.videoCrop));
 
         mBinding.previewFrame.videoFrameRateBtn.setText(String.format("%d\nFPS", mSettings.frameRate));
 
-        mBinding.previewFrame.videoStatus.setText("");
+        if(mNativeCamera != null) {
+            Size captureOutputSize = mNativeCamera.getRawConfigurationOutput(mSelectedCamera);
+
+            int width = captureOutputSize.getWidth();
+            int height = captureOutputSize.getHeight();
+
+            height = Math.round(height - (mSettings.videoCrop / 100.0f) * height);
+
+            mBinding.previewFrame.videoResolution.setText(String.format("%dx%d\nRES", width, height));
+        }
     }
 
     private void updatePreviewTabUi(boolean updateModeSelection) {
@@ -964,6 +974,8 @@ public class CameraActivity extends AppCompatActivity implements
         }
 
         mCaptureMode = captureMode;
+
+        updatePreviewSettings();
     }
 
     private void setHdr(boolean hdr) {
@@ -980,18 +992,12 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void toggleVideoCrop() {
-        int crop = mSettings.videoCrop;
-
-        crop += 10;
-        if(crop > 50) {
-            crop = 0;
+        if(mBinding.previewFrame.cropSeekBar.getVisibility() == View.VISIBLE)
+            mBinding.previewFrame.cropSeekBar.setVisibility(View.GONE);
+        else {
+            mBinding.previewFrame.cropSeekBar.setProgress(mSettings.videoCrop);
+            mBinding.previewFrame.cropSeekBar.setVisibility(View.VISIBLE);
         }
-
-        mSettings.videoCrop = crop;
-        updateVideoUi();
-
-        if(mNativeCamera != null)
-            mNativeCamera.setVideoCropPercentage(mSettings.videoCrop);
     }
 
     private void toggleFrameRate() {
@@ -1011,10 +1017,11 @@ public class CameraActivity extends AppCompatActivity implements
             frameRate = 30;
 
         mSettings.frameRate = frameRate;
-        updateVideoUi();
 
         if(mNativeCamera != null)
             mNativeCamera.setFrameRate(mSettings.frameRate);
+
+        updateVideoUi();
     }
 
     private void setSaveRaw(boolean saveRaw) {
@@ -1652,8 +1659,30 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.previewFrame.rawEnableBtn.setOnClickListener(v -> setSaveRaw(!mPostProcessSettings.dng));
         mBinding.previewFrame.hdrEnableBtn.setOnClickListener(v -> setHdr(!mSettings.hdr));
 
-        mBinding.previewFrame.videoCropBtn.setOnClickListener(v -> toggleVideoCrop());
+        mBinding.previewFrame.videoCropToggle.setOnClickListener(v -> toggleVideoCrop());
         mBinding.previewFrame.videoFrameRateBtn.setOnClickListener(v -> toggleFrameRate());
+
+        mBinding.previewFrame.cropSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                mSettings.videoCrop = progress;
+                if(mNativeCamera != null)
+                    mNativeCamera.setVideoCropPercentage(mSettings.videoCrop);
+
+                updateVideoUi();
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                toggleVideoCrop();
+            }
+        });
+
+        updateVideoUi();
 
         // Kill previous timer
         if(mFaceDetectionTimer != null) {
@@ -1816,14 +1845,14 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void startVideoProcessor() {
-        OneTimeWorkRequest request =
-                new OneTimeWorkRequest.Builder(VideoProcessWorker.class).build();
-
-        WorkManager.getInstance(this)
-                .enqueueUniqueWork(
-                        WORKER_VIDEO_PROCESSOR,
-                        ExistingWorkPolicy.KEEP,
-                        request);
+//        OneTimeWorkRequest request =
+//                new OneTimeWorkRequest.Builder(VideoProcessWorker.class).build();
+//
+//        WorkManager.getInstance(this)
+//                .enqueueUniqueWork(
+//                        WORKER_VIDEO_PROCESSOR,
+//                        ExistingWorkPolicy.KEEP,
+//                        request);
     }
 
     @Override
@@ -2003,7 +2032,8 @@ public class CameraActivity extends AppCompatActivity implements
                     0.05f,
                     1.0f,
                     mTemperatureOffset,
-                    mTintOffset);
+                    mTintOffset,
+                    mCaptureMode == CaptureMode.RAW_VIDEO);
         }
     }
 

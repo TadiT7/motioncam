@@ -17,6 +17,285 @@ const Expr HALF_YUV_R = cast<float16_t>(0.299f);
 const Expr HALF_YUV_G = cast<float16_t>(0.587f);
 const Expr HALF_YUV_B = cast<float16_t>(0.114f);
 
+class CameraVideoPreviewGenerator : public Halide::Generator<CameraVideoPreviewGenerator> {
+public:
+    GeneratorParam<int> downscale_factor{"downscale_factor", 2};
+    GeneratorParam<int> pixel_format{"pixel_format", 0};
+
+    Input<Buffer<uint8_t>> input{"input", 1};
+    Input<int> stride{"stride"};
+    Input<Buffer<float>> cameraToSrgb{"cameraToSrgb", 2};
+
+    Input<int> width{"width"};
+    Input<int> height{"height"};
+
+    Input<int[4]> blackLevel{"blackLevel"};
+    Input<int> whiteLevel{"whiteLevel"};
+
+    Input<Buffer<float>[4]> shadingMap{"shadingMap", 2 };
+    Input<int> sensorArrangement{"sensorArrangement"};
+
+    Input<float> gamma{"gamma"};
+
+    Output<Buffer<uint8_t>> output{"output", 3};
+
+protected:
+    Var v_i{"i"};
+    Var v_x{"x"};
+    Var v_y{"y"};
+    Var v_c{"c"};
+    
+    Var v_xo{"xo"};
+    Var v_xi{"xi"};
+    Var v_yo{"yo"};
+    Var v_yi{"yi"};
+
+    Var v_xio{"xio"};
+    Var v_xii{"xii"};
+    Var v_yio{"yio"};
+    Var v_yii{"yii"};
+
+    Var subtile_idx{"subtile_idx"};
+    Var tile_idx{"tile_idx"};
+
+public:
+    void generate();
+    Func downscale(Func in, Func& temp);
+    void transform(Func& output, Func input, Func m);
+
+    void linearScale16(Func& result, Func image, Expr fromWidth, Expr fromHeight, Expr toWidth, Expr toHeight);
+};
+
+Func CameraVideoPreviewGenerator::downscale(Func f, Func& downx) {
+    Func in{"downscaleIn"}, downy{"downy"}, result{"downscaled"};
+
+    const int downscale = downscale_factor;
+    RDom r(-downscale/2, downscale+1);
+
+    in(v_x, v_y, v_c) = cast<float16_t>(f(v_x, v_y, v_c));
+
+    downx(v_x, v_y, v_c) = sum(in(v_x * downscale + r.x, v_y, v_c)) / cast<float16_t>(downscale + 1);
+    downy(v_x, v_y, v_c) = sum(downx(v_x, v_y * downscale + r.x, v_c)) / cast<float16_t>(downscale + 1);
+    
+    result(v_x, v_y, v_c) = cast<float16_t>(downy(v_x, v_y, v_c));
+
+    return result;
+}
+
+void CameraVideoPreviewGenerator::linearScale16(Func& result, Func image, Expr fromWidth, Expr fromHeight, Expr toWidth, Expr toHeight) {
+    Expr scaleX = toWidth * cast<float16_t>(1.0f) / (cast<float16_t>(fromWidth));
+    Expr scaleY = toHeight * cast<float16_t>(1.0f) / (cast<float16_t>(fromHeight));
+    
+    Expr HALF_0_5 = cast<float16_t>(0.5f);
+
+    Expr fx = max(0, (v_x + HALF_0_5) * (cast<float16_t>(1.0f) / scaleX) - HALF_0_5);
+    Expr fy = max(0, (v_y + HALF_0_5) * (cast<float16_t>(1.0f) / scaleY) - HALF_0_5);
+    
+    Expr x = cast<int>(fx);
+    Expr y = cast<int>(fy);
+    
+    Expr a = fx - x;
+    Expr b = fy - y;
+
+    Expr x0 = clamp(x, 0, fromWidth - 1);
+    Expr y0 = clamp(y, 0, fromHeight - 1);
+
+    Expr x1 = clamp(x + 1, 0, fromWidth - 1);
+    Expr y1 = clamp(y + 1, 0, fromHeight - 1);
+    
+    Expr p0 = lerp(cast<float16_t>(image(x0, y0)), cast<float16_t>(image(x1, y0)), a);
+    Expr p1 = lerp(cast<float16_t>(image(x0, y1)), cast<float16_t>(image(x1, y1)), a);
+
+    result(v_x, v_y) = cast<float16_t>(lerp(p0, p1, b));
+}
+
+void CameraVideoPreviewGenerator::transform(Func& output, Func input, Func m) {
+    Expr ir = input(v_x, v_y, 0);
+    Expr ig = input(v_x, v_y, 1);
+    Expr ib = input(v_x, v_y, 2);
+
+    // Color correct
+    Expr r = cast<float16_t>(m(0, 0)) * ir + cast<float16_t>(m(1, 0)) * ig + cast<float16_t>(m(2, 0)) * ib;
+    Expr g = cast<float16_t>(m(0, 1)) * ir + cast<float16_t>(m(1, 1)) * ig + cast<float16_t>(m(2, 1)) * ib;
+    Expr b = cast<float16_t>(m(0, 2)) * ir + cast<float16_t>(m(1, 2)) * ig + cast<float16_t>(m(2, 2)) * ib;
+    
+    output(v_x, v_y, v_c) = select(v_c == 0, clamp(r, cast<float16_t>(0.0f), cast<float16_t>(1.0f)),
+                                   v_c == 1, clamp(g, cast<float16_t>(0.0f), cast<float16_t>(1.0f)),
+                                             clamp(b, cast<float16_t>(0.0f), cast<float16_t>(1.0f)));
+}
+
+void CameraVideoPreviewGenerator::generate() {
+    Func linear{"linear"};
+    Func colorCorrected{"colorCorrected"};
+    Func gammaContrastLut;
+
+    Func inputRepeated{"inputRepeated"};
+    Func channels[4] { Func("channels[0]"), Func("channels[1]"), Func("channels[2]"), Func("channels[3]") };
+    Func scaledShadingMap[4] { Func("scaledShadingMap[0]"), Func("scaledShadingMap[1]"), Func("scaledShadingMap[2]"), Func("scaledShadingMap[3]") };
+    Func shadingMapInput{"shadingMapInput"};
+    Func rawInput{"rawInput"};
+    Func downscaled{"downscaled"};
+    Func downscaledTemp{"downscaledTemp"};
+    Func demosaicInput("demosaicInput");
+    Func blackLevelFunc{"blackLevelFunc"};
+    Func linearFunc{"linearFunc"};
+
+    Expr HALF_0_0 = cast<float16_t>(0.0f);
+    Expr HALF_0_5 = cast<float16_t>(0.5f);
+    Expr HALF_1_0 = cast<float16_t>(1.0f);
+
+    inputRepeated(v_i) = cast<uint16_t>(input(v_i));
+
+    for(int c = 0; c < 4; c++) {
+        linearScale16(scaledShadingMap[c], shadingMap[c], shadingMap[c].width(), shadingMap[c].height(), width, height);
+    }
+
+    if(pixel_format == static_cast<int>(RawFormat::RAW10)) {
+        Expr C_RAW10[4];
+
+        // RAW10
+        Expr Xc = (v_y<<1) * stride + (v_x>>1) * 5;
+        Expr Yc = ((v_y<<1) + 1) * stride + (v_x>>1) * 5;
+
+        C_RAW10[0] = select( (v_x & 1) == 0,
+                            (inputRepeated(Xc)     << 2) | (inputRepeated(Xc + 4) & 0x03),
+                            (inputRepeated(Xc + 2) << 2) | (inputRepeated(Xc + 4) & 0x30) >> 4);
+
+        C_RAW10[1] = select( (v_x & 1) == 0,
+                            (inputRepeated(Xc + 1) << 2) | (inputRepeated(Xc + 4) & 0x0C) >> 2,
+                            (inputRepeated(Xc + 3) << 2) | (inputRepeated(Xc + 4) & 0xC0) >> 6);
+
+        C_RAW10[2] = select( (v_x & 1) == 0,
+                            (inputRepeated(Yc)     << 2) | (inputRepeated(Yc + 4) & 0x03),
+                            (inputRepeated(Yc + 2) << 2) | (inputRepeated(Yc + 4) & 0x30) >> 4);
+
+        C_RAW10[3] = select( (v_x & 1) == 0,
+                            (inputRepeated(Yc + 1) << 2) | (inputRepeated(Yc + 4) & 0x0C) >> 2,
+                            (inputRepeated(Yc + 3) << 2) | (inputRepeated(Yc + 4) & 0xC0) >> 6);
+        
+
+        rawInput(v_x, v_y, v_c) = mux(v_c, { C_RAW10[0], C_RAW10[1], C_RAW10[2], C_RAW10[3] } );
+
+    }
+    else if(pixel_format == static_cast<int>(RawFormat::RAW16)) {
+        Expr C_RAW16[4];
+
+        // RAW16
+        C_RAW16[0] = cast<uint16_t>(inputRepeated(v_y*2 * stride + v_x*4 + 0)) | cast<uint16_t>(inputRepeated(v_y*2 * stride + v_x*4 + 1) << 8);
+        C_RAW16[1] = cast<uint16_t>(inputRepeated(v_y*2 * stride + v_x*4 + 2)) | cast<uint16_t>(inputRepeated(v_y*2 * stride + v_x*4 + 3) << 8);
+        C_RAW16[2] = cast<uint16_t>(inputRepeated((v_y*2 + 1) * stride + v_x*4 + 0)) | cast<uint16_t>(inputRepeated((v_y*2 + 1) * stride + v_x*4 + 1) << 8);
+        C_RAW16[3] = cast<uint16_t>(inputRepeated((v_y*2 + 1) * stride + v_x*4 + 2)) | cast<uint16_t>(inputRepeated((v_y*2 + 1) * stride + v_x*4 + 3) << 8);
+
+        rawInput(v_x, v_y, v_c) = mux(v_c, { C_RAW16[0], C_RAW16[1], C_RAW16[2], C_RAW16[3] } );   
+    }
+    else {
+        throw std::runtime_error("invalid pixel format");
+    }
+
+    Func clampedInput{"clampedInput"};
+
+    clampedInput(v_x, v_y, v_c) = rawInput(clamp(v_x, 0, width*downscale_factor-1), clamp(v_y, 0, height*downscale_factor-1), v_c);
+
+    demosaicInput(v_x, v_y, v_c) =
+        select(sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
+                select( v_c == 0, clampedInput(v_x, v_y, 0),
+                        v_c == 1, clampedInput(v_x, v_y, 1),
+                                  clampedInput(v_x, v_y, 3) ),
+
+            sensorArrangement == static_cast<int>(SensorArrangement::GRBG),
+                select( v_c == 0, clampedInput(v_x, v_y, 1),
+                        v_c == 1, clampedInput(v_x, v_y, 0),
+                                  clampedInput(v_x, v_y, 2) ),
+
+            sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
+                select( v_c == 0, clampedInput(v_x, v_y, 2),
+                        v_c == 1, clampedInput(v_x, v_y, 0),
+                                  clampedInput(v_x, v_y, 1) ),
+
+                select( v_c == 0, clampedInput(v_x, v_y, 3),
+                        v_c == 1, clampedInput(v_x, v_y, 1),
+                                  clampedInput(v_x, v_y, 0) ) );
+
+    shadingMapInput(v_x, v_y, v_c) =
+        mux(v_c, { scaledShadingMap[0](v_x, v_y), scaledShadingMap[1](v_x, v_y), scaledShadingMap[3](v_x, v_y) } );
+
+    downscaled = downscale(demosaicInput, downscaledTemp);
+
+    blackLevelFunc(v_c) = cast<float16_t>(
+                            select( v_c == 0, blackLevel[0],
+                                    v_c == 1, blackLevel[1],
+                                              blackLevel[3]) );
+
+    linearFunc(v_c) = cast<float16_t>(
+                      select(   v_c == 0, 1.0f / (whiteLevel - blackLevelFunc(v_c)),
+                                v_c == 1, 1.0f / (whiteLevel - blackLevelFunc(v_c)),
+                                          1.0f / (whiteLevel - blackLevelFunc(v_c))) );
+
+    blackLevelFunc.compute_root().unroll(v_c);
+    linearFunc.compute_root().unroll(v_c);
+
+    linear(v_x, v_y, v_c) = cast<float16_t>(
+        (downscaled(v_x, v_y, v_c) - blackLevelFunc(v_c)) * linearFunc(v_c) * shadingMapInput(v_x, v_y, v_c));
+
+    Func demosaiced;
+
+    demosaiced(v_x, v_y, v_c) = clamp(linear(v_x, v_y, v_c), cast<float16_t>(0.0f), cast<float16_t>(1.0f));
+
+    transform(colorCorrected, demosaiced, cameraToSrgb);
+
+    // Gamma correct
+    Expr g = pow(colorCorrected(v_x, v_y, v_c), HALF_1_0 / cast<float16_t>(gamma));
+
+    output(v_x, v_y, v_c) =
+        select(v_c < 3,
+            cast<uint8_t>(clamp(g * cast<float16_t>(255) + HALF_0_5, cast<float16_t>(0), cast<float16_t>(255))),
+            255);
+
+    // Output interleaved
+    output
+        .dim(0).set_stride(4)
+        .dim(2).set_stride(1);
+
+    if (get_target().has_gpu_feature()) {
+        int tx = 8;
+        int ty = 4;
+
+        if(downscale_factor == 4) {
+            tx = ty = 4;
+        }
+
+        clampedInput
+            .reorder(v_c, v_x, v_y)
+            .compute_at(downscaled, v_x)            
+            .gpu_threads(v_x, v_y);
+
+        downscaledTemp
+            .reorder(v_c, v_x, v_y)
+            .compute_at(downscaled, v_x)
+            .vectorize(v_c)
+            .gpu_threads(v_x, v_y);            
+
+        downscaled
+            .compute_root()
+            .reorder(v_c, v_x, v_y)
+            .gpu_tile(v_x, v_y, v_xi, v_yi, tx, ty);
+     
+        output
+            .bound(v_c, 0, 4)
+            .compute_root()
+            .reorder(v_c, v_x, v_y)
+            .unroll(v_c)
+            .gpu_tile(v_x, v_y, v_xi, v_yi, tx, ty);
+    }
+    else {
+        // TODO: Better schedule
+        downscaled.compute_root();
+        output.compute_root();
+    }    
+}
+
+//
+
 class CameraPreviewGenerator : public Halide::Generator<CameraPreviewGenerator> {
 public:
     GeneratorParam<int> tonemap_levels{"tonemap_levels", 7};
@@ -663,3 +942,4 @@ void CameraPreviewGenerator::generate() {
 }
 
 HALIDE_REGISTER_GENERATOR(CameraPreviewGenerator, camera_preview_generator)
+HALIDE_REGISTER_GENERATOR(CameraVideoPreviewGenerator, camera_video_preview_generator)

@@ -130,6 +130,15 @@ function build_camera_preview() {
 	echo "[$ARCH] Building camera_preview_generator4_raw10"
 	./tmp/camera_preview_generator -g camera_preview_generator -f camera_preview4_raw10 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} tonemap_levels=5 downscale_factor=4 pixel_format=0
 
+	echo "[$ARCH] Building camera_video_preview_generator2_raw10"
+	./tmp/camera_preview_generator -g camera_video_preview_generator -f camera_video_preview2_raw10 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} downscale_factor=2 pixel_format=0
+
+	echo "[$ARCH] Building camera_video_preview_generator3_raw10"
+	./tmp/camera_preview_generator -g camera_video_preview_generator -f camera_video_preview3_raw10 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} downscale_factor=3 pixel_format=0
+
+	echo "[$ARCH] Building camera_video_preview_generator4_raw10"
+	./tmp/camera_preview_generator -g camera_video_preview_generator -f camera_video_preview4_raw10 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} downscale_factor=4 pixel_format=0
+
 	# RAW16
 	echo "[$ARCH] Building camera_preview_generator2_raw16"
 	./tmp/camera_preview_generator -g camera_preview_generator -f camera_preview2_raw16 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} tonemap_levels=7 downscale_factor=2 pixel_format=1
@@ -139,6 +148,15 @@ function build_camera_preview() {
 
 	echo "[$ARCH] Building camera_preview_generator4_raw16"
 	./tmp/camera_preview_generator -g camera_preview_generator -f camera_preview4_raw16 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} tonemap_levels=5 downscale_factor=4 pixel_format=1
+
+	echo "[$ARCH] Building camera_video_preview_generator2_raw16"
+	./tmp/camera_preview_generator -g camera_video_preview_generator -f camera_video_preview2_raw16 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} downscale_factor=2 pixel_format=1
+
+	echo "[$ARCH] Building camera_video_preview_generator3_raw16"
+	./tmp/camera_preview_generator -g camera_video_preview_generator -f camera_video_preview3_raw16 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} downscale_factor=3 pixel_format=1
+
+	echo "[$ARCH] Building camera_video_preview_generator4_raw16"
+	./tmp/camera_preview_generator -g camera_video_preview_generator -f camera_video_preview4_raw16 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} downscale_factor=4 pixel_format=1
 }
 
 function build_runtime() {

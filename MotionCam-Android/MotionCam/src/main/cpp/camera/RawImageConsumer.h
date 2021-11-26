@@ -40,11 +40,21 @@ namespace motioncam {
 
         void enableRawPreview(std::shared_ptr<RawPreviewListener> listener, const int previewQuality);
         void updateRawPreviewSettings(
-                float shadowBoost, float contrast, float saturation, float blacks, float whitePoint, float tempOffset, float tintOffset);
+                float shadowBoost,
+                float contrast,
+                float saturation,
+                float blacks,
+                float whitePoint,
+                float tempOffset,
+                float tintOffset,
+                bool useVideoPreview);
+
         void disableRawPreview();
 
         void setWhiteBalanceOverride(bool override);
         void getEstimatedSettings(PostProcessSettings& outSettings);
+
+        void setUseVideoPreview(bool useVideoPreview);
 
     private:
         bool copyMetadata(RawImageMetadata& dst, const ACameraMetadata* src);
@@ -74,6 +84,7 @@ namespace motioncam {
         std::atomic<float> mShadowBoost;
         std::atomic<float> mTempOffset;
         std::atomic<float> mTintOffset;
+        std::atomic<bool> mUseVideoPreview;
         PostProcessSettings mEstimatedSettings;
         float mPreviewShadows;
         float mPreviewShadowStep;
