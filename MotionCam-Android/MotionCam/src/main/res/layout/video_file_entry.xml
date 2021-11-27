@@ -1,25 +1,54 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout
+<androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="50dp">
+    android:layout_height="50dp"
+    android:layout_margin="5dp">
 
-    <TextView
-        android:id="@+id/filename"
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
-        android:gravity="center"
-        android:layout_marginStart="10dp"
-        android:textAppearance="@style/MotionCam.TextAppearance.Medium"
-        android:text="VIDEO_1234567890.ZIP" />
+        android:orientation="vertical"
+        android:layout_marginLeft="10dp"
+        app:layout_constraintStart_toStartOf="parent" >
+
+        <TextView
+            android:id="@+id/filename"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:layout_weight="1"
+            android:text="VIDEO_1234567890.ZIP"
+            android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold" />
+
+        <TextView
+            android:id="@+id/capture_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="10/2/2021 10:03 PM"
+            android:textAppearance="@style/MotionCam.TextAppearance.Small" />
+    </LinearLayout>
 
     <Button
         android:id="@+id/queueVideo"
-        android:layout_width="120dp"
+        android:layout_width="90dp"
+        android:layout_height="match_parent"
+        android:backgroundTint="@color/acceptAction"
+        android:text="PROCESS"
+        app:layout_constraintEnd_toStartOf="@+id/deleteVideo" />
+
+    <Button
+        android:id="@+id/deleteVideo"
+        android:layout_width="90dp"
         android:layout_height="match_parent"
         android:layout_alignParentEnd="true"
-        android:backgroundTint="@color/acceptAction"
-        android:text="QUEUE" />
+        android:layout_marginRight="10dp"
+        android:backgroundTint="@color/cancelAction"
+        android:text="DELETE"
+        app:layout_constraintEnd_toEndOf="parent" />
 
-</RelativeLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

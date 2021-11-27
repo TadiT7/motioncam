@@ -42,7 +42,7 @@ public class CameraProfile {
     public static final int DEFAULT_JPEG_QUALITY = 95;
 
     // Light
-    public static final int DEFAULT_CONTRAST = 35;
+    public static final int DEFAULT_CONTRAST = 50;
     public static final int DEFAULT_WHITE_POINT = 50;
 
     // Saturation

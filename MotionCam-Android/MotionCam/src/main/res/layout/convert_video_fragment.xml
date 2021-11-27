@@ -5,8 +5,22 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <TextView
+        android:id="@+id/noFiles"
+        android:visibility="visible"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:gravity="center"
+        android:textAppearance="@style/MotionCam.TextAppearance.Medium.Bold"
+        android:text="@string/no_videos_available"/>
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/fileList"
+        android:visibility="gone"
         android:layout_width="0dp"
         android:layout_height="0dp"
         app:layout_constraintTop_toTopOf="parent"

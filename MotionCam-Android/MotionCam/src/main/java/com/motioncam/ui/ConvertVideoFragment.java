@@ -1,19 +1,22 @@
 package com.motioncam.ui;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
-import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleObserver;
-import androidx.lifecycle.OnLifecycleEvent;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.work.Data;
@@ -28,6 +31,12 @@ import com.motioncam.worker.VideoProcessWorker;
 import java.io.File;
 
 public class ConvertVideoFragment  extends Fragment implements LifecycleObserver, RawVideoAdapter.OnQueueListener {
+    private File[] mVideoFiles;
+    private RecyclerView mFileList;
+    private RawVideoAdapter mAdapter;
+    private ActivityResultLauncher<Intent> mSelectDocumentLauncher;
+    private File mSelectedFile;
+
     public static ConvertVideoFragment newInstance() {
         return new ConvertVideoFragment();
     }
@@ -45,42 +54,87 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
     public void onAttach(@NonNull Context context) {
         super.onAttach(context);
 
-        requireActivity().getLifecycle().addObserver(this);
+        mSelectDocumentLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == Activity.RESULT_OK) {
+                        Intent data = result.getData();
+                        if(data != null && data.getData() != null)
+                            startWorker(mSelectedFile, data.getData());
+
+                        mSelectedFile = null;
+                    }
+                });
     }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        mFileList = view.findViewById(R.id.fileList);
+
         File outputDirectory = new File(getContext().getFilesDir(), VideoProcessWorker.VIDEOS_PATH);
+        View noFiles = view.findViewById(R.id.noFiles);
 
-        RecyclerView fileList = view.findViewById(R.id.fileList);
+        mVideoFiles = outputDirectory.listFiles();
+        if(mVideoFiles == null)
+            mVideoFiles = new File[0];
 
-        fileList.setLayoutManager(new LinearLayoutManager(getActivity()));
-        fileList.setAdapter(new RawVideoAdapter(outputDirectory.listFiles(), this));
-    }
+        if(mVideoFiles.length == 0) {
+            noFiles.setVisibility(View.VISIBLE);
+            mFileList.setVisibility(View.GONE);
+        }
+        else {
+            mFileList.setVisibility(View.VISIBLE);
+            noFiles.setVisibility(View.GONE);
 
-    @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
-    void onCreated() {
-        getActivity().getLifecycle().removeObserver(this);
+            mAdapter = new RawVideoAdapter(mVideoFiles, this);
+
+            mFileList.setLayoutManager(new LinearLayoutManager(getActivity()));
+            mFileList.setAdapter(mAdapter);
+        }
     }
 
     @Override
-    public void onQueueClicked(View view, File file) {
+    public void onDeleteClicked(View view, File file) {
+        new AlertDialog.Builder(requireActivity(), android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .setTitle("Delete")
+                .setMessage("Are you sure you want to delete this video?")
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    if(file.delete()) {
+                        mAdapter.remove(file);
+                    }
+                })
+                .setNegativeButton("No", null)
+                .show();
+    }
+
+    private void startWorker(File inputFile, Uri outputUri) {
         OneTimeWorkRequest request =
                 new OneTimeWorkRequest.Builder(VideoProcessWorker.class)
                         .setInputData(new Data.Builder()
-                                .putString(VideoProcessWorker.INPUT_PATH_KEY, file.getPath())
+                                .putString(VideoProcessWorker.INPUT_PATH_KEY, inputFile.getPath())
+                                .putString(VideoProcessWorker.OUTPUT_URI_KEY, outputUri.toString())
                                 .build())
                         .build();
 
-        WorkManager.getInstance(getActivity())
+        WorkManager.getInstance(requireActivity())
                 .enqueueUniqueWork(
                         CameraActivity.WORKER_VIDEO_PROCESSOR,
                         ExistingWorkPolicy.APPEND_OR_REPLACE,
                         request);
+    }
 
-        view.setEnabled(false);
-        ((Button) view).setText("Queued");
+    @Override
+    public void onQueueClicked(View queueBtn, View deleteBtn, File file) {
+        mSelectedFile = file;
 
-        Toast.makeText(getActivity(), "The recording will be processed to the Download folder", Toast.LENGTH_LONG).show();
+        queueBtn.setEnabled(false);
+        deleteBtn.setEnabled(false);
+
+        ((Button) queueBtn).setText("Queued");
+
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+
+        mSelectDocumentLauncher.launch(intent);
     }
 }

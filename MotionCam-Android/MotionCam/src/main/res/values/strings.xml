@@ -87,4 +87,5 @@
     <string name="convert_raw_video">Convert RAW video</string>
     <string name="convert_raw_video_description">Convert RAW video to DNG files after capture. They are stored in the Documents folder.</string>
     <string name="convert_to_dng">Convert to DNG</string>
+    <string name="no_videos_available">No videos available</string>
 </resources>

@@ -24,7 +24,7 @@ public class SettingsViewModel extends ViewModel {
     public static final String PREFS_KEY_RAW_VIDEO_TO_DNG           = "raw_video_to_dng";
 
     public static final String PREFS_KEY_IGNORE_CAMERA_IDS                  = "ignore_camera_ids";
-    public static final String PREFS_KEY_UI_PREVIEW_CONTRAST                = "ui_preview_contrast";
+    public static final String PREFS_KEY_UI_PREVIEW_CONTRAST                = "ui_preview_contrast_amount";
     public static final String PREFS_KEY_UI_PREVIEW_COLOUR                  = "ui_preview_colour";
     public static final String PREFS_KEY_UI_PREVIEW_TEMPERATURE_OFFSET      = "ui_preview_temperature_offset";
     public static final String PREFS_KEY_UI_PREVIEW_TINT_OFFSET             = "ui_preview_tint_offset";

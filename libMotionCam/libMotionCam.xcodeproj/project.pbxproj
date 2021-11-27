@@ -162,10 +162,18 @@
 		4576A650273EB24800657DFC /* hdr_mask.h in Headers */ = {isa = PBXBuildFile; fileRef = 4576A64E273EB24800657DFC /* hdr_mask.h */; };
 		4576A6532740582300657DFC /* fuse_denoise_7x7.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4576A6512740582300657DFC /* fuse_denoise_7x7.a */; };
 		4576A6542740582300657DFC /* fuse_denoise_7x7.h in Headers */ = {isa = PBXBuildFile; fileRef = 4576A6522740582300657DFC /* fuse_denoise_7x7.h */; };
-		459D44A92751853A00E68BF9 /* camera_video_preview2_raw10.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 459D44A52751853900E68BF9 /* camera_video_preview2_raw10.a */; };
-		459D44AA2751853A00E68BF9 /* camera_video_preview2_raw16.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 459D44A62751853A00E68BF9 /* camera_video_preview2_raw16.a */; };
-		459D44AB2751853A00E68BF9 /* camera_video_preview2_raw10.h in Headers */ = {isa = PBXBuildFile; fileRef = 459D44A72751853A00E68BF9 /* camera_video_preview2_raw10.h */; };
-		459D44AC2751853A00E68BF9 /* camera_video_preview2_raw16.h in Headers */ = {isa = PBXBuildFile; fileRef = 459D44A82751853A00E68BF9 /* camera_video_preview2_raw16.h */; };
+		459D44B92752BB4600E68BF9 /* camera_video_preview2_raw16.h in Headers */ = {isa = PBXBuildFile; fileRef = 459D44AD2752BB4500E68BF9 /* camera_video_preview2_raw16.h */; };
+		459D44BA2752BB4600E68BF9 /* camera_video_preview3_raw16.h in Headers */ = {isa = PBXBuildFile; fileRef = 459D44AE2752BB4500E68BF9 /* camera_video_preview3_raw16.h */; };
+		459D44BB2752BB4600E68BF9 /* camera_video_preview4_raw10.h in Headers */ = {isa = PBXBuildFile; fileRef = 459D44AF2752BB4500E68BF9 /* camera_video_preview4_raw10.h */; };
+		459D44BC2752BB4600E68BF9 /* camera_video_preview2_raw10.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 459D44B02752BB4500E68BF9 /* camera_video_preview2_raw10.a */; };
+		459D44BD2752BB4600E68BF9 /* camera_video_preview3_raw16.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 459D44B12752BB4500E68BF9 /* camera_video_preview3_raw16.a */; };
+		459D44BE2752BB4600E68BF9 /* camera_video_preview2_raw10.h in Headers */ = {isa = PBXBuildFile; fileRef = 459D44B22752BB4600E68BF9 /* camera_video_preview2_raw10.h */; };
+		459D44BF2752BB4600E68BF9 /* camera_video_preview4_raw16.h in Headers */ = {isa = PBXBuildFile; fileRef = 459D44B32752BB4600E68BF9 /* camera_video_preview4_raw16.h */; };
+		459D44C02752BB4600E68BF9 /* camera_video_preview3_raw10.h in Headers */ = {isa = PBXBuildFile; fileRef = 459D44B42752BB4600E68BF9 /* camera_video_preview3_raw10.h */; };
+		459D44C12752BB4600E68BF9 /* camera_video_preview4_raw10.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 459D44B52752BB4600E68BF9 /* camera_video_preview4_raw10.a */; };
+		459D44C22752BB4600E68BF9 /* camera_video_preview4_raw16.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 459D44B62752BB4600E68BF9 /* camera_video_preview4_raw16.a */; };
+		459D44C32752BB4600E68BF9 /* camera_video_preview2_raw16.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 459D44B72752BB4600E68BF9 /* camera_video_preview2_raw16.a */; };
+		459D44C42752BB4600E68BF9 /* camera_video_preview3_raw10.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 459D44B82752BB4600E68BF9 /* camera_video_preview3_raw10.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -442,10 +450,18 @@
 		458976B62449DFD1008F348E /* miniz_common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = miniz_common.h; sourceTree = "<group>"; };
 		45936A2B23BA979C00CC85D4 /* Settings.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Settings.cpp; sourceTree = "<group>"; };
 		4594FE0424D02125006FED24 /* libopencv_dnn_superres.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libopencv_dnn_superres.dylib; path = ../../../../../usr/local/lib/libopencv_dnn_superres.dylib; sourceTree = "<group>"; };
-		459D44A52751853900E68BF9 /* camera_video_preview2_raw10.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_video_preview2_raw10.a; sourceTree = "<group>"; };
-		459D44A62751853A00E68BF9 /* camera_video_preview2_raw16.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_video_preview2_raw16.a; sourceTree = "<group>"; };
-		459D44A72751853A00E68BF9 /* camera_video_preview2_raw10.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_video_preview2_raw10.h; sourceTree = "<group>"; };
-		459D44A82751853A00E68BF9 /* camera_video_preview2_raw16.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_video_preview2_raw16.h; sourceTree = "<group>"; };
+		459D44AD2752BB4500E68BF9 /* camera_video_preview2_raw16.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_video_preview2_raw16.h; sourceTree = "<group>"; };
+		459D44AE2752BB4500E68BF9 /* camera_video_preview3_raw16.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_video_preview3_raw16.h; sourceTree = "<group>"; };
+		459D44AF2752BB4500E68BF9 /* camera_video_preview4_raw10.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_video_preview4_raw10.h; sourceTree = "<group>"; };
+		459D44B02752BB4500E68BF9 /* camera_video_preview2_raw10.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_video_preview2_raw10.a; sourceTree = "<group>"; };
+		459D44B12752BB4500E68BF9 /* camera_video_preview3_raw16.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_video_preview3_raw16.a; sourceTree = "<group>"; };
+		459D44B22752BB4600E68BF9 /* camera_video_preview2_raw10.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_video_preview2_raw10.h; sourceTree = "<group>"; };
+		459D44B32752BB4600E68BF9 /* camera_video_preview4_raw16.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_video_preview4_raw16.h; sourceTree = "<group>"; };
+		459D44B42752BB4600E68BF9 /* camera_video_preview3_raw10.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_video_preview3_raw10.h; sourceTree = "<group>"; };
+		459D44B52752BB4600E68BF9 /* camera_video_preview4_raw10.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_video_preview4_raw10.a; sourceTree = "<group>"; };
+		459D44B62752BB4600E68BF9 /* camera_video_preview4_raw16.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_video_preview4_raw16.a; sourceTree = "<group>"; };
+		459D44B72752BB4600E68BF9 /* camera_video_preview2_raw16.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_video_preview2_raw16.a; sourceTree = "<group>"; };
+		459D44B82752BB4600E68BF9 /* camera_video_preview3_raw10.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_video_preview3_raw10.a; sourceTree = "<group>"; };
 		45A241082023AA2B007A436E /* Accelerate.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accelerate.framework; path = System/Library/Frameworks/Accelerate.framework; sourceTree = SDKROOT; };
 		45A340A1260B887700405A85 /* CameraPreview.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CameraPreview.cpp; sourceTree = "<group>"; };
 		45A340A2260B887700405A85 /* CameraPreview.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CameraPreview.h; sourceTree = "<group>"; };
@@ -525,8 +541,10 @@
 				4521E03A2732E69900DEBD25 /* fast_preview.a in Frameworks */,
 				4576A6532740582300657DFC /* fuse_denoise_7x7.a in Frameworks */,
 				4521E0112732E69800DEBD25 /* preview_reverse_landscape2.a in Frameworks */,
+				459D44BD2752BB4600E68BF9 /* camera_video_preview3_raw16.a in Frameworks */,
 				4521E0032732E69800DEBD25 /* measure_image.a in Frameworks */,
 				4521E0362732E69900DEBD25 /* preview_landscape2.a in Frameworks */,
+				459D44C22752BB4600E68BF9 /* camera_video_preview4_raw16.a in Frameworks */,
 				4521E0432732E69900DEBD25 /* camera_preview2_raw10.a in Frameworks */,
 				4521E0402732E69900DEBD25 /* forward_transform.a in Frameworks */,
 				4521E0082732E69800DEBD25 /* generate_edges.a in Frameworks */,
@@ -538,20 +556,22 @@
 				4521E00A2732E69800DEBD25 /* camera_preview2_raw16.a in Frameworks */,
 				4521E0282732E69900DEBD25 /* camera_preview4_raw10.a in Frameworks */,
 				4521E00D2732E69800DEBD25 /* camera_preview3_raw16.a in Frameworks */,
-				459D44AA2751853A00E68BF9 /* camera_video_preview2_raw16.a in Frameworks */,
 				4521E01C2732E69800DEBD25 /* postprocess.a in Frameworks */,
 				4521E02D2732E69900DEBD25 /* inverse_transform.a in Frameworks */,
 				4521E0342732E69900DEBD25 /* camera_preview3_raw10.a in Frameworks */,
 				4521E0072732E69800DEBD25 /* halide_runtime_opencl.a in Frameworks */,
 				4521E0062732E69800DEBD25 /* preview_reverse_portrait2.a in Frameworks */,
 				45684DD22720B9C7004E7A12 /* CoreServices.framework in Frameworks */,
-				459D44A92751853A00E68BF9 /* camera_video_preview2_raw10.a in Frameworks */,
+				459D44BC2752BB4600E68BF9 /* camera_video_preview2_raw10.a in Frameworks */,
+				459D44C12752BB4600E68BF9 /* camera_video_preview4_raw10.a in Frameworks */,
 				4521E02C2732E69900DEBD25 /* preview_portrait8.a in Frameworks */,
+				459D44C42752BB4600E68BF9 /* camera_video_preview3_raw10.a in Frameworks */,
 				4521E0412732E69900DEBD25 /* build_bayer.a in Frameworks */,
 				4576A64F273EB24800657DFC /* hdr_mask.a in Frameworks */,
 				4521E0322732E69900DEBD25 /* preview_portrait2.a in Frameworks */,
 				4521E0202732E69800DEBD25 /* preview_reverse_portrait8.a in Frameworks */,
 				4521E01B2732E69800DEBD25 /* fuse_image.a in Frameworks */,
+				459D44C32752BB4600E68BF9 /* camera_video_preview2_raw16.a in Frameworks */,
 				4521E01D2732E69800DEBD25 /* preview_portrait4.a in Frameworks */,
 				4521E0102732E69800DEBD25 /* preview_landscape4.a in Frameworks */,
 				4521E0042732E69800DEBD25 /* deinterleave_raw.a in Frameworks */,
@@ -807,10 +827,18 @@
 				4521DFEA2732E69300DEBD25 /* camera_preview4_raw10.h */,
 				4521DFE42732E69200DEBD25 /* camera_preview4_raw16.a */,
 				4521DFC82732E68A00DEBD25 /* camera_preview4_raw16.h */,
-				459D44A52751853900E68BF9 /* camera_video_preview2_raw10.a */,
-				459D44A72751853A00E68BF9 /* camera_video_preview2_raw10.h */,
-				459D44A62751853A00E68BF9 /* camera_video_preview2_raw16.a */,
-				459D44A82751853A00E68BF9 /* camera_video_preview2_raw16.h */,
+				459D44B02752BB4500E68BF9 /* camera_video_preview2_raw10.a */,
+				459D44B22752BB4600E68BF9 /* camera_video_preview2_raw10.h */,
+				459D44B72752BB4600E68BF9 /* camera_video_preview2_raw16.a */,
+				459D44AD2752BB4500E68BF9 /* camera_video_preview2_raw16.h */,
+				459D44B82752BB4600E68BF9 /* camera_video_preview3_raw10.a */,
+				459D44B42752BB4600E68BF9 /* camera_video_preview3_raw10.h */,
+				459D44B12752BB4500E68BF9 /* camera_video_preview3_raw16.a */,
+				459D44AE2752BB4500E68BF9 /* camera_video_preview3_raw16.h */,
+				459D44B52752BB4600E68BF9 /* camera_video_preview4_raw10.a */,
+				459D44AF2752BB4500E68BF9 /* camera_video_preview4_raw10.h */,
+				459D44B62752BB4600E68BF9 /* camera_video_preview4_raw16.a */,
+				459D44B32752BB4600E68BF9 /* camera_video_preview4_raw16.h */,
 				4521DFBE2732E68800DEBD25 /* deinterleave_raw.a */,
 				4521DFF92732E69600DEBD25 /* deinterleave_raw.h */,
 				4521DFF42732E69500DEBD25 /* fast_preview.a */,
@@ -1039,14 +1067,16 @@
 				4521E0092732E69800DEBD25 /* preview_landscape2.h in Headers */,
 				4576A64A273E910400657DFC /* fuse_denoise_3x3.h in Headers */,
 				4521E00C2732E69800DEBD25 /* camera_preview3_raw10.h in Headers */,
+				459D44BF2752BB4600E68BF9 /* camera_video_preview4_raw16.h in Headers */,
+				459D44BE2752BB4600E68BF9 /* camera_video_preview2_raw10.h in Headers */,
 				4521E0172732E69800DEBD25 /* preview_portrait2.h in Headers */,
 				4521E0292732E69900DEBD25 /* preview_reverse_landscape2.h in Headers */,
-				459D44AC2751853A00E68BF9 /* camera_video_preview2_raw16.h in Headers */,
 				4521E0332732E69900DEBD25 /* preview_landscape4.h in Headers */,
 				4521E03C2732E69900DEBD25 /* linear_image.h in Headers */,
 				4521E0452732E69900DEBD25 /* preview_reverse_landscape8.h in Headers */,
 				4521E00B2732E69800DEBD25 /* preview_reverse_portrait4.h in Headers */,
 				4521E0272732E69900DEBD25 /* postprocess.h in Headers */,
+				459D44B92752BB4600E68BF9 /* camera_video_preview2_raw16.h in Headers */,
 				4521E02B2732E69900DEBD25 /* measure_image.h in Headers */,
 				4521E01A2732E69800DEBD25 /* preview_portrait8.h in Headers */,
 				4521E03D2732E69900DEBD25 /* forward_transform.h in Headers */,
@@ -1054,13 +1084,15 @@
 				4521E0162732E69800DEBD25 /* camera_preview2_raw16.h in Headers */,
 				4521E0442732E69900DEBD25 /* fuse_image.h in Headers */,
 				4521E0302732E69900DEBD25 /* camera_preview4_raw10.h in Headers */,
+				459D44BA2752BB4600E68BF9 /* camera_video_preview3_raw16.h in Headers */,
 				4521E0212732E69800DEBD25 /* preview_reverse_landscape4.h in Headers */,
 				4576A6542740582300657DFC /* fuse_denoise_7x7.h in Headers */,
 				4576A650273EB24800657DFC /* hdr_mask.h in Headers */,
+				459D44C02752BB4600E68BF9 /* camera_video_preview3_raw10.h in Headers */,
+				459D44BB2752BB4600E68BF9 /* camera_video_preview4_raw10.h in Headers */,
 				4521E0132732E69800DEBD25 /* preview_landscape8.h in Headers */,
 				4521E0462732E69900DEBD25 /* preview_reverse_portrait2.h in Headers */,
 				4521E02E2732E69900DEBD25 /* preview_reverse_portrait8.h in Headers */,
-				459D44AB2751853A00E68BF9 /* camera_video_preview2_raw10.h in Headers */,
 				4576A64C273E910400657DFC /* fuse_denoise_5x5.h in Headers */,
 				4521DFBC2732B1C600DEBD25 /* DngProcessorProgress.h in Headers */,
 				4521E02F2732E69900DEBD25 /* preview_portrait4.h in Headers */,

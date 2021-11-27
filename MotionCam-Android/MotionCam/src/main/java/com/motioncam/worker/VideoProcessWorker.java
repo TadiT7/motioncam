@@ -2,19 +2,16 @@ package com.motioncam.worker;
 
 import android.app.NotificationManager;
 import android.content.ContentResolver;
-import android.content.ContentValues;
 import android.content.Context;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
-import android.os.Environment;
 import android.os.ParcelFileDescriptor;
-import android.provider.MediaStore;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
-import androidx.core.content.FileProvider;
+import androidx.documentfile.provider.DocumentFile;
 import androidx.work.Data;
 import androidx.work.ForegroundInfo;
 import androidx.work.Worker;
@@ -24,17 +21,15 @@ import com.motioncam.R;
 import com.motioncam.processor.NativeDngConverterListener;
 import com.motioncam.processor.NativeProcessor;
 
-import org.apache.commons.io.FileUtils;
-
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.util.Locale;
 
 public class VideoProcessWorker extends Worker implements NativeDngConverterListener {
     public static final String TAG = "MotionVideoCamWorker";
 
     public static final String INPUT_PATH_KEY = "input_path";
+    public static final String OUTPUT_URI_KEY = "output_uri";
 
     public static final int NOTIFICATION_ID = 1;
     public static final String VIDEOS_PATH = "videos";
@@ -43,33 +38,18 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
     private NotificationCompat.Builder mNotificationBuilder;
     private NotificationManager mNotifyManager;
     private File mActiveFile;
+    private DocumentFile mOutputDocument;
 
     public VideoProcessWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
     }
 
-    private void processVideo(File inputFile, boolean rawVideoToDng) {
-
-        File filesPath  = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "MotionCam");
-        File outputPath = new File(filesPath, inputFile.getName());
-
-        Log.d(TAG, "Writing to " + outputPath.getPath());
-
-        if(!filesPath.exists() && !filesPath.mkdirs()) {
-            Log.e(TAG, "Failed to create " + filesPath.toString());
-            return;
-        }
-
+    private void processVideo(File inputFile, DocumentFile documentFile, boolean rawVideoToDng) {
         if(rawVideoToDng) {
             mActiveFile = inputFile;
+            mOutputDocument = documentFile.createDirectory(inputFile.getName());
+
             mNativeProcessor.processVideo(inputFile.getPath(), this);
-        }
-        else {
-            try {
-                FileUtils.copyFile(inputFile, outputPath);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
 
         if(!inputFile.delete()) {
@@ -108,6 +88,12 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
             return Result.failure();
         }
 
+        String outputUriString = inputData.getString(OUTPUT_URI_KEY);
+        if(outputUriString == null) {
+            Log.e(TAG, "Invalid output URI");
+            return Result.failure();
+        }
+
         File inputFile = new File(inputPath);
         if(!inputFile.exists()) {
             Log.e(TAG, "Input file " + inputPath + " does not exist");
@@ -119,9 +105,17 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
 
         setForegroundAsync(new ForegroundInfo(NOTIFICATION_ID, mNotificationBuilder.build()));
 
+        Uri outputUri = Uri.parse(outputUriString);
+        DocumentFile documentFile = DocumentFile.fromTreeUri(getApplicationContext(), outputUri);
+
+        if(documentFile == null) {
+            Log.e(TAG, "Invalid output URI");
+            return Result.failure();
+        }
+
         try {
             Log.d(TAG, "Processing video " + inputFile.getPath());
-            processVideo(inputFile, true);
+            processVideo(inputFile, documentFile, true);
         }
         catch (Exception e) {
             Log.e(TAG, "Failed to process " + inputFile.getPath(), e);
@@ -129,34 +123,6 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
                 Log.e(TAG, "Failed to delete " + inputFile.toString());
             }
         }
-
-//        // Find all pending files and process them
-//        File root = new File(getApplicationContext().getFilesDir(), VIDEOS_PATH);
-//        File[] pendingFiles = root.listFiles((dir, name) -> name.toLowerCase().endsWith("zip"));
-//
-//        if(pendingFiles == null)
-//            return Result.success();
-//
-//        // Process all files
-//        Arrays.sort(pendingFiles);
-//
-//        SharedPreferences prefs =
-//                getApplicationContext().getSharedPreferences(SettingsViewModel.CAMERA_SHARED_PREFS, Context.MODE_PRIVATE);
-//
-//        boolean rawVideoToDng = prefs.getBoolean(SettingsViewModel.PREFS_KEY_RAW_VIDEO_TO_DNG, true);
-//
-//        for(File file : pendingFiles) {
-//            try {
-//                Log.d(TAG, "Processing video " + file.getPath());
-//                processVideo(file, rawVideoToDng);
-//            }
-//            catch (Exception e) {
-//                Log.e(TAG, "Failed to process " + file.getPath(), e);
-//                if(!file.delete()) {
-//                    Log.e(TAG, "Failed to delete " + file.toString());
-//                }
-//            }
-//        }
 
         mNotifyManager.cancel(NOTIFICATION_ID);
 
@@ -169,72 +135,22 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
             return -1;
 
         String dngOutputName = String.format(Locale.US, "frame-%06d.dng", frameNumber);
+        ContentResolver resolver = getApplicationContext().getContentResolver();
+        DocumentFile outputFile = mOutputDocument.createFile("image/x-adobe-dng", dngOutputName);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ContentResolver resolver = getApplicationContext().getContentResolver();
-            ContentValues details = new ContentValues();
+        if(outputFile == null)
+            return -1;
 
-            Uri collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI;
-
-            details.put(MediaStore.DownloadColumns.DISPLAY_NAME,  dngOutputName);
-            details.put(MediaStore.DownloadColumns.MIME_TYPE,     "image/x-adobe-dng");
-            details.put(MediaStore.DownloadColumns.DATE_ADDED,    System.currentTimeMillis());
-            details.put(MediaStore.DownloadColumns.DATE_TAKEN,    System.currentTimeMillis());
-
-            String outputDirectory = Environment.DIRECTORY_DOWNLOADS
-                    + File.separator
-                    + "MotionCam"
-                    + File.separator
-                    + ImageProcessWorker.fileNoExtension(mActiveFile.getName());
-
-            details.put(MediaStore.DownloadColumns.RELATIVE_PATH, outputDirectory);
-
-            Uri imageContentUri = resolver.insert(collection, details);
-            if(imageContentUri == null)
-                return -1;
-
-            ParcelFileDescriptor pfd;
-
-            try {
-                pfd = resolver.openFileDescriptor(imageContentUri, "w", null);
-            }
-            catch (FileNotFoundException e) {
-                e.printStackTrace();
-                return -1;
-            }
+        try {
+            ParcelFileDescriptor pfd = resolver.openFileDescriptor(outputFile.getUri(), "w", null);
 
             if(pfd != null) {
                 return pfd.detachFd();
             }
         }
-        // Legacy
-        else {
-            File basePath = new File(
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                    "MotionCam");
-
-            File outputPath = new File(basePath, ImageProcessWorker.fileNoExtension(mActiveFile.getName()));
-
-            if(!outputPath.exists() && !outputPath.mkdirs()) {
-                Log.e(TAG, "Failed to create " + outputPath.toString());
-                return -1;
-            }
-
-            File videoPath = new File(outputPath, dngOutputName);
-
-            FileProvider.getUriForFile(getApplicationContext(), ImageProcessWorker.AUTHORITY, videoPath);
-
-            try {
-                ParcelFileDescriptor pfd = ParcelFileDescriptor.open(videoPath, ParcelFileDescriptor.MODE_CREATE|ParcelFileDescriptor.MODE_WRITE_ONLY);
-
-                if(pfd != null) {
-                    return pfd.detachFd();
-                }
-            }
-            catch (FileNotFoundException e) {
-                Log.e(TAG, "Error creating fd", e);
-                return -1;
-            }
+        catch (FileNotFoundException e) {
+            e.printStackTrace();
+            return -1;
         }
 
         return -1;
