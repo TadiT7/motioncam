@@ -21,11 +21,12 @@ namespace motioncam {
         bool add(const std::shared_ptr<RawImageBuffer>& frame);
         void stop();
         
-        void setCropAmount(int percentage);
+        void setCropAmount(int horizontal, int vertical);
         
         bool isRunning() const;
         
     private:
+        std::shared_ptr<RawImageBuffer> crop(const std::shared_ptr<RawImageBuffer>& buffer) const;
         std::shared_ptr<RawImageBuffer> compressBuffer(const std::shared_ptr<RawImageBuffer>& buffer, std::vector<uint8_t>& tmpBuffer) const;
         void doCompress();
         void doStream(const std::string& outputContainerPath, const RawCameraMetadata& cameraMetadata);
@@ -35,7 +36,8 @@ namespace motioncam {
         std::vector<std::unique_ptr<std::thread>> mCompressThreads;
         
         long mMaxMemoryUsageBytes;
-        int mCropAmount;
+        int mCropVertical;
+        int mCropHorizontal;
         std::atomic<bool> mRunning;
         
         moodycamel::BlockingConcurrentQueue<std::shared_ptr<RawImageBuffer>> mRawBufferQueue;

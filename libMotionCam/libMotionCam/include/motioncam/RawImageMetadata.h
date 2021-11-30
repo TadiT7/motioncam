@@ -130,6 +130,7 @@ namespace motioncam {
         virtual void copyHostData(const std::vector<uint8_t>& data) = 0;
         virtual void release() = 0;
         virtual std::unique_ptr<NativeBuffer> clone() = 0;
+        virtual void shrink(size_t newSize) = 0;
     };
 
     class NativeHostBuffer : public NativeBuffer {
@@ -190,7 +191,12 @@ namespace motioncam {
             data.resize(0);
             data.shrink_to_fit();
         }
-        
+
+        void shrink(size_t newSize)
+        {
+            data.resize(newSize);
+        }
+
     private:
         std::vector<uint8_t> data;
     };

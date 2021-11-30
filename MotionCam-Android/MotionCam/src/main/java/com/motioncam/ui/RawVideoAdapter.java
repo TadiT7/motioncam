@@ -4,6 +4,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
@@ -32,7 +33,7 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         private final TextView fileNameView;
         private final TextView captureTime;
         private final Button queueVideoBtn;
-        private final Button deleteVideoBtn;
+        private final ImageView deleteVideoBtn;
 
         public ViewHolder(View view) {
             super(view);
@@ -55,7 +56,7 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             return queueVideoBtn;
         }
 
-        public Button getDeleteVideoBtn() {
+        public ImageView getDeleteVideoBtn() {
             return deleteVideoBtn;
         }
     }
@@ -77,7 +78,7 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
 
     @Override
     public void onBindViewHolder(ViewHolder viewHolder, final int position) {
-        viewHolder.getFileNameView().setText("VIDEO " + (1 + position));
+        viewHolder.getFileNameView().setText(mFiles[position].getName());
 
         Date createdDate = new Date(mFiles[position].lastModified());
 
@@ -99,11 +100,13 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         return position;
     }
 
-    public void remove(File file) {
+    public int remove(File file) {
         mFiles = Arrays.stream(mFiles)
-                .filter(f -> !f.equals(file))
+                .filter(f -> !f.getName().equals(file.getName()))
                 .toArray(File[]::new);
 
         notifyDataSetChanged();
+
+        return mFiles.length;
     }
 }

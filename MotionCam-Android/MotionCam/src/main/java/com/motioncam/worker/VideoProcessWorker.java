@@ -44,10 +44,15 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         super(context, workerParams);
     }
 
+    private static String getNameWithoutExtension(String filename) {
+        int idx = filename.lastIndexOf('.');
+        return (idx == -1) ? filename : filename.substring(0, idx);
+    }
+
     private void processVideo(File inputFile, DocumentFile documentFile, boolean rawVideoToDng) {
         if(rawVideoToDng) {
             mActiveFile = inputFile;
-            mOutputDocument = documentFile.createDirectory(inputFile.getName());
+            mOutputDocument = documentFile.createDirectory(getNameWithoutExtension(inputFile.getName()));
 
             mNativeProcessor.processVideo(inputFile.getPath(), this);
         }
@@ -126,7 +131,12 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
 
         mNotifyManager.cancel(NOTIFICATION_ID);
 
-        return Result.success();
+        Data result = new Data.Builder()
+                .putInt(State.PROGRESS_STATE_KEY,           State.STATE_COMPLETED)
+                .putString(State.PROGRESS_INPUT_PATH_KEY,   inputPath)
+                .build();
+
+        return Result.success(result);
     }
 
     @Override

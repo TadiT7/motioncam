@@ -397,8 +397,7 @@ namespace motioncam {
         }
                 
         // Estimate black point
-        const float maxDehazePercent = 0.004f;
-        const int maxBlackPointBin = 0.07f * histBins[0] + 0.5f;
+        const int maxBlackPointBin = 0.1f * histBins[0] + 0.5f;
 
         int endBin = 1;
         
@@ -406,7 +405,7 @@ namespace motioncam {
             float p0 = histogram.at<float>(endBin);
             float p1 = histogram.at<float>(endBin + 1);
                         
-            if(p0 > maxDehazePercent && (p1 - p0) > 0.002f)
+            if(p1 - p0 > 0.002f)
                 break;
         }
                 
@@ -1754,7 +1753,7 @@ namespace motioncam {
             float sum = 0;
 
             for(int x = histogram.rows - 1; x >= 0; x--) {
-                if( sum > 0.00007f )
+                if( sum > 0.00015f )
                     break;
 
                 p[c] = x + 1;

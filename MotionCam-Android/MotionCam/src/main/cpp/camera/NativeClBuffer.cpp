@@ -101,6 +101,13 @@ namespace motioncam {
         return result;
     }
 
+    void NativeClBuffer::shrink(size_t newSize) {
+        if(newSize > mBufferLength)
+            return; // only allow shrinkage
+
+        mBufferLength = newSize;
+    }
+
     void NativeClBuffer::release() {
         if (mClBuffer) {
             CL_releaseMemObject(mClBuffer);

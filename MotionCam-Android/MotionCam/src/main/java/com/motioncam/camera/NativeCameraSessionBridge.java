@@ -192,6 +192,24 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         SetAutoExposure(mNativeCameraHandle);
     }
 
+    public void setAELock(boolean lock) {
+        ensureValidHandle();
+
+        SetAELock(mNativeCameraHandle, lock);
+    }
+
+    public void setOIS(boolean ois) {
+        ensureValidHandle();
+
+        SetOIS(mNativeCameraHandle, ois);
+    }
+
+    public void setAWBLock(boolean lock) {
+        ensureValidHandle();
+
+        SetAWBLock(mNativeCameraHandle, lock);
+    }
+
     public void setManualExposureValues(int iso, long exposureValue) {
         ensureValidHandle();
 
@@ -400,10 +418,10 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         SetFrameRate(mNativeCameraHandle, frameRate);
     }
 
-    public void setVideoCropPercentage(int amount) {
+    public void setVideoCropPercentage(int horizontal, int vertical) {
         ensureValidHandle();
 
-        SetVideoCropPercentage(mNativeCameraHandle, amount);
+        SetVideoCropPercentage(mNativeCameraHandle, horizontal, vertical);
     }
 
     public int getNumDroppedFrames() {
@@ -493,6 +511,9 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native boolean SetManualExposure(long handle, int iso, long exposureTime);
     private native boolean SetAutoExposure(long handle);
     private native boolean SetExposureCompensation(long handle, float value);
+    private native boolean SetAWBLock(long handle, boolean lock);
+    private native boolean SetAELock(long handle, boolean lock);
+    private native boolean SetOIS(long handle, boolean on);
 
     private native boolean EnableRawPreview(long handle, NativeCameraRawPreviewListener listener, int previewQuality, boolean overrideWb);
     private native boolean SetRawPreviewSettings(long handle, float shadows, float contrast, float saturation, float blacks, float whitePoint, float tempOffset, float tintOfset, boolean useVideoPreview);
@@ -531,6 +552,6 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native RectF[] DetectFaces(long handle);
 
     private native void SetFrameRate(long handle, int frameRate);
-    private native void SetVideoCropPercentage(long handle, int amount);
+    private native void SetVideoCropPercentage(long handle, int horizontal, int vertical);
     private native int GetNumDroppedFrames(long handle);
 }

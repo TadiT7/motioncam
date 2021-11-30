@@ -31,6 +31,8 @@ namespace motioncam {
 
         std::unique_ptr<NativeBuffer> clone();
 
+        void shrink(size_t newSize);
+
         void release();
 
     private:

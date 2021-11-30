@@ -54,6 +54,9 @@ namespace motioncam {
         void setManualExposure(int32_t iso, int64_t exposureTime);
         void setExposureCompensation(float value);
         void setFrameRate(int frameRate);
+        void setAWBLock(bool lock);
+        void setOIS(bool on);
+        void setAELock(bool lock);
 
         void captureHdr(
                 int numImages,
@@ -119,6 +122,9 @@ namespace motioncam {
         void doSetAutoFocus();
         void doSetExposureCompensation(float value);
         void doSetFrameRate(int frameRate);
+        void doSetAELock(bool lock);
+        void doSetOIS(bool on);
+        void doSetAWBLock(bool lock);
         void doSave(int numImages);
         void doAttemptSaveHdrData();
         void doPrecaptureCaptureHdr(int iso, int64_t exposure);

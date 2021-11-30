@@ -14,6 +14,15 @@
         <item name="android:colorBackground">@color/background</item>
     </style>
 
+    <style name="MotionCam.TextAppearance.VerySmall" parent="TextAppearance.AppCompat.Small">
+        <item name="android:textSize">12sp</item>
+    </style>
+
+    <style name="MotionCam.TextAppearance.VerySmall.Bold" parent="TextAppearance.AppCompat.Small">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
     <style name="MotionCam.TextAppearance.Small" parent="TextAppearance.AppCompat.Small"></style>
     <style name="MotionCam.TextAppearance.Medium" parent="TextAppearance.AppCompat.Medium"></style>
 

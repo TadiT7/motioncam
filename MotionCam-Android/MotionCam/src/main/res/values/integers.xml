@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <integer name="default_memory_use_bytes">536870912</integer>
+    <item type="id" name="manual_control_tag" />
 </resources>

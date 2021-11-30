@@ -431,7 +431,8 @@ jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_UpdateOrien
 extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_motioncam_camera_NativeCameraSessionBridge_SetFocusPoint(
-        JNIEnv *env, jobject thiz, jlong sessionHandle, jfloat focusX, jfloat focusY, jfloat exposureX, jfloat exposureY) {
+        JNIEnv *env, jobject thiz, jlong sessionHandle, jfloat focusX, jfloat focusY, jfloat exposureX, jfloat exposureY)
+{
     std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(sessionHandle);
 
     if(!sessionManager) {
@@ -1087,7 +1088,9 @@ JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_EndSt
 }
 
 extern "C"
-JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_SetFrameRate(JNIEnv *env, jobject thiz, jlong handle, jint frameRate) {
+JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_SetFrameRate(
+        JNIEnv *env, jobject thiz, jlong handle, jint frameRate)
+{
     std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
     if(!sessionManager) {
         return;
@@ -1097,11 +1100,53 @@ JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_SetFr
 }
 
 extern "C"
-JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_SetVideoCropPercentage(JNIEnv *env, jobject thiz, jlong handle, jint amount) {
-    RawBufferManager::get().setCropAmount(amount);
+JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_SetVideoCropPercentage(JNIEnv *env, jobject thiz, jlong handle, jint horizontal, jint vertical)
+{
+    RawBufferManager::get().setCropAmount(horizontal, vertical);
 }
 
 extern "C"
 JNIEXPORT jint JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GetNumDroppedFrames(JNIEnv *env, jobject thiz, jlong handle) {
     return RawBufferManager::get().numDroppedFrames();
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_motioncam_camera_NativeCameraSessionBridge_SetAWBLock(JNIEnv *env, jobject thiz, jlong handle, jboolean lock)
+{
+    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
+    if(!sessionManager) {
+        return JNI_FALSE;
+    }
+
+    sessionManager->setAWBLock(lock);
+
+    return JNI_TRUE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_motioncam_camera_NativeCameraSessionBridge_SetAELock(JNIEnv *env, jobject thiz, jlong handle, jboolean lock)
+{
+    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
+    if(!sessionManager) {
+        return JNI_FALSE;
+    }
+
+    sessionManager->setAELock(lock);
+
+    return JNI_TRUE;
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_motioncam_camera_NativeCameraSessionBridge_SetOIS(JNIEnv *env, jobject thiz, jlong handle, jboolean on)
+{
+    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
+    if(!sessionManager) {
+        return JNI_FALSE;
+    }
+
+    sessionManager->setOIS(on);
+
+    return JNI_TRUE;
 }

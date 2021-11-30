@@ -7,7 +7,7 @@
 
     <TextView
         android:id="@+id/noFiles"
-        android:visibility="visible"
+        android:visibility="gone"
         android:layout_width="0dp"
         android:layout_height="0dp"
         app:layout_constraintTop_toTopOf="parent"
@@ -20,12 +20,39 @@
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/fileList"
-        android:visibility="gone"
+        android:visibility="visible"
         android:layout_width="0dp"
         android:layout_height="0dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
+
+    <LinearLayout
+        android:id="@+id/processingLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="10dp"
+        android:visibility="invisible"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="@+id/fileList">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
+            android:gravity="center"
+            android:text="Processing"/>
+
+        <ProgressBar
+            android:id="@+id/processingProgressBar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="30dp"
+            android:progress="0"
+            android:max="100"
+            android:indeterminate="false" />
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

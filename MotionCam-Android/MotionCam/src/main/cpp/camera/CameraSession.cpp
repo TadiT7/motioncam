@@ -31,6 +31,9 @@ namespace motioncam {
         ACTION_SET_MANUAL_EXPOSURE,
         ACTION_SET_EXPOSURE_COMP_VALUE,
         ACTION_SET_FRAME_RATE,
+        ACTION_SET_AWB_LOCK,
+        ACTION_SET_AE_LOCK,
+        ACTION_SET_OIS,
         ACTION_SET_AUTO_FOCUS,
         ACTION_SET_FOCUS_POINT,
         ACTION_PRECAPTURE_HDR,
@@ -280,6 +283,21 @@ namespace motioncam {
         pushEvent(EventAction::ACTION_SET_FRAME_RATE, data);
     }
 
+    void CameraSession::setAWBLock(bool lock) {
+        json11::Json::object data = { { "value", lock } };
+        pushEvent(EventAction::ACTION_SET_AWB_LOCK, data);
+    }
+
+    void CameraSession::setAELock(bool lock) {
+        json11::Json::object data = { { "value", lock } };
+        pushEvent(EventAction::ACTION_SET_AE_LOCK, data);
+    }
+
+    void CameraSession::setOIS(bool on) {
+        json11::Json::object data = { { "value", on } };
+        pushEvent(EventAction::ACTION_SET_OIS, data);
+    }
+
     void CameraSession::setFocusPoint(float focusX, float focusY, float exposureX, float exposureY) {
         json11::Json::object data = {
                 { "focusX", focusX },
@@ -377,17 +395,6 @@ namespace motioncam {
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_CONTROL_AE_ANTIBANDING_MODE, 1, &antiBandingMode);
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_NOISE_REDUCTION_MODE, 1, &noiseReduction);
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_COLOR_CORRECTION_MODE, 1, &colorCorrectionMode);
-
-        // Enable OIS
-        uint8_t omode = ACAMERA_LENS_OPTICAL_STABILIZATION_MODE_ON;
-
-        for(auto& oisMode : mCameraDescription->oisModes) {
-            if(oisMode == ACAMERA_LENS_OPTICAL_STABILIZATION_MODE_ON) {
-                LOGD("Enabling OIS");
-                ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_LENS_OPTICAL_STABILIZATION_MODE, 1, &omode);
-                break;
-            }
-        }
 
         uint8_t aeMode  = ACAMERA_CONTROL_AE_MODE_ON;
         uint8_t afMode  = ACAMERA_CONTROL_AF_MODE_CONTINUOUS_PICTURE;
@@ -679,7 +686,6 @@ namespace motioncam {
 
         if (mState == CameraCaptureSessionState::ACTIVE) {
             mCameraStateManager->requestUserExposure(iso, exposureTime);
-            mCameraStateManager->requestMode(CameraMode::MANUAL);
         }
     }
 
@@ -879,6 +885,18 @@ namespace motioncam {
 
     void CameraSession::doSetFrameRate(int frameRate) {
         mCameraStateManager->requestFrameRate(frameRate);
+    }
+
+    void CameraSession::doSetAELock(bool lock) {
+        mCameraStateManager->requestAeLock(lock);
+    }
+
+    void CameraSession::doSetAWBLock(bool lock) {
+        mCameraStateManager->requestAwbLock(lock);
+    }
+
+    void CameraSession::doSetOIS(bool on) {
+        mCameraStateManager->requestOis(on);
     }
 
     void CameraSession::updateOrientation(ScreenOrientation orientation) {
@@ -1187,6 +1205,24 @@ namespace motioncam {
             case EventAction::ACTION_SET_FRAME_RATE: {
                 int frameRate = eventLoopData->data["value"].int_value();
                 doSetFrameRate(frameRate);
+                break;
+            }
+
+            case EventAction::ACTION_SET_AE_LOCK: {
+                bool value = eventLoopData->data["value"].bool_value();
+                doSetAELock(value);
+                break;
+            }
+
+            case EventAction::ACTION_SET_AWB_LOCK: {
+                bool value = eventLoopData->data["value"].bool_value();
+                doSetAWBLock(value);
+                break;
+            }
+
+            case EventAction::ACTION_SET_OIS: {
+                bool value = eventLoopData->data["value"].bool_value();
+                doSetOIS(value);
                 break;
             }
 

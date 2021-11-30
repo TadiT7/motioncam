@@ -583,6 +583,21 @@ namespace motioncam {
             mCameraSession->setFrameRate(frameRate);
     }
 
+    void CaptureSessionManager::setAWBLock(bool lock) {
+        if(mCameraSession)
+            mCameraSession->setAWBLock(lock);
+    }
+
+    void CaptureSessionManager::setAELock(bool lock) {
+        if(mCameraSession)
+            mCameraSession->setAELock(lock);
+    }
+
+    void CaptureSessionManager::setOIS(bool on) {
+        if(mCameraSession)
+            mCameraSession->setOIS(on);
+    }
+
     void CaptureSessionManager::enableRawPreview(std::shared_ptr<RawPreviewListener> listener, const int previewQuality, bool overrideWb) {
         if(mImageConsumer) {
             mImageConsumer->enableRawPreview(std::move(listener), previewQuality);

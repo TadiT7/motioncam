@@ -1,117 +1,109 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/manualControlToggleBar"
-    android:orientation="vertical"
+    android:id="@+id/controlBar"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:padding="5dp">
-
-    <RelativeLayout
-        android:id="@+id/manualControlInfo"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="5dp">
-
-        <LinearLayout
-            android:id="@+id/infoFrame"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/infoShutterSpeedText"
-                android:layout_width="80dp"
-                android:layout_height="24dp"
-                android:drawableStart="@drawable/round_shutter_speed_24"
-                android:drawablePadding="5dp"
-                android:gravity="center"
-                android:textAppearance="@style/MotionCam.TextAppearance.Small" />
-
-            <TextView
-                android:id="@+id/infoIsoText"
-                android:layout_width="80dp"
-                android:layout_height="24dp"
-                android:gravity="center"
-                android:drawableStart="@drawable/round_iso_24"
-                android:drawablePadding="5dp"
-                android:layout_marginStart="10dp"
-                android:textAppearance="@style/MotionCam.TextAppearance.Small"/>
-        </LinearLayout>
-
-        <Switch
-            android:id="@+id/manualControlSwitch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:switchPadding="10dp"
-            android:switchTextAppearance="@style/MotionCam.TextAppearance.Small"
-            android:text="@string/manual_controls"
-            android:textColor="@color/white"
-            android:layout_marginLeft="10dp"
-            android:layout_alignParentEnd="true" />
-
-    </RelativeLayout>
+    android:layout_margin="5dp"
+    android:padding="5dp"
+    android:orientation="vertical">
 
     <LinearLayout
-        android:id="@+id/cameraManualControlFrame"
+        android:id="@+id/manualControl"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/manual_controls_frame_background"
+        android:layout_height="40dp"
         android:visibility="gone"
-        android:padding="5dp"
-        android:orientation="vertical">
+        android:orientation="horizontal">
 
         <TextView
-            android:id="@+id/manualControlShutterSpeedText"
+            android:id="@+id/manualControlMinText"
             android:layout_width="wrap_content"
-            android:layout_height="24dp"
+            android:layout_height="match_parent"
             android:gravity="center"
-            android:drawableStart="@drawable/round_shutter_speed_24"
-            android:drawablePadding="5dp"
-            android:textAppearance="@style/MotionCam.TextAppearance.Small"/>
+            android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold" />
+
+        <SeekBar
+            android:id="@+id/manualControlSeekBar"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:paddingTop="@dimen/seekBarPadding"
+            android:paddingBottom="@dimen/seekBarPadding"/>
+
+        <TextView
+            android:id="@+id/manualControlMaxText"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="30dp"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:id="@+id/exposureControls"
+            android:layout_width="130dp"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:background="@drawable/manual_controls_frame_background">
+
+            <TextView
+                android:id="@+id/shutterSpeedBtn"
+                android:layout_width="65dp"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text=""
+                android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold" />
+
+            <TextView
+                android:id="@+id/isoBtn"
+                android:layout_width="65dp"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"/>
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:layout_marginStart="5dp"
+            android:background="@drawable/manual_controls_frame_background">
 
-            <SeekBar
-                android:id="@+id/manualControlShutterSpeedSeekBar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:max="35"
-                android:paddingTop="@dimen/seekBarPadding"
-                android:paddingBottom="@dimen/seekBarPadding"
-                android:tickMark="@drawable/seekbar_tick_mark"/>
+            <TextView
+                android:id="@+id/aeLockBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:drawablePadding="5dp"
+                android:text="AE LOCK"
+                android:layout_weight="1"
+                android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"/>
 
+            <TextView
+                android:id="@+id/awbLockBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:drawablePadding="5dp"
+                android:text="AWB LOCK"
+                android:layout_weight="1"
+                android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"/>
+
+            <TextView
+                android:id="@+id/oisBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:drawablePadding="5dp"
+                android:text="OIS"
+                android:layout_weight="1"
+                android:textColor="@color/colorAccent"
+                android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"/>
         </LinearLayout>
-
-        <TextView
-            android:id="@+id/manualControlIsoText"
-            android:layout_width="wrap_content"
-            android:layout_height="24dp"
-            android:gravity="center"
-            android:drawableStart="@drawable/round_iso_24"
-            android:drawablePadding="5dp"
-            android:textAppearance="@style/MotionCam.TextAppearance.Small"/>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <SeekBar
-                android:id="@+id/manualControlIsoSeekBar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:max="16"
-                android:paddingTop="@dimen/seekBarPadding"
-                android:paddingBottom="@dimen/seekBarPadding"
-                android:tickMark="@drawable/seekbar_tick_mark"/>
-
-        </LinearLayout>
-
     </LinearLayout>
 
 </LinearLayout>

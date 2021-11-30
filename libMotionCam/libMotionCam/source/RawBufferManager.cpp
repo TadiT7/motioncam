@@ -393,8 +393,8 @@ namespace motioncam {
         mStreamer->start(outputPath, maxMemoryUsageBytes, metadata);
     }
 
-    void RawBufferManager::setCropAmount(int amount) {
-        mStreamer->setCropAmount(amount);
+    void RawBufferManager::setCropAmount(int horizontal, int vertical) {
+        mStreamer->setCropAmount(horizontal, vertical);
     }
 
     uint32_t RawBufferManager::numDroppedFrames() const {
