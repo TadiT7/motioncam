@@ -645,6 +645,7 @@ public class CameraActivity extends AppCompatActivity implements
 
         mBinding.switchCameraBtn.setEnabled(false);
         mBinding.recordingTimer.setVisibility(View.VISIBLE);
+        mBinding.previewFrame.droppedFramesTxt.setVisibility(View.VISIBLE);
 
         mRecordStartTime = System.currentTimeMillis();
 
@@ -665,8 +666,11 @@ public class CameraActivity extends AppCompatActivity implements
 
                     int droppedFrames = mNativeCamera.getNumDroppedFrames();
 
+                    String droppedFramesText = String.format("%d DROPPED FRAMES", droppedFrames);
+                    mBinding.previewFrame.droppedFramesTxt.setText(droppedFramesText);
+
                     // End recording if too many dropped frames
-                    if(droppedFrames > 100) {
+                    if(droppedFrames > 120) {
                         Toast.makeText(CameraActivity.this, "Recording has ended because of too many dropped frames", Toast.LENGTH_LONG).show();
                         finaliseRawVideo(true);
                     }
@@ -678,6 +682,7 @@ public class CameraActivity extends AppCompatActivity implements
     private void finaliseRawVideo(boolean showProgress) {
         mBinding.switchCameraBtn.setEnabled(true);
         mBinding.recordingTimer.setVisibility(View.GONE);
+        mBinding.previewFrame.droppedFramesTxt.setVisibility(View.INVISIBLE);
 
         if(mRecordingTimer != null) {
             mRecordingTimer.cancel();

@@ -48,7 +48,6 @@
                 android:layout_width="75dp"
                 android:layout_height="match_parent"
                 android:gravity="center"
-                android:layout_marginRight="10dp"
                 android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"
                 app:layout_constraintLeft_toRightOf="@id/videoFrameRateBtn"
                 app:layout_constraintTop_toTopOf="parent"
@@ -57,15 +56,14 @@
 
             <TextView
                 android:id="@+id/processVideoBtn"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
+                android:layout_width="100dp"
+                android:layout_height="0dp"
                 android:gravity="center"
-                android:layout_marginRight="10dp"
                 android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"
                 app:layout_constraintRight_toRightOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                android:text="MANAGE\nVIDEOS"/>
+                android:text="MANAGE VIDEOS"/>
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -123,6 +121,18 @@
 
         </LinearLayout>
 
+        <TextView
+            android:id="@+id/droppedFramesTxt"
+            android:visibility="invisible"
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:layout_marginTop="10dp"
+            android:gravity="center"
+            android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/processVideoBtn"
+            app:layout_constraintLeft_toRightOf="@id/videoResolution"
+            app:layout_constraintTop_toTopOf="parent" />
 
     </LinearLayout>
 
