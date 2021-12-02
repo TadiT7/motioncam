@@ -109,7 +109,7 @@ public class CameraActivity extends AppCompatActivity implements
     public static final String WORKER_VIDEO_PROCESSOR = "VideoProcessor";
 
     private static final CameraManualControl.SHUTTER_SPEED MAX_EXPOSURE_TIME =
-            CameraManualControl.SHUTTER_SPEED.EXPOSURE_30__0;
+            CameraManualControl.SHUTTER_SPEED.EXPOSURE_2__0;
 
     private static final String[] REQUEST_PERMISSIONS = {
             Manifest.permission.CAMERA,
@@ -468,33 +468,6 @@ public class CameraActivity extends AppCompatActivity implements
 
     private void onFixedFocusCancelled() {
         setFocusState(FocusState.AUTO, null);
-    }
-
-    private void onCameraManualControlEnabled(boolean enabled) {
-//        if (mManualControlsEnabled == enabled)
-//            return;
-//
-//        mManualControlsEnabled = enabled;
-//        mManualControlsSet = false;
-//
-//        if (mManualControlsEnabled) {
-//            findViewById(R.id.cameraManualControlFrame).setVisibility(View.VISIBLE);
-//            findViewById(R.id.infoFrame).setVisibility(View.GONE);
-//            mBinding.exposureLayout.setVisibility(View.GONE);
-//        }
-//        else {
-//            findViewById(R.id.cameraManualControlFrame).setVisibility(View.GONE);
-//            findViewById(R.id.infoFrame).setVisibility(View.VISIBLE);
-//            findViewById(R.id.exposureCompFrame).setVisibility(View.VISIBLE);
-//
-//            mBinding.exposureLayout.setVisibility(View.VISIBLE);
-//
-//            if (mNativeCamera != null) {
-//                mNativeCamera.setAutoExposure();
-//            }
-//        }
-//
-//        updateManualControlView(mSensorEventManager.getOrientation());
     }
 
     private void setPostProcessingDefaults() {
@@ -890,6 +863,10 @@ public class CameraActivity extends AppCompatActivity implements
         if(mCaptureMode == captureMode)
             return;
 
+        // Can't use night mode with manual controls
+        if(mManualControlsSet && captureMode == CaptureMode.NIGHT)
+            return;
+
         mBinding.nightModeBtn.setTextColor(getColor(R.color.textColor));
         mBinding.zslModeBtn.setTextColor(getColor(R.color.textColor));
         mBinding.burstModeBtn.setTextColor(getColor(R.color.textColor));
@@ -1074,6 +1051,9 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void setAeLock(boolean lock) {
+        if(mAeLock == lock)
+            return;
+
         int color = lock ? R.color.colorAccent : R.color.white;
         ((TextView) findViewById(R.id.aeLockBtn)).setTextColor(getColor(color));
 
@@ -1086,6 +1066,9 @@ public class CameraActivity extends AppCompatActivity implements
                 mNativeCamera.setAELock(lock);
             }
         }
+
+        if(lock && mCaptureMode == CaptureMode.NIGHT)
+            setCaptureMode(CaptureMode.ZSL);
 
         mAeLock = lock;
     }
