@@ -139,9 +139,8 @@ namespace motioncam {
     }
 
     void defringe(Halide::Runtime::Buffer<uint16_t>& output, Halide::Runtime::Buffer<uint16_t>& input) {
-        const int threshold = 4000;
+        const int threshold = 8000;
 
-        // Vertical
         defringeInternal(output, input, threshold);
     }
 }

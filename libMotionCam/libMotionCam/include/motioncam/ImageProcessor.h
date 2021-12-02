@@ -83,9 +83,6 @@ namespace motioncam {
         static cv::Mat registerImage2(const Halide::Runtime::Buffer<uint8_t>& referenceBuffer,
                                       const Halide::Runtime::Buffer<uint8_t>& toAlignBuffer);
 
-        static void matchExposures(
-            const RawCameraMetadata& cameraMetadata, const RawImageBuffer& reference, const RawImageBuffer& toMatch, float& outScale, float& outWhitePoint);
-
         static std::shared_ptr<RawData> loadRawImage(const RawImageBuffer& rawImage,
                                                      const RawCameraMetadata& cameraMetadata,
                                                      const bool extendEdges=true,

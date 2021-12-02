@@ -995,6 +995,16 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void toggleIso() {
+        // Hide if shown
+        if(findViewById(R.id.manualControl).getVisibility() == View.VISIBLE) {
+            int selectionMode = (int) findViewById(R.id.manualControl).getTag(R.id.manual_control_tag);
+
+            if(selectionMode == MANUAL_CONTROL_MODE_ISO) {
+                toggleManualControls();
+                return;
+            }
+        }
+
         if(!mManualControlsSet) {
             mUserIso = mIso;
             mUserExposureTime = mExposureTime;
@@ -1019,6 +1029,16 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void toggleShutterSpeed() {
+        // Hide if shown
+        if(findViewById(R.id.manualControl).getVisibility() == View.VISIBLE) {
+            int selectionMode = (int) findViewById(R.id.manualControl).getTag(R.id.manual_control_tag);
+
+            if(selectionMode == MANUAL_CONTROL_MODE_SHUTTER_SPEED) {
+                toggleManualControls();
+                return;
+            }
+        }
+
         if(!mManualControlsSet) {
             mUserIso = mIso;
             mUserExposureTime = mExposureTime;

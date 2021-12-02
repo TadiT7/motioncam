@@ -54,6 +54,8 @@ public:
     Input<int32_t> height{"height"};
     
     Input<float> w{"w"};
+    Input<float> flowMeanX{"flowMeanX"};
+    Input<float> flowMeanY{"flowMeanY"};
 
     Output<Buffer<float>> output{"output", 3};
 
@@ -188,10 +190,17 @@ void DenoiseGenerator::generate() {
     
     Func outMean{"outMean"}, outHigh{"outHigh"};
 
+    // Increase weight based on closeness to mean of movement
+    Expr fx = flowMap(v_x, v_y, 0) - flowMeanX;
+    Expr fy = flowMap(v_x, v_y, 1) - flowMeanY;
+
+    Expr fd = sqrt(fx*fx + fy*fy);
+    Expr fw = w*max(1.0f, -0.25f*fd + 4.0f);
+
     Expr d0 = inHigh0(v_x, v_y, v_c) - inHigh1(v_x, v_y, v_c);
     Expr d1 = inMean0(v_x, v_y, v_c) - inMean1(v_x, v_y, v_c);
 
-    Expr m = abs(d1) / (1e-15f + abs(d1) + w*noise(v_c));
+    Expr m = abs(d1) / (1e-15f + abs(d1) + fw*noise(v_c));
 
     outHigh(v_x, v_y, v_c) = inHigh1(v_x, v_y, v_c) + m*d0;
     outMean(v_x, v_y, v_c) = inMean1(v_x, v_y, v_c) + m*d1;

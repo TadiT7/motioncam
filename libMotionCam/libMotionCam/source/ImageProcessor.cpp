@@ -69,8 +69,11 @@ extern "C" int extern_defringe(halide_buffer_t *in, int32_t width, int32_t heigh
     else {
         Halide::Runtime::Buffer<uint16_t> inBuf(*in);
         Halide::Runtime::Buffer<uint16_t> outBuf(*out);
-                
-        motioncam::defringe(outBuf, inBuf);
+        
+        outBuf.copy_from(inBuf);
+
+        // Disable for now. Causes too many artifacts.
+//        motioncam::defringe(outBuf, inBuf);
     }
     
     return 0;
@@ -92,8 +95,7 @@ static std::vector<Halide::Runtime::Buffer<float>> createWaveletBuffers(int widt
 namespace motioncam {
     const int EXPANDED_RANGE            = 16384;
     const float MAX_HDR_ERROR           = 0.0001f;
-    const float WHITEPOINT_THRESHOLD    = 1.0f;
-    const float SHADOW_BIAS             = 16.0f;
+    const float SHADOW_BIAS             = 12.0f;
 
     typedef Halide::Runtime::Buffer<float> WaveletBuffer;
 
@@ -508,7 +510,7 @@ namespace motioncam {
 
     float ImageProcessor::getShadowKeyValue(const RawImageBuffer& rawBuffer, const RawCameraMetadata& cameraMetadata, bool nightMode) {
         float ev = calcEv(cameraMetadata, rawBuffer.metadata);
-        float minKv = 1.05;
+        float minKv = 1.03f;
         
         if(nightMode)
             minKv = 1.07f;
@@ -1027,54 +1029,6 @@ namespace motioncam {
         return histogram;
     }
 
-    void ImageProcessor::matchExposures(
-        const RawCameraMetadata& cameraMetadata, const RawImageBuffer& reference, const RawImageBuffer& toMatch, float& outScale, float& outWhitePoint)
-    {
-        auto refHistogram = calcHistogram(cameraMetadata, reference, true, 4);
-        auto toMatchHistogram = calcHistogram(cameraMetadata, toMatch, true, 4);
-        
-        std::vector<float> matches;
-        
-        for(int i = 0; i < toMatchHistogram.cols; i++) {
-            float a = toMatchHistogram.at<float>(i);
-
-            for(int j = 1; j < refHistogram.cols; j++) {
-                float b = refHistogram.at<float>(j);
-
-                if(a <= b) {
-                    double match = j / (i + 1.0);
-                    matches.push_back(match);
-                    break;
-                }
-            }
-        }
-        
-        outWhitePoint = 1.0f;
-        
-        for(int i = toMatchHistogram.cols - 1; i >= 0; i--) {
-            float a = toMatchHistogram.at<float>(i);
-            if(a < WHITEPOINT_THRESHOLD) {
-                outWhitePoint = toMatchHistogram.cols / (float) (i + 1);
-                break;
-            }
-                
-        }
-        
-        float scale = 0;
-        
-        int Imin = std::min((int) matches.size(), 4);
-        int Imax = std::min((int) matches.size(), 32);
-        
-        for(int i = Imin; i < Imax; i++) {
-            scale += matches[i];
-        }
-        
-        if(Imax - Imin <= 0)
-            outScale = 1.0f;
-        else
-            outScale = scale / (float) (Imax - Imin);
-    }
-
     void ImageProcessor::process(RawContainer& rawContainer, const std::string& outputPath, const ImageProcessorProgress& progressListener)
     {
         cv::ocl::setUseOpenCL(false);
@@ -1461,11 +1415,7 @@ namespace motioncam {
         float w = 1.0f/(2.0f*sqrt(2.0f));
         auto method = &fuse_denoise_3x3;
         
-        if(signalAverage < 0.01f) {
-            method = &fuse_denoise_7x7;
-            w *= 2.0f;
-        }
-        else if(signalAverage < 0.02f) {
+        if(signalAverage < 0.02f) {
             method = &fuse_denoise_7x7;
         }
         else if(signalAverage < 0.04f) {
@@ -1508,6 +1458,8 @@ namespace motioncam {
             Halide::Runtime::Buffer<float> flowBuffer =
                 Halide::Runtime::Buffer<float>::make_interleaved((float*) flow.data, flow.cols, flow.rows, 2);
             
+            auto flowMean = cv::mean(flow);
+            
             method(
                 reference->rawBuffer,
                 current->rawBuffer,
@@ -1517,6 +1469,8 @@ namespace motioncam {
                 reference->rawBuffer.width(),
                 reference->rawBuffer.height(),
                 w,
+                flowMean[0],
+                flowMean[1],
                 fuseOutput);
             
             progressHelper.nextFusedImage();
@@ -1753,7 +1707,7 @@ namespace motioncam {
             float sum = 0;
 
             for(int x = histogram.rows - 1; x >= 0; x--) {
-                if( sum > 0.00015f )
+                if( sum > 0.005f )
                     break;
 
                 p[c] = x + 1;
