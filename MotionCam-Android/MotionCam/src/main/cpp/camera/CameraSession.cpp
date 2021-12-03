@@ -34,6 +34,8 @@ namespace motioncam {
         ACTION_SET_AWB_LOCK,
         ACTION_SET_AE_LOCK,
         ACTION_SET_OIS,
+        ACTION_SET_FOCUS_DISTANCE,
+        ACTION_SET_FOCUS_FOR_VIDEO,
         ACTION_SET_AUTO_FOCUS,
         ACTION_SET_FOCUS_POINT,
         ACTION_PRECAPTURE_HDR,
@@ -296,6 +298,16 @@ namespace motioncam {
     void CameraSession::setOIS(bool on) {
         json11::Json::object data = { { "value", on } };
         pushEvent(EventAction::ACTION_SET_OIS, data);
+    }
+
+    void CameraSession::setFocusDistance(float focusDistance) {
+        json11::Json::object data = { { "value", focusDistance } };
+        pushEvent(EventAction::ACTION_SET_FOCUS_DISTANCE, data);
+    }
+
+    void CameraSession::setFocusForVideo(bool focusForVideo) {
+        json11::Json::object data = { { "value", focusForVideo } };
+        pushEvent(EventAction::ACTION_SET_FOCUS_FOR_VIDEO, data);
     }
 
     void CameraSession::setFocusPoint(float focusX, float focusY, float exposureX, float exposureY) {
@@ -899,6 +911,14 @@ namespace motioncam {
         mCameraStateManager->requestOis(on);
     }
 
+    void CameraSession::doSetFocusDistance(float focusDistance) {
+        mCameraStateManager->requestManualFocus(focusDistance);
+    }
+
+    void CameraSession::doSetFocusForVideo(bool focusForVideo) {
+        mCameraStateManager->setFocusForVideo(focusForVideo);
+    }
+
     void CameraSession::updateOrientation(ScreenOrientation orientation) {
         mScreenOrientation = orientation;
     }
@@ -1130,7 +1150,7 @@ namespace motioncam {
     }
 
     void CameraSession::doCameraAutoFocusStateChanged(CameraFocusState state) {
-        mSessionListener->onCameraAutoFocusStateChanged(state);
+        mSessionListener->onCameraAutoFocusStateChanged(state, mLastFocusDistance);
     }
 
     void CameraSession::doOnInternalError(const std::string& e) {
@@ -1223,6 +1243,18 @@ namespace motioncam {
             case EventAction::ACTION_SET_OIS: {
                 bool value = eventLoopData->data["value"].bool_value();
                 doSetOIS(value);
+                break;
+            }
+
+            case EventAction::ACTION_SET_FOCUS_DISTANCE: {
+                float value = eventLoopData->data["value"].number_value();
+                doSetFocusDistance(value);
+                break;
+            }
+
+            case EventAction::ACTION_SET_FOCUS_FOR_VIDEO: {
+                bool value = eventLoopData->data["value"].bool_value();
+                doSetFocusForVideo(value);
                 break;
             }
 

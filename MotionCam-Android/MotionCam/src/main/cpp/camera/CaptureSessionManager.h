@@ -52,6 +52,8 @@ namespace motioncam {
         void setFrameRate(int frameRate);
         void setAWBLock(bool lock);
         void setOIS(bool on);
+        void setFocusDistance(float focusDistance);
+        void setFocusForVideo(bool focusForVideo);
         void setAELock(bool lock);
 
         void setFocusPoint(float focusX, float focusY, float exposureX, float exposureY);

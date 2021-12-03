@@ -40,6 +40,7 @@ namespace motioncam {
 
         void requestUserFocus(float x, float y);
         void requestAutoFocus();
+        void requestManualFocus(float distance);
         void requestExposureCompensation(int exposureCompensation);
         void requestFrameRate(int frameRate);
         void requestAwbLock(bool lock);
@@ -48,6 +49,8 @@ namespace motioncam {
 
         void requestUserExposure(int32_t iso, int64_t exposureTime);
         void requestMode(CameraMode mode);
+
+        void setFocusForVideo(bool focusForVideo);
 
         void onCameraCaptureSequenceCompleted(const int sequenceId);
         void onCameraSessionStateChanged(const CameraCaptureSessionState state);
@@ -79,9 +82,11 @@ namespace motioncam {
         bool mAwbLock;
         bool mAeLock;
         bool mOis;
+        bool mFocusForVideo;
 
         float mRequestedFocusX;
         float mRequestedFocusY;
+        float mFocusDistance;
 
         int32_t mUserIso;
         int64_t mUserExposureTime;

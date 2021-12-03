@@ -14,7 +14,7 @@ namespace motioncam {
         void onCameraError(int error);
         void onCameraDisconnected();
         void onCameraExposureStatus(const int32_t iso, const int64_t exposureTime);
-        void onCameraAutoFocusStateChanged(const CameraFocusState state);
+        void onCameraAutoFocusStateChanged(const CameraFocusState state, const float focusDistance);
         void onCameraAutoExposureStateChanged(const CameraExposureState state);
         void onCameraHdrImageCaptureProgress(int progress);
         void onCameraHdrImageCaptureCompleted();

@@ -104,6 +104,7 @@ public class CameraActivity extends AppCompatActivity implements
 
     private static final int MANUAL_CONTROL_MODE_ISO = 0;
     private static final int MANUAL_CONTROL_MODE_SHUTTER_SPEED = 1;
+    private static final int MANUAL_CONTROL_MODE_FOCUS = 2;
 
     public static final String WORKER_IMAGE_PROCESSOR = "ImageProcessor";
     public static final String WORKER_VIDEO_PROCESSOR = "VideoProcessor";
@@ -274,9 +275,11 @@ public class CameraActivity extends AppCompatActivity implements
     private PointF mAutoExposurePoint;
     private boolean mAwbLock;
     private boolean mAeLock;
+    private boolean mAfLock;
     private boolean mOIS;
     private int mIso;
     private long mExposureTime;
+    private float mFocusDistance;
     private int mUserIso;
     private long mUserExposureTime;
     private float mShadowOffset;
@@ -518,6 +521,7 @@ public class CameraActivity extends AppCompatActivity implements
         // Defaults
         setAwbLock(false);
         setAeLock(false);
+        setAfLock(false);
         setOIS(true);
 
         // Reset manual controls
@@ -904,6 +908,7 @@ public class CameraActivity extends AppCompatActivity implements
             if(mNativeCamera != null) {
                 mNativeCamera.setFrameRate(mSettings.frameRate);
                 mNativeCamera.setVideoCropPercentage(mSettings.horizontalVideoCrop, mSettings.verticalVideoCrop);
+                mNativeCamera.setFocusForVideo(true);
             }
         }
 
@@ -913,6 +918,7 @@ public class CameraActivity extends AppCompatActivity implements
 
             if(mNativeCamera != null) {
                 mNativeCamera.setFrameRate(30);
+                mNativeCamera.setFocusForVideo(false);
             }
         }
 
@@ -962,13 +968,58 @@ public class CameraActivity extends AppCompatActivity implements
 
             if(selectionMode == MANUAL_CONTROL_MODE_ISO) {
                 mUserIso = mIsoValues.get(progress).getIso();
+                mNativeCamera.setManualExposureValues(mUserIso, mUserExposureTime);
             }
             else if(selectionMode == MANUAL_CONTROL_MODE_SHUTTER_SPEED) {
                 mUserExposureTime = mExposureValues.get(progress).getExposureTime();
+                mNativeCamera.setManualExposureValues(mUserIso, mUserExposureTime);
             }
+            else if(selectionMode == MANUAL_CONTROL_MODE_FOCUS) {
+                float p = ((100.0f - progress)/100.0f) * (mCameraMetadata.minFocusDistance - mCameraMetadata.hyperFocalDistance);
 
-            mNativeCamera.setManualExposureValues(mUserIso, mUserExposureTime);
+                mFocusDistance = mCameraMetadata.hyperFocalDistance + p;
+                mNativeCamera.setManualFocus(mFocusDistance);
+
+                onFocusStateChanged(NativeCameraSessionBridge.CameraFocusState.FOCUS_LOCKED, mFocusDistance);
+            }
         }
+    }
+
+    private void toggleFocus() {
+        // Hide if shown
+        if(findViewById(R.id.manualControl).getVisibility() == View.VISIBLE) {
+            int selectionMode = (int) findViewById(R.id.manualControl).getTag(R.id.manual_control_tag);
+
+            if(selectionMode == MANUAL_CONTROL_MODE_FOCUS) {
+                setAfLock(false);
+                return;
+            }
+        }
+
+        setAfLock(true);
+
+        String minFocus = "-";
+        String maxFocus = "-";
+
+        if(mCameraMetadata.minFocusDistance > 0)
+            minFocus = String.format("%.2f", 1.0f / mCameraMetadata.minFocusDistance);
+
+        if(mCameraMetadata.hyperFocalDistance > 0)
+            maxFocus = String.format("%.2f", 1.0f / mCameraMetadata.hyperFocalDistance);
+
+        ((TextView) findViewById(R.id.manualControlMinText)).setText(minFocus);
+        ((TextView) findViewById(R.id.manualControlMaxText)).setText(maxFocus);
+
+        float progress = 1.0f - (mFocusDistance - mCameraMetadata.hyperFocalDistance) / (mCameraMetadata.minFocusDistance - mCameraMetadata.hyperFocalDistance);
+
+        ((SeekBar) findViewById(R.id.manualControlSeekBar)).setMax(100);
+        ((SeekBar) findViewById(R.id.manualControlSeekBar)).setProgress(Math.round(100 * progress));
+        ((SeekBar) findViewById(R.id.manualControlSeekBar)).setTickMark(null);
+
+        findViewById(R.id.manualControl).setTag(R.id.manual_control_tag, MANUAL_CONTROL_MODE_FOCUS);
+        findViewById(R.id.manualControl).setVisibility(View.VISIBLE);
+
+        updateManualControlView(mSensorEventManager.getOrientation());
     }
 
     private void toggleIso() {
@@ -994,6 +1045,7 @@ public class CameraActivity extends AppCompatActivity implements
         ((TextView) findViewById(R.id.manualControlMaxText)).setText(mIsoValues.get(mIsoValues.size() - 1).toString());
 
         ((SeekBar) findViewById(R.id.manualControlSeekBar)).setMax(mIsoValues.size() - 1);
+        ((SeekBar) findViewById(R.id.manualControlSeekBar)).setTickMark(getDrawable(R.drawable.seekbar_tick_mark));
 
         int isoIdx = CameraManualControl.GetClosestIso(mIsoValues, mUserIso).ordinal();
 
@@ -1028,6 +1080,7 @@ public class CameraActivity extends AppCompatActivity implements
         ((TextView) findViewById(R.id.manualControlMaxText)).setText(mExposureValues.get(mExposureValues.size() - 1).toString());
 
         ((SeekBar) findViewById(R.id.manualControlSeekBar)).setMax(mExposureValues.size() - 1);
+        ((SeekBar) findViewById(R.id.manualControlSeekBar)).setTickMark(getDrawable(R.drawable.seekbar_tick_mark));
 
         int shutterIso = CameraManualControl.GetClosestShutterSpeed(mUserExposureTime).ordinal();
 
@@ -1037,6 +1090,22 @@ public class CameraActivity extends AppCompatActivity implements
         findViewById(R.id.manualControl).setVisibility(View.VISIBLE);
 
         updateManualControlView(mSensorEventManager.getOrientation());
+    }
+
+    private void setAfLock(boolean afLock) {
+        int color = afLock ? R.color.colorAccent : R.color.white;
+        ((TextView) findViewById(R.id.afLockBtn)).setTextColor(getColor(color));
+
+        if(mNativeCamera != null) {
+            mNativeCamera.setManualFocus(afLock ? mFocusDistance : 0);
+        }
+
+        mAfLock = afLock;
+
+        if(!mAfLock) {
+            findViewById(R.id.manualControl).setVisibility(View.GONE);
+            updateManualControlView(mSensorEventManager.getOrientation());
+        }
     }
 
     private void setAwbLock(boolean lock) {
@@ -1071,6 +1140,11 @@ public class CameraActivity extends AppCompatActivity implements
             setCaptureMode(CaptureMode.ZSL);
 
         mAeLock = lock;
+
+        if(!mAeLock) {
+            findViewById(R.id.manualControl).setVisibility(View.GONE);
+            updateManualControlView(mSensorEventManager.getOrientation());
+        }
     }
 
     private void setOIS(boolean ois) {
@@ -1569,6 +1643,17 @@ public class CameraActivity extends AppCompatActivity implements
                 mCameraMetadata.exposureTimeMin,
                 Math.min(MAX_EXPOSURE_TIME.getExposureTime(), mCameraMetadata.exposureTimeMax));
 
+        if(mCameraMetadata.oisSupport) {
+            findViewById(R.id.oisBtn).setVisibility(View.VISIBLE);
+        }
+        else {
+            findViewById(R.id.oisBtn).setVisibility(View.INVISIBLE);
+        }
+
+        ((TextView) findViewById(R.id.isoBtn)).setText("-");
+        ((TextView) findViewById(R.id.shutterSpeedBtn)).setText("-");
+        ((TextView) findViewById(R.id.focusBtn)).setText("-");
+
         int numEvSteps = mSelectedCamera.exposureCompRangeMax - mSelectedCamera.exposureCompRangeMin;
 
         mBinding.exposureSeekBar.setMax(numEvSteps);
@@ -1738,6 +1823,8 @@ public class CameraActivity extends AppCompatActivity implements
         findViewById(R.id.awbLockBtn).setOnClickListener(v -> setAwbLock(!mAwbLock));
         findViewById(R.id.oisBtn).setOnClickListener(v -> setOIS(!mOIS));
         findViewById(R.id.isoBtn).setOnClickListener(v -> toggleIso());
+        findViewById(R.id.focusBtn).setOnClickListener(v -> toggleFocus());
+        findViewById(R.id.afLockBtn).setOnClickListener(v -> setAfLock(!mAfLock));
         findViewById(R.id.shutterSpeedBtn).setOnClickListener(v -> toggleShutterSpeed());
 
         ((SeekBar) findViewById(R.id.manualControlSeekBar)).setOnSeekBarChangeListener(mSeekBarChangeListener);
@@ -1847,9 +1934,9 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     @Override
-    public void onCameraAutoFocusStateChanged(NativeCameraSessionBridge.CameraFocusState state) {
+    public void onCameraAutoFocusStateChanged(NativeCameraSessionBridge.CameraFocusState state, float focusDistance) {
         runOnUiThread(() -> {
-            onFocusStateChanged(state);
+            onFocusStateChanged(state, focusDistance);
         });
     }
 
@@ -2067,7 +2154,7 @@ public class CameraActivity extends AppCompatActivity implements
         }
     }
 
-    private void onFocusStateChanged(NativeCameraSessionBridge.CameraFocusState state) {
+    private void onFocusStateChanged(NativeCameraSessionBridge.CameraFocusState state, float focusDistance) {
         Log.i(TAG, "Focus state: " + state.name());
 
         if( state == NativeCameraSessionBridge.CameraFocusState.PASSIVE_SCAN ||
@@ -2109,14 +2196,18 @@ public class CameraActivity extends AppCompatActivity implements
                         .start();
             }
         }
+
+        float focusDistanceMeters = 1.0f / focusDistance;
+
+        ((TextView) findViewById(R.id.focusBtn)).setText(String.format("%.2f M", focusDistanceMeters));
+
+        mFocusDistance = focusDistance;
     }
 
     private void setAutoExposureState(NativeCameraSessionBridge.CameraExposureState state) {
         boolean timePassed = System.currentTimeMillis() - mFocusRequestedTimestampMs > 3000;
 
-        if(mCaptureMode != CaptureMode.RAW_VIDEO
-                && state == NativeCameraSessionBridge.CameraExposureState.SEARCHING
-                && timePassed)
+        if(state == NativeCameraSessionBridge.CameraExposureState.SEARCHING && timePassed)
         {
             setFocusState(FocusState.AUTO, null);
         }

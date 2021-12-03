@@ -362,10 +362,16 @@ jobject JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GetMetadata(
             cameraDesc->metadata.focalLengths.size(),
             &cameraDesc->metadata.focalLengths[0]);
 
+    bool oisSupport = true;
+    for(auto& mode : cameraDesc->oisModes) {
+        if(mode == ACAMERA_LENS_OPTICAL_STABILIZATION_MODE_ON)
+            oisSupport = true;
+    }
+
     jobject obj =
         env->NewObject(
                 nativeCameraMetadataClass,
-                env->GetMethodID(nativeCameraMetadataClass, "<init>", "(IIIJJII[F[F)V"),
+                env->GetMethodID(nativeCameraMetadataClass, "<init>", "(IIIJJII[F[FFFZ)V"),
                 cameraDesc->sensorOrientation,
                 cameraDesc->isoRange[0],
                 cameraDesc->isoRange[1],
@@ -374,7 +380,10 @@ jobject JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GetMetadata(
                 cameraDesc->maxAfRegions,
                 cameraDesc->maxAeRegions,
                 apertures,
-                focalLengths);
+                focalLengths,
+                cameraDesc->minimumFocusDistance,
+                cameraDesc->hyperFocalDistance,
+                !cameraDesc->oisModes.empty());
 
     return obj;
 }
@@ -1147,6 +1156,30 @@ Java_com_motioncam_camera_NativeCameraSessionBridge_SetOIS(JNIEnv *env, jobject 
     }
 
     sessionManager->setOIS(on);
+
+    return JNI_TRUE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_motioncam_camera_NativeCameraSessionBridge_SetManualFocus(JNIEnv *env, jobject thiz, jlong handle, jfloat focusDistance) {
+    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
+    if(!sessionManager) {
+        return JNI_FALSE;
+    }
+
+    sessionManager->setFocusDistance(focusDistance);
+
+    return JNI_TRUE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_motioncam_camera_NativeCameraSessionBridge_SetFocusForVideo(JNIEnv *env, jobject thiz, jlong handle, jboolean focusForVideo) {
+    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
+    if(!sessionManager) {
+        return JNI_FALSE;
+    }
+
+    sessionManager->setFocusForVideo(focusForVideo);
 
     return JNI_TRUE;
 }

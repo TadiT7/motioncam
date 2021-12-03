@@ -93,7 +93,7 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         void onCameraError(int error);
         void onCameraSessionStateChanged(CameraState state);
         void onCameraExposureStatus(int iso, long exposureTime);
-        void onCameraAutoFocusStateChanged(CameraFocusState state);
+        void onCameraAutoFocusStateChanged(CameraFocusState state, float focusDistance);
         void onCameraAutoExposureStateChanged(CameraExposureState state);
         void onCameraHdrImageCaptureProgress(int progress);
         void onCameraHdrImageCaptureFailed();
@@ -202,6 +202,18 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         ensureValidHandle();
 
         SetOIS(mNativeCameraHandle, ois);
+    }
+
+    public void setManualFocus(float focusDistance) {
+        ensureValidHandle();
+
+        SetManualFocus(mNativeCameraHandle, focusDistance);
+    }
+
+    public void setFocusForVideo(boolean focusForVideo) {
+        ensureValidHandle();
+
+        SetFocusForVideo(mNativeCameraHandle, focusForVideo);
     }
 
     public void setAWBLock(boolean lock) {
@@ -451,8 +463,8 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     }
 
     @Override
-    public void onCameraAutoFocusStateChanged(int state) {
-        mListener.onCameraAutoFocusStateChanged(CameraFocusState.FromInt(state));
+    public void onCameraAutoFocusStateChanged(int state, float focusDistance) {
+        mListener.onCameraAutoFocusStateChanged(CameraFocusState.FromInt(state), focusDistance);
     }
 
     @Override
@@ -514,6 +526,8 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native boolean SetAWBLock(long handle, boolean lock);
     private native boolean SetAELock(long handle, boolean lock);
     private native boolean SetOIS(long handle, boolean on);
+    private native boolean SetManualFocus(long handle, float focusDistance);
+    private native boolean SetFocusForVideo(long handle, boolean focusForVideo);
 
     private native boolean EnableRawPreview(long handle, NativeCameraRawPreviewListener listener, int previewQuality, boolean overrideWb);
     private native boolean SetRawPreviewSettings(long handle, float shadows, float contrast, float saturation, float blacks, float whitePoint, float tempOffset, float tintOfset, boolean useVideoPreview);

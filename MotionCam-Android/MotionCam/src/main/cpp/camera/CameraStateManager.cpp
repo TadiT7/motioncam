@@ -71,7 +71,9 @@ namespace motioncam {
         mFrameRate(30),
         mAwbLock(false),
         mAeLock(false),
-        mOis(true)
+        mOis(true),
+        mFocusDistance(0),
+        mFocusForVideo(false)
     {
     }
 
@@ -107,12 +109,16 @@ namespace motioncam {
     void CameraStateManager::requestMode(CameraMode mode) {
         mCameraMode = mode;
         mAeLock = false;
+        mFocusDistance = 0;
 
         setAutoFocus();
     }
 
     void CameraStateManager::requestPause() {
         LOGD("requestPause()");
+
+        mFocusDistance = 0;
+        mAeLock = false;
 
         setState(State::PAUSED);
         ACameraCaptureSession_stopRepeating(mSessionContext.captureSession.get());
@@ -130,6 +136,7 @@ namespace motioncam {
     void CameraStateManager::requestUserFocus(float x, float y) {
         mRequestedFocusX = x;
         mRequestedFocusY = y;
+        mFocusDistance = 0;
 
         LOGD("requestUserFocus(%.2f, %.2f)", x, y);
 
@@ -144,9 +151,18 @@ namespace motioncam {
         }
     }
 
+    void CameraStateManager::requestManualFocus(float distance) {
+        LOGD("requestManualFocus(%.2f)", distance);
+
+        mFocusDistance = distance;
+
+        setAutoFocus();
+    }
+
     void CameraStateManager::requestAutoFocus() {
         mRequestedFocusX = 0.5f;
         mRequestedFocusY = 0.5f;
+        mFocusDistance = 0;
 
         LOGD("requestAutoFocus()");
 
@@ -168,7 +184,7 @@ namespace motioncam {
         if(mExposureCompensation == exposureCompensation)
             return;
 
-        LOGD("exposureCompensation=%d", exposureCompensation);
+        LOGD("exposureCompensation(%d)", exposureCompensation);
 
         mExposureCompensation = exposureCompensation;
 
@@ -183,6 +199,8 @@ namespace motioncam {
     void CameraStateManager::requestAwbLock(bool lock) {
         mAwbLock = lock;
 
+        LOGD("requestAwbLock(%d)", lock);
+
         if(mState == State::AUTO_FOCUS_ACTIVE) {
             setAutoFocus();
         }
@@ -194,6 +212,8 @@ namespace motioncam {
     void CameraStateManager::requestAeLock(bool lock) {
         mAeLock = lock;
 
+        LOGD("requestAeLock(%d)", lock);
+
         if(mState == State::AUTO_FOCUS_ACTIVE) {
             setAutoFocus();
         }
@@ -204,6 +224,8 @@ namespace motioncam {
 
     void CameraStateManager::requestOis(bool ois) {
         mOis = ois;
+
+        LOGD("requestOis(%d)", ois);
 
         if(mState == State::AUTO_FOCUS_ACTIVE) {
             setAutoFocus();
@@ -217,7 +239,7 @@ namespace motioncam {
         if(mFrameRate == frameRate)
             return;
 
-        LOGD("frameRate=%d", frameRate);
+        LOGD("requestFrameRate(%d)", frameRate);
 
         mFrameRate = frameRate;
 
@@ -227,6 +249,19 @@ namespace motioncam {
         int32_t frameDuration[2] = { startRange, endRange };
 
         ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_TARGET_FPS_RANGE, 2, &frameDuration[0]);
+
+        if(mState == State::AUTO_FOCUS_ACTIVE) {
+            setAutoFocus();
+        }
+        else if(mState == State::USER_FOCUS_ACTIVE) {
+            setUserFocus();
+        }
+    }
+
+    void CameraStateManager::setFocusForVideo(bool focusForVideo) {
+        mFocusForVideo = focusForVideo;
+
+        LOGD("setFocusForVideo(%d)", focusForVideo);
 
         if(mState == State::AUTO_FOCUS_ACTIVE) {
             setAutoFocus();
@@ -251,7 +286,6 @@ namespace motioncam {
         }
         else if(mCameraMode == CameraMode::MANUAL) {
             aeMode = ACAMERA_CONTROL_AE_MODE_OFF;
-            controlMode = ACAMERA_CONTROL_MODE_OFF;
 
             ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &mUserIso);
             ACaptureRequest_setEntry_i64(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &mUserExposureTime);
@@ -261,26 +295,14 @@ namespace motioncam {
             LOGD("userIso=%d, userExposure=%.4f", mUserIso, mUserExposureTime/1.0e9f);
         }
 
-        //
-        // TODO: Check if camera supports params
-        //
-
-//        // Enable OIS
-//        for(auto& oisMode : mCameraDescription->oisModes) {
-//            if(oisMode == ACAMERA_LENS_OPTICAL_STABILIZATION_MODE_ON) {
-//                uint8_t omode = ACAMERA_LENS_OPTICAL_STABILIZATION_MODE_ON;
-//
-//                LOGD("Enabling OIS");
-//                ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_LENS_OPTICAL_STABILIZATION_MODE, 1, &omode);
-//                break;
-//            }
-//        }
-
         uint8_t awbLock = mAwbLock ? ACAMERA_CONTROL_AWB_LOCK_ON : ACAMERA_CONTROL_AWB_LOCK_OFF;
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AWB_LOCK, 1, &awbLock);
 
         uint8_t omode = mOis ? ACAMERA_LENS_OPTICAL_STABILIZATION_MODE_ON : ACAMERA_LENS_OPTICAL_STABILIZATION_MODE_OFF;
-        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_LENS_OPTICAL_STABILIZATION_MODE, 1, &omode);
+        for(auto& m : mCameraDescription.oisModes) {
+            if(m == omode)
+                ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_LENS_OPTICAL_STABILIZATION_MODE, 1, &omode);
+        }
 
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_MODE, 1, &aeMode);
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_MODE, 1, &controlMode);
@@ -415,9 +437,19 @@ namespace motioncam {
     }
 
     bool CameraStateManager::setAutoFocus() {
-        uint8_t afMode  = ACAMERA_CONTROL_AF_MODE_CONTINUOUS_PICTURE;
+        uint8_t afMode;
         uint8_t afTrigger = ACAMERA_CONTROL_AF_TRIGGER_IDLE;
         uint8_t aeTrigger = ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
+
+        // Adjust focus if manual focus is set
+        if(mFocusDistance > 0) {
+            ACaptureRequest_setEntry_float(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_LENS_FOCUS_DISTANCE, 1, &mFocusDistance);
+            afMode = ACAMERA_CONTROL_AF_MODE_OFF;
+        }
+        else {
+            ACaptureRequest_setEntry_float(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_LENS_FOCUS_DISTANCE, 0, nullptr);
+            afMode = mFocusForVideo ? ACAMERA_CONTROL_AF_MODE_CONTINUOUS_VIDEO : ACAMERA_CONTROL_AF_MODE_CONTINUOUS_PICTURE;
+        }
 
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_MODE, 1, &afMode);
         ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_EXPOSURE_COMPENSATION, 1, &mExposureCompensation);

@@ -30,6 +30,8 @@ namespace motioncam {
             exposureCompensationRange{0},
             isoRange{0},
             exposureRange{0},
+            hyperFocalDistance(0),
+            minimumFocusDistance(0),
             exposureCompensationStepFraction{1},
             sensorSize{0, 0, 0, 0},
             maxAfRegions(0),
@@ -53,6 +55,9 @@ namespace motioncam {
         int32_t exposureCompensationRange[2];
         int32_t isoRange[2];
         int64_t exposureRange[2];
+        float minimumFocusDistance;
+        float hyperFocalDistance;
+
         std::vector<float> focalLength;
 
         Size sensorSize;

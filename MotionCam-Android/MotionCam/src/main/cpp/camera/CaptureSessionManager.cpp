@@ -154,6 +154,16 @@ namespace motioncam {
             cameraDescription.lensFacing = static_cast<acamera_metadata_enum_android_lens_facing_t> (entry.data.u8[0]);
         }
 
+        // ACAMERA_LENS_INFO_MINIMUM_FOCUS_DISTANCE
+        if(ACameraMetadata_getConstEntry(cameraChars.get(), ACAMERA_LENS_INFO_MINIMUM_FOCUS_DISTANCE, &entry) == ACAMERA_OK) {
+            cameraDescription.minimumFocusDistance = entry.data.f[0];
+        }
+
+        // ACAMERA_LENS_INFO_HYPERFOCAL_DISTANCE
+        if(ACameraMetadata_getConstEntry(cameraChars.get(), ACAMERA_LENS_INFO_HYPERFOCAL_DISTANCE, &entry) == ACAMERA_OK) {
+            cameraDescription.hyperFocalDistance = entry.data.f[0];
+        }
+
         // ACAMERA_LENS_INFO_AVAILABLE_FOCAL_LENGTHS
         if(ACameraMetadata_getConstEntry(cameraChars.get(), ACAMERA_LENS_INFO_AVAILABLE_FOCAL_LENGTHS, &entry) == ACAMERA_OK) {
             for (int cnt = 0; cnt < entry.count; cnt++) {
@@ -596,6 +606,16 @@ namespace motioncam {
     void CaptureSessionManager::setOIS(bool on) {
         if(mCameraSession)
             mCameraSession->setOIS(on);
+    }
+
+    void CaptureSessionManager::setFocusDistance(float focusDistance) {
+        if(mCameraSession)
+            mCameraSession->setFocusDistance(focusDistance);
+    }
+
+    void CaptureSessionManager::setFocusForVideo(bool focusForVideo) {
+        if(mCameraSession)
+            mCameraSession->setFocusForVideo(focusForVideo);
     }
 
     void CaptureSessionManager::enableRawPreview(std::shared_ptr<RawPreviewListener> listener, const int previewQuality, bool overrideWb) {

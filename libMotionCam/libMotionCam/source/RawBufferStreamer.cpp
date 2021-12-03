@@ -107,9 +107,10 @@ namespace motioncam {
 
         auto croppedBuffer = std::make_shared<RawImageBuffer>();
 
-        croppedBuffer->width = buffer->width - horizontalCrop*2;
-        croppedBuffer->height = buffer->height - verticalCrop*2;
-        croppedBuffer->metadata = buffer->metadata;
+        croppedBuffer->width        = buffer->width - horizontalCrop*2;
+        croppedBuffer->height       = buffer->height - verticalCrop*2;
+        croppedBuffer->metadata     = buffer->metadata;
+        croppedBuffer->pixelFormat  = buffer->pixelFormat;
         croppedBuffer->isCompressed = false;
 
         std::vector<uint8_t> dstBuffer;

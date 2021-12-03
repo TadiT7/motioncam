@@ -87,16 +87,16 @@ namespace motioncam {
             env.getEnv()->CallVoidMethod(mListenerInstance, callbackMethod, iso, exposureTime);
     }
 
-    void NativeCameraBridgeListener::onCameraAutoFocusStateChanged(const CameraFocusState state) {
+    void NativeCameraBridgeListener::onCameraAutoFocusStateChanged(const CameraFocusState state, const float focusDistance) {
         JavaEnv env(mJavaVm);
         if (!env.getEnv()) {
             LOGE("Dropped onCameraAutoFocusStateChanged()");
             return;
         }
 
-        jmethodID callbackMethod = env.getEnv()->GetMethodID(mListenerClass, "onCameraAutoFocusStateChanged", "(I)V");
+        jmethodID callbackMethod = env.getEnv()->GetMethodID(mListenerClass, "onCameraAutoFocusStateChanged", "(IF)V");
         if(callbackMethod)
-            env.getEnv()->CallVoidMethod(mListenerInstance, callbackMethod, (int) state);
+            env.getEnv()->CallVoidMethod(mListenerInstance, callbackMethod, (int) state, focusDistance);
     }
 
     void NativeCameraBridgeListener::onCameraAutoExposureStateChanged(const CameraExposureState state) {

@@ -46,25 +46,35 @@
 
         <LinearLayout
             android:id="@+id/exposureControls"
-            android:layout_width="130dp"
+            android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:orientation="horizontal"
             android:background="@drawable/manual_controls_frame_background">
 
             <TextView
                 android:id="@+id/shutterSpeedBtn"
-                android:layout_width="65dp"
+                android:layout_width="50dp"
                 android:layout_height="match_parent"
                 android:gravity="center"
-                android:text=""
+                android:text="1/8000"
                 android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold" />
 
             <TextView
                 android:id="@+id/isoBtn"
-                android:layout_width="65dp"
+                android:layout_width="50dp"
                 android:layout_height="match_parent"
                 android:gravity="center"
+                android:text="3200"
                 android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"/>
+
+            <TextView
+                android:id="@+id/focusBtn"
+                android:layout_width="50dp"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="0 M"
+                android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"/>
+
         </LinearLayout>
 
         <LinearLayout
@@ -81,6 +91,16 @@
                 android:gravity="center"
                 android:drawablePadding="5dp"
                 android:text="AE LOCK"
+                android:layout_weight="1"
+                android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"/>
+
+            <TextView
+                android:id="@+id/afLockBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:drawablePadding="5dp"
+                android:text="AF LOCK"
                 android:layout_weight="1"
                 android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"/>
 
@@ -104,7 +124,10 @@
                 android:layout_weight="1"
                 android:textColor="@color/colorAccent"
                 android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"/>
+
         </LinearLayout>
+
+
     </LinearLayout>
 
 </LinearLayout>
