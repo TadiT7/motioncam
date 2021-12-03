@@ -152,12 +152,16 @@
 
         <LinearLayout
             android:id="@+id/manualControlsFrame"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:rotation="0"
-            app:layout_constraintStart_toStartOf="@+id/cameraFrame"
-            app:layout_constraintTop_toTopOf="@+id/cameraFrame">
+            android:padding="10dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
 
             <LinearLayout
                 android:id="@+id/cameraSelection"

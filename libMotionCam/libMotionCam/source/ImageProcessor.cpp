@@ -399,7 +399,7 @@ namespace motioncam {
         }
                 
         // Estimate black point
-        const int maxBlackPointBin = 0.1f * histBins[0] + 0.5f;
+        const int maxBlackPointBin = 0.07f * histBins[0] + 0.5f;
 
         int endBin = 1;
         
@@ -407,7 +407,7 @@ namespace motioncam {
             float p0 = histogram.at<float>(endBin);
             float p1 = histogram.at<float>(endBin + 1);
                         
-            if(p1 - p0 > 0.002f)
+            if(p1 - p0 > 0.001f)
                 break;
         }
                 

@@ -341,7 +341,7 @@ public class CameraActivity extends AppCompatActivity implements
                 toggleVideoCrop();
             }
             else if(seekBar == findViewById(R.id.manualControlSeekBar)) {
-                toggleManualControls();
+                hideManualControls();
             }
         }
     };
@@ -524,10 +524,7 @@ public class CameraActivity extends AppCompatActivity implements
         setAfLock(false);
         setOIS(true);
 
-        // Reset manual controls
-        updateManualControlView(mSensorEventManager.getOrientation());
-
-        mBinding.focusLockPointFrame.setVisibility(View.INVISIBLE);
+        mBinding.focusLockPointFrame.setVisibility(View.GONE);
         mBinding.previewPager.registerOnPageChangeCallback(mCapturedPreviewPagerListener);
 
         mFocusState = FocusState.AUTO;
@@ -956,9 +953,8 @@ public class CameraActivity extends AppCompatActivity implements
         }
     }
 
-    private void toggleManualControls() {
+    private void hideManualControls() {
         findViewById(R.id.manualControl).setVisibility(View.GONE);
-
         updateManualControlView(mSensorEventManager.getOrientation());
     }
 
@@ -991,7 +987,7 @@ public class CameraActivity extends AppCompatActivity implements
             int selectionMode = (int) findViewById(R.id.manualControl).getTag(R.id.manual_control_tag);
 
             if(selectionMode == MANUAL_CONTROL_MODE_FOCUS) {
-                setAfLock(false);
+                hideManualControls();
                 return;
             }
         }
@@ -1028,7 +1024,7 @@ public class CameraActivity extends AppCompatActivity implements
             int selectionMode = (int) findViewById(R.id.manualControl).getTag(R.id.manual_control_tag);
 
             if(selectionMode == MANUAL_CONTROL_MODE_ISO) {
-                toggleManualControls();
+                hideManualControls();
                 return;
             }
         }
@@ -1063,7 +1059,7 @@ public class CameraActivity extends AppCompatActivity implements
             int selectionMode = (int) findViewById(R.id.manualControl).getTag(R.id.manual_control_tag);
 
             if(selectionMode == MANUAL_CONTROL_MODE_SHUTTER_SPEED) {
-                toggleManualControls();
+                hideManualControls();
                 return;
             }
         }
@@ -1093,6 +1089,9 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void setAfLock(boolean afLock) {
+        if(mAfLock == afLock)
+            return;
+
         int color = afLock ? R.color.colorAccent : R.color.white;
         ((TextView) findViewById(R.id.afLockBtn)).setTextColor(getColor(color));
 
@@ -1103,12 +1102,16 @@ public class CameraActivity extends AppCompatActivity implements
         mAfLock = afLock;
 
         if(!mAfLock) {
-            findViewById(R.id.manualControl).setVisibility(View.GONE);
-            updateManualControlView(mSensorEventManager.getOrientation());
+            hideManualControls();
         }
+
+        mBinding.focusLockPointFrame.setVisibility(View.GONE);
     }
 
     private void setAwbLock(boolean lock) {
+        if(mAwbLock == lock)
+            return;
+
         int color = lock ? R.color.colorAccent : R.color.white;
         ((TextView) findViewById(R.id.awbLockBtn)).setTextColor(getColor(color));
 
@@ -1142,12 +1145,14 @@ public class CameraActivity extends AppCompatActivity implements
         mAeLock = lock;
 
         if(!mAeLock) {
-            findViewById(R.id.manualControl).setVisibility(View.GONE);
-            updateManualControlView(mSensorEventManager.getOrientation());
+            hideManualControls();
         }
     }
 
     private void setOIS(boolean ois) {
+        if(mOIS == ois)
+            return;
+
         int color = ois ? R.color.colorAccent : R.color.white;
         ((TextView) findViewById(R.id.oisBtn)).setTextColor(getColor(color));
 
@@ -1912,7 +1917,13 @@ public class CameraActivity extends AppCompatActivity implements
             runOnUiThread(() ->
             {
                 mBinding.switchCameraBtn.setEnabled(true);
+
                 updatePreviewSettings();
+
+                mBinding.manualControlsFrame.setVisibility(View.VISIBLE);
+                mBinding.manualControlsFrame.setAlpha(0.0f);
+
+                updateManualControlView(mSensorEventManager.getOrientation());
             });
         }
     }
@@ -2060,39 +2071,54 @@ public class CameraActivity extends AppCompatActivity implements
         runOnUiThread(() -> findViewById(R.id.rawCameraPreview).invalidate());
     }
 
+    private void alignManualControlView(NativeCameraBuffer.ScreenOrientation orientation) {
+        ViewGroup.LayoutParams params = mBinding.manualControlsFrame.getLayoutParams();
+        if(     orientation == NativeCameraBuffer.ScreenOrientation.LANDSCAPE
+            ||  orientation == NativeCameraBuffer.ScreenOrientation.REVERSE_LANDSCAPE)
+        {
+            params.width = mBinding.cameraFrame.getHeight();
+        }
+        else {
+            params.width = mBinding.cameraFrame.getWidth();
+        }
+
+        mBinding.manualControlsFrame.setLayoutParams(params);
+        mBinding.manualControlsFrame.setAlpha(1.0f);
+
+        final int rotation;
+        final int translationX;
+        final int translationY;
+
+        // Update position of manual controls
+        if(orientation == NativeCameraBuffer.ScreenOrientation.REVERSE_PORTRAIT) {
+            rotation = 180;
+            translationX = 0;
+            translationY = -(mBinding.cameraFrame.getHeight() - mBinding.manualControlsFrame.getHeight()) / 2;
+        }
+        else if(orientation == NativeCameraBuffer.ScreenOrientation.LANDSCAPE) {
+            rotation = 90;
+            translationX = -mBinding.cameraFrame.getWidth()/2 + mBinding.manualControlsFrame.getHeight()/2;
+            translationY = 0;
+        }
+        else if(orientation == NativeCameraBuffer.ScreenOrientation.REVERSE_LANDSCAPE) {
+            rotation = -90;
+            translationX = mBinding.cameraFrame.getWidth()/2 - mBinding.manualControlsFrame.getHeight()/2;
+            translationY = 0;
+        }
+        else {
+            // Portrait
+            rotation = 0;
+            translationX = 0;
+            translationY = (mBinding.cameraFrame.getHeight() - mBinding.manualControlsFrame.getHeight()) / 2;
+        }
+
+        mBinding.manualControlsFrame.setRotation(rotation);
+        mBinding.manualControlsFrame.setTranslationX(translationX);
+        mBinding.manualControlsFrame.setTranslationY(translationY);
+    }
+
     private void updateManualControlView(NativeCameraBuffer.ScreenOrientation orientation) {
-        mBinding.manualControlsFrame.post(() ->  {
-            final int rotation;
-            final int translationX;
-            final int translationY;
-
-            // Update position of manual controls
-            if(orientation == NativeCameraBuffer.ScreenOrientation.REVERSE_PORTRAIT) {
-                rotation = 180;
-                translationX = 0;
-                translationY = 0;
-            }
-            else if(orientation == NativeCameraBuffer.ScreenOrientation.LANDSCAPE) {
-                rotation = 90;
-                translationX = -mBinding.cameraFrame.getWidth() / 2 + mBinding.manualControlsFrame.getHeight() / 2;
-                translationY = mBinding.cameraFrame.getHeight() / 2 - mBinding.manualControlsFrame.getHeight() / 2;
-            }
-            else if(orientation == NativeCameraBuffer.ScreenOrientation.REVERSE_LANDSCAPE) {
-                rotation = -90;
-                translationX = mBinding.cameraFrame.getWidth() / 2 - mBinding.manualControlsFrame.getHeight() / 2;
-                translationY = mBinding.cameraFrame.getHeight() / 2 - mBinding.manualControlsFrame.getHeight() / 2;
-            }
-            else {
-                // Portrait
-                rotation = 0;
-                translationX = 0;
-                translationY = mBinding.cameraFrame.getHeight() - mBinding.manualControlsFrame.getHeight();
-            }
-
-            mBinding.manualControlsFrame.setRotation(rotation);
-            mBinding.manualControlsFrame.setTranslationX(translationX);
-            mBinding.manualControlsFrame.setTranslationY(translationY);
-        });
+        mBinding.manualControlsFrame.post(() -> alignManualControlView(orientation));
     }
 
     @Override
@@ -2109,8 +2135,6 @@ public class CameraActivity extends AppCompatActivity implements
             else
                 mNativeCamera.updateOrientation(orientation);
         }
-
-        updateManualControlView(orientation);
 
         final int duration = 500;
 
@@ -2132,6 +2156,7 @@ public class CameraActivity extends AppCompatActivity implements
                 .setDuration(duration)
                 .start();
 
+        updateManualControlView(orientation);
     }
 
     private void onShadowsSeekBarChanged(int progress) {
@@ -2192,7 +2217,7 @@ public class CameraActivity extends AppCompatActivity implements
                         .alpha(0)
                         .setStartDelay(500)
                         .setDuration(250)
-                        .withEndAction(() -> mBinding.focusLockPointFrame.setVisibility(View.INVISIBLE))
+                        .withEndAction(() -> mBinding.focusLockPointFrame.setVisibility(View.GONE))
                         .start();
             }
         }
@@ -2283,6 +2308,10 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.focusLockPointFrame.setVisibility(View.VISIBLE);
         mBinding.focusLockPointFrame.setAlpha(1.0f);
         mBinding.focusLockPointFrame.animate().cancel();
+
+        // AF lock turned off
+        mAfLock = false;
+        ((TextView) findViewById(R.id.afLockBtn)).setTextColor(getColor(R.color.white));
 
         setFocusState(FocusState.FIXED, pt);
     }
