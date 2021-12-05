@@ -184,9 +184,6 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                         CameraActivity.WORKER_VIDEO_PROCESSOR,
                         ExistingWorkPolicy.APPEND_OR_REPLACE,
                         request);
-
-        // Monitor progress
-        getView().findViewById(R.id.processingLayout).setVisibility(View.VISIBLE);
     }
 
     @Override
@@ -241,6 +238,9 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                     progressBar.setProgress(completed);
                 }
             }
+
+            // Monitor progress
+            getView().findViewById(R.id.processingLayout).setVisibility(View.VISIBLE);
         }
 
         for(WorkInfo workInfo : workInfos) {
