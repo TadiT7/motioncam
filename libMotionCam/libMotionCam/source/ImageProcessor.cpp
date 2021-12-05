@@ -93,7 +93,6 @@ static std::vector<Halide::Runtime::Buffer<float>> createWaveletBuffers(int widt
 }
 
 namespace motioncam {
-    const int EXPANDED_RANGE            = 16384;
     const float MAX_HDR_ERROR           = 0.0001f;
     const float SHADOW_BIAS             = 12.0f;
 
@@ -1160,9 +1159,9 @@ namespace motioncam {
             RawCameraMetadata metadata = rawContainer.getCameraMetadata();
             
             metadata.blackLevel[0] = 0;
-            metadata.blackLevel[1] = 1;
-            metadata.blackLevel[2] = 2;
-            metadata.blackLevel[3] = 3;
+            metadata.blackLevel[1] = 0;
+            metadata.blackLevel[2] = 0;
+            metadata.blackLevel[3] = 0;
             
             metadata.whiteLevel = EXPANDED_RANGE;
             
@@ -1372,6 +1371,71 @@ namespace motioncam {
         return m[0];
     }
 
+    Halide::Runtime::Buffer<float> ImageProcessor::denoise(
+        std::shared_ptr<RawImageBuffer> referenceRawBuffer,
+        std::vector<std::shared_ptr<RawImageBuffer>> buffers,
+        const RawCameraMetadata& cameraMetadata)
+    {
+        const int patchSize = 16;
+        std::vector<float> noise, signal;
+
+        // Measure noise in reference
+        measureNoise(*referenceRawBuffer, noise, signal, patchSize);
+
+        auto reference = loadRawImage(*referenceRawBuffer, cameraMetadata, false);
+                
+        cv::Mat referenceFlowImage(reference->previewBuffer.height(), reference->previewBuffer.width(), CV_8U, reference->previewBuffer.data());
+        
+        Halide::Runtime::Buffer<float> fuseOutput(reference->rawBuffer.width(), reference->rawBuffer.height(), 4);
+        Halide::Runtime::Buffer<float> thresholdBuffer(&noise[0], 4);
+        
+        fuseOutput.fill(0);
+        
+        float w = 1.0f / (2.0f*sqrt(2.0f));
+
+        for(int i = 0; i < buffers.size(); i++) {
+            auto current = loadRawImage(*buffers[i], cameraMetadata, false);
+            
+            cv::Mat flow;
+            cv::Mat currentFlowImage(current->previewBuffer.height(),
+                                     current->previewBuffer.width(),
+                                     CV_8U,
+                                     current->previewBuffer.data());
+            
+            cv::Ptr<cv::DISOpticalFlow> opticalFlow =
+                cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_ULTRAFAST);
+                                
+            opticalFlow->setPatchSize(patchSize);
+            opticalFlow->setPatchStride(patchSize/2);
+            opticalFlow->setGradientDescentIterations(16);
+            opticalFlow->setUseMeanNormalization(true);
+            opticalFlow->setUseSpatialPropagation(true);
+            
+            opticalFlow->calc(referenceFlowImage, currentFlowImage, flow);
+            
+            Halide::Runtime::Buffer<float> flowBuffer =
+                Halide::Runtime::Buffer<float>::make_interleaved((float*) flow.data, flow.cols, flow.rows, 2);
+            
+            auto flowMean = cv::mean(flow);
+            
+            fuse_denoise_5x5(
+                reference->rawBuffer,
+                current->rawBuffer,
+                fuseOutput,
+                flowBuffer,
+                thresholdBuffer,
+                reference->rawBuffer.width(),
+                reference->rawBuffer.height(),
+                w,
+                2.0f,
+                flowMean[0],
+                flowMean[1],
+                fuseOutput);
+        }
+             
+        return fuseOutput;
+    }
+
     std::vector<Halide::Runtime::Buffer<uint16_t>> ImageProcessor::denoise(
         RawContainer& rawContainer,
         std::shared_ptr<RawImageBuffer> referenceRawBuffer,
@@ -1469,6 +1533,7 @@ namespace motioncam {
                 reference->rawBuffer.width(),
                 reference->rawBuffer.height(),
                 w,
+                4.0f,
                 flowMean[0],
                 flowMean[1],
                 fuseOutput);

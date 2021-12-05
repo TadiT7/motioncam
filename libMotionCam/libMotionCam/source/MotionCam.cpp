@@ -5,6 +5,7 @@
 #include "motioncam/Logger.h"
 
 #include "build_bayer.h"
+#include "build_bayer2.h"
 
 #include <HalideBuffer.h>
 
@@ -56,7 +57,7 @@ namespace motioncam {
         }
     }
 
-    float ConvertVideoToDNG(const std::string& containerPath, const DngProcessorProgress& progress, const int numThreads) {
+    float ConvertVideoToDNG(const std::string& containerPath, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
         if(RUNNING)
             throw std::runtime_error("Already running");
         
@@ -87,6 +88,17 @@ namespace motioncam {
         if(threads.empty())
             return 0;
         
+        RawCameraMetadata metadata = container.getCameraMetadata();
+
+        if(mergeFrames > 0) {
+            metadata.blackLevel[0] = 0;
+            metadata.blackLevel[1] = 0;
+            metadata.blackLevel[2] = 0;
+            metadata.blackLevel[3] = 0;
+            
+            metadata.whiteLevel = EXPANDED_RANGE;
+        }
+        
         for(int i = 0; i < frames.size(); i++) {
             auto frame = container.loadFrame(frames[i]);
             
@@ -95,15 +107,72 @@ namespace motioncam {
             }
             
             // Convert from RAW10/16 -> bayer image
-            auto* data = frame->data->lock(false);
-
-            auto inputBuffer = Halide::Runtime::Buffer<uint8_t>(data, (int) frame->data->len());
             auto bayerBuffer = Halide::Runtime::Buffer<uint16_t>(frame->width, frame->height);
-            
-            build_bayer(inputBuffer, frame->rowStride, static_cast<int>(frame->pixelFormat), bayerBuffer);
+                        
+            if(mergeFrames == 0) {
+                auto data = frame->data->lock(false);
+                auto inputBuffer = Halide::Runtime::Buffer<uint8_t>(data, (int) frame->data->len());
 
-            frame->data->unlock();
-            frame->data->release();
+                frame->data->unlock();
+                
+                build_bayer(inputBuffer, frame->rowStride, static_cast<int>(frame->pixelFormat), bayerBuffer);
+            }
+            else {
+                std::vector<std::shared_ptr<RawImageBuffer>> nearestBuffers;
+                
+                int leftOffset = -1;
+                int rightOffset = 1;
+                
+                // Get the nearest frames
+                while(true) {
+                    if(i + leftOffset >= 0) {
+                        auto left = container.loadFrame(frames[i + leftOffset]);
+                        nearestBuffers.push_back(left);
+
+                        leftOffset--;
+
+                        if(nearestBuffers.size() >= mergeFrames)
+                            break;
+                    }
+
+                    if(i + rightOffset < frames.size()) {
+                        auto right = container.loadFrame(frames[i + rightOffset]);
+                        nearestBuffers.push_back(right);
+
+                        if(nearestBuffers.size() >= mergeFrames)
+                            break;
+
+                        rightOffset++;
+                    }
+                    
+                    if(i + leftOffset < 0 && i + rightOffset >= frames.size())
+                        break;
+                }
+                
+                auto denoiseBuffer = ImageProcessor::denoise(frame, nearestBuffers, container.getCameraMetadata());
+                
+                auto blackLevel = container.getCameraMetadata().blackLevel;
+                auto whiteLevel = container.getCameraMetadata().whiteLevel;
+                
+                build_bayer2(denoiseBuffer,
+                             blackLevel[0],
+                             blackLevel[1],
+                             blackLevel[2],
+                             blackLevel[3],
+                             whiteLevel,
+                             1.0f / nearestBuffers.size(),
+                             EXPANDED_RANGE,
+                             bayerBuffer);
+            }
+
+            // Release previous frames
+            int m = i - mergeFrames;
+            while(m >= 0) {
+                auto prevFrame = container.getFrame(frames[m]);
+                prevFrame->data->release();
+                
+                --m;
+            }
             
             if(timestampOffset <= 0) {
                 timestampOffset = frame->metadata.timestampNs;
@@ -119,7 +188,7 @@ namespace motioncam {
                 break;
             }
 
-            while(!JOB_QUEUE.try_enqueue(std::make_shared<Job>(bayerImage, container.getCameraMetadata(), frame->metadata, fd))) {
+            while(!JOB_QUEUE.try_enqueue(std::make_shared<Job>(bayerImage, metadata, frame->metadata, fd))) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             
@@ -169,5 +238,32 @@ namespace motioncam {
 
     void ProcessImage(RawContainer& rawContainer, const std::string& outputFilePath, const ImageProcessorProgress& progressListener) {
         ImageProcessor::process(rawContainer, outputFilePath, progressListener);
+    }
+
+    void GetMetadata(const std::string& containerPath, float& outFrameRate, int& outNumFrames) {
+        RawContainer container(containerPath);
+        
+        auto frames = container.getFrames();
+        
+        // Sort frames by timestamp
+        std::sort(frames.begin(), frames.end(), [&](std::string& a, std::string& b) {
+            return container.getFrame(a)->metadata.timestampNs < container.getFrame(b)->metadata.timestampNs;
+        });
+                
+        int64_t timestampOffset = 0;
+        float timestamp = 0;
+
+        for(int i = 0; i < frames.size(); i++) {
+            auto frame = container.getFrame(frames[i]);
+            
+            if(timestampOffset <= 0) {
+                timestampOffset = frame->metadata.timestampNs;
+            }
+            
+            timestamp = (frame->metadata.timestampNs - timestampOffset) / (1000.0f*1000.0f*1000.0f);
+        }
+        
+        outNumFrames = (int) frames.size();
+        outFrameRate  = frames.size() / (1e-5f + timestamp);
     }
 }

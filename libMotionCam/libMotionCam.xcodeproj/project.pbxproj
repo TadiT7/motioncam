@@ -162,6 +162,8 @@
 		4576A650273EB24800657DFC /* hdr_mask.h in Headers */ = {isa = PBXBuildFile; fileRef = 4576A64E273EB24800657DFC /* hdr_mask.h */; };
 		4576A6532740582300657DFC /* fuse_denoise_7x7.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4576A6512740582300657DFC /* fuse_denoise_7x7.a */; };
 		4576A6542740582300657DFC /* fuse_denoise_7x7.h in Headers */ = {isa = PBXBuildFile; fileRef = 4576A6522740582300657DFC /* fuse_denoise_7x7.h */; };
+		458A354A275BC3F300E57813 /* build_bayer2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 458A3548275BC3F300E57813 /* build_bayer2.a */; };
+		458A354B275BC3F300E57813 /* build_bayer2.h in Headers */ = {isa = PBXBuildFile; fileRef = 458A3549275BC3F300E57813 /* build_bayer2.h */; };
 		459D44B92752BB4600E68BF9 /* camera_video_preview2_raw16.h in Headers */ = {isa = PBXBuildFile; fileRef = 459D44AD2752BB4500E68BF9 /* camera_video_preview2_raw16.h */; };
 		459D44BA2752BB4600E68BF9 /* camera_video_preview3_raw16.h in Headers */ = {isa = PBXBuildFile; fileRef = 459D44AE2752BB4500E68BF9 /* camera_video_preview3_raw16.h */; };
 		459D44BB2752BB4600E68BF9 /* camera_video_preview4_raw10.h in Headers */ = {isa = PBXBuildFile; fileRef = 459D44AF2752BB4500E68BF9 /* camera_video_preview4_raw10.h */; };
@@ -448,6 +450,8 @@
 		458976B02449DACF008F348E /* miniz_tinfl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = miniz_tinfl.c; sourceTree = "<group>"; };
 		458976B12449DACF008F348E /* miniz_tdef.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = miniz_tdef.h; sourceTree = "<group>"; };
 		458976B62449DFD1008F348E /* miniz_common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = miniz_common.h; sourceTree = "<group>"; };
+		458A3548275BC3F300E57813 /* build_bayer2.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = build_bayer2.a; sourceTree = "<group>"; };
+		458A3549275BC3F300E57813 /* build_bayer2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = build_bayer2.h; sourceTree = "<group>"; };
 		45936A2B23BA979C00CC85D4 /* Settings.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Settings.cpp; sourceTree = "<group>"; };
 		4594FE0424D02125006FED24 /* libopencv_dnn_superres.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libopencv_dnn_superres.dylib; path = ../../../../../usr/local/lib/libopencv_dnn_superres.dylib; sourceTree = "<group>"; };
 		459D44AD2752BB4500E68BF9 /* camera_video_preview2_raw16.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_video_preview2_raw16.h; sourceTree = "<group>"; };
@@ -573,6 +577,7 @@
 				4521E01B2732E69800DEBD25 /* fuse_image.a in Frameworks */,
 				459D44C32752BB4600E68BF9 /* camera_video_preview2_raw16.a in Frameworks */,
 				4521E01D2732E69800DEBD25 /* preview_portrait4.a in Frameworks */,
+				458A354A275BC3F300E57813 /* build_bayer2.a in Frameworks */,
 				4521E0102732E69800DEBD25 /* preview_landscape4.a in Frameworks */,
 				4521E0042732E69800DEBD25 /* deinterleave_raw.a in Frameworks */,
 				4521E0252732E69900DEBD25 /* halide_runtime_host.a in Frameworks */,
@@ -815,6 +820,8 @@
 			children = (
 				4521DFFB2732E69600DEBD25 /* build_bayer.a */,
 				4521DFDD2732E69100DEBD25 /* build_bayer.h */,
+				458A3548275BC3F300E57813 /* build_bayer2.a */,
+				458A3549275BC3F300E57813 /* build_bayer2.h */,
 				4521DFFD2732E69600DEBD25 /* camera_preview2_raw10.a */,
 				4521DFCC2732E68E00DEBD25 /* camera_preview2_raw10.h */,
 				4521DFC42732E68900DEBD25 /* camera_preview2_raw16.a */,
@@ -1076,6 +1083,7 @@
 				4521E0452732E69900DEBD25 /* preview_reverse_landscape8.h in Headers */,
 				4521E00B2732E69800DEBD25 /* preview_reverse_portrait4.h in Headers */,
 				4521E0272732E69900DEBD25 /* postprocess.h in Headers */,
+				458A354B275BC3F300E57813 /* build_bayer2.h in Headers */,
 				459D44B92752BB4600E68BF9 /* camera_video_preview2_raw16.h in Headers */,
 				4521E02B2732E69900DEBD25 /* measure_image.h in Headers */,
 				4521E01A2732E69800DEBD25 /* preview_portrait8.h in Headers */,

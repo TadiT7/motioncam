@@ -137,6 +137,10 @@ add_library(build_bayer STATIC IMPORTED)
 set_target_properties(build_bayer PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/build_bayer.a)
 
+add_library(build_bayer2 STATIC IMPORTED)
+set_target_properties(build_bayer2 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/build_bayer2.a)
+
 add_library(measure_noise STATIC IMPORTED)
 set_target_properties(measure_noise PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/measure_noise.a)
@@ -512,6 +516,7 @@ set(native-camera-libs
 
         # Halide libraries
         build_bayer
+        build_bayer2
         measure_noise
         fast_preview
         linear_image

@@ -11,6 +11,8 @@
 #include <HalideBuffer.h>
 
 namespace motioncam {
+    const int EXPANDED_RANGE = 16384;
+
     class RawImage;
     class RawContainer;
     class PostProcessSettings;
@@ -101,6 +103,11 @@ namespace motioncam {
                                      cv::Vec3f& cameraWhite,
                                      cv::Mat& outCameraToPcs,
                                      cv::Mat& outPcsToSrgb);
+
+        static Halide::Runtime::Buffer<float> denoise(
+            std::shared_ptr<RawImageBuffer> referenceRawBuffer,
+            std::vector<std::shared_ptr<RawImageBuffer>> buffers,
+            const RawCameraMetadata& cameraMetadata);
 
         static std::vector<Halide::Runtime::Buffer<uint16_t>> denoise(
             RawContainer& rawContainer,

@@ -3750,6 +3750,46 @@ public:
     }
 };
 
+class BuildBayerGenerator2 : public Halide::Generator<BuildBayerGenerator2>, public PostProcessBase {
+public:
+    Input<Buffer<float>> input{"input", 3 };
+
+    Input<int16_t[4]> blackLevel{"blackLevel"};
+    Input<int16_t> whiteLevel{"whiteLevel"};
+    Input<float> scale{"scale"};
+
+    Input<uint16_t> expandedRange{"expandedRange"};
+
+    Output<Buffer<uint16_t>> output{"output", 2 };
+
+    void generate();
+};
+
+void BuildBayerGenerator2::generate() {
+    Func linear{"linear"};
+    Func scaled{"scaled"};
+
+    scaled(v_x, v_y, v_c) = input(v_x, v_y, v_c) * scale;
+
+    linear(v_x, v_y, v_c) = cast<uint16_t>(0.5f +
+            select( v_c == 0, (expandedRange / (whiteLevel - blackLevel[0])) * (scaled(v_x, v_y, 0) - blackLevel[0]),
+                    v_c == 1, (expandedRange / (whiteLevel - blackLevel[1])) * (scaled(v_x, v_y, 1) - blackLevel[1]),
+                    v_c == 2, (expandedRange / (whiteLevel - blackLevel[2])) * (scaled(v_x, v_y, 2) - blackLevel[2]),
+                              (expandedRange / (whiteLevel - blackLevel[3])) * (scaled(v_x, v_y, 3) - blackLevel[3]) ) );        
+
+    output(v_x, v_y) =
+        select(v_y % 2 == 0,
+               select(v_x % 2 == 0, linear(v_x/2, v_y/2, 0), linear(v_x/2, v_y/2, 1)),
+               select(v_x % 2 == 0, linear(v_x/2, v_y/2, 2), linear(v_x/2, v_y/2, 3)));
+
+    input.set_estimates({{0, 2000}, {0, 1500}, {0, 4} });
+    output.set_estimates({{0, 4000}, {0, 3000} });
+
+    output.compute_root()
+        .parallel(v_y)
+        .vectorize(v_x, 8);
+}
+
 ///////////////
 
 class MeasureNoiseGenerator : public Generator<MeasureNoiseGenerator>, public PostProcessBase {
@@ -3778,13 +3818,16 @@ void MeasureNoiseGenerator::generate() {
     Func mean{"mean"};
     Func noise{"noise"};
     Func deinterleaved{"deinterleaved"};
+    Func clamped{"clamped"};
     Func channels[4];
 
     // Deinterleave
-    deinterleave(channels[0], input, 0, stride, pixelFormat);
-    deinterleave(channels[1], input, 1, stride, pixelFormat);
-    deinterleave(channels[2], input, 2, stride, pixelFormat);
-    deinterleave(channels[3], input, 3, stride, pixelFormat);
+    clamped(v_x) = input(clamp(v_x, 0, input.width() - 1));
+
+    deinterleave(channels[0], clamped, 0, stride, pixelFormat);
+    deinterleave(channels[1], clamped, 1, stride, pixelFormat);
+    deinterleave(channels[2], clamped, 2, stride, pixelFormat);
+    deinterleave(channels[3], clamped, 3, stride, pixelFormat);
 
     deinterleaved(v_x, v_y, v_c) = select(
         v_c == 0, channels[0](v_x, v_y),
@@ -3823,15 +3866,15 @@ void MeasureNoiseGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::H
     Var x_vi("x_vi");
     Var x_vo("x_vo");
 
-    Func f0 = pipeline.get_func(4);
-    Func f1 = pipeline.get_func(8);
-    Func f2 = pipeline.get_func(12);
-    Func f3 = pipeline.get_func(16);
-    Func mean = pipeline.get_func(20);
-    Func output = pipeline.get_func(23);
-    Func snr = pipeline.get_func(24);
-    Func sum = pipeline.get_func(19);
-    Func sum_1 = pipeline.get_func(22);
+    Func f0 = pipeline.get_func(5);
+    Func f1 = pipeline.get_func(9);
+    Func f2 = pipeline.get_func(13);
+    Func f3 = pipeline.get_func(17);
+    Func mean = pipeline.get_func(21);
+    Func output = pipeline.get_func(24);
+    Func snr = pipeline.get_func(25);
+    Func sum = pipeline.get_func(20);
+    Func sum_1 = pipeline.get_func(23);
 
     {
         Var x = f0.args()[0];
@@ -3906,8 +3949,8 @@ void MeasureNoiseGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::H
         Var x = sum.args()[0];
         Var y = sum.args()[1];
         Var c = sum.args()[2];
-        RVar r36$x(sum.update(0).get_schedule().rvars()[0].var);
-        RVar r36$y(sum.update(0).get_schedule().rvars()[1].var);
+        RVar r37$x(sum.update(0).get_schedule().rvars()[0].var);
+        RVar r37$y(sum.update(0).get_schedule().rvars()[1].var);
         sum
             .compute_root()
             .split(x, x_vo, x_vi, 8)
@@ -3915,7 +3958,7 @@ void MeasureNoiseGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::H
             .parallel(c)
             .parallel(y);
         sum.update(0)
-            .reorder(r36$x, x, r36$y, y, c)
+            .reorder(r37$x, x, r37$y, y, c)
             .split(x, x_vo, x_vi, 8, TailStrategy::GuardWithIf)
             .vectorize(x_vi)
             .parallel(c)
@@ -3925,8 +3968,8 @@ void MeasureNoiseGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::H
         Var x = sum_1.args()[0];
         Var y = sum_1.args()[1];
         Var c = sum_1.args()[2];
-        RVar r36$x(sum_1.update(0).get_schedule().rvars()[0].var);
-        RVar r36$y(sum_1.update(0).get_schedule().rvars()[1].var);
+        RVar r37$x(sum_1.update(0).get_schedule().rvars()[0].var);
+        RVar r37$y(sum_1.update(0).get_schedule().rvars()[1].var);
         sum_1
             .compute_root()
             .split(x, x_vo, x_vi, 8)
@@ -3934,12 +3977,12 @@ void MeasureNoiseGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::H
             .parallel(c)
             .parallel(y);
         sum_1.update(0)
-            .reorder(r36$x, x, r36$y, y, c)
+            .reorder(r37$x, x, r37$y, y, c)
             .split(x, x_vo, x_vi, 8, TailStrategy::GuardWithIf)
             .vectorize(x_vi)
             .parallel(c)
             .parallel(y);
-    }
+    }    
 }
 
 HALIDE_REGISTER_GENERATOR(GenerateEdgesGenerator, generate_edges_generator)
@@ -3956,3 +3999,4 @@ HALIDE_REGISTER_GENERATOR(PreviewGenerator, preview_generator)
 HALIDE_REGISTER_GENERATOR(HdrMaskGenerator, hdr_mask_generator)
 HALIDE_REGISTER_GENERATOR(LinearImageGenerator, linear_image_generator)
 HALIDE_REGISTER_GENERATOR(BuildBayerGenerator, build_bayer_generator)
+HALIDE_REGISTER_GENERATOR(BuildBayerGenerator2, build_bayer_generator2)

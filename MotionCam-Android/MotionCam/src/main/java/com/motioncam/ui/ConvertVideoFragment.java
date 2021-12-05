@@ -11,6 +11,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ProgressBar;
+import android.widget.SeekBar;
+import android.widget.TextView;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -25,6 +27,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
 import com.motioncam.CameraActivity;
@@ -34,6 +37,8 @@ import com.motioncam.worker.State;
 import com.motioncam.worker.VideoProcessWorker;
 
 import java.io.File;
+import java.util.List;
+import java.util.Locale;
 
 public class ConvertVideoFragment  extends Fragment implements LifecycleObserver, RawVideoAdapter.OnQueueListener {
     private File[] mVideoFiles;
@@ -42,6 +47,8 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
     private RawVideoAdapter mAdapter;
     private ActivityResultLauncher<Intent> mSelectDocumentLauncher;
     private File mSelectedFile;
+    private int mNumFramesToMerge;
+    private View mConvertSettings;
 
     public static ConvertVideoFragment newInstance() {
         return new ConvertVideoFragment();
@@ -82,7 +89,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                                     .putString(SettingsViewModel.PREFS_KEY_RAW_VIDEO_OUTPUT_URI, uri.toString())
                                     .apply();
 
-                            startWorker(mSelectedFile, uri);
+                            startWorker(mSelectedFile, uri, mNumFramesToMerge);
                         }
 
                         mSelectedFile = null;
@@ -94,6 +101,27 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         mFileList = view.findViewById(R.id.fileList);
         mNoFiles = view.findViewById(R.id.noFiles);
+        mConvertSettings = view.findViewById(R.id.convertSettings);
+
+        mNumFramesToMerge = 0;
+
+        final TextView mergeFramesText = view.findViewById(R.id.mergeFrames);
+
+        ((SeekBar) view.findViewById(R.id.mergeFramesSeekBar)).setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                mNumFramesToMerge = progress* 4;
+                mergeFramesText.setText(String.format(Locale.US, "%d", mNumFramesToMerge));
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+            }
+        });
 
         File outputDirectory = new File(getContext().getFilesDir(), VideoProcessWorker.VIDEOS_PATH);
 
@@ -104,9 +132,11 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
         if(mVideoFiles.length == 0) {
             mNoFiles.setVisibility(View.VISIBLE);
             mFileList.setVisibility(View.GONE);
+            mConvertSettings.setVisibility(View.GONE);
         }
         else {
             mFileList.setVisibility(View.VISIBLE);
+            mConvertSettings.setVisibility(View.VISIBLE);
             mNoFiles.setVisibility(View.GONE);
 
             mAdapter = new RawVideoAdapter(mVideoFiles, this);
@@ -114,6 +144,10 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
             mFileList.setLayoutManager(new LinearLayoutManager(getActivity()));
             mFileList.setAdapter(mAdapter);
         }
+
+        WorkManager.getInstance(getContext())
+                .getWorkInfosForUniqueWorkLiveData(CameraActivity.WORKER_VIDEO_PROCESSOR)
+                .observe(getViewLifecycleOwner(), this::onProgressChanged);
     }
 
     @Override
@@ -127,6 +161,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                         if(mAdapter.remove(file) == 0) {
                             mNoFiles.setVisibility(View.VISIBLE);
                             mFileList.setVisibility(View.GONE);
+                            mConvertSettings.setVisibility(View.GONE);
                         }
                     }
                 })
@@ -134,12 +169,13 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                 .show();
     }
 
-    private void startWorker(File inputFile, Uri outputUri) {
+    private void startWorker(File inputFile, Uri outputUri, int numFramesToMerge) {
         OneTimeWorkRequest request =
                 new OneTimeWorkRequest.Builder(VideoProcessWorker.class)
                         .setInputData(new Data.Builder()
                                 .putString(VideoProcessWorker.INPUT_PATH_KEY, inputFile.getPath())
                                 .putString(VideoProcessWorker.OUTPUT_URI_KEY, outputUri.toString())
+                                .putInt(VideoProcessWorker.INPUT_NUM_FRAMES_TO_MERGE, numFramesToMerge)
                                 .build())
                         .build();
 
@@ -151,41 +187,6 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
 
         // Monitor progress
         getView().findViewById(R.id.processingLayout).setVisibility(View.VISIBLE);
-
-        WorkManager.getInstance(getContext())
-                .getWorkInfoByIdLiveData(request.getId())
-                .observe(this, workInfo -> {
-                    if (workInfo == null) {
-                        return;
-                    }
-
-                    Data progress;
-
-                    if (workInfo.getState().isFinished()) {
-                        progress = workInfo.getOutputData();
-                    } else {
-                        progress = workInfo.getProgress();
-                    }
-
-                    if(progress != null) {
-                        int state = progress.getInt(State.PROGRESS_STATE_KEY, -1);
-                        if(state == State.STATE_COMPLETED) {
-                            String inputPath = progress.getString(State.PROGRESS_INPUT_PATH_KEY);
-                            if(mAdapter.remove(new File(inputPath)) == 0) {
-                                mNoFiles.setVisibility(View.VISIBLE);
-                                mFileList.setVisibility(View.GONE);
-                            }
-
-                            getView().findViewById(R.id.processingLayout).setVisibility(View.INVISIBLE);
-                        }
-                        else if(state == State.STATE_PROCESSING) {
-                            int completed = progress.getInt(State.PROGRESS_PROGRESS_KEY, 0);
-
-                            ProgressBar progressBar = getView().findViewById(R.id.processingProgressBar);
-                            progressBar.setProgress(completed);
-                        }
-                    }
-                });
     }
 
     @Override
@@ -213,7 +214,52 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                 mSelectDocumentLauncher.launch(intent);
             }
             else {
-                startWorker(file, dstUri);
+                startWorker(file, dstUri, mNumFramesToMerge);
+            }
+        }
+    }
+
+    private void onProgressChanged(List<WorkInfo> workInfos) {
+        WorkInfo currentWorkInfo = null;
+
+        for(WorkInfo workInfo : workInfos) {
+            if(workInfo.getState() == WorkInfo.State.RUNNING) {
+                currentWorkInfo = workInfo;
+                break;
+            }
+        }
+
+        if(currentWorkInfo != null) {
+            Data progress = currentWorkInfo.getProgress();
+
+            if (progress != null) {
+                int state = progress.getInt(State.PROGRESS_STATE_KEY, -1);
+                if (state == State.STATE_PROCESSING) {
+                    int completed = progress.getInt(State.PROGRESS_PROGRESS_KEY, 0);
+
+                    ProgressBar progressBar = getView().findViewById(R.id.processingProgressBar);
+                    progressBar.setProgress(completed);
+                }
+            }
+        }
+
+        for(WorkInfo workInfo : workInfos) {
+            if(workInfo.getState() != WorkInfo.State.SUCCEEDED)
+                continue;
+
+            Data progress = workInfo.getOutputData();
+            if(progress != null) {
+                int state = progress.getInt(State.PROGRESS_STATE_KEY, -1);
+
+                if (state == State.STATE_COMPLETED) {
+                    String inputPath = progress.getString(State.PROGRESS_INPUT_PATH_KEY);
+                    if (mAdapter.remove(new File(inputPath)) == 0) {
+                        mNoFiles.setVisibility(View.VISIBLE);
+                        mFileList.setVisibility(View.GONE);
+                        mConvertSettings.setVisibility(View.GONE);
+                        getView().findViewById(R.id.processingLayout).setVisibility(View.GONE);
+                    }
+                }
             }
         }
     }

@@ -88,4 +88,6 @@
     <string name="convert_raw_video_description">Convert RAW video to DNG files after capture. They are stored in the Documents folder.</string>
     <string name="convert_to_dng">Convert to DNG</string>
     <string name="no_videos_available">No videos available</string>
+    <string name="video_merge_frames_desc">Reduce noise by merging the nearest frames together. This can provide a significant reduction in noise but will increase the conversion time.</string>
+    <string name="video_merge_frames_title">Number of frames to merge:</string>
 </resources>

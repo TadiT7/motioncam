@@ -6,6 +6,9 @@ import android.os.Looper;
 import android.util.Pair;
 import android.util.Size;
 
+import com.motioncam.processor.ContainerMetadata;
+import com.motioncam.processor.NativeProcessor;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -29,12 +32,16 @@ public class AsyncNativeCameraOps implements Closeable {
     }
 
     private final ThreadPoolExecutor mBackgroundProcessor = new ThreadPoolExecutor( 1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>() );
-    private final NativeCameraSessionBridge mCameraSessionBridge;
+    private NativeCameraSessionBridge mCameraSessionBridge;
     private final Handler mMainHandler;
     private Size mUnscaledSize;
 
     public interface PreviewListener {
         void onPreviewAvailable(NativeCameraBuffer buffer, Bitmap image);
+    }
+
+    public interface ContainerListener {
+        void onContainerMetadataAvailable(String containerPath, ContainerMetadata metadata);
     }
 
     public interface PostProcessSettingsListener {
@@ -54,6 +61,11 @@ public class AsyncNativeCameraOps implements Closeable {
         mMainHandler = new Handler(Looper.getMainLooper());
     }
 
+    public AsyncNativeCameraOps() {
+        mMainHandler = new Handler(Looper.getMainLooper());
+        mCameraSessionBridge = null;
+    }
+
     @Override
     public void close() {
         mBackgroundProcessor.shutdown();
@@ -69,6 +81,9 @@ public class AsyncNativeCameraOps implements Closeable {
     }
 
     public void captureImage(long bufferHandle, int numSaveImages, PostProcessSettings settings, String outputPath, CaptureImageListener listener) {
+        if(mCameraSessionBridge == null)
+            throw new RuntimeException("No camera bridge");
+
         mBackgroundProcessor.submit(() -> {
             mCameraSessionBridge.captureImage(bufferHandle, numSaveImages, settings, outputPath);
             mMainHandler.post(() -> listener.onCaptured(bufferHandle));
@@ -76,6 +91,9 @@ public class AsyncNativeCameraOps implements Closeable {
     }
 
     public void estimateSettings(float shadowsBias, PostProcessSettingsListener listener) {
+        if(mCameraSessionBridge == null)
+            throw new RuntimeException("No camera bridge");
+
         mBackgroundProcessor.submit(() -> {
             try {
                 PostProcessSettings result = mCameraSessionBridge.estimatePostProcessSettings(shadowsBias);
@@ -91,6 +109,9 @@ public class AsyncNativeCameraOps implements Closeable {
     public void measureSharpness(List<NativeCameraBuffer> buffers, SharpnessMeasuredListener listener) {
         if(buffers.isEmpty())
             return;
+
+        if(mCameraSessionBridge == null)
+            throw new RuntimeException("No camera bridge");
 
         mBackgroundProcessor.submit(() -> {
             List<Pair<NativeCameraBuffer, Double>> result = new ArrayList<>();
@@ -139,6 +160,9 @@ public class AsyncNativeCameraOps implements Closeable {
         if(canSkip && mBackgroundProcessor.getQueue().size() != 0)
             return;
 
+        if(mCameraSessionBridge == null)
+            throw new RuntimeException("No camera bridge");
+
         PostProcessSettings postProcessSettings = settings.clone();
 
         mBackgroundProcessor.submit(() -> {
@@ -163,6 +187,14 @@ public class AsyncNativeCameraOps implements Closeable {
 
             // On the main thread, let listeners know that an image is ready
             mMainHandler.post(() -> listener.onPreviewAvailable(buffer, resultBitmap));
+        });
+    }
+
+    public void getContainerMetadata(String inputPath, ContainerListener listener) {
+        mBackgroundProcessor.submit(() -> {
+            NativeProcessor processor = new NativeProcessor();
+
+            mMainHandler.post(() -> listener.onContainerMetadataAvailable(inputPath, processor.getMetadata(inputPath)));
         });
     }
 }

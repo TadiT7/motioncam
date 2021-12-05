@@ -29,6 +29,8 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
     public static final String TAG = "MotionVideoCamWorker";
 
     public static final String INPUT_PATH_KEY = "input_path";
+    public static final String INPUT_NUM_FRAMES_TO_MERGE = "num_frames_to_merge";
+
     public static final String OUTPUT_URI_KEY = "output_uri";
 
     public static final int NOTIFICATION_ID = 1;
@@ -49,12 +51,12 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         return (idx == -1) ? filename : filename.substring(0, idx);
     }
 
-    private void processVideo(File inputFile, DocumentFile documentFile, boolean rawVideoToDng) {
+    private void processVideo(File inputFile, DocumentFile documentFile, boolean rawVideoToDng, int numFramesToMerge) {
         if(rawVideoToDng) {
             mActiveFile = inputFile;
             mOutputDocument = documentFile.createDirectory(getNameWithoutExtension(inputFile.getName()));
 
-            mNativeProcessor.processVideo(inputFile.getPath(), this);
+            mNativeProcessor.processVideo(inputFile.getPath(), numFramesToMerge, this);
         }
 
         if(!inputFile.delete()) {
@@ -93,6 +95,8 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
             return Result.failure();
         }
 
+        int numFramesToMerge = inputData.getInt(INPUT_NUM_FRAMES_TO_MERGE, 0);
+
         String outputUriString = inputData.getString(OUTPUT_URI_KEY);
         if(outputUriString == null) {
             Log.e(TAG, "Invalid output URI");
@@ -120,7 +124,7 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
 
         try {
             Log.d(TAG, "Processing video " + inputFile.getPath());
-            processVideo(inputFile, documentFile, true);
+            processVideo(inputFile, documentFile, true, numFramesToMerge);
         }
         catch (Exception e) {
             Log.e(TAG, "Failed to process " + inputFile.getPath(), e);

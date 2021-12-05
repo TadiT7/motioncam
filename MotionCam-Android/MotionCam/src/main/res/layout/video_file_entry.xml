@@ -4,51 +4,120 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="50dp"
+    android:layout_height="80dp"
     android:layout_margin="5dp">
 
     <ImageView
         android:id="@+id/deleteVideo"
         android:layout_width="30dp"
-        android:layout_height="match_parent"
-        android:layout_alignParentEnd="true"
-        android:layout_marginRight="10dp"
+        android:layout_height="0dp"
         android:src="@drawable/baseline_cancel_24"
         android:background="@color/cancelAction"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"/>
 
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:layout_marginLeft="10dp"
-        app:layout_constraintStart_toEndOf="@id/deleteVideo" >
+        android:gravity="center_vertical"
+        app:layout_constraintStart_toEndOf="@id/deleteVideo"
+        app:layout_constraintEnd_toStartOf="@id/queueVideo"
+        app:layout_constraintTop_toBottomOf="@id/deleteVideo">
 
         <TextView
             android:id="@+id/filename"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:gravity="center"
-            android:layout_weight="1"
+            android:layout_marginBottom="10dp"
             android:text="VIDEO_1234567890.ZIP"
             android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold" />
 
-        <TextView
-            android:id="@+id/capture_time"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="10/2/2021 10:03 PM"
-            android:textAppearance="@style/MotionCam.TextAppearance.Small" />
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:text="Capture Time"
+                    android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold" />
+
+                <TextView
+                    android:id="@+id/captureTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textAppearance="@style/MotionCam.TextAppearance.VerySmall" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:text="FPS"
+                    android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold" />
+
+                <TextView
+                    android:id="@+id/frameRate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textAppearance="@style/MotionCam.TextAppearance.VerySmall" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:text="Total Frames"
+                    android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold" />
+
+                <TextView
+                    android:id="@+id/numFrames"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textAppearance="@style/MotionCam.TextAppearance.VerySmall" />
+            </LinearLayout>
+
+        </LinearLayout>
+
     </LinearLayout>
 
     <Button
         android:id="@+id/queueVideo"
         android:layout_width="90dp"
-        android:layout_height="match_parent"
+        android:layout_height="50dp"
         android:backgroundTint="@color/acceptAction"
         android:text="PROCESS"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

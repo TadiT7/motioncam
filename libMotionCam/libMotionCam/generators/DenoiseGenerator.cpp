@@ -54,6 +54,7 @@ public:
     Input<int32_t> height{"height"};
     
     Input<float> w{"w"};
+    Input<float> maxWeight{"maxWeight"};
     Input<float> flowMeanX{"flowMeanX"};
     Input<float> flowMeanY{"flowMeanY"};
 
@@ -195,7 +196,7 @@ void DenoiseGenerator::generate() {
     Expr fy = flowMap(v_x, v_y, 1) - flowMeanY;
 
     Expr fd = sqrt(fx*fx + fy*fy);
-    Expr fw = w*max(1.0f, -0.25f*fd + 4.0f);
+    Expr fw = w*max(1.0f, -0.25f*fd + maxWeight);
 
     Expr d0 = inHigh0(v_x, v_y, v_c) - inHigh1(v_x, v_y, v_c);
     Expr d1 = inMean0(v_x, v_y, v_c) - inMean1(v_x, v_y, v_c);
