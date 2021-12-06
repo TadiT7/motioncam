@@ -156,6 +156,9 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             viewHolder.getProgressBar().setVisibility(View.VISIBLE);
             viewHolder.getProgressBar().setProgress(item.progress);
         }
+        else {
+            viewHolder.getProgressBar().setVisibility(View.INVISIBLE);
+        }
 
         if(!item.haveMetadata) {
             mNativeOps.getContainerMetadata(item.file.getPath(), this);
