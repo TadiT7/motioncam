@@ -389,6 +389,11 @@ namespace motioncam {
     }
 
     void RawBufferManager::enableStreaming(const std::string outputPath, const int64_t maxMemoryUsageBytes, const RawCameraMetadata& metadata) {
+        // Clear out buffers before streaming
+        {
+            consumeAllBuffers();
+        }
+        
         mDroppedFrames = 0;
         mStreamer->start(outputPath, maxMemoryUsageBytes, metadata);
     }
