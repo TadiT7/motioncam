@@ -40,7 +40,7 @@ namespace motioncam {
     }
 
     PostProcessSettings::PostProcessSettings() :
-        spatialDenoiseAggressiveness(1.0f),
+        spatialDenoiseLevel(-1),
         temperature(-1),
         tint(-1),
         gamma(2.2f),
@@ -71,7 +71,7 @@ namespace motioncam {
     }
 
     PostProcessSettings::PostProcessSettings(const json11::Json& json) : PostProcessSettings() {
-        spatialDenoiseAggressiveness    = getSetting(json, "spatialDenoiseAggressiveness",  spatialDenoiseAggressiveness);
+        spatialDenoiseLevel             = getSetting(json, "spatialDenoiseLevel",  spatialDenoiseLevel);
         
         tonemapVariance                 = getSetting(json, "tonemapVariance",   tonemapVariance);
 
@@ -111,7 +111,7 @@ namespace motioncam {
     }
 
     void PostProcessSettings::toJson(std::map<std::string, json11::Json>& json) const {
-        json["spatialDenoiseAggressiveness"]    = spatialDenoiseAggressiveness;
+        json["spatialDenoiseLevel"]             = spatialDenoiseLevel;
         json["gamma"]                           = gamma;
         json["tonemapVariance"]                 = tonemapVariance;
         json["shadows"]                         = shadows;

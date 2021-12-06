@@ -16,7 +16,7 @@ namespace motioncam {
 
     struct PostProcessSettings {
         // Denoising
-        float spatialDenoiseAggressiveness;
+        int spatialDenoiseLevel;
 
         // Post processing
         float temperature;

@@ -46,10 +46,12 @@ public class CameraCapturePreviewAdapter extends RecyclerView.Adapter<CameraCapt
     static private class Item {
         File preview;
         Uri output;
+        int progress;
 
         Item(File preview) {
             this.preview = preview;
             this.output = null;
+            this.progress = -1;
         }
     }
 
@@ -103,11 +105,18 @@ public class CameraCapturePreviewAdapter extends RecyclerView.Adapter<CameraCapt
     }
 
     public void add(File previewPath) {
+        // Don't add duplicates
+        for(Item item : mItems) {
+            if(item.preview.getPath().equals(previewPath.getPath()))
+                return;
+        }
+
         mItems.add(0, new Item(previewPath));
+
         notifyItemInserted(0);
     }
 
-    public void complete(File internalPath, Uri output) {
+    public void update(File internalPath, int progress) {
         int position = -1;
 
         for(int i = 0; i < mItems.size(); i++) {
@@ -118,6 +127,29 @@ public class CameraCapturePreviewAdapter extends RecyclerView.Adapter<CameraCapt
         }
 
         if(position >= 0) {
+            mItems.get(position).progress = progress;
+
+            notifyItemChanged(position);
+        }
+    }
+
+    public void complete(File internalPath, Uri output) {
+        if(output == null)
+            return;
+
+        int position = -1;
+
+        for(int i = 0; i < mItems.size(); i++) {
+            if(mItems.get(i).preview.getName().endsWith(internalPath.getName())) {
+                position = i;
+                break;
+            }
+        }
+
+        if(position >= 0) {
+            if(mItems.get(position).output != null && mItems.get(position).output.equals(output))
+                return;
+
             mItems.get(position).output = output;
 
             notifyItemChanged(position);
@@ -136,6 +168,13 @@ public class CameraCapturePreviewAdapter extends RecyclerView.Adapter<CameraCapt
             return false;
 
         return mItems.get(position).output == null;
+    }
+
+    public int getProgress(int position) {
+        if(position < 0 || position >= mItems.size())
+            return 0;
+
+        return mItems.get(position).output == null ? 0 : mItems.get(position).progress;
     }
 
     public Uri getOutput(int position) {

@@ -62,6 +62,15 @@ using std::pair;
 const int WAVELET_LEVELS     = 4;
 const int EXTEND_EDGE_AMOUNT = 6;
 
+static std::vector<std::vector<float>> WEIGHTS = {
+    { 12, 4,   2,   1  },
+    { 8,  4,   2,   1  },
+    { 6,  4,   1,   1  },
+    { 4,  2,   1,   0  },
+    { 2,  1,   0.5, 0  },
+    { 1,  1,   0,   0  }
+};
+
 extern "C" int extern_defringe(halide_buffer_t *in, int32_t width, int32_t height, halide_buffer_t *out) {
     if (in->is_bounds_query()) {
         std::memcpy(&in->dim, &out->dim, out->dimensions * sizeof(halide_dimension_t));
@@ -94,7 +103,7 @@ static std::vector<Halide::Runtime::Buffer<float>> createWaveletBuffers(int widt
 
 namespace motioncam {
     const float MAX_HDR_ERROR           = 0.0001f;
-    const float SHADOW_BIAS             = 12.0f;
+    const float SHADOW_BIAS             = 10.0f;
 
     typedef Halide::Runtime::Buffer<float> WaveletBuffer;
 
@@ -430,8 +439,8 @@ namespace motioncam {
         float avgLuminance = 0.0f;
         float totalPixels = 0;
         
-        int lowerBound = 0;
-        int upperBound = histogram.cols;
+        int lowerBound = (int) (0.5f + histogram.cols * 0.02f);
+        int upperBound = (int) (0.5f + histogram.cols * 0.99f);
         
         for(int i = lowerBound; i < upperBound; i++) {
             avgLuminance += histogram.at<float>(i) * log(1e-5 + i / 255.0f);
@@ -482,16 +491,7 @@ namespace motioncam {
             0.05f,
             0.07f,
         };
-        
-        static std::vector<std::vector<float>> WEIGHTS = {
-            { 12, 4,   2,   1  },
-            { 8,  4,   2,   1  },
-            { 6,  4,   1,   1  },
-            { 4,  2,   1,   0  },
-            { 2,  1,   0.5, 0  },
-            { 1,  1,   0,   0  }
-        };
-        
+                
         float minDiff = 1e5f;
         int w = (int) WEIGHTS.size()-1;
         
@@ -1581,7 +1581,27 @@ namespace motioncam {
 
         std::vector<float> normalisedNoise;
 
-        auto weights = estimateDenoiseWeights(signalAverage);
+        std::vector<float> weights;
+        
+        // Auto
+        if(rawContainer.getPostProcessSettings().spatialDenoiseLevel < 0) {
+            weights = estimateDenoiseWeights(signalAverage);
+        }
+        // Off
+        else if(rawContainer.getPostProcessSettings().spatialDenoiseLevel == 0) {
+            weights = { 0, 0, 0, 0 };
+        }
+        // Chosen value
+        else {
+            int i = rawContainer.getPostProcessSettings().spatialDenoiseLevel;
+            
+            i = std::min(i, (int) (WEIGHTS.size() - 1));
+            i = std::max(i, 0);
+            
+            // Weights are in reverse order
+            weights = WEIGHTS[WEIGHTS.size() - i];
+        }
+        
         auto weightsBuffer = Halide::Runtime::Buffer<float>(&weights[0], 4);
 
         for(int c = 0; c < 4; c++) {

@@ -5,8 +5,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.motioncam.R;
@@ -20,14 +22,13 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-import java.util.stream.Collectors;
 
 public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHolder> implements AsyncNativeCameraOps.ContainerListener {
     static private final Format FORMATTER = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
 
     interface OnQueueListener {
-        void onQueueClicked(View queueBtn, View deleteBtn, File file);
-        void onDeleteClicked(View view, File file);
+        void onQueueClicked(File file);
+        void onDeleteClicked(File file);
     }
 
     static class Item {
@@ -35,16 +36,19 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         int numFrames;
         float frameRate;
         boolean haveMetadata;
+        int progress;
+        boolean isQueued;
 
         Item(File file) {
             this.file = file;
             this.numFrames = 0;
             this.frameRate = 0;
             this.haveMetadata = false;
+            this.progress = -1;
         }
     }
 
-    private List<Item> mItems;
+    private final List<Item> mItems;
     private final OnQueueListener mListener;
     private final AsyncNativeCameraOps mNativeOps;
 
@@ -55,6 +59,7 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         private final TextView totalFrames;
         private final Button queueVideoBtn;
         private final ImageView deleteVideoBtn;
+        private final ProgressBar progressBar;
 
         public ViewHolder(View view) {
             super(view);
@@ -65,6 +70,7 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             captureTime = view.findViewById(R.id.captureTime);
             frameRate = view.findViewById(R.id.frameRate);
             totalFrames = view.findViewById(R.id.numFrames);
+            progressBar = view.findViewById(R.id.progressBar);
         }
 
         public TextView getFileNameView() {
@@ -90,6 +96,10 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         public TextView getNumFrames() {
             return totalFrames;
         }
+
+        public ProgressBar getProgressBar() {
+            return progressBar;
+        }
     }
 
     public RawVideoAdapter(File[] files, OnQueueListener listener) {
@@ -102,10 +112,11 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         mListener = listener;
         mNativeOps = new AsyncNativeCameraOps();
 
-        setHasStableIds(false);
+        setHasStableIds(true);
     }
 
     @Override
+    @NonNull
     public ViewHolder onCreateViewHolder(ViewGroup viewGroup, int viewType) {
         View view = LayoutInflater.from(viewGroup.getContext())
                 .inflate(R.layout.video_file_entry, viewGroup, false);
@@ -123,12 +134,28 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
 
         viewHolder.getCaptureTime().setText(FORMATTER.format(createdDate));
         viewHolder.getQueueVideoBtn().setOnClickListener((v) ->
-                mListener.onQueueClicked(viewHolder.getQueueVideoBtn(), viewHolder.getDeleteVideoBtn(), item.file));
+                mListener.onQueueClicked(item.file));
 
-        viewHolder.getDeleteVideoBtn().setOnClickListener((v) -> mListener.onDeleteClicked(v, item.file));
+        viewHolder.getDeleteVideoBtn().setOnClickListener((v) -> mListener.onDeleteClicked(item.file));
 
         viewHolder.getFrameRate().setText(String.valueOf(Math.round(item.frameRate)));
         viewHolder.getNumFrames().setText(String.valueOf(item.numFrames));
+
+        if(item.isQueued) {
+            viewHolder.getQueueVideoBtn().setText("Queued");
+            viewHolder.getQueueVideoBtn().setEnabled(false);
+            viewHolder.getDeleteVideoBtn().setEnabled(false);
+        }
+        else {
+            viewHolder.getQueueVideoBtn().setText("Queue");
+            viewHolder.getQueueVideoBtn().setEnabled(true);
+            viewHolder.getDeleteVideoBtn().setEnabled(true);
+        }
+
+        if(item.progress >= 0) {
+            viewHolder.getProgressBar().setVisibility(View.VISIBLE);
+            viewHolder.getProgressBar().setProgress(item.progress);
+        }
 
         if(!item.haveMetadata) {
             mNativeOps.getContainerMetadata(item.file.getPath(), this);
@@ -142,28 +169,45 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
 
     @Override
     public long getItemId(int position) {
-        return position;
+        return mItems.get(position).file.getPath().hashCode();
     }
 
     public int remove(File file) {
-        mItems =
-            mItems
-                .stream()
-                .filter(f -> !f.file.getName().equals(file.getName()))
-                .collect(Collectors.toList());
+        for(int i = 0; i < mItems.size(); i++) {
+            Item item = mItems.get(i);
 
-        notifyDataSetChanged();
+            if (item.file.getPath().equals(file.getPath())) {
+                mItems.remove(i);
+                notifyItemRemoved(i);
+                break;
+            }
+        }
 
         return mItems.size();
+    }
+
+    public void update(String inputPath, boolean isQueued, int progress) {
+        for(int i = 0; i < mItems.size(); i++) {
+            Item item = mItems.get(i);
+
+            if(item.file.getPath().equals(inputPath)) {
+                item.isQueued = isQueued;
+                item.progress = progress;
+                notifyItemChanged(i);
+                break;
+            }
+        }
     }
 
     @Override
     public void onContainerMetadataAvailable(String inputPath, ContainerMetadata metadata) {
         for(int i = 0; i < mItems.size(); i++) {
-            if(mItems.get(i).file.getPath().equals(inputPath)) {
-                mItems.get(i).frameRate = metadata.frameRate;
-                mItems.get(i).numFrames = metadata.numFrames;
-                mItems.get(i).haveMetadata = true;
+            Item item = mItems.get(i);
+
+            if(item.file.getPath().equals(inputPath)) {
+                item.frameRate = metadata.frameRate;
+                item.numFrames = metadata.numFrames;
+                item.haveMetadata = true;
 
                 notifyItemChanged(i);
                 break;

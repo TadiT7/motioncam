@@ -249,9 +249,9 @@ namespace motioncam {
         std::sort(frames.begin(), frames.end(), [&](std::string& a, std::string& b) {
             return container.getFrame(a)->metadata.timestampNs < container.getFrame(b)->metadata.timestampNs;
         });
-                
-        int64_t timestampOffset = 0;
-        float timestamp = 0;
+               
+        float timestampOffset = 0;
+        float time = 0;
 
         for(int i = 0; i < frames.size(); i++) {
             auto frame = container.getFrame(frames[i]);
@@ -260,10 +260,14 @@ namespace motioncam {
                 timestampOffset = frame->metadata.timestampNs;
             }
             
-            timestamp = (frame->metadata.timestampNs - timestampOffset) / (1000.0f*1000.0f*1000.0f);
+            time = (frame->metadata.timestampNs - timestampOffset) / (1000.0f*1000.0f*1000.0f);
         }
         
         outNumFrames = (int) frames.size();
-        outFrameRate  = frames.size() / (1e-5f + timestamp);
+                
+        if(time == 0)
+            outFrameRate = 0;
+        else
+            outFrameRate  = frames.size() / time;
     }
 }

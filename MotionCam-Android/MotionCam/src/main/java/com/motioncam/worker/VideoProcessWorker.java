@@ -136,8 +136,8 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         mNotifyManager.cancel(NOTIFICATION_ID);
 
         Data result = new Data.Builder()
-                .putInt(State.PROGRESS_STATE_KEY,           State.STATE_COMPLETED)
-                .putString(State.PROGRESS_INPUT_PATH_KEY,   inputPath)
+                .putInt(State.PROGRESS_STATE_KEY, State.STATE_COMPLETED)
+                .putString(State.PROGRESS_INPUT_PATH_KEY, inputPath)
                 .build();
 
         return Result.success(result);
@@ -175,6 +175,7 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         setProgressAsync(new Data.Builder()
                 .putInt(State.PROGRESS_STATE_KEY, State.STATE_PROCESSING)
                 .putInt(State.PROGRESS_PROGRESS_KEY, progress)
+                .putString(State.PROGRESS_INPUT_PATH_KEY, mActiveFile.getPath())
                 .build());
 
         mNotificationBuilder.setProgress(100, progress, false);

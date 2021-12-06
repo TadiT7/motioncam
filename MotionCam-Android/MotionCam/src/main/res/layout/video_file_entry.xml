@@ -2,44 +2,48 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
+    android:padding="5dp"
     android:layout_width="match_parent"
-    android:layout_height="80dp"
-    android:layout_margin="5dp">
+    android:layout_height="90dp">
+
+    <TextView
+        android:id="@+id/filename"
+        android:layout_width="0dp"
+        android:layout_height="30dp"
+        android:layout_marginStart="10dp"
+        android:gravity="center_vertical"
+        app:layout_constraintStart_toEndOf="@+id/deleteVideo"
+        app:layout_constraintEnd_toStartOf="@+id/queueVideo"
+        app:layout_constraintTop_toTopOf="parent"
+        android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold" />
 
     <ImageView
         android:id="@+id/deleteVideo"
         android:layout_width="30dp"
-        android:layout_height="0dp"
+        android:layout_height="match_parent"
+        android:scaleType="centerInside"
         android:src="@drawable/baseline_cancel_24"
         android:background="@color/cancelAction"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"/>
+        app:layout_constraintTop_toTopOf="parent" />
 
     <LinearLayout
+        android:id="@+id/videoEntry"
         android:layout_width="0dp"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:layout_marginLeft="10dp"
+        android:layout_marginStart="10dp"
         android:gravity="center_vertical"
+        app:layout_constraintTop_toBottomOf="@id/filename"
         app:layout_constraintStart_toEndOf="@id/deleteVideo"
-        app:layout_constraintEnd_toStartOf="@id/queueVideo"
-        app:layout_constraintTop_toBottomOf="@id/deleteVideo">
-
-        <TextView
-            android:id="@+id/filename"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:layout_marginBottom="10dp"
-            android:text="VIDEO_1234567890.ZIP"
-            android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold" />
+        app:layout_constraintEnd_toStartOf="@id/queueVideo">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:baselineAligned="false">
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -51,7 +55,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:gravity="center"
-                    android:text="Capture Time"
+                    android:text="@string/capture_time"
                     android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold" />
 
                 <TextView
@@ -73,7 +77,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:gravity="center"
-                    android:text="FPS"
+                    android:text="@string/fps"
                     android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold" />
 
                 <TextView
@@ -95,7 +99,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:gravity="center"
-                    android:text="Total Frames"
+                    android:text="@string/total_frames"
                     android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold" />
 
                 <TextView
@@ -108,6 +112,14 @@
 
         </LinearLayout>
 
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:visibility="invisible"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:progress="50" />
+
     </LinearLayout>
 
     <Button
@@ -115,7 +127,7 @@
         android:layout_width="90dp"
         android:layout_height="50dp"
         android:backgroundTint="@color/acceptAction"
-        android:text="PROCESS"
+        android:text="@string/process"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />

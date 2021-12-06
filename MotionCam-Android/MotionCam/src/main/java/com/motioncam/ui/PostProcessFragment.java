@@ -5,7 +5,6 @@ import static com.motioncam.CameraActivity.WORKER_IMAGE_PROCESSOR;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.Pair;
@@ -27,6 +26,7 @@ import androidx.viewpager2.widget.ViewPager2;
 import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
 import com.motioncam.R;
@@ -43,7 +43,6 @@ import com.motioncam.model.SettingsViewModel;
 import com.motioncam.worker.ImageProcessWorker;
 import com.motioncam.worker.State;
 
-import java.io.File;
 import java.util.List;
 import java.util.Locale;
 
@@ -167,20 +166,16 @@ public class PostProcessFragment extends Fragment implements
         // Noise reduction
         mViewModel.numMergeImages.observe(getViewLifecycleOwner(), (value) -> dataBinding.numMergeImagesText.setText(String.format(Locale.US, "%d", value)));
 
-        mViewModel.spatialDenoiseAggressiveness.observe(getViewLifecycleOwner(), (value) -> {
-            PostProcessViewModel.SpatialDenoiseAggressiveness spatialNoiseWeight = PostProcessViewModel.SpatialDenoiseAggressiveness.GetFromOption(value);
-
-            if(spatialNoiseWeight == PostProcessViewModel.SpatialDenoiseAggressiveness.OFF) {
-                dataBinding.spatialNoiseText.setText(
-                        requireActivity().getString(R.string.denoise_off));
+        mViewModel.spatialDenoiseLevel.observe(getViewLifecycleOwner(), (value) -> {
+            int level = value - 1;
+            if(level < 0){
+                dataBinding.spatialNoiseText.setText(requireActivity().getString(R.string.denoise_auto));
             }
-            else if(spatialNoiseWeight == PostProcessViewModel.SpatialDenoiseAggressiveness.NORMAL) {
-                dataBinding.spatialNoiseText.setText(
-                        requireActivity().getString(R.string.denoise_normal));
+            else if(level == 0) {
+                dataBinding.spatialNoiseText.setText(requireActivity().getString(R.string.denoise_off));
             }
             else {
-                dataBinding.spatialNoiseText.setText(
-                        requireActivity().getString(R.string.denoise_aggressive));
+                dataBinding.spatialNoiseText.setText(String.valueOf(value - 1));
             }
         });
 
@@ -313,6 +308,12 @@ public class PostProcessFragment extends Fragment implements
                 mViewModel.estimateSettings(getContext(), mNativeCamera, mSelectedCamera, mAsyncNativeCameraOps);
 
         settings.observe(getViewLifecycleOwner(), this::onSettingsEstimated);
+
+        if(getContext() != null) {
+            WorkManager.getInstance(getContext())
+                    .getWorkInfosForUniqueWorkLiveData(WORKER_IMAGE_PROCESSOR)
+                    .observe(getViewLifecycleOwner(), this::onProgressChanged);
+        }
     }
 
     private void onTouchedSettingSeekBar(MotionEvent event) {
@@ -470,24 +471,33 @@ public class PostProcessFragment extends Fragment implements
                         WORKER_IMAGE_PROCESSOR,
                         ExistingWorkPolicy.KEEP,
                         request);
+    }
 
-        onProcessingStarted();
+    private void onProgressChanged(List<WorkInfo> workInfos) {
+        WorkInfo currentWorkInfo = null;
 
-        WorkManager.getInstance(getContext().getApplicationContext())
-                .getWorkInfosForUniqueWorkLiveData(WORKER_IMAGE_PROCESSOR)
-                .observe(this, workInfo -> {
-                    if (workInfo != null && !workInfo.isEmpty()) {
-                        Data progress = workInfo.get(0).getProgress();
-                        int state = progress.getInt(State.PROGRESS_STATE_KEY, -1);
+        for(WorkInfo workInfo : workInfos) {
+            if(workInfo.getState() == WorkInfo.State.RUNNING) {
+                currentWorkInfo = workInfo;
+                break;
+            }
+        }
 
-                        if(state == State.STATE_PROCESSING) {
-                            onProcessingProgress(progress.getInt(State.PROGRESS_PROGRESS_KEY, 0));
-                        }
-                        else if(state == State.STATE_COMPLETED) {
-                            onProcessingCompleted();
-                        }
-                    }
-                });
+        if(currentWorkInfo != null) {
+            Data progress = currentWorkInfo.getProgress();
+
+            onProcessingStarted();
+
+            int state = progress.getInt(State.PROGRESS_STATE_KEY, -1);
+            if (state == State.STATE_PROCESSING) {
+                int progressAmount = progress.getInt(State.PROGRESS_PROGRESS_KEY, 0);
+
+                onProcessingProgress(progressAmount);
+            }
+        }
+        else {
+            onProcessingCompleted();
+        }
     }
 
     public void onProcessingStarted() {

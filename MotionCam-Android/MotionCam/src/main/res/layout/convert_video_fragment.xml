@@ -78,43 +78,6 @@
 
         </LinearLayout>
 
-        <LinearLayout
-            android:id="@+id/fileListLayout"
-            android:visibility="visible"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            app:layout_constraintBottom_toBottomOf="parent">
-
-            <LinearLayout
-                android:id="@+id/processingLayout"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:visibility="gone"
-                android:orientation="vertical"
-                android:layout_marginTop="20dp"
-                app:layout_constraintBottom_toBottomOf="@+id/fileList">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
-                    android:gravity="center"
-                    android:text="Processing"/>
-
-                <ProgressBar
-                    android:id="@+id/processingProgressBar"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="match_parent"
-                    android:layout_height="30dp"
-                    android:progress="0"
-                    android:max="100"
-                    android:indeterminate="false" />
-
-            </LinearLayout>
-
-        </LinearLayout>
-
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

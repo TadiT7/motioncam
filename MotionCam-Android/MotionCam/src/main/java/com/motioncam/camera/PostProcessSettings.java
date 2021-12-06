@@ -2,7 +2,7 @@ package com.motioncam.camera;
 
 public class PostProcessSettings implements Cloneable {
     // Denoising
-    public float spatialDenoiseAggressiveness   = 1.0f;
+    public int spatialDenoiseLevel              = -1;
 
     // Post processing
     public float tonemapVariance                = 0.25f;

@@ -47,6 +47,7 @@ import androidx.viewpager2.widget.ViewPager2;
 import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
 import com.bumptech.glide.Glide;
@@ -420,6 +421,10 @@ public class CameraActivity extends AppCompatActivity implements
 
         mSensorEventManager = new SensorEventManager(this, this);
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+
+        WorkManager.getInstance(this)
+                .getWorkInfosForUniqueWorkLiveData(WORKER_IMAGE_PROCESSOR)
+                .observe(this, this::onProgressChanged);
 
         requestPermissions();
     }
@@ -1958,35 +1963,35 @@ public class CameraActivity extends AppCompatActivity implements
         WorkManager.getInstance(this)
                 .enqueueUniqueWork(WORKER_IMAGE_PROCESSOR, ExistingWorkPolicy.APPEND_OR_REPLACE, request);
 
-        WorkManager.getInstance(getApplicationContext())
-                .getWorkInfoByIdLiveData(request.getId())
-                .observe(this, workInfo -> {
-                    if (workInfo == null) {
-                        return;
-                    }
-
-                    Data progress;
-
-                    if (workInfo.getState().isFinished()) {
-                        progress = workInfo.getOutputData();
-                    } else {
-                        progress = workInfo.getProgress();
-                    }
-
-                    int state = progress.getInt(State.PROGRESS_STATE_KEY, -1);
-
-                    if (state == State.STATE_PREVIEW_CREATED) {
-                        onPreviewSaved(progress.getString(State.PROGRESS_PREVIEW_PATH));
-                    }
-                    else if (state == State.STATE_COMPLETED) {
-                        String[] completedImages = progress.getStringArray(State.PROGRESS_IMAGE_PATH);
-                        String[] completedUris   = progress.getStringArray(State.PROGRESS_URI_KEY);
-
-                        for(int i = 0; i < completedImages.length; i++) {
-                            onProcessingCompleted(new File(completedImages[i]), Uri.parse(completedUris[i]));
-                        }
-                    }
-                });
+//        WorkManager.getInstance(getApplicationContext())
+//                .getWorkInfoByIdLiveData(request.getId())
+//                .observe(this, workInfo -> {
+//                    if (workInfo == null) {
+//                        return;
+//                    }
+//
+//                    Data progress;
+//
+//                    if (workInfo.getState().isFinished()) {
+//                        progress = workInfo.getOutputData();
+//                    } else {
+//                        progress = workInfo.getProgress();
+//                    }
+//
+//                    int state = progress.getInt(State.PROGRESS_STATE_KEY, -1);
+//
+//                    if (state == State.STATE_PREVIEW_CREATED) {
+//                        onPreviewSaved(progress.getString(State.PROGRESS_PREVIEW_PATH));
+//                    }
+//                    else if (state == State.STATE_COMPLETED) {
+//                        String[] completedImages = progress.getStringArray(State.PROGRESS_IMAGE_PATH);
+//                        String[] completedUris   = progress.getStringArray(State.PROGRESS_URI_KEY);
+//
+//                        for(int i = 0; i < completedImages.length; i++) {
+//                            onProcessingCompleted(new File(completedImages[i]), Uri.parse(completedUris[i]));
+//                        }
+//                    }
+//                });
     }
 
 
@@ -2346,14 +2351,48 @@ public class CameraActivity extends AppCompatActivity implements
                 .start();
     }
 
-    public void onProcessingCompleted(File internalPath, Uri contentUri) {
-        mCameraCapturePreviewAdapter.complete(internalPath, contentUri);
+    private void onProgressChanged(List<WorkInfo> workInfos) {
+        WorkInfo currentWorkInfo = null;
 
-        if(mCameraCapturePreviewAdapter.isProcessing(mBinding.previewPager.getCurrentItem())) {
-            mBinding.previewProcessingFrame.setVisibility(View.VISIBLE);
+        for(WorkInfo workInfo : workInfos) {
+            if(workInfo.getState() == WorkInfo.State.RUNNING) {
+                currentWorkInfo = workInfo;
+                break;
+            }
+        }
+
+        if (currentWorkInfo != null) {
+            Data progress = currentWorkInfo.getProgress();
+
+            int state = progress.getInt(State.PROGRESS_STATE_KEY, -1);
+
+            if (state == State.STATE_PREVIEW_CREATED) {
+                onPreviewSaved(progress.getString(State.PROGRESS_PREVIEW_PATH));
+            }
+            else if (state == State.STATE_PROCESSING) {
+                int progressAmount = progress.getInt(State.PROGRESS_PROGRESS_KEY, 0);
+
+                mBinding.processingProgress.setProgress(progressAmount);
+            }
         }
         else {
             mBinding.previewProcessingFrame.setVisibility(View.INVISIBLE);
+        }
+
+        for(WorkInfo workInfo : workInfos) {
+            if (workInfo.getState() == WorkInfo.State.SUCCEEDED) {
+                Data output = workInfo.getOutputData();
+                int state = output.getInt(State.PROGRESS_STATE_KEY, -1);
+
+                if (state == State.STATE_COMPLETED) {
+                    String[] completedImages = output.getStringArray(State.PROGRESS_IMAGE_PATH);
+                    String[] completedUris = output.getStringArray(State.PROGRESS_URI_KEY);
+
+                    for (int i = 0; i < completedImages.length; i++) {
+                        mCameraCapturePreviewAdapter.complete(new File(completedImages[i]), Uri.parse(completedUris[i]));
+                    }
+                }
+            }
         }
     }
 

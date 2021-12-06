@@ -22,38 +22,6 @@ import java.util.Collections;
 import java.util.List;
 
 public class PostProcessViewModel extends ViewModel {
-    public enum SpatialDenoiseAggressiveness {
-        OFF(0.0f, 0),
-        NORMAL(0.5f, 1),
-        HIGH(1.0f, 2);
-
-        SpatialDenoiseAggressiveness(float weight, int optionValue) {
-            mWeight = weight;
-            mOptionValue = optionValue;
-        }
-
-        private float mWeight;
-        private int mOptionValue;
-
-        public float getWeight() {
-            return mWeight;
-        }
-
-        public int getOptionValue() {
-            return mOptionValue;
-        }
-
-        public static SpatialDenoiseAggressiveness GetFromOption(int option) {
-            for(SpatialDenoiseAggressiveness denoiseAggressiveness : SpatialDenoiseAggressiveness.values()) {
-                if(denoiseAggressiveness.getOptionValue() == option) {
-                    return denoiseAggressiveness;
-                }
-            }
-
-            return SpatialDenoiseAggressiveness.NORMAL;
-        }
-    }
-
     private List<NativeCameraBuffer> mAvailableImages;
     private MutableLiveData<PostProcessSettings> mPostProcessSettings = new MutableLiveData<>();
     private MutableLiveData<PostProcessSettings> mEstimatedSettings = new MutableLiveData<>();
@@ -72,7 +40,7 @@ public class PostProcessViewModel extends ViewModel {
     final public MutableLiveData<Integer> detail = new MutableLiveData<>();
     final public MutableLiveData<Integer> pop = new MutableLiveData<>();
     final public MutableLiveData<Integer> numMergeImages = new MutableLiveData<>();
-    final public MutableLiveData<Integer> spatialDenoiseAggressiveness = new MutableLiveData<>();
+    final public MutableLiveData<Integer> spatialDenoiseLevel = new MutableLiveData<>();
     final public MutableLiveData<Boolean> saveDng = new MutableLiveData<>();
     final public MutableLiveData<Boolean> isFlipped = new MutableLiveData<>();
 
@@ -170,8 +138,8 @@ public class PostProcessViewModel extends ViewModel {
         return 1.0f + getSetting(pop, CameraProfile.DEFAULT_POP) / 100.0f;
     }
 
-    public SpatialDenoiseAggressiveness getSpatialDenoiseAggressivenessSetting() {
-        return PostProcessViewModel.SpatialDenoiseAggressiveness.GetFromOption(getSetting(spatialDenoiseAggressiveness, 0));
+    public int getSpatialDenoiseLevelSetting() {
+        return getSetting(spatialDenoiseLevel, 0) - 1;
     }
 
     public void load(Context context) {
@@ -278,10 +246,10 @@ public class PostProcessViewModel extends ViewModel {
             a = cameraApertures[0];
 
         DenoiseSettings denoiseSettings = new DenoiseSettings(0, (float) exposure.getEv(a), settings.shadows);
-        PostProcessViewModel.SpatialDenoiseAggressiveness spatialNoise = SpatialDenoiseAggressiveness.NORMAL;
 
         numMergeImages.setValue(denoiseSettings.numMergeImages);
-        spatialDenoiseAggressiveness.setValue(spatialNoise.getOptionValue());
+        spatialDenoiseLevel.setValue(-1);
+
         saveDng.setValue(settings.dng);
     }
 
@@ -315,7 +283,7 @@ public class PostProcessViewModel extends ViewModel {
         settings.pop = getPopSetting();
 
         // Noise reduction
-        settings.spatialDenoiseAggressiveness = getSpatialDenoiseAggressivenessSetting().getWeight();
+        settings.spatialDenoiseLevel = getSpatialDenoiseLevelSetting();
 
         // Apply JPEG quality
         settings.jpegQuality = getSetting(jpegQuality, CameraProfile.DEFAULT_JPEG_QUALITY);
