@@ -21,6 +21,10 @@ add_library(build_bayer STATIC IMPORTED)
 set_target_properties(build_bayer PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/host/build_bayer.a)
 
+add_library(build_bayer2 STATIC IMPORTED)
+set_target_properties(build_bayer2 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/host/build_bayer2.a)
+
 add_library(measure_noise STATIC IMPORTED)
 set_target_properties(measure_noise PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/host/measure_noise.a)
@@ -277,6 +281,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DqDNGThreadSafe")
 
 target_link_libraries(motioncam-static
         build_bayer
+        build_bayer2
         measure_noise
         fast_preview
         linear_image
