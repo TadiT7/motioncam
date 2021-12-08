@@ -81,6 +81,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
@@ -629,6 +630,8 @@ public class CameraActivity extends AppCompatActivity implements
         mRecordStartTime = System.currentTimeMillis();
 
         // Update recording time
+        final String droppedFramesText = getText(R.string.dropped_frames).toString();
+
         mRecordingTimer = new Timer();
         mRecordingTimer.scheduleAtFixedRate(new TimerTask() {
             @Override
@@ -638,15 +641,15 @@ public class CameraActivity extends AppCompatActivity implements
                 float mins = (timeRecording / 1000.0f) / 60.0f;
                 int seconds = (int) ((mins - ((int) mins)) * 60);
 
-                String recordingText = String.format("00:%02d:%02d", (int) mins, seconds);
+                String recordingText = String.format(Locale.US, "00:%02d:%02d", (int) mins, seconds);
 
                 runOnUiThread(() -> {
                     mBinding.recordingTimerText.setText(recordingText);
 
                     int droppedFrames = mNativeCamera.getNumDroppedFrames();
 
-                    String droppedFramesText = String.format("%d DROPPED FRAMES", droppedFrames);
-                    mBinding.previewFrame.droppedFramesTxt.setText(droppedFramesText);
+                    String info = String.format(Locale.US, "%d %s", droppedFrames, droppedFramesText);
+                    mBinding.previewFrame.droppedFramesTxt.setText(info);
 
                     // End recording if too many dropped frames
                     if(droppedFrames > 120) {
@@ -786,9 +789,15 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void updateVideoUi() {
-        mBinding.previewFrame.videoCropToggle.setText(String.format("%d%% / %d%%\nCROP", mSettings.horizontalVideoCrop, mSettings.verticalVideoCrop));
+        String cropText = getText(R.string.crop).toString();
+        String fpsText = getText(R.string.fps).toString();
+        String resText = getText(R.string.res).toString();
 
-        mBinding.previewFrame.videoFrameRateBtn.setText(String.format("%d\nFPS", mSettings.frameRate));
+        mBinding.previewFrame.videoCropToggle.setText(
+                String.format(Locale.US, "%d%% / %d%%\n%s", mSettings.horizontalVideoCrop, mSettings.verticalVideoCrop, cropText));
+
+        mBinding.previewFrame.videoFrameRateBtn.setText(
+                String.format(Locale.US, "%d\n%s", mSettings.frameRate, fpsText));
 
         if(mNativeCamera != null) {
             Size captureOutputSize = mNativeCamera.getRawConfigurationOutput(mSelectedCamera);
@@ -802,7 +811,7 @@ public class CameraActivity extends AppCompatActivity implements
             width = width / 4 * 4;
             height = height / 2 * 2;
 
-            mBinding.previewFrame.videoResolution.setText(String.format("%dx%d\nRES", width, height));
+            mBinding.previewFrame.videoResolution.setText(String.format(Locale.US, "%dx%d\n%s", width, height, resText));
         }
     }
 
@@ -1003,10 +1012,10 @@ public class CameraActivity extends AppCompatActivity implements
         String maxFocus = "-";
 
         if(mCameraMetadata.minFocusDistance > 0)
-            minFocus = String.format("%.2f", 1.0f / mCameraMetadata.minFocusDistance);
+            minFocus = String.format(Locale.US, "%.2f", 1.0f / mCameraMetadata.minFocusDistance);
 
         if(mCameraMetadata.hyperFocalDistance > 0)
-            maxFocus = String.format("%.2f", 1.0f / mCameraMetadata.hyperFocalDistance);
+            maxFocus = String.format(Locale.US, "%.2f", 1.0f / mCameraMetadata.hyperFocalDistance);
 
         ((TextView) findViewById(R.id.manualControlMinText)).setText(minFocus);
         ((TextView) findViewById(R.id.manualControlMaxText)).setText(maxFocus);
@@ -1269,8 +1278,7 @@ public class CameraActivity extends AppCompatActivity implements
                 break;
 
             case COLOUR: {
-                int s = progress;
-                mPostProcessSettings.saturation = s > halfPoint ? 1.0f + ((s - halfPoint) / halfPoint * 0.25f) : s / seekBarMax * 2.0f;
+                mPostProcessSettings.saturation = progress > halfPoint ? 1.0f + ((progress - halfPoint) / halfPoint * 0.25f) : progress / seekBarMax * 2.0f;
             }
             break;
 
@@ -1544,6 +1552,9 @@ public class CameraActivity extends AppCompatActivity implements
         mCameraInfos = Arrays.asList(mNativeCamera.getSupportedCameras());
 
         if(mCameraInfos.isEmpty()) {
+            // Stop
+            mNativeCamera = null;
+
             // No supported cameras. Display message to user and exist
             AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(this, R.style.BasicDialog)
                     .setCancelable(false)
@@ -1551,7 +1562,8 @@ public class CameraActivity extends AppCompatActivity implements
                     .setMessage(R.string.not_supported_error)
                     .setPositiveButton(R.string.ok, (dialog, which) -> finish());
 
-            dialogBuilder.show();
+            dialogBuilder.create().show();
+
             return;
         }
 
@@ -1638,6 +1650,11 @@ public class CameraActivity extends AppCompatActivity implements
             createCamera();
 
             setupCameraSwitchButtons();
+        }
+
+        if(mSelectedCamera == null) {
+            Log.e(TAG, "No cameras found");
+            return;
         }
 
         // Exposure compensation frame
@@ -1951,9 +1968,7 @@ public class CameraActivity extends AppCompatActivity implements
 
     @Override
     public void onCameraAutoFocusStateChanged(NativeCameraSessionBridge.CameraFocusState state, float focusDistance) {
-        runOnUiThread(() -> {
-            onFocusStateChanged(state, focusDistance);
-        });
+        runOnUiThread(() -> onFocusStateChanged(state, focusDistance));
     }
 
     private void startImageProcessor() {
@@ -2229,7 +2244,7 @@ public class CameraActivity extends AppCompatActivity implements
 
         float focusDistanceMeters = 1.0f / focusDistance;
 
-        ((TextView) findViewById(R.id.focusBtn)).setText(String.format("%.2f M", focusDistanceMeters));
+        ((TextView) findViewById(R.id.focusBtn)).setText(String.format(Locale.US, "%.2f M", focusDistanceMeters));
 
         mFocusDistance = focusDistance;
     }

@@ -142,12 +142,14 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         viewHolder.getNumFrames().setText(String.valueOf(item.numFrames));
 
         if(item.isQueued) {
-            viewHolder.getQueueVideoBtn().setText("Queued");
+            viewHolder.getQueueVideoBtn().setText(R.string.queued);
+
             viewHolder.getQueueVideoBtn().setEnabled(false);
             viewHolder.getDeleteVideoBtn().setEnabled(false);
         }
         else {
-            viewHolder.getQueueVideoBtn().setText("Queue");
+            viewHolder.getQueueVideoBtn().setText(R.string.queue);
+
             viewHolder.getQueueVideoBtn().setEnabled(true);
             viewHolder.getDeleteVideoBtn().setEnabled(true);
         }
@@ -158,6 +160,14 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         }
         else {
             viewHolder.getProgressBar().setVisibility(View.INVISIBLE);
+        }
+
+        if(item.frameRate < 0 || item.numFrames < 0) {
+            viewHolder.getFileNameView().setText(R.string.corrupted_video);
+            viewHolder.getQueueVideoBtn().setEnabled(false);
+        }
+        else {
+            viewHolder.getQueueVideoBtn().setEnabled(true);
         }
 
         if(!item.haveMetadata) {

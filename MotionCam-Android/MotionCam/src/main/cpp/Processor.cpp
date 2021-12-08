@@ -120,17 +120,15 @@ Java_com_motioncam_processor_NativeProcessor_GetMetadata(JNIEnv *env, jobject th
 
     jclass nativeClass = env->FindClass("com/motioncam/processor/ContainerMetadata");
 
-    float frameRate = 0;
-    int numFrames = 0;
+    float frameRate = -1;
+    int numFrames = -1;
 
-    motioncam::GetMetadata(inputPath, frameRate, numFrames);
+    try {
+        motioncam::GetMetadata(inputPath, frameRate, numFrames);
+    }
+    catch(std::runtime_error& error) {
+        gLastError = error.what();
+    }
 
-    jobject obj =
-        env->NewObject(
-                nativeClass,
-                env->GetMethodID(nativeClass, "<init>", "(FI)V"),
-                frameRate,
-                numFrames);
-
-    return obj;
+    return env->NewObject(nativeClass, env->GetMethodID(nativeClass, "<init>", "(FI)V"), frameRate, numFrames);
 }
