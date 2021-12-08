@@ -39,6 +39,8 @@ public:
 
         std::string outputDngPath = outputPath + "/frame-" + str.str() + ".dng";
 
+        std::cout << "Creating " << outputDngPath << std::endl;
+        
         return open(outputDngPath.c_str(), O_WRONLY|O_CREAT|O_TRUNC, S_IWUSR|S_IWGRP|S_IRUSR|S_IRGRP);
     }
     
@@ -65,6 +67,7 @@ private:
 void printHelp() {
     std::cout << "Usage: convert [-t] [-I] file.zip /output/path" << std::endl << std::endl;
     std::cout << "-t\tNumber of threads" << std::endl;
+    std::cout << "-n\tNumber of frames to merge" << std::endl;
     std::cout << "-I\tProcess as image" << std::endl;
 }
 
@@ -76,6 +79,7 @@ int main(int argc, const char* argv[]) {
     
     int numThreads = 4;
     bool processAsImage = false;
+    int numFramesToMerge = 0;
     
     int i = 1;
     
@@ -87,6 +91,15 @@ int main(int argc, const char* argv[]) {
             }
             
             numThreads = std::stoi(argv[i+1]);
+            ++i;
+        }
+        else if(std::string(argv[i]) == "-n") {
+            if(i + 1 >= argc) {
+                printHelp();
+                exit(1);
+            }
+            
+            numFramesToMerge = std::stoi(argv[i+1]);
             ++i;
         }
         else if(std::string(argv[i]) == "-I") {
@@ -123,8 +136,9 @@ int main(int argc, const char* argv[]) {
             DngOutputListener listener(outputPath);
 
             std::cout << "Using " << numThreads << " threads" << std::endl;
+            std::cout << "Merging " << numFramesToMerge << " frames" << std::endl;
 
-            motioncam::ConvertVideoToDNG(inputFile, listener, numThreads);
+            motioncam::ConvertVideoToDNG(inputFile, listener, numThreads, numFramesToMerge);
         }
     }
     catch(std::runtime_error& e) {
