@@ -5,6 +5,10 @@ Motion Cam is a camera application for Android that replaces the entire camera p
 You can install the latest version from [GitHub](https://github.com/mirsadm/motioncam/releases)
 or a slightly out of date version from the [Play Store](https://play.google.com/store/apps/details?id=com.motioncam)
 
+#### RAW video capture
+
+Capture RAW video up to 30 FPS and convert to a sequence of DNGs.
+
 #### Dual exposure
 
 Dual exposure is similar to the feature found in the Google Camera. The two sliders control the exposure compensation and tonemapping.
