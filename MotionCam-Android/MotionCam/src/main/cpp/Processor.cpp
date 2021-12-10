@@ -83,16 +83,13 @@ jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_ProcessFile(
 
 extern "C" JNIEXPORT
 jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_ProcessVideo(
-        JNIEnv *env, jobject thiz, jstring inputPath_,jint numFramesToMerge, jobject progressListener) {
-
-    const char* javaInputPath = env->GetStringUTFChars(inputPath_, nullptr);
-    std::string inputPath(javaInputPath);
+        JNIEnv *env, jobject thiz, jint fd, jint numFramesToMerge, jobject progressListener) {
 
     // Process the video
     try {
         DngConverterListener listener(env, progressListener);
 
-        motioncam::ConvertVideoToDNG(inputPath, listener, 4, numFramesToMerge);
+        motioncam::ConvertVideoToDNG(fd, listener, 4, numFramesToMerge);
     }
     catch(std::runtime_error& e) {
         jclass exClass = env->FindClass("java/lang/RuntimeException");
@@ -114,17 +111,14 @@ jstring JNICALL Java_com_motioncam_processor_NativeProcessor_GetLastError(JNIEnv
 
 extern "C"
 JNIEXPORT jobject JNICALL
-Java_com_motioncam_processor_NativeProcessor_GetMetadata(JNIEnv *env, jobject thiz, jstring inputPath_) {
-    const char* javaInputPath = env->GetStringUTFChars(inputPath_, nullptr);
-    std::string inputPath(javaInputPath);
-
+Java_com_motioncam_processor_NativeProcessor_GetMetadata(JNIEnv *env, jobject thiz, jint fd) {
     jclass nativeClass = env->FindClass("com/motioncam/processor/ContainerMetadata");
 
     float frameRate = -1;
     int numFrames = -1;
 
     try {
-        motioncam::GetMetadata(inputPath, frameRate, numFrames);
+        motioncam::GetMetadata(fd, frameRate, numFrames);
     }
     catch(std::runtime_error& error) {
         gLastError = error.what();

@@ -2,6 +2,7 @@ package com.motioncam;
 
 import android.Manifest;
 import android.app.ProgressDialog;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -19,6 +20,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Looper;
+import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
@@ -43,6 +45,7 @@ import androidx.constraintlayout.motion.widget.MotionLayout;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.widget.ImageViewCompat;
+import androidx.documentfile.provider.DocumentFile;
 import androidx.viewpager2.widget.ViewPager2;
 import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
@@ -74,6 +77,7 @@ import com.motioncam.worker.State;
 import com.motioncam.worker.VideoProcessWorker;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -158,6 +162,7 @@ public class CameraActivity extends AppCompatActivity implements
         int horizontalVideoCrop;
         int verticalVideoCrop;
         int frameRate;
+        Uri rawVideoRecordingTempUri;
 
         void load(SharedPreferences prefs) {
             this.jpegQuality = prefs.getInt(SettingsViewModel.PREFS_KEY_JPEG_QUALITY, CameraProfile.DEFAULT_JPEG_QUALITY);
@@ -200,6 +205,10 @@ public class CameraActivity extends AppCompatActivity implements
                     this.cameraPreviewQuality = 2;
                     break;
             }
+
+            String rawVideoRecordingTempUri = prefs.getString(SettingsViewModel.PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI, null);
+            if(rawVideoRecordingTempUri != null)
+                this.rawVideoRecordingTempUri = Uri.parse(rawVideoRecordingTempUri);
         }
 
         void save(SharedPreferences prefs) {
@@ -602,25 +611,79 @@ public class CameraActivity extends AppCompatActivity implements
         }
     }
 
-    private void startRawVideoRecording() {
+    private int getInternalRecordingFd() {
         File outputDirectory = new File(getFilesDir(), VideoProcessWorker.VIDEOS_PATH);
         File outputFile = new File(outputDirectory, CameraProfile.generateFilename("VIDEO"));
 
         try {
             if (!outputDirectory.exists() && !outputDirectory.mkdirs()) {
                 Log.e(TAG, "Failed to create " + outputDirectory.toString());
-                return;
+                return -1;
             }
         }
         catch(Exception e) {
             e.printStackTrace();
             Log.e(TAG, "Error creating path: " + outputDirectory.toString());
+            return - 1;
+        }
+
+        try(ParcelFileDescriptor pfd = ParcelFileDescriptor.open(
+                outputFile, ParcelFileDescriptor.MODE_CREATE|ParcelFileDescriptor.MODE_READ_WRITE))
+        {
+            return pfd.detachFd();
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+            return -1;
+        }
+    }
+
+    private int getRecordingFd() {
+        if(mSettings.rawVideoRecordingTempUri == null)
+            return -1;
+
+        DocumentFile root = DocumentFile.fromTreeUri(this, mSettings.rawVideoRecordingTempUri);
+        if( root.exists() && root.isDirectory() && root.canWrite() )
+        {
+            DocumentFile output = root.createFile("application/zip", CameraProfile.generateFilename("VIDEO"));
+            ContentResolver resolver = getApplicationContext().getContentResolver();
+
+            try {
+                ParcelFileDescriptor pfd = resolver.openFileDescriptor(output.getUri(), "w", null);
+
+                if(pfd != null) {
+                    return pfd.detachFd();
+                }
+            }
+            catch (FileNotFoundException e) {
+                e.printStackTrace();
+                return -1;
+            }
+        }
+
+        String error = getString(R.string.invalid_raw_video_folder);
+
+        Toast.makeText(CameraActivity.this, error, Toast.LENGTH_LONG).show();
+
+        return -1;
+    }
+
+    private void startRawVideoRecording() {
+        Log.i(TAG, "Starting RAW video recording (max memory usage: " + mSettings.rawVideoMemoryUseBytes + ")");
+
+        // Try to get a writable fd
+        int fd = getRecordingFd();
+        if(fd < 0) {
+            fd = getInternalRecordingFd();
+        }
+
+        if(fd < 0) {
+            String error = getString(R.string.recording_failed);
+            Toast.makeText(CameraActivity.this, error, Toast.LENGTH_LONG).show();
             return;
         }
 
-        Log.i(TAG, "Starting RAW video recording (max memory usage: " + mSettings.rawVideoMemoryUseBytes + ")");
-
-        mNativeCamera.streamToFile(outputFile.getPath(), mSettings.rawVideoMemoryUseBytes);
+        mNativeCamera.streamToFile(fd, mSettings.rawVideoMemoryUseBytes);
         mImageCaptureInProgress.set(true);
 
         mBinding.switchCameraBtn.setEnabled(false);
@@ -653,7 +716,9 @@ public class CameraActivity extends AppCompatActivity implements
 
                     // End recording if too many dropped frames
                     if(droppedFrames > 120) {
-                        Toast.makeText(CameraActivity.this, "Recording has ended because of too many dropped frames", Toast.LENGTH_LONG).show();
+                        String error = getString(R.string.dropped_frames_error);
+
+                        Toast.makeText(CameraActivity.this, error, Toast.LENGTH_LONG).show();
                         finaliseRawVideo(true);
                     }
                 });
@@ -676,8 +741,8 @@ public class CameraActivity extends AppCompatActivity implements
         if(showProgress) {
             dialog.setIndeterminate(true);
             dialog.setCancelable(false);
-            dialog.setTitle("Please wait");
-            dialog.setMessage("Saving video");
+            dialog.setTitle(getString(R.string.please_wait));
+            dialog.setMessage(getString(R.string.saving_video));
 
             dialog.show();
         }

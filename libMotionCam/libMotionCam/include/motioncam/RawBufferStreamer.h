@@ -17,19 +17,18 @@ namespace motioncam {
         RawBufferStreamer();
         ~RawBufferStreamer();
         
-        void start(const std::string& outputPath, const int64_t maxMemoryUsageBytes, const RawCameraMetadata& cameraMetadata);
+        void start(const int fd, const int64_t maxMemoryUsageBytes, const RawCameraMetadata& cameraMetadata);
         bool add(const std::shared_ptr<RawImageBuffer>& frame);
         void stop();
         
-        void setCropAmount(int horizontal, int vertical);
-        
+        void setCropAmount(int horizontal, int vertical);    
         bool isRunning() const;
         
     private:
         std::shared_ptr<RawImageBuffer> crop(const std::shared_ptr<RawImageBuffer>& buffer) const;
         std::shared_ptr<RawImageBuffer> compressBuffer(const std::shared_ptr<RawImageBuffer>& buffer, std::vector<uint8_t>& tmpBuffer) const;
         void doCompress();
-        void doStream(const std::string& outputContainerPath, const RawCameraMetadata& cameraMetadata);
+        void doStream(const int fd, const RawCameraMetadata& cameraMetadata);
         
     private:
         std::vector<std::unique_ptr<std::thread>> mIoThreads;

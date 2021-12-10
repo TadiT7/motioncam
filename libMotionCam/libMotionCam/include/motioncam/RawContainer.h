@@ -18,6 +18,7 @@ namespace motioncam {
 
     class RawContainer {
     public:
+        RawContainer(const int fd);
         RawContainer(const std::string& inputPath);
         RawContainer(const RawCameraMetadata& cameraMetadata);
 
@@ -40,7 +41,9 @@ namespace motioncam {
         std::shared_ptr<RawImageBuffer> loadFrame(const std::string& frame) const;
         void removeFrame(const std::string& frame);
         
+        void save(const int fd);
         void save(const std::string& outputPath);
+        void save(util::ZipWriter& writer);
         
         static size_t append(util::ZipWriter& zipWriter, std::shared_ptr<RawImageBuffer> frame);
         

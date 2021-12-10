@@ -57,12 +57,10 @@ namespace motioncam {
         }
     }
 
-    float ConvertVideoToDNG(const std::string& containerPath, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
+    float ConvertVideoToDNG(RawContainer& container, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
         if(RUNNING)
             throw std::runtime_error("Already running");
-        
-        RawContainer container(containerPath);
-        
+                
         auto frames = container.getFrames();
         
         // Sort frames by timestamp
@@ -240,8 +238,8 @@ namespace motioncam {
         ImageProcessor::process(rawContainer, outputFilePath, progressListener);
     }
 
-    void GetMetadata(const std::string& containerPath, float& outFrameRate, int& outNumFrames) {
-        RawContainer container(containerPath);
+    void GetMetadata(const int fd, float& outFrameRate, int& outNumFrames) {
+        RawContainer container(fd);
         
         auto frames = container.getFrames();
         
@@ -269,5 +267,17 @@ namespace motioncam {
             outFrameRate = 0;
         else
             outFrameRate  = frames.size() / time;
+    }
+
+    float ConvertVideoToDNG(const std::string& inputPath, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
+        RawContainer container(inputPath);
+        
+        return ConvertVideoToDNG(container, progress, numThreads, mergeFrames);
+    }
+
+    float ConvertVideoToDNG(const int fd, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
+        RawContainer container(fd);
+        
+        return ConvertVideoToDNG(container, progress, numThreads, mergeFrames);
     }
 }

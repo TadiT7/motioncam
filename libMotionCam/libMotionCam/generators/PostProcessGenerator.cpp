@@ -47,6 +47,7 @@ protected:
 
 private:
     Func deinterleaveRaw16(Func in, int c, Expr stride);
+    Func deinterleaveRaw12(Func in, int c, Expr stride);
     Func deinterleaveRaw10(Func in, int c, Expr stride);
 
 protected:
@@ -96,6 +97,7 @@ void PostProcessBase::warp(Func& output, const Func& in, const Func& m) {
 void PostProcessBase::deinterleave(Func& result, Func in, int c, Expr stride, Expr rawFormat) {
     result(v_x, v_y) =
         select( rawFormat == static_cast<int>(RawFormat::RAW10), cast<uint16_t>(deinterleaveRaw10(in, c, stride)(v_x, v_y)),
+                rawFormat == static_cast<int>(RawFormat::RAW12), cast<uint16_t>(deinterleaveRaw12(in, c, stride)(v_x, v_y)),
                 rawFormat == static_cast<int>(RawFormat::RAW16), cast<uint16_t>(deinterleaveRaw16(in, c, stride)(v_x, v_y)),
                 0);
 }
@@ -175,6 +177,14 @@ Func PostProcessBase::deinterleaveRaw10(Func in, int c, Expr stride) {
     return result;
 }
 
+Func PostProcessBase::deinterleaveRaw12(Func in, int c, Expr stride) {
+    Func result;
+
+    // TODO
+    result(v_x, v_y) = 0;
+
+    return result;
+}
 
 void PostProcessBase::blur(Func& output, Func& outputTmp, Func input) {
     Func in32{"blur_in32"};
@@ -2413,10 +2423,10 @@ public:
     Func Lmap{"Lmap"};
     Func LmapTmp0{"LmapTmp0"}, LmapTmp1{"LmapTmp1"}, LmapTmp2{"LmapTmp2"}, LmapTmp3{"LmapTmp3"};
 
-    Func defringeVertical{"defringeVertical"};
-    Func defringeVerticalTransposed{"defringeVerticalTransposed"};
-    Func defringeHorizontal{"defringeHorizontal"};
-    Func defringe{"defringe"};
+    // Func defringeVertical{"defringeVertical"};
+    // Func defringeVerticalTransposed{"defringeVerticalTransposed"};
+    // Func defringeHorizontal{"defringeHorizontal"};
+    // Func defringe{"defringe"};
 
     Func colorCorrected{"colorCorrected"};
     Func hdrTonemapInput{"hdrTonemapInput"};
@@ -2515,15 +2525,15 @@ void PostProcessGenerator::generate()
     tonemap->tonemap_levels.set(TONEMAP_LEVELS);
     tonemap->apply(tonemapInput, hdrTonemapInput, WIDTH * 2, HEIGHT * 2, tonemapVariance, shadows);
 
-    defringeVertical.define_extern("extern_defringe", { (Func) tonemap->output, WIDTH*2, HEIGHT*2 }, UInt(16), 3);
-    defringeVertical.compute_root();
+    // defringeVertical.define_extern("extern_defringe", { (Func) tonemap->output, WIDTH*2, HEIGHT*2 }, UInt(16), 3);
+    // defringeVertical.compute_root();
 
-    defringeVerticalTransposed(v_x, v_y, v_c) = defringeVertical(v_y, v_x, v_c);
+    // defringeVerticalTransposed(v_x, v_y, v_c) = defringeVertical(v_y, v_x, v_c);
 
-    defringeHorizontal.define_extern("extern_defringe", { defringeVerticalTransposed, HEIGHT*2, WIDTH*2 }, UInt(16), 3);
-    defringeHorizontal.compute_root();
+    // defringeHorizontal.define_extern("extern_defringe", { defringeVerticalTransposed, HEIGHT*2, WIDTH*2 }, UInt(16), 3);
+    // defringeHorizontal.compute_root();
 
-    defringe(v_x, v_y, v_c) = defringeHorizontal(v_y, v_x, v_c);
+    // defringe(v_x, v_y, v_c) = defringeHorizontal(v_y, v_x, v_c);
     
     // Finalize output
     enhance = create<EnhanceGenerator>();
@@ -2533,7 +2543,7 @@ void PostProcessGenerator::generate()
     enhance->popRadius.set(25);
 
     enhance->apply(
-        defringe,
+        (Func) tonemap->output,
         chromaEps,
         WIDTH*2,
         HEIGHT*2,
@@ -2647,19 +2657,19 @@ void PostProcessGenerator::schedule_for_cpu() {
         .vectorize(v_y, 12)
         .parallel(v_y);
 
-    defringeVerticalTransposed
-        .compute_root()
-        .tile(v_x, v_y, v_xo, v_yo, v_x, v_y, 8, 8)
-        .vectorize(v_x)
-        .parallel(v_yo)
-        .parallel(v_c);
+    // defringeVerticalTransposed
+    //     .compute_root()
+    //     .tile(v_x, v_y, v_xo, v_yo, v_x, v_y, 8, 8)
+    //     .vectorize(v_x)
+    //     .parallel(v_yo)
+    //     .parallel(v_c);
 
-    defringe
-        .compute_root()
-        .tile(v_x, v_y, v_xo, v_yo, v_x, v_y, 8, 8)
-        .vectorize(v_x)
-        .parallel(v_yo)
-        .parallel(v_c);
+    // defringe
+    //     .compute_root()
+    //     .tile(v_x, v_y, v_xo, v_yo, v_x, v_y, 8, 8)
+    //     .vectorize(v_x)
+    //     .parallel(v_yo)
+    //     .parallel(v_c);
 
     hdrTonemapInput
         .compute_root()
@@ -3361,7 +3371,7 @@ void MeasureImageGenerator::generate() {
     Func in[4];
     Func shadingMap[4];
     Func downscaled{"downscaled"};
-    Func result8u{"result8u"};
+    Func result16u{"result16u"};
     Func colorCorrected{"colorCorrected"};
     Func downscaledInput{"downscaledInput"};
     Func demosaicInput{"demosaicInput"};
@@ -3406,15 +3416,15 @@ void MeasureImageGenerator::generate() {
 
     Expr L = 0.2989f*colorCorrected(v_x, v_y, 0) + 0.5870f*colorCorrected(v_x, v_y, 1) + 0.1140f*colorCorrected(v_x, v_y, 2);
 
-    result8u(v_x, v_y) = cast<uint8_t>(clamp(L * 255 + 0.5f, 0, 255));
+    result16u(v_x, v_y) = saturating_cast<uint16_t>(L * 65535.0f + 0.5f);
 
     RDom r(0, w, 0, h);
 
     histogram(v_i) = cast<uint32_t>(0);
-    histogram(result8u(r.x, r.y)) += cast<uint32_t>(1);
+    histogram(result16u(r.x, r.y)) += cast<uint32_t>(1);
 
     // Schedule
-    result8u
+    result16u
         .compute_root()
         .reorder(v_x, v_y)
         .parallel(v_y)
@@ -3790,6 +3800,72 @@ void BuildBayerGenerator2::generate() {
         .vectorize(v_x, 8);
 }
 
+class DecorrelateGenerator : public Halide::Generator<DecorrelateGenerator>, public PostProcessBase {
+public:
+    Input<Buffer<uint8_t>> input{"input", 1 };
+    Input<int> stride{"stride"};
+    Input<int> pixelFormat{"pixelFormat"};
+
+    Input<int16_t> quantize{"quantize"};
+
+    Output<Buffer<uint8_t>> output{"output", 1 };
+
+    void generate();
+};
+
+void DecorrelateGenerator::generate() {
+    Func clamped{"clamped"};
+    Func channels[4];
+    Func deinterleaved{"deinterleaved"};
+    Func quantized{"quantized"};
+
+    // Deinterleave
+    clamped = Halide::BoundaryConditions::mirror_image(input);
+
+    deinterleave(channels[0], clamped, 0, stride, pixelFormat);
+    deinterleave(channels[1], clamped, 1, stride, pixelFormat);
+    deinterleave(channels[2], clamped, 2, stride, pixelFormat);
+    deinterleave(channels[3], clamped, 3, stride, pixelFormat);
+
+    deinterleaved(v_x, v_y, v_c) = cast<int16_t>(
+        mux(v_c,
+            {   channels[0](v_x + cx, v_y + cy),
+                channels[1](v_x + cx, v_y + cy),
+                channels[2](v_x + cx, v_y + cy),
+                channels[3](v_x + cx, v_y + cy) }) );
+
+    quantized(v_x, v_y, v_c) = select(
+        v_c == 0,  deinterleaved(v_x, v_y, 0),
+        v_c == 1, (deinterleaved(v_x, v_y, 0) - deinterleaved(v_x, v_y, 1)) / quantize,
+        v_c == 2, (deinterleaved(v_x, v_y, 0) - deinterleaved(v_x, v_y, 2)) / quantize,
+                  (deinterleaved(v_x, v_y, 0) - deinterleaved(v_x, v_y, 3)) / quantize
+    );
+
+    // Interleave back into RAW10
+    // output(v_x, v_y) = select(
+    //     v_c == 0, cast<uint8_t>(quantized(v_x, v_y, 0)),
+    //     v_c == 1, cast<uint8_t>(quantized(v_x, v_y, 1)),
+    //     v_c == 2, cast<uint8_t>(quantized(v_x, v_y, 2)),
+    //               cast<uint8_t>(quantized(v_x, v_y, 3)) );
+
+    // output(v_x) = select(
+    //     v_x % 5 == 0,   cast<uint8_t>(quantized(v_x, v_y, v_c) >> 2),
+    //     v_x % 5 == 1,   cast<uint8_t>(quantized(v_x, v_y, v_c) >> 2),
+    //     v_x % 5 == 2,   cast<uint8_t>(quantized(v_x, v_y, v_c) >> 2),
+    //     v_x % 5 == 3,   cast<uint8_t>(quantized(v_x, v_y, v_c) >> 2),
+    //     cast<uint8_t>(
+    //          (quantized(v_x - 4, v_y, v_c) & 0x3)        &
+    //         ((quantized(v_x - 3, v_y, v_c) & 0x3) << 2)  &
+    //         ((quantized(v_x - 2, v_y, v_c) & 0x3) << 4)  &
+    //         ((quantized(v_x - 1, v_y, v_c) & 0x3) << 6) ));
+
+    input.set_estimates({ {0, 24000000} });
+    output.set_estimates({ {0, 24000000} });
+    stride.set_estimate(5008);
+    pixelFormat.set_estimate(0);
+    quantize.set_estimate(4);    
+}
+
 ///////////////
 
 class MeasureNoiseGenerator : public Generator<MeasureNoiseGenerator>, public PostProcessBase {
@@ -4000,3 +4076,5 @@ HALIDE_REGISTER_GENERATOR(HdrMaskGenerator, hdr_mask_generator)
 HALIDE_REGISTER_GENERATOR(LinearImageGenerator, linear_image_generator)
 HALIDE_REGISTER_GENERATOR(BuildBayerGenerator, build_bayer_generator)
 HALIDE_REGISTER_GENERATOR(BuildBayerGenerator2, build_bayer_generator2)
+HALIDE_REGISTER_GENERATOR(DecorrelateGenerator, decorrelate_generator)
+

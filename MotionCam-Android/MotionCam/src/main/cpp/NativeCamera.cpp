@@ -1069,26 +1069,17 @@ jobjectArray JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_DetectF
 
 extern "C"
 JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_StartStreamToFile(
-        JNIEnv *env, jobject thiz, jlong handle, jstring jOutputPath, jlong maxMemoryUsageBytes)
+        JNIEnv *env, jobject thiz, jlong handle, jint fd, jlong maxMemoryUsageBytes)
 {
     std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
     if(!sessionManager) {
         return;
     }
 
-    const char* outputPathChars = env->GetStringUTFChars(jOutputPath, nullptr);
-    if(outputPathChars == nullptr) {
-        LOGE("Failed to get output path");
-        return;
-    }
-
-    std::string outputPath(outputPathChars);
-    env->ReleaseStringUTFChars(jOutputPath, outputPathChars);
-
     auto cameraId = sessionManager->getSelectedCameraId();
     auto metadata = sessionManager->getCameraDescription(cameraId)->metadata;
 
-    RawBufferManager::get().enableStreaming(outputPath, maxMemoryUsageBytes, metadata);
+    RawBufferManager::get().enableStreaming(fd, maxMemoryUsageBytes, metadata);
 }
 
 extern "C"

@@ -1,8 +1,12 @@
 package com.motioncam.camera;
 
+import android.content.ContentResolver;
+import android.content.Context;
 import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.ParcelFileDescriptor;
 import android.util.Pair;
 import android.util.Size;
 
@@ -32,7 +36,7 @@ public class AsyncNativeCameraOps implements Closeable {
     }
 
     private final ThreadPoolExecutor mBackgroundProcessor = new ThreadPoolExecutor( 1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>() );
-    private NativeCameraSessionBridge mCameraSessionBridge;
+    private final NativeCameraSessionBridge mCameraSessionBridge;
     private final Handler mMainHandler;
     private Size mUnscaledSize;
 
@@ -41,7 +45,7 @@ public class AsyncNativeCameraOps implements Closeable {
     }
 
     public interface ContainerListener {
-        void onContainerMetadataAvailable(String containerPath, ContainerMetadata metadata);
+        void onContainerMetadataAvailable(Uri containerUri, ContainerMetadata metadata);
     }
 
     public interface PostProcessSettingsListener {
@@ -190,11 +194,28 @@ public class AsyncNativeCameraOps implements Closeable {
         });
     }
 
-    public void getContainerMetadata(String inputPath, ContainerListener listener) {
+    public void getContainerMetadata(Context context, Uri uri, ContainerListener listener) {
+        final ContentResolver resolver = context.getContentResolver();
+
         mBackgroundProcessor.submit(() -> {
             NativeProcessor processor = new NativeProcessor();
 
-            mMainHandler.post(() -> listener.onContainerMetadataAvailable(inputPath, processor.getMetadata(inputPath)));
+            int fd = -1;
+
+            try(ParcelFileDescriptor pfd = resolver.openFileDescriptor(uri, "r", null)) {
+                if (pfd != null)
+                    fd = pfd.detachFd();
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            if(fd < 0)
+                return;
+
+            final int finalFd = fd;
+
+            mMainHandler.post(() -> listener.onContainerMetadataAvailable(uri, processor.getMetadata(finalFd)));
         });
     }
 }

@@ -22,8 +22,8 @@ namespace motioncam {
     // This needs to match the generator input
     enum class PixelFormat : int {
         RAW10 = 0,
-        RAW16 = 1,
         RAW12,
+        RAW16,
         YUV_420_888
     };
 

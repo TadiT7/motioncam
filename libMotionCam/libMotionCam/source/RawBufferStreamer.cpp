@@ -27,23 +27,17 @@ namespace motioncam {
         stop();
     }
 
-    void RawBufferStreamer::start(const std::string& outputPath, const int64_t maxMemoryUsageBytes, const RawCameraMetadata& cameraMetadata) {
+    void RawBufferStreamer::start(const int fd, const int64_t maxMemoryUsageBytes, const RawCameraMetadata& cameraMetadata) {
         stop();
         
         mRunning = true;
-        
-        size_t p = outputPath.find_last_of('.');
-        if(p == std::string::npos)
-            p = outputPath.size() - 1;
-        
-        auto outputName = outputPath.substr(0, p);
         mMaxMemoryUsageBytes = maxMemoryUsageBytes;
         
         logger::log("Maximum memory usage is " + std::to_string(mMaxMemoryUsageBytes));
         
         // Create IO threads
         for(int i = 0; i < NumWriteThreads; i++) {
-            auto t = std::unique_ptr<std::thread>(new std::thread(&RawBufferStreamer::doStream, this, outputName, cameraMetadata));
+            auto t = std::unique_ptr<std::thread>(new std::thread(&RawBufferStreamer::doStream, this, fd, cameraMetadata));
             
             // Set priority on IO thread
             sched_param priority{};
@@ -102,13 +96,14 @@ namespace motioncam {
     std::shared_ptr<RawImageBuffer> RawBufferStreamer::crop(const std::shared_ptr<RawImageBuffer>& buffer) const {
         auto data = buffer->data->lock(true);
 
-        const int horizontalCrop = 4 * (lround(0.5f * (mCropHorizontal/100.0f * buffer->width)) / 4);
-        const int verticalCrop   = 2 * (lround(0.5f * (mCropVertical/100.0f * buffer->height)) / 2); // Even vertical crop to match bayer pattern
+        const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropHorizontal/100.0f * buffer->width)) / 4));
+        // Even vertical crop to match bayer pattern
+        const int verticalCrop   = static_cast<const int>(2 * (lround(0.5f * (mCropVertical/100.0f * buffer->height)) / 2));
 
         auto croppedBuffer = std::make_shared<RawImageBuffer>();
 
-        croppedBuffer->width        = buffer->width - horizontalCrop*2;
-        croppedBuffer->height       = buffer->height - verticalCrop*2;
+        croppedBuffer->width        = static_cast<const int>(buffer->width - horizontalCrop*2);
+        croppedBuffer->height       = static_cast<const int>(buffer->height - verticalCrop*2);
         croppedBuffer->metadata     = buffer->metadata;
         croppedBuffer->pixelFormat  = buffer->pixelFormat;
         croppedBuffer->isCompressed = false;
@@ -198,41 +193,29 @@ namespace motioncam {
             mMemoryUsage += tmpBuffer.size();
 
             mCompressedBufferQueue.enqueue(compressBuffer(buffer, tmpBuffer));
-                        
+            
             // Return the buffer
             RawBufferManager::get().discardBuffer(buffer);
         }
     }
 
-    void RawBufferStreamer::doStream(const std::string& containerName, const RawCameraMetadata& cameraMetadata) {
-        int containerNum = 0;
+    void RawBufferStreamer::doStream(const int fd, const RawCameraMetadata& cameraMetadata) {
         uint32_t writtenFrames = 0;
-
-        std::unique_ptr<RawContainer> container;
-        std::unique_ptr<util::ZipWriter> writer;
-
-        std::shared_ptr<RawImageBuffer> buffer;
         
+        util::ZipWriter writer(fd);
+        std::shared_ptr<RawImageBuffer> buffer;
+
+        // Every 15 minutes
+        std::unique_ptr<RawContainer> container = std::unique_ptr<RawContainer>(new RawContainer(cameraMetadata));
+        container->save(writer);
+
         while(mRunning) {
-            if(writtenFrames % 900 == 0) {
-                std::string containerOutputPath = containerName + "_" + std::to_string(containerNum) + ".zip";
-
-                logger::log("Creating " + containerOutputPath);
-                container = std::unique_ptr<RawContainer>(new RawContainer(cameraMetadata));
-                container->save(containerOutputPath);
-
-                writer = std::unique_ptr<util::ZipWriter>(new util::ZipWriter(containerOutputPath, true));
-
-                ++containerNum;
-                writtenFrames = 1;
-            }
-
             if(!mCompressedBufferQueue.wait_dequeue_timed(buffer, std::chrono::milliseconds(100))) {
                 logger::log("Out of buffers to write");
                 continue;
             }
             
-            RawContainer::append(*writer, buffer);
+            RawContainer::append(writer, buffer);
 
             mMemoryUsage -= static_cast<int>(buffer->data->len());
             writtenFrames++;
@@ -242,21 +225,19 @@ namespace motioncam {
         // Flush buffers
         //
 
-        if(writer) {
-            std::vector<uint8_t> tmpBuffer;
+        std::vector<uint8_t> tmpBuffer;
 
-            while(mCompressedBufferQueue.try_dequeue(buffer)) {
-                RawContainer::append(*writer, buffer);
-            }
-
-            while(mRawBufferQueue.try_dequeue(buffer)) {
-                RawContainer::append(*writer, compressBuffer(buffer, tmpBuffer));
-
-                RawBufferManager::get().discardBuffer(buffer);
-            }
-
-            writer->commit();
+        while(mCompressedBufferQueue.try_dequeue(buffer)) {
+            RawContainer::append(writer, buffer);
         }
+
+        while(mRawBufferQueue.try_dequeue(buffer)) {
+            RawContainer::append(writer, compressBuffer(buffer, tmpBuffer));
+
+            RawBufferManager::get().discardBuffer(buffer);
+        }
+
+        writer.commit();
     }
 
     bool RawBufferStreamer::isRunning() const {

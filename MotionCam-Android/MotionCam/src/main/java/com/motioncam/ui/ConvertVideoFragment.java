@@ -36,15 +36,16 @@ import com.motioncam.worker.State;
 import com.motioncam.worker.VideoProcessWorker;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 public class ConvertVideoFragment  extends Fragment implements LifecycleObserver, RawVideoAdapter.OnQueueListener {
+    private ActivityResultLauncher<Intent> mSelectDocumentLauncher;
     private RecyclerView mFileList;
     private View mNoFiles;
     private RawVideoAdapter mAdapter;
-    private ActivityResultLauncher<Intent> mSelectDocumentLauncher;
-    private File mSelectedFile;
+    private Uri mSelectedFile;
     private int mNumFramesToMerge;
     private View mConvertSettings;
 
@@ -97,6 +98,48 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                 });
     }
 
+    private Uri[] getVideos() {
+        SharedPreferences sharedPrefs =
+                getActivity().getSharedPreferences(SettingsViewModel.CAMERA_SHARED_PREFS, Context.MODE_PRIVATE);
+
+        List<Uri> uris = new ArrayList<>();
+
+        // List all videos in the user specified directory, if it exists.
+        String tempVideosUriString = sharedPrefs.getString(SettingsViewModel.PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI, null);
+        if(tempVideosUriString != null) {
+            Uri tempVideosUri = Uri.parse(tempVideosUriString);
+            DocumentFile videosDocumentFile = DocumentFile.fromTreeUri(requireContext(), tempVideosUri);
+            if(videosDocumentFile.exists()) {
+                DocumentFile[] documentFiles = videosDocumentFile.listFiles();
+                for(DocumentFile documentFile : documentFiles) {
+                    if(documentFile.isFile() && documentFile.getName()
+                        .toLowerCase(Locale.ROOT)
+                        .endsWith("zip"))
+                    {
+                        uris.add(documentFile.getUri());
+                    }
+                }
+            }
+        }
+
+        // Get internal storage videos
+        if(getActivity() != null) {
+            File filesDir = getActivity().getFilesDir();
+            File outputDirectory = new File(filesDir, VideoProcessWorker.VIDEOS_PATH);
+
+            File[] videos = outputDirectory.listFiles();
+            for(File videoFile : videos) {
+                if(videoFile.isFile()
+                    && videoFile.getName().toLowerCase(Locale.ROOT).endsWith("zip"))
+                {
+                    uris.add(Uri.fromFile(videoFile));
+                }
+            }
+        }
+
+        return uris.toArray(new Uri[0]);
+    }
+
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         mFileList = view.findViewById(R.id.fileList);
@@ -107,7 +150,8 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
 
         final TextView mergeFramesText = view.findViewById(R.id.mergeFrames);
 
-        ((SeekBar) view.findViewById(R.id.mergeFramesSeekBar)).setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        ((SeekBar) view.findViewById(R.id.mergeFramesSeekBar)).setOnSeekBarChangeListener(
+                new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 mNumFramesToMerge = progress* 4;
@@ -123,17 +167,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
             }
         });
 
-        File[] videoFiles = null;
-
-        if(getActivity() != null) {
-            File filesDir = getActivity().getFilesDir();
-            File outputDirectory = new File(filesDir, VideoProcessWorker.VIDEOS_PATH);
-
-            videoFiles = outputDirectory.listFiles();
-        }
-
-        if(videoFiles == null)
-            videoFiles = new File[0];
+        Uri[] videoFiles = getVideos();
 
         if(videoFiles.length == 0) {
             mNoFiles.setVisibility(View.VISIBLE);
@@ -145,7 +179,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
             mConvertSettings.setVisibility(View.VISIBLE);
             mNoFiles.setVisibility(View.GONE);
 
-            mAdapter = new RawVideoAdapter(videoFiles, this);
+            mAdapter = new RawVideoAdapter(requireContext(), videoFiles, this);
 
             mFileList.setLayoutManager(new LinearLayoutManager(getActivity()));
             mFileList.setAdapter(mAdapter);
@@ -161,29 +195,30 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
     }
 
     @Override
-    public void onDeleteClicked(File file) {
+    public void onDeleteClicked(Uri uri) {
         new AlertDialog.Builder(requireActivity(), android.R.style.Theme_DeviceDefault_Dialog_Alert)
                 .setIcon(android.R.drawable.ic_dialog_info)
-                .setTitle("Delete")
-                .setMessage("Are you sure you want to delete this video?")
-                .setPositiveButton("Yes", (dialog, which) -> {
-                    if(file.delete()) {
-                        if(mAdapter.remove(file) == 0) {
+                .setTitle(R.string.delete)
+                .setMessage(R.string.confirm_delete)
+                .setPositiveButton(R.string.yes, (dialog, which) -> {
+                    DocumentFile documentFile = DocumentFile.fromTreeUri(requireContext(), uri);
+                    if(documentFile.delete()) {
+                        if(mAdapter.remove(uri) == 0) {
                             mNoFiles.setVisibility(View.VISIBLE);
                             mFileList.setVisibility(View.GONE);
                             mConvertSettings.setVisibility(View.GONE);
                         }
                     }
                 })
-                .setNegativeButton("No", null)
+                .setNegativeButton(R.string.no, null)
                 .show();
     }
 
-    private void startWorker(File inputFile, Uri outputUri, int numFramesToMerge) {
+    private void startWorker(Uri inputUri, Uri outputUri, int numFramesToMerge) {
         OneTimeWorkRequest request =
                 new OneTimeWorkRequest.Builder(VideoProcessWorker.class)
                         .setInputData(new Data.Builder()
-                                .putString(VideoProcessWorker.INPUT_PATH_KEY, inputFile.getPath())
+                                .putString(VideoProcessWorker.INPUT_URI_KEY, inputUri.toString())
                                 .putString(VideoProcessWorker.OUTPUT_URI_KEY, outputUri.toString())
                                 .putInt(VideoProcessWorker.INPUT_NUM_FRAMES_TO_MERGE, numFramesToMerge)
                                 .build())
@@ -197,8 +232,8 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
     }
 
     @Override
-    public void onQueueClicked(File file) {
-        mSelectedFile = file;
+    public void onQueueClicked(Uri uri) {
+        mSelectedFile = uri;
 
         SharedPreferences sharedPrefs =
                 getActivity().getSharedPreferences(SettingsViewModel.CAMERA_SHARED_PREFS, Context.MODE_PRIVATE);
@@ -211,16 +246,16 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
         else {
             Uri dstUri = Uri.parse(dstUriString);
 
-            if(!DocumentFile.fromTreeUri(getContext(), dstUri).exists()) {
+            if(!DocumentFile.fromTreeUri(requireContext(), dstUri).exists()) {
                 Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
                 mSelectDocumentLauncher.launch(intent);
             }
             else {
-                startWorker(file, dstUri, mNumFramesToMerge);
+                startWorker(uri, dstUri, mNumFramesToMerge);
             }
         }
 
-        mAdapter.update(file.getPath(), true, 0);
+        mAdapter.update(uri, true, 0);
     }
 
     private void onProgressChanged(List<WorkInfo> workInfos) {
@@ -240,27 +275,27 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
             Data progress = currentWorkInfo.getProgress();
 
             int state = progress.getInt(State.PROGRESS_STATE_KEY, -1);
-            String inputPath = progress.getString(State.PROGRESS_INPUT_PATH_KEY);
+            String inputUriString = progress.getString(State.PROGRESS_INPUT_URI_KEY);
 
             if (state == State.STATE_PROCESSING) {
                 int progressAmount = progress.getInt(State.PROGRESS_PROGRESS_KEY, 0);
+                Uri inputUri = Uri.parse(inputUriString);
 
-                mAdapter.update(inputPath, true, progressAmount);
+                mAdapter.update(inputUri, true, progressAmount);
             }
         }
 
         for(WorkInfo workInfo : workInfos) {
-            if(workInfo.getState() == WorkInfo.State.ENQUEUED) {
-                continue;
-            }
-            else if(workInfo.getState() == WorkInfo.State.SUCCEEDED) {
+            if(workInfo.getState() == WorkInfo.State.SUCCEEDED) {
                 Data output = workInfo.getOutputData();
                 int state = output.getInt(State.PROGRESS_STATE_KEY, -1);
 
                 if (state == State.STATE_COMPLETED) {
-                    String inputPath = output.getString(State.PROGRESS_INPUT_PATH_KEY);
-                    if(inputPath != null) {
-                        if (mAdapter.remove(new File(inputPath)) == 0) {
+                    String inputUriString = output.getString(State.PROGRESS_INPUT_URI_KEY);
+                    if(inputUriString != null) {
+                        Uri inputUri = Uri.parse(inputUriString);
+
+                        if (mAdapter.remove(inputUri) == 0) {
                             mNoFiles.setVisibility(View.VISIBLE);
                             mFileList.setVisibility(View.GONE);
                             mConvertSettings.setVisibility(View.GONE);

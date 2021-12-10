@@ -412,10 +412,10 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         return DetectFaces(mNativeCameraHandle);
     }
 
-    public void streamToFile(String outputPath, long maxMemoryUsageBytes) {
+    public void streamToFile(int fd, long maxMemoryUsageBytes) {
         ensureValidHandle();
 
-        StartStreamToFile(mNativeCameraHandle, outputPath, maxMemoryUsageBytes);
+        StartStreamToFile(mNativeCameraHandle, fd, maxMemoryUsageBytes);
     }
 
     public void endStream() {
@@ -545,7 +545,7 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native Size GetRawOutputSize(long handle, String cameraId);
     private native Size GetPreviewOutputSize(long handle, String cameraId, Size captureSize, Size displaySize);
 
-    private native void StartStreamToFile(long handle, String outputPath, long maxMemoryUsageBytes);
+    private native void StartStreamToFile(long handle, int fd, long maxMemoryUsageBytes);
     private native void EndStream(long handle);
 
     private native void PrepareHdrCapture(long handle, int iso, long exposure);

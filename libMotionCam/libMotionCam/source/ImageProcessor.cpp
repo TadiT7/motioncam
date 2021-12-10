@@ -439,17 +439,17 @@ namespace motioncam {
         float avgLuminance = 0.0f;
         float totalPixels = 0;
         
-        int lowerBound = (int) (0.5f + histogram.cols * 0.01f);
-        int upperBound = (int) (0.5f + histogram.cols * 0.99f);
+        int lowerBound = (int) (0.5f + histogram.cols * 0.015f);
+        int upperBound = histogram.cols;
         
         for(int i = lowerBound; i < upperBound; i++) {
-            avgLuminance += histogram.at<float>(i) * log(1e-5 + i / 255.0f);
+            avgLuminance += histogram.at<float>(i) * log(1e-5 + i / 65535.0f);
             totalPixels += histogram.at<float>(i);
         }
         
         avgLuminance = exp(avgLuminance / (totalPixels + 1e-5f));
         
-        return std::max(1.0f, std::min(keyValue / avgLuminance, 24.0f));
+        return std::max(1.0f, std::min(keyValue / avgLuminance, 32.0f));
     }
 
     void ImageProcessor::estimateHdr(const cv::Mat& histogram, float& outLows, float& outHighs) {
@@ -464,12 +464,7 @@ namespace motioncam {
         // Exposure compensation
         for(int i = histogram.cols - 1; i >= 0; i--) {
             float p = total + histogram.at<float>(i);
-        
-            if(p - total < 0.0001f) {
-                total = p;
-                continue;
-            }
-        
+                
             if(p >= threshold) {
                 bin = i;
                 break;
@@ -535,7 +530,7 @@ namespace motioncam {
         outSettings.temperature    = static_cast<float>(temperature.temperature());
         outSettings.tint           = static_cast<float>(temperature.tint());
         outSettings.shadows        = estimateShadows(histogram, keyValue);
-        outSettings.exposure       = estimateExposureCompensation(histogram, 1e-3f);
+        outSettings.exposure       = estimateExposureCompensation(histogram, 0.005f);
 
         estimateHdr(histogram, outSettings.clippedLows, outSettings.clippedHighs);
     }
@@ -970,7 +965,7 @@ namespace motioncam {
 
         NativeBufferContext inputBufferContext(*buffer.data, false);
         Halide::Runtime::Buffer<float> shadingMapBuffer[4];
-        Halide::Runtime::Buffer<uint32_t> histogramBuffer(2u << 7u);
+        Halide::Runtime::Buffer<uint32_t> histogramBuffer(2u << 15u);
 
         cv::Mat cameraToPcs;
         cv::Mat pcsToSrgb;
@@ -1024,7 +1019,7 @@ namespace motioncam {
                 histogram.at<float>(i) /= (halfWidth/downscale * halfHeight/downscale);
             }
         }
-        
+                
         return histogram;
     }
 

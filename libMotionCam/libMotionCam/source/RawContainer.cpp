@@ -167,6 +167,15 @@ namespace motioncam {
         return json[key].string_value();
     }
 
+    RawContainer::RawContainer(const int fd) :
+        mZipReader(new util::ZipReader(fd)),
+        mReferenceTimestamp(-1),
+        mIsHdr(false),
+        mIsInMemory(false)
+    {
+        initialise();
+    }
+
     RawContainer::RawContainer(const string& inputPath) :
         mZipReader(new util::ZipReader(inputPath)),
         mReferenceTimestamp(-1),
@@ -221,7 +230,23 @@ namespace motioncam {
         }
     }
 
+    void RawContainer::save(const int fd) {
+        util::ZipWriter writer(fd);
+        
+        save(writer);
+        
+        writer.commit();
+    }
+
     void RawContainer::save(const string& outputPath) {
+        util::ZipWriter writer(outputPath);
+        
+        save(writer);
+        
+        writer.commit();
+    }
+
+    void RawContainer::save(util::ZipWriter& writer) {
         auto it = mFrames.begin();
         
         json11::Json::object metadataJson;
@@ -251,8 +276,6 @@ namespace motioncam {
         metadataJson["focalLengths"]        = mCameraMetadata.focalLengths;
         
         json11::Json::array rawImages;
-        util::ZipWriter zip(outputPath);
-        
         vector<uint8_t> tmpBuffer;
         
         // Write frames first
@@ -280,12 +303,12 @@ namespace motioncam {
                 auto writtenBytes =
                     ZSTD_compress(&tmpBuffer[0], tmpBuffer.size(), &frame->data->hostData()[0], frame->data->hostData().size(), 1);
                 
-                zip.addFile(filename, tmpBuffer, writtenBytes);
+                writer.addFile(filename, tmpBuffer, writtenBytes);
             }
             else {
                 imageMetadata["isCompressed"] = false;
                 
-                zip.addFile(filename, frame->data->hostData(), frame->data->len());
+                writer.addFile(filename, frame->data->hostData(), frame->data->len());
             }
 
             rawImages.push_back(imageMetadata);
@@ -298,8 +321,7 @@ namespace motioncam {
         
         string jsonOutput = json11::Json(metadataJson).dump();
         
-        zip.addFile(METATDATA_FILENAME, jsonOutput);
-        zip.commit();
+        writer.addFile(METATDATA_FILENAME, jsonOutput);
     }
 
     void RawContainer::initialise() {

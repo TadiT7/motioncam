@@ -64,6 +64,7 @@
     <string name="hdr_settings_description">valore sottoesposizione. Valori più alti portano a un migliore recupero delle alte luci, ma possono portare a immagini dall\'aspetto non realistico.</string>
     <string name="capture_mode_description">Seleziona RAW10 a meno che la fotocamera non si comporti correttamente (es. problemi messa a fuoco)</string>
     <string name="raw10">RAW10</string>
+    <string name="raw12">RAW12</string>
     <string name="raw16">RAW16</string>
     <string name="photo_mode">FOTO</string>
     <string name="night_mode">NOTTE</string>
@@ -85,13 +86,9 @@
     <string name="preview_colour">COLORE</string>
     <string name="preview_tint">TINTA</string>
     <string name="preview_warmth">AVVCALORE</string>
-    <string name="convert_raw_video">Converti video RAW</string>
-    <string name="convert_raw_video_description">Dopo l\'acquisizione converti video RAW in file DNG. Sono salvati nella cartella Documenti.</string>
-    <string name="convert_to_dng">Converti in DNG</string>
     <string name="no_videos_available">Nessun video disponibile</string>
     <string name="video_merge_frames_desc">Riduci il rumore unendo i fotogrammi più vicini. Ciò può fornire una significativa riduzione del rumore ma aumenterà il tempo di conversione.</string>
     <string name="video_merge_frames_title">Numero fotogrammi da unire:</string>
-    <string name="process">ELABORAZIONE</string>
     <string name="capture_time">Tempo cattura</string>
     <string name="fps">FPS</string>
     <string name="total_frames">Fotogrammi totali</string>

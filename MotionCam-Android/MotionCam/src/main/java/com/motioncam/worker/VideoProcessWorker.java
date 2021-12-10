@@ -23,12 +23,13 @@ import com.motioncam.processor.NativeProcessor;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.Locale;
 
 public class VideoProcessWorker extends Worker implements NativeDngConverterListener {
     public static final String TAG = "MotionVideoCamWorker";
 
-    public static final String INPUT_PATH_KEY = "input_path";
+    public static final String INPUT_URI_KEY = "input_uri";
     public static final String INPUT_NUM_FRAMES_TO_MERGE = "num_frames_to_merge";
 
     public static final String OUTPUT_URI_KEY = "output_uri";
@@ -39,7 +40,7 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
     private NativeProcessor mNativeProcessor;
     private NotificationCompat.Builder mNotificationBuilder;
     private NotificationManager mNotifyManager;
-    private File mActiveFile;
+    private Uri mInputUri;
     private DocumentFile mOutputDocument;
 
     public VideoProcessWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
@@ -51,16 +52,36 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         return (idx == -1) ? filename : filename.substring(0, idx);
     }
 
-    private void processVideo(File inputFile, DocumentFile documentFile, boolean rawVideoToDng, int numFramesToMerge) {
-        if(rawVideoToDng) {
-            mActiveFile = inputFile;
-            mOutputDocument = documentFile.createDirectory(getNameWithoutExtension(inputFile.getName()));
-
-            mNativeProcessor.processVideo(inputFile.getPath(), numFramesToMerge, this);
+    private boolean deleteVideo(Uri uri) {
+        if(uri.getScheme().equalsIgnoreCase("file")) {
+            return new File(uri.getPath()).delete();
         }
+        else {
+            return DocumentFile.fromSingleUri(getApplicationContext(), uri).delete();
+        }
+    }
 
-        if(!inputFile.delete()) {
-            Log.w(TAG, "Failed to delete " + inputFile.toString());
+    private String getName(Uri uri) {
+        if(uri.getScheme().equalsIgnoreCase("file")) {
+            return new File(uri.getPath()).getName();
+        }
+        else {
+            return DocumentFile.fromSingleUri(getApplicationContext(), uri).getName();
+        }
+    }
+
+    private void processVideo(Uri inputUri, DocumentFile output, int numFramesToMerge) throws IOException {
+        mInputUri = inputUri;
+        mOutputDocument = output.createDirectory(getNameWithoutExtension(getName(inputUri)));
+
+        ContentResolver resolver = getApplicationContext().getContentResolver();
+
+        try(ParcelFileDescriptor pfd = resolver.openFileDescriptor(inputUri, "r", null)) {
+            if (pfd == null) {
+                throw new NullPointerException("Invalid input");
+            }
+
+            mNativeProcessor.processVideo(pfd.detachFd(), numFramesToMerge, this);
         }
     }
 
@@ -89,23 +110,17 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
     public Result doWork() {
         Data inputData = getInputData();
 
-        String inputPath = inputData.getString(INPUT_PATH_KEY);
-        if(inputPath == null) {
-            Log.e(TAG, "Invalid input file");
+        int numFramesToMerge = inputData.getInt(INPUT_NUM_FRAMES_TO_MERGE, 0);
+
+        String inputUriString = inputData.getString(INPUT_URI_KEY);
+        if(inputUriString == null) {
+            Log.e(TAG, "Invalid input URI");
             return Result.failure();
         }
-
-        int numFramesToMerge = inputData.getInt(INPUT_NUM_FRAMES_TO_MERGE, 0);
 
         String outputUriString = inputData.getString(OUTPUT_URI_KEY);
         if(outputUriString == null) {
             Log.e(TAG, "Invalid output URI");
-            return Result.failure();
-        }
-
-        File inputFile = new File(inputPath);
-        if(!inputFile.exists()) {
-            Log.e(TAG, "Input file " + inputPath + " does not exist");
             return Result.failure();
         }
 
@@ -114,30 +129,32 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
 
         setForegroundAsync(new ForegroundInfo(NOTIFICATION_ID, mNotificationBuilder.build()));
 
+        Uri inputUri = Uri.parse(inputUriString);
         Uri outputUri = Uri.parse(outputUriString);
-        DocumentFile documentFile = DocumentFile.fromTreeUri(getApplicationContext(), outputUri);
 
-        if(documentFile == null) {
-            Log.e(TAG, "Invalid output URI");
+        DocumentFile output = DocumentFile.fromTreeUri(getApplicationContext(), outputUri);
+        if(output == null) {
+            Log.e(TAG, "Invalid output");
             return Result.failure();
         }
 
         try {
-            Log.d(TAG, "Processing video " + inputFile.getPath());
-            processVideo(inputFile, documentFile, true, numFramesToMerge);
+            Log.d(TAG, "Processing video " + inputUriString);
+            processVideo(inputUri, output, numFramesToMerge);
         }
         catch (Exception e) {
-            Log.e(TAG, "Failed to process " + inputFile.getPath(), e);
-            if(!inputFile.delete()) {
-                Log.e(TAG, "Failed to delete " + inputFile.toString());
-            }
+            Log.e(TAG, "Failed to process " + inputUriString, e);
+        }
+
+        if(!deleteVideo(inputUri)) {
+            Log.e(TAG, "Failed to delete " + inputUriString);
         }
 
         mNotifyManager.cancel(NOTIFICATION_ID);
 
         Data result = new Data.Builder()
                 .putInt(State.PROGRESS_STATE_KEY, State.STATE_COMPLETED)
-                .putString(State.PROGRESS_INPUT_PATH_KEY, inputPath)
+                .putString(State.PROGRESS_INPUT_URI_KEY, inputUriString)
                 .build();
 
         return Result.success(result);
@@ -145,7 +162,7 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
 
     @Override
     public int onNeedFd(int frameNumber) {
-        if(mActiveFile == null)
+        if(mInputUri == null)
             return -1;
 
         String dngOutputName = String.format(Locale.US, "frame-%06d.dng", frameNumber);
@@ -175,7 +192,7 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         setProgressAsync(new Data.Builder()
                 .putInt(State.PROGRESS_STATE_KEY, State.STATE_PROCESSING)
                 .putInt(State.PROGRESS_PROGRESS_KEY, progress)
-                .putString(State.PROGRESS_INPUT_PATH_KEY, mActiveFile.getPath())
+                .putString(State.PROGRESS_INPUT_URI_KEY, mInputUri.toString())
                 .build());
 
         mNotificationBuilder.setProgress(100, progress, false);

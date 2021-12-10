@@ -9,18 +9,18 @@ public class NativeProcessor {
         ProcessFile(inputPath, outputPath, listener);
     }
 
-    public void processVideo(String inputPath, int numFramesToMerge, NativeDngConverterListener listener) {
-        ProcessVideo(inputPath, numFramesToMerge, listener);
+    public void processVideo(int fd, int numFramesToMerge, NativeDngConverterListener listener) {
+        ProcessVideo(fd, numFramesToMerge, listener);
     }
 
-    public ContainerMetadata getMetadata(String inputPath) {
-        return GetMetadata(inputPath);
+    public ContainerMetadata getMetadata(int fd) {
+        return GetMetadata(fd);
     }
 
     native boolean ProcessInMemory(String outputPath, NativeProcessorProgressListener progressListener);
     native boolean ProcessFile(String inputPath, String outputPath, NativeProcessorProgressListener progressListener);
-    native boolean ProcessVideo(String inputPath, int numFramesToMerge, NativeDngConverterListener progressListener);
-    native ContainerMetadata GetMetadata(String inputPath);
+    native boolean ProcessVideo(int fd, int numFramesToMerge, NativeDngConverterListener progressListener);
+    native ContainerMetadata GetMetadata(int fd);
 
     native String GetLastError();
 }

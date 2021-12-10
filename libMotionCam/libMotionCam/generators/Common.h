@@ -3,7 +3,8 @@
 
 enum class RawFormat : int {
     RAW10 = 0,
-    RAW16
+    RAW12,
+    RAW16,
 };
 
 enum class SensorArrangement : int {

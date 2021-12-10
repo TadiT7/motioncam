@@ -16,7 +16,7 @@ namespace motioncam {
         
         class ZipWriter {
         public:
-            ZipWriter(const int fd);
+            ZipWriter(const int fd, bool append=false);
             ZipWriter(const std::string& pathname, bool append=false);
             ~ZipWriter();
             
@@ -34,6 +34,7 @@ namespace motioncam {
 
         class ZipReader {
         public:
+            ZipReader(const int fd);
             ZipReader(const std::string& pathname);
             ~ZipReader();
             
@@ -44,6 +45,7 @@ namespace motioncam {
             
         private:
             mz_zip_archive mZip;
+            FILE* mFile;
             std::vector<std::string> mFiles;
         };
 

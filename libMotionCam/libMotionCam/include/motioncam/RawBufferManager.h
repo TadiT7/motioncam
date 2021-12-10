@@ -70,7 +70,7 @@ namespace motioncam {
                   const PostProcessSettings& settings,
                   const std::string& outputPath);
         
-        void enableStreaming(const std::string outputPath, const int64_t maxMemoryUsageBytes, const RawCameraMetadata& metadata);
+        void enableStreaming(const int fd, const int64_t maxMemoryUsageBytes, const RawCameraMetadata& metadata);
         void setCropAmount(int horizontal, int vertical);
         void endStreaming();
         uint32_t numDroppedFrames() const;

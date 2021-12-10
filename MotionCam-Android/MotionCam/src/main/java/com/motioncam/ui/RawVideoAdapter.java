@@ -1,5 +1,7 @@
 package com.motioncam.ui;
 
+import android.content.Context;
+import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -9,6 +11,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.documentfile.provider.DocumentFile;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.motioncam.R;
@@ -23,24 +26,27 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHolder> implements AsyncNativeCameraOps.ContainerListener {
+public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHolder> implements
+        AsyncNativeCameraOps.ContainerListener
+{
     static private final Format FORMATTER = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
+    private final Context mContext;
 
     interface OnQueueListener {
-        void onQueueClicked(File file);
-        void onDeleteClicked(File file);
+        void onQueueClicked(Uri uri);
+        void onDeleteClicked(Uri uri);
     }
 
     static class Item {
-        File file;
+        Uri uri;
         int numFrames;
         float frameRate;
         boolean haveMetadata;
         int progress;
         boolean isQueued;
 
-        Item(File file) {
-            this.file = file;
+        Item(Uri uri) {
+            this.uri = uri;
             this.numFrames = 0;
             this.frameRate = 0;
             this.haveMetadata = false;
@@ -102,15 +108,16 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         }
     }
 
-    public RawVideoAdapter(File[] files, OnQueueListener listener) {
+    public RawVideoAdapter(Context context, Uri[] uris, OnQueueListener listener) {
         mItems = new ArrayList<>();
 
-        for(File file : files) {
-            mItems.add(new Item(file));
+        for(Uri uri : uris) {
+            mItems.add(new Item(uri));
         }
 
         mListener = listener;
         mNativeOps = new AsyncNativeCameraOps();
+        mContext = context;
 
         setHasStableIds(true);
     }
@@ -128,19 +135,38 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
     public void onBindViewHolder(ViewHolder viewHolder, final int position) {
         Item item = mItems.get(position);
 
-        viewHolder.getFileNameView().setText(item.file.getName());
+        String name;
+        long modifiedTime;
 
-        Date createdDate = new Date(item.file.lastModified());
+        if(item.uri.getScheme().equalsIgnoreCase("file")) {
+            File file = new File(item.uri.getPath());
+
+            name = file.getName();
+            modifiedTime = file.lastModified();
+        }
+        else {
+            DocumentFile documentFile = DocumentFile.fromSingleUri(mContext, item.uri);
+
+            name = documentFile.getName();
+            modifiedTime = documentFile.lastModified();
+        }
+
+        viewHolder.getFileNameView().setText(name);
+
+        // Buttons
+        Date createdDate = new Date(modifiedTime);
 
         viewHolder.getCaptureTime().setText(FORMATTER.format(createdDate));
         viewHolder.getQueueVideoBtn().setOnClickListener((v) ->
-                mListener.onQueueClicked(item.file));
+                mListener.onQueueClicked(item.uri));
 
-        viewHolder.getDeleteVideoBtn().setOnClickListener((v) -> mListener.onDeleteClicked(item.file));
+        viewHolder.getDeleteVideoBtn().setOnClickListener((v) -> mListener.onDeleteClicked(item.uri));
 
+        // Metadata
         viewHolder.getFrameRate().setText(String.valueOf(Math.round(item.frameRate)));
         viewHolder.getNumFrames().setText(String.valueOf(item.numFrames));
 
+        // Set up buttons
         if(item.isQueued) {
             viewHolder.getQueueVideoBtn().setText(R.string.queued);
 
@@ -148,12 +174,13 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             viewHolder.getDeleteVideoBtn().setEnabled(false);
         }
         else {
-            viewHolder.getQueueVideoBtn().setText(R.string.queue);
+            viewHolder.getQueueVideoBtn().setText(R.string.convert_to_dng);
 
             viewHolder.getQueueVideoBtn().setEnabled(true);
             viewHolder.getDeleteVideoBtn().setEnabled(true);
         }
 
+        // Update progress
         if(item.progress >= 0) {
             viewHolder.getProgressBar().setVisibility(View.VISIBLE);
             viewHolder.getProgressBar().setProgress(item.progress);
@@ -162,6 +189,7 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             viewHolder.getProgressBar().setVisibility(View.INVISIBLE);
         }
 
+        // Check for corrupted video
         if(item.frameRate < 0 || item.numFrames < 0) {
             viewHolder.getFileNameView().setText(R.string.corrupted_video);
             viewHolder.getQueueVideoBtn().setEnabled(false);
@@ -171,7 +199,7 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         }
 
         if(!item.haveMetadata) {
-            mNativeOps.getContainerMetadata(item.file.getPath(), this);
+            mNativeOps.getContainerMetadata(mContext, item.uri, this);
         }
     }
 
@@ -182,14 +210,14 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
 
     @Override
     public long getItemId(int position) {
-        return mItems.get(position).file.getPath().hashCode();
+        return mItems.get(position).uri.hashCode();
     }
 
-    public int remove(File file) {
+    public int remove(Uri uri) {
         for(int i = 0; i < mItems.size(); i++) {
             Item item = mItems.get(i);
 
-            if (item.file.getPath().equals(file.getPath())) {
+            if (item.uri.equals(uri)) {
                 mItems.remove(i);
                 notifyItemRemoved(i);
                 break;
@@ -199,11 +227,11 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         return mItems.size();
     }
 
-    public void update(String inputPath, boolean isQueued, int progress) {
+    public void update(Uri inputUri, boolean isQueued, int progress) {
         for(int i = 0; i < mItems.size(); i++) {
             Item item = mItems.get(i);
 
-            if(item.file.getPath().equals(inputPath)) {
+            if(item.uri.equals(inputUri)) {
                 item.isQueued = isQueued;
                 item.progress = progress;
                 notifyItemChanged(i);
@@ -213,11 +241,11 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
     }
 
     @Override
-    public void onContainerMetadataAvailable(String inputPath, ContainerMetadata metadata) {
+    public void onContainerMetadataAvailable(Uri inputUri, ContainerMetadata metadata) {
         for(int i = 0; i < mItems.size(); i++) {
             Item item = mItems.get(i);
 
-            if(item.file.getPath().equals(inputPath)) {
+            if(item.uri.equals(inputUri)) {
                 item.frameRate = metadata.frameRate;
                 item.numFrames = metadata.numFrames;
                 item.haveMetadata = true;
