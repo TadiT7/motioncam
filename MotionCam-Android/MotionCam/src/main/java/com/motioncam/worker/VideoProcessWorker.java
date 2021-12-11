@@ -52,15 +52,6 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         return (idx == -1) ? filename : filename.substring(0, idx);
     }
 
-    private boolean deleteVideo(Uri uri) {
-        if(uri.getScheme().equalsIgnoreCase("file")) {
-            return new File(uri.getPath()).delete();
-        }
-        else {
-            return DocumentFile.fromSingleUri(getApplicationContext(), uri).delete();
-        }
-    }
-
     private String getName(Uri uri) {
         if(uri.getScheme().equalsIgnoreCase("file")) {
             return new File(uri.getPath()).getName();
@@ -72,10 +63,19 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
 
     private void processVideo(Uri inputUri, DocumentFile output, int numFramesToMerge) throws IOException {
         mInputUri = inputUri;
-        mOutputDocument = output.createDirectory(getNameWithoutExtension(getName(inputUri)));
+
+        String outputDirectoryName = getNameWithoutExtension(getName(inputUri));
+        String finalOutputDirectoryName = outputDirectoryName;
+
+        int i = 1;
+
+        while(output.findFile(finalOutputDirectoryName) != null) {
+            finalOutputDirectoryName = outputDirectoryName + "-" + i;
+        }
+
+        mOutputDocument = output.createDirectory(finalOutputDirectoryName);
 
         ContentResolver resolver = getApplicationContext().getContentResolver();
-
         try(ParcelFileDescriptor pfd = resolver.openFileDescriptor(inputUri, "r", null)) {
             if (pfd == null) {
                 throw new NullPointerException("Invalid input");
@@ -94,9 +94,9 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         }
 
         mNotificationBuilder = new NotificationCompat.Builder(context, ImageProcessWorker.NOTIFICATION_CHANNEL_ID)
-                .setContentTitle("Please Wait")
-                .setContentText("Processing Video")
-                .setTicker("MotionCam")
+                .setContentTitle(context.getString(R.string.please_wait))
+                .setContentText(context.getString(R.string.processing_video))
+                .setTicker(context.getString(R.string.app_name))
                 .setLargeIcon(BitmapFactory.decodeResource(context.getResources(), R.mipmap.icon))
                 .setSmallIcon(R.drawable.ic_processing_notification)
                 .setOngoing(true);
@@ -144,10 +144,6 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         }
         catch (Exception e) {
             Log.e(TAG, "Failed to process " + inputUriString, e);
-        }
-
-        if(!deleteVideo(inputUri)) {
-            Log.e(TAG, "Failed to delete " + inputUriString);
         }
 
         mNotifyManager.cancel(NOTIFICATION_ID);

@@ -201,8 +201,18 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                 .setTitle(R.string.delete)
                 .setMessage(R.string.confirm_delete)
                 .setPositiveButton(R.string.yes, (dialog, which) -> {
-                    DocumentFile documentFile = DocumentFile.fromTreeUri(requireContext(), uri);
-                    if(documentFile.delete()) {
+                    boolean deleted = false;
+
+                    if(uri.getScheme().equalsIgnoreCase("file")) {
+                        File f = new File(uri.getPath());
+                        deleted = f.delete();
+                    }
+                    else {
+                        DocumentFile documentFile = DocumentFile.fromSingleUri(requireContext(), uri);
+                        deleted = documentFile.delete();
+                    }
+
+                    if(deleted) {
                         if(mAdapter.remove(uri) == 0) {
                             mNoFiles.setVisibility(View.VISIBLE);
                             mFileList.setVisibility(View.GONE);
@@ -295,11 +305,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                     if(inputUriString != null) {
                         Uri inputUri = Uri.parse(inputUriString);
 
-                        if (mAdapter.remove(inputUri) == 0) {
-                            mNoFiles.setVisibility(View.VISIBLE);
-                            mFileList.setVisibility(View.GONE);
-                            mConvertSettings.setVisibility(View.GONE);
-                        }
+                        mAdapter.update(inputUri, false, -1);
                     }
                 }
             }

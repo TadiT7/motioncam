@@ -46,6 +46,7 @@ public class AsyncNativeCameraOps implements Closeable {
 
     public interface ContainerListener {
         void onContainerMetadataAvailable(Uri containerUri, ContainerMetadata metadata);
+        void onContainerGeneratedPreviews(Uri containerUri, List<Bitmap> previewImages);
     }
 
     public interface PostProcessSettingsListener {
@@ -216,6 +217,40 @@ public class AsyncNativeCameraOps implements Closeable {
             final int finalFd = fd;
 
             mMainHandler.post(() -> listener.onContainerMetadataAvailable(uri, processor.getMetadata(finalFd)));
+        });
+    }
+
+    public void generateVideoPreview(Context context, Uri uri, int numPreviews, ContainerListener listener) {
+        final ContentResolver resolver = context.getContentResolver();
+
+        mBackgroundProcessor.submit(() -> {
+            NativeProcessor processor = new NativeProcessor();
+
+            int fd = -1;
+
+            try(ParcelFileDescriptor pfd = resolver.openFileDescriptor(uri, "r", null)) {
+                if (pfd != null)
+                    fd = pfd.detachFd();
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            if(fd < 0)
+                return;
+
+            final int finalFd = fd;
+
+            List<Bitmap> bitmaps = new ArrayList<>();
+
+            processor.generateVideoPreview(finalFd, numPreviews, (width, height) -> {
+                Bitmap preview = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                bitmaps.add(preview);
+
+                return preview;
+            });
+
+            mMainHandler.post(() -> listener.onContainerGeneratedPreviews(uri, bitmaps));
         });
     }
 }

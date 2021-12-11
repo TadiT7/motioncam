@@ -3808,59 +3808,59 @@ public:
 
     Input<int16_t> quantize{"quantize"};
 
-    Output<Buffer<uint8_t>> output{"output", 1 };
+    Output<Buffer<uint8_t>> output{"output", 3 };
 
     void generate();
 };
 
 void DecorrelateGenerator::generate() {
     Func clamped{"clamped"};
-    Func channels[4];
-    Func deinterleaved{"deinterleaved"};
+    Func bayerImage{"bayerImage"};
+    Func channels{"channels"};
     Func quantized{"quantized"};
 
     // Deinterleave
-    clamped = Halide::BoundaryConditions::mirror_image(input);
+    clamped(v_x) = cast<int16_t>(Halide::BoundaryConditions::repeat_edge(input)(v_x));
 
-    deinterleave(channels[0], clamped, 0, stride, pixelFormat);
-    deinterleave(channels[1], clamped, 1, stride, pixelFormat);
-    deinterleave(channels[2], clamped, 2, stride, pixelFormat);
-    deinterleave(channels[3], clamped, 3, stride, pixelFormat);
+    bayerImage(v_x, v_y) =
+        select( v_x % 5 == 0, (clamped(v_y*stride + 10*v_x/8) << 2) |  (clamped(v_y*stride + 10*v_x/8 + 4)       & 0x03),
+                v_x % 5 == 1, (clamped(v_y*stride + 10*v_x/8) << 2) | ((clamped(v_y*stride + 10*v_x/8 + 3) >> 2) & 0x03),
+                v_x % 5 == 2, (clamped(v_y*stride + 10*v_x/8) << 2) | ((clamped(v_y*stride + 10*v_x/8 + 2) >> 4) & 0x03),
+                              (clamped(v_y*stride + 10*v_x/8) << 2) | ((clamped(v_y*stride + 10*v_x/8 + 1) >> 6) & 0x03) );
 
-    deinterleaved(v_x, v_y, v_c) = cast<int16_t>(
-        mux(v_c,
-            {   channels[0](v_x + cx, v_y + cy),
-                channels[1](v_x + cx, v_y + cy),
-                channels[2](v_x + cx, v_y + cy),
-                channels[3](v_x + cx, v_y + cy) }) );
+    
+    channels(v_x, v_y, v_c) = select(
+        v_c == 0, bayerImage(v_x*2,     v_y*2),
+        v_c == 1, bayerImage(v_x*2+1,   v_y*2),
+        v_c == 2, bayerImage(v_x*2,     v_y*2+1),
+                  bayerImage(v_x*2+1,   v_y*2+1));
 
     quantized(v_x, v_y, v_c) = select(
-        v_c == 0,  deinterleaved(v_x, v_y, 0),
-        v_c == 1, (deinterleaved(v_x, v_y, 0) - deinterleaved(v_x, v_y, 1)) / quantize,
-        v_c == 2, (deinterleaved(v_x, v_y, 0) - deinterleaved(v_x, v_y, 2)) / quantize,
-                  (deinterleaved(v_x, v_y, 0) - deinterleaved(v_x, v_y, 3)) / quantize
-    );
+        v_c == 0, (channels(v_x, v_y, 1) - channels(v_x, v_y, 0)) / quantize,
+        v_c == 1,  channels(v_x, v_y, 1),
+        v_c == 2, (channels(v_x, v_y, 1) - channels(v_x, v_y, 2)),
+                  (channels(v_x, v_y, 1) - channels(v_x, v_y, 3)) / quantize );
 
-    // Interleave back into RAW10
-    // output(v_x, v_y) = select(
-    //     v_c == 0, cast<uint8_t>(quantized(v_x, v_y, 0)),
-    //     v_c == 1, cast<uint8_t>(quantized(v_x, v_y, 1)),
-    //     v_c == 2, cast<uint8_t>(quantized(v_x, v_y, 2)),
-    //               cast<uint8_t>(quantized(v_x, v_y, 3)) );
+    Expr X = 8*v_x/10;
 
-    // output(v_x) = select(
-    //     v_x % 5 == 0,   cast<uint8_t>(quantized(v_x, v_y, v_c) >> 2),
-    //     v_x % 5 == 1,   cast<uint8_t>(quantized(v_x, v_y, v_c) >> 2),
-    //     v_x % 5 == 2,   cast<uint8_t>(quantized(v_x, v_y, v_c) >> 2),
-    //     v_x % 5 == 3,   cast<uint8_t>(quantized(v_x, v_y, v_c) >> 2),
-    //     cast<uint8_t>(
-    //          (quantized(v_x - 4, v_y, v_c) & 0x3)        &
-    //         ((quantized(v_x - 3, v_y, v_c) & 0x3) << 2)  &
-    //         ((quantized(v_x - 2, v_y, v_c) & 0x3) << 4)  &
-    //         ((quantized(v_x - 1, v_y, v_c) & 0x3) << 6) ));
+    output(v_x, v_y, v_c) = select(
+        v_x % 5 == 0, cast<uint8_t>(
+              (quantized(X - 1, v_y, v_c) & 0x03)
+            | (quantized(X - 2, v_y, v_c) & 0x03 << 2)
+            | (quantized(X - 3, v_y, v_c) & 0x03 << 4)
+            | (quantized(X - 4, v_y, v_c) & 0x03 << 6)),
+            cast<uint8_t>(quantized(X, v_y, v_c) >> 2));
 
-    input.set_estimates({ {0, 24000000} });
-    output.set_estimates({ {0, 24000000} });
+    bayerImage.compute_at(output, v_x).vectorize(v_x, 12);
+    quantized.compute_at(output, v_x).vectorize(v_x, 12);
+
+    output.compute_root()
+        .bound(v_c, 0, 4)
+        .parallel(v_c)
+        .vectorize(v_x, 12);
+
+    input.set_estimates({{0, 24000000}});
+    output.set_estimates({{0, 2500}, {0, 1500}, {0, 4}});
     stride.set_estimate(5008);
     pixelFormat.set_estimate(0);
     quantize.set_estimate(4);    

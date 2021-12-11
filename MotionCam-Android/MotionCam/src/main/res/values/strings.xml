@@ -111,4 +111,5 @@
     <string name="convert_to_dng">Convert to DNG</string>
     <string name="please_wait">Please wait</string>
     <string name="saving_video">Saving video</string>
+    <string name="processing_video">Processing Video</string>
 </resources>

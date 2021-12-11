@@ -17,10 +17,15 @@ public class NativeProcessor {
         return GetMetadata(fd);
     }
 
+    public boolean generateVideoPreview(int fd, int numPreviews, NativeRawVideoPreviewListener listener) {
+        return GenerateVideoPreview(fd, numPreviews, listener);
+    }
+
     native boolean ProcessInMemory(String outputPath, NativeProcessorProgressListener progressListener);
     native boolean ProcessFile(String inputPath, String outputPath, NativeProcessorProgressListener progressListener);
     native boolean ProcessVideo(int fd, int numFramesToMerge, NativeDngConverterListener progressListener);
     native ContainerMetadata GetMetadata(int fd);
+    native boolean GenerateVideoPreview(int fd, int numPreviews, NativeRawVideoPreviewListener listener);
 
     native String GetLastError();
 }

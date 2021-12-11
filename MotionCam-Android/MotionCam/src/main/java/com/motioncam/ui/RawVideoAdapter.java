@@ -1,6 +1,7 @@
 package com.motioncam.ui;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -44,6 +45,7 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         boolean haveMetadata;
         int progress;
         boolean isQueued;
+        List<Bitmap> previewImages;
 
         Item(Uri uri) {
             this.uri = uri;
@@ -66,6 +68,7 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         private final Button queueVideoBtn;
         private final ImageView deleteVideoBtn;
         private final ProgressBar progressBar;
+        private final ViewGroup previewList;
 
         public ViewHolder(View view) {
             super(view);
@@ -77,6 +80,7 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             frameRate = view.findViewById(R.id.frameRate);
             totalFrames = view.findViewById(R.id.numFrames);
             progressBar = view.findViewById(R.id.progressBar);
+            previewList = view.findViewById(R.id.previewList);
         }
 
         public TextView getFileNameView() {
@@ -105,6 +109,10 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
 
         public ProgressBar getProgressBar() {
             return progressBar;
+        }
+
+        public ViewGroup getPreviewList() {
+            return previewList;
         }
     }
 
@@ -201,6 +209,24 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         if(!item.haveMetadata) {
             mNativeOps.getContainerMetadata(mContext, item.uri, this);
         }
+
+        if(item.previewImages == null) {
+            mNativeOps.generateVideoPreview(mContext, item.uri, 8, this);
+        }
+        else {
+            ViewGroup previewList = viewHolder.getPreviewList();
+            previewList.removeAllViews();
+
+            for(Bitmap bitmap : item.previewImages) {
+                ImageView imageView = new ImageView(mContext);
+
+                imageView.setImageBitmap(bitmap);
+                imageView.setScaleType(ImageView.ScaleType.FIT_START);
+                imageView.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+                previewList.addView(imageView);
+            }
+        }
     }
 
     @Override
@@ -250,6 +276,19 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
                 item.numFrames = metadata.numFrames;
                 item.haveMetadata = true;
 
+                notifyItemChanged(i);
+                break;
+            }
+        }
+    }
+
+    @Override
+    public void onContainerGeneratedPreviews(Uri inputUri, List<Bitmap> previewImages) {
+        for(int i = 0; i < mItems.size(); i++) {
+            Item item = mItems.get(i);
+
+            if(item.uri.equals(inputUri)) {
+                item.previewImages = previewImages;
                 notifyItemChanged(i);
                 break;
             }

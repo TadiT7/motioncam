@@ -10,13 +10,13 @@
     <ScrollView
         android:id="@+id/settingsLayout"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         tools:context=".ui.SettingsFragment">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="10dp"
             android:orientation="vertical">
 
             <LinearLayout
@@ -24,6 +24,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="10dp"
                 android:layout_marginEnd="10dp"
+                android:layout_marginBottom="10dp"
                 android:orientation="vertical">
 
                 <TextView
@@ -70,6 +71,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="10dp"
                 android:layout_marginEnd="10dp"
+                android:layout_marginBottom="10dp"
                 android:orientation="vertical">
 
                 <TextView
@@ -89,6 +91,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
                     android:orientation="horizontal">
 
                     <TextView
@@ -177,6 +180,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
                     android:orientation="horizontal">
 
                     <TextView
@@ -220,6 +224,7 @@
                     android:textColor="@color/white"
                     android:paddingTop="@dimen/seekBarPadding"
                     android:paddingBottom="@dimen/seekBarPadding"
+                    android:layout_marginBottom="10dp"
                     android:checked="@={viewModel.autoNightMode}"/>
 
                 <TextView
@@ -244,6 +249,7 @@
                     android:textColor="@color/white"
                     android:paddingTop="@dimen/seekBarPadding"
                     android:paddingBottom="@dimen/seekBarPadding"
+                    android:layout_marginBottom="10dp"
                     android:checked="@={viewModel.dualExposureControls}"/>
 
                 <TextView
@@ -263,6 +269,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
                     android:orientation="horizontal">
 
                     <TextView
@@ -302,13 +309,16 @@
                 <RadioGroup
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:padding="10dp"
+                    android:layout_marginBottom="10dp"
+                    android:orientation="vertical">
 
                     <RadioButton
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textColor="@color/white"
                         android:layout_weight="1"
+                        android:layout_marginBottom="5dp"
                         android:text="@string/raw10"
                         android:checked="@={viewModel.raw10}"/>
 
@@ -317,6 +327,7 @@
                         android:layout_height="wrap_content"
                         android:textColor="@color/white"
                         android:layout_weight="1"
+                        android:layout_marginBottom="5dp"
                         android:text="@string/raw12"
                         android:checked="@={viewModel.raw12}"/>
 
@@ -327,9 +338,7 @@
                         android:textColor="@color/white"
                         android:text="@string/raw16"
                         android:checked="@={viewModel.raw16}"/>
-
                 </RadioGroup>
-
             </LinearLayout>
         </LinearLayout>
     </ScrollView>

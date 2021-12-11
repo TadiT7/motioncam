@@ -6,6 +6,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.UriPermission;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
@@ -25,6 +26,7 @@ import com.motioncam.R;
 import com.motioncam.databinding.SettingsFragmentBinding;
 import com.motioncam.model.SettingsViewModel;
 
+import java.util.List;
 import java.util.Locale;
 
 public class SettingsFragment extends Fragment {
@@ -124,9 +126,23 @@ public class SettingsFragment extends Fragment {
 
                         // Release previous permission if set
                         String prevUri = mViewModel.rawVideoTempStorageFolder.getValue();
-                        if(prevUri != null) {
-                            Log.i(CameraActivity.TAG, "Releasing permissions for " + prevUri);
-                            contentResolver.releasePersistableUriPermission(Uri.parse(prevUri), takeFlags);
+                        if(prevUri != null && !prevUri.isEmpty()) {
+                            List<UriPermission> persistedUriPermissions =
+                                    contentResolver.getPersistedUriPermissions();
+
+                            for(UriPermission permission : persistedUriPermissions) {
+                               if(permission.getUri().equals(prevUri)) {
+                                   try {
+                                       Log.i(CameraActivity.TAG, "Releasing permissions for " + prevUri);
+                                       contentResolver.releasePersistableUriPermission(Uri.parse(prevUri), takeFlags);
+                                   }
+                                   catch(SecurityException e) {
+                                       e.printStackTrace();
+                                   }
+
+                                   break;
+                               }
+                            }
                         }
 
                         contentResolver.takePersistableUriPermission(uri, takeFlags);
