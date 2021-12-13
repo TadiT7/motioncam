@@ -2,7 +2,6 @@ package com.motioncam.camera;
 
 import android.graphics.Bitmap;
 import android.graphics.PointF;
-import android.graphics.RectF;
 import android.util.Size;
 import android.view.Surface;
 
@@ -406,16 +405,16 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         SetAutoFocus(mNativeCameraHandle);
     }
 
-    public RectF[] detectFaces() {
+    public void streamToFile(int fd) {
         ensureValidHandle();
 
-        return DetectFaces(mNativeCameraHandle);
+        StartStreamToFile(mNativeCameraHandle, fd);
     }
 
-    public void streamToFile(int fd, long maxMemoryUsageBytes) {
+    public void adjustMemory(long maxMemoryBytes) {
         ensureValidHandle();
 
-        StartStreamToFile(mNativeCameraHandle, fd, maxMemoryUsageBytes);
+        AdjustMemoryUse(mNativeCameraHandle, maxMemoryBytes);
     }
 
     public void endStream() {
@@ -436,10 +435,10 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         SetVideoCropPercentage(mNativeCameraHandle, horizontal, vertical);
     }
 
-    public int getNumDroppedFrames() {
+    public float getVideoBufferUse() {
         ensureValidHandle();
 
-        return GetNumDroppedFrames(mNativeCameraHandle);
+        return GetVideoBufferUse(mNativeCameraHandle);
     }
 
     @Override
@@ -545,7 +544,7 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native Size GetRawOutputSize(long handle, String cameraId);
     private native Size GetPreviewOutputSize(long handle, String cameraId, Size captureSize, Size displaySize);
 
-    private native void StartStreamToFile(long handle, int fd, long maxMemoryUsageBytes);
+    private native void StartStreamToFile(long handle, int fd);
     private native void EndStream(long handle);
 
     private native void PrepareHdrCapture(long handle, int iso, long exposure);
@@ -563,9 +562,9 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native float EstimateShadows(long handle, float bias);
     private native String EstimatePostProcessSettings(long bufferHandle, float shadowsBias);
 
-    private native RectF[] DetectFaces(long handle);
-
     private native void SetFrameRate(long handle, int frameRate);
     private native void SetVideoCropPercentage(long handle, int horizontal, int vertical);
-    private native int GetNumDroppedFrames(long handle);
+    private native float GetVideoBufferUse(long handle);
+
+    private native void AdjustMemoryUse(long handle, long maxUseBytes);
 }

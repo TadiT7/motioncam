@@ -72,7 +72,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                     if (result.getResultCode() == Activity.RESULT_OK) {
                         Intent data = result.getData();
 
-                        if(data.getData() != null) {
+                        if(data != null && data.getData() != null) {
                             final int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
                             Uri uri = data.getData();
 
@@ -106,10 +106,11 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
 
         // List all videos in the user specified directory, if it exists.
         String tempVideosUriString = sharedPrefs.getString(SettingsViewModel.PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI, null);
-        if(tempVideosUriString != null) {
+        if(tempVideosUriString != null && !tempVideosUriString.isEmpty()) {
             Uri tempVideosUri = Uri.parse(tempVideosUriString);
             DocumentFile videosDocumentFile = DocumentFile.fromTreeUri(requireContext(), tempVideosUri);
-            if(videosDocumentFile.exists()) {
+
+            if(videosDocumentFile != null && videosDocumentFile.exists()) {
                 DocumentFile[] documentFiles = videosDocumentFile.listFiles();
                 for(DocumentFile documentFile : documentFiles) {
                     if(documentFile.isFile() && documentFile.getName()
@@ -128,11 +129,11 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
             File outputDirectory = new File(filesDir, VideoProcessWorker.VIDEOS_PATH);
 
             File[] videos = outputDirectory.listFiles();
-            for(File videoFile : videos) {
-                if(videoFile.isFile()
-                    && videoFile.getName().toLowerCase(Locale.ROOT).endsWith("zip"))
-                {
-                    uris.add(Uri.fromFile(videoFile));
+            if(videos != null) {
+                for (File videoFile : videos) {
+                    if (videoFile.isFile() && videoFile.getName().toLowerCase(Locale.ROOT).endsWith("zip")) {
+                        uris.add(Uri.fromFile(videoFile));
+                    }
                 }
             }
         }
@@ -201,7 +202,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                 .setTitle(R.string.delete)
                 .setMessage(R.string.confirm_delete)
                 .setPositiveButton(R.string.yes, (dialog, which) -> {
-                    boolean deleted = false;
+                    boolean deleted;
 
                     if(uri.getScheme().equalsIgnoreCase("file")) {
                         File f = new File(uri.getPath());

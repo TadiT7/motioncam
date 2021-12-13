@@ -655,4 +655,9 @@ namespace motioncam {
         if(mCameraSession)
             mCameraSession->setAutoFocus();
     }
+
+    void CaptureSessionManager::grow(size_t maxMemoryBytes) {
+        if(mImageConsumer)
+            mImageConsumer->grow(maxMemoryBytes);
+    }
 }

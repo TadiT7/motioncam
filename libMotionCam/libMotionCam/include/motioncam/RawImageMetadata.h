@@ -119,7 +119,9 @@ namespace motioncam {
 
     class NativeBuffer {
     public:
-        NativeBuffer() {}        
+        NativeBuffer() : mValidStart{0}, mValidEnd{0} {
+            
+        }
         virtual ~NativeBuffer() {}
 
         virtual uint8_t* lock(bool write) = 0;
@@ -131,6 +133,26 @@ namespace motioncam {
         virtual void release() = 0;
         virtual std::unique_ptr<NativeBuffer> clone() = 0;
         virtual void shrink(size_t newSize) = 0;
+        
+        void setValidRange(size_t start, size_t end) {
+            mValidStart = start;
+            mValidEnd = end;
+        }
+        
+        void getValidRange(size_t& outStart, size_t& outEnd) {
+            if(mValidStart == mValidEnd) {
+                outStart = 0;
+                outEnd = len();
+            }
+            else {
+                outStart = mValidStart;
+                outEnd = mValidEnd;
+            }
+        }
+        
+    private:
+        size_t mValidStart;
+        size_t mValidEnd;
     };
 
     class NativeHostBuffer : public NativeBuffer {

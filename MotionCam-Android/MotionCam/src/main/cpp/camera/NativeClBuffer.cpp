@@ -102,8 +102,9 @@ namespace motioncam {
     }
 
     void NativeClBuffer::shrink(size_t newSize) {
-        if(newSize > mBufferLength)
-            return; // only allow shrinkage
+        if(newSize > mBufferLength) {
+            throw std::runtime_error("Buffer expansion not supported");
+        }
 
         mBufferLength = newSize;
     }

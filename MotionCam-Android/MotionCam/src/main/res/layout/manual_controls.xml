@@ -56,7 +56,7 @@
                 android:layout_height="match_parent"
                 android:gravity="center"
                 android:drawablePadding="5dp"
-                android:text="AE LOCK"
+                android:text="@string/ae_lock"
                 android:layout_weight="1"
                 android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"/>
 
@@ -66,7 +66,7 @@
                 android:layout_height="match_parent"
                 android:gravity="center"
                 android:drawablePadding="5dp"
-                android:text="AF LOCK"
+                android:text="@string/af_lock"
                 android:layout_weight="1"
                 android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"/>
 
@@ -76,7 +76,7 @@
                 android:layout_height="match_parent"
                 android:gravity="center"
                 android:drawablePadding="5dp"
-                android:text="AWB LOCK"
+                android:text="@string/awb_lock"
                 android:layout_weight="1"
                 android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"/>
 
@@ -86,7 +86,7 @@
                 android:layout_height="match_parent"
                 android:gravity="center"
                 android:drawablePadding="5dp"
-                android:text="OIS"
+                android:text="@string/ois"
                 android:layout_weight="1"
                 android:textColor="@color/colorAccent"
                 android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"/>

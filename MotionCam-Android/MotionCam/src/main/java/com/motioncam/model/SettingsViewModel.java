@@ -11,7 +11,7 @@ public class SettingsViewModel extends ViewModel {
     public static final String CAMERA_SHARED_PREFS          = "camera_prefs";
 
     public static final int MINIMUM_MEMORY_USE_MB           = 512;
-    public static final int MAXIMUM_MEMORY_USE_MB           = 2048;
+    public static final int MAXIMUM_MEMORY_USE_MB           = 3072;
 
     public static final String PREFS_KEY_MEMORY_USE_MBYTES          = "memory_use_megabytes";
     public static final String PREFS_KEY_RAW_VIDEO_MEMORY_USE_MBYTES = "raw_video_memory_use_megabytes";
@@ -59,7 +59,7 @@ public class SettingsViewModel extends ViewModel {
         SharedPreferences prefs = context.getSharedPreferences(CAMERA_SHARED_PREFS, Context.MODE_PRIVATE);
 
         memoryUseMb.setValue(prefs.getInt(PREFS_KEY_MEMORY_USE_MBYTES, MINIMUM_MEMORY_USE_MB) - MINIMUM_MEMORY_USE_MB);
-        rawVideoMemoryUseMb.setValue(prefs.getInt(PREFS_KEY_RAW_VIDEO_MEMORY_USE_MBYTES, MINIMUM_MEMORY_USE_MB) - MINIMUM_MEMORY_USE_MB);
+        rawVideoMemoryUseMb.setValue(prefs.getInt(PREFS_KEY_RAW_VIDEO_MEMORY_USE_MBYTES, MINIMUM_MEMORY_USE_MB*2) - MINIMUM_MEMORY_USE_MB);
         cameraPreviewQuality.setValue(prefs.getInt(PREFS_KEY_CAMERA_PREVIEW_QUALITY, 0));
         jpegQuality.setValue(prefs.getInt(PREFS_KEY_JPEG_QUALITY, CameraProfile.DEFAULT_JPEG_QUALITY));
         autoNightMode.setValue(prefs.getBoolean(PREFS_KEY_AUTO_NIGHT_MODE, true));

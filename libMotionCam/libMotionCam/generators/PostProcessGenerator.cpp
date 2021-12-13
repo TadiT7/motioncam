@@ -3800,72 +3800,6 @@ void BuildBayerGenerator2::generate() {
         .vectorize(v_x, 8);
 }
 
-class DecorrelateGenerator : public Halide::Generator<DecorrelateGenerator>, public PostProcessBase {
-public:
-    Input<Buffer<uint8_t>> input{"input", 1 };
-    Input<int> stride{"stride"};
-    Input<int> pixelFormat{"pixelFormat"};
-
-    Input<int16_t> quantize{"quantize"};
-
-    Output<Buffer<uint8_t>> output{"output", 3 };
-
-    void generate();
-};
-
-void DecorrelateGenerator::generate() {
-    Func clamped{"clamped"};
-    Func bayerImage{"bayerImage"};
-    Func channels{"channels"};
-    Func quantized{"quantized"};
-
-    // Deinterleave
-    clamped(v_x) = cast<int16_t>(Halide::BoundaryConditions::repeat_edge(input)(v_x));
-
-    bayerImage(v_x, v_y) =
-        select( v_x % 5 == 0, (clamped(v_y*stride + 10*v_x/8) << 2) |  (clamped(v_y*stride + 10*v_x/8 + 4)       & 0x03),
-                v_x % 5 == 1, (clamped(v_y*stride + 10*v_x/8) << 2) | ((clamped(v_y*stride + 10*v_x/8 + 3) >> 2) & 0x03),
-                v_x % 5 == 2, (clamped(v_y*stride + 10*v_x/8) << 2) | ((clamped(v_y*stride + 10*v_x/8 + 2) >> 4) & 0x03),
-                              (clamped(v_y*stride + 10*v_x/8) << 2) | ((clamped(v_y*stride + 10*v_x/8 + 1) >> 6) & 0x03) );
-
-    
-    channels(v_x, v_y, v_c) = select(
-        v_c == 0, bayerImage(v_x*2,     v_y*2),
-        v_c == 1, bayerImage(v_x*2+1,   v_y*2),
-        v_c == 2, bayerImage(v_x*2,     v_y*2+1),
-                  bayerImage(v_x*2+1,   v_y*2+1));
-
-    quantized(v_x, v_y, v_c) = select(
-        v_c == 0, (channels(v_x, v_y, 1) - channels(v_x, v_y, 0)) / quantize,
-        v_c == 1,  channels(v_x, v_y, 1),
-        v_c == 2, (channels(v_x, v_y, 1) - channels(v_x, v_y, 2)),
-                  (channels(v_x, v_y, 1) - channels(v_x, v_y, 3)) / quantize );
-
-    Expr X = 8*v_x/10;
-
-    output(v_x, v_y, v_c) = select(
-        v_x % 5 == 0, cast<uint8_t>(
-              (quantized(X - 1, v_y, v_c) & 0x03)
-            | (quantized(X - 2, v_y, v_c) & 0x03 << 2)
-            | (quantized(X - 3, v_y, v_c) & 0x03 << 4)
-            | (quantized(X - 4, v_y, v_c) & 0x03 << 6)),
-            cast<uint8_t>(quantized(X, v_y, v_c) >> 2));
-
-    bayerImage.compute_at(output, v_x).vectorize(v_x, 12);
-    quantized.compute_at(output, v_x).vectorize(v_x, 12);
-
-    output.compute_root()
-        .bound(v_c, 0, 4)
-        .parallel(v_c)
-        .vectorize(v_x, 12);
-
-    input.set_estimates({{0, 24000000}});
-    output.set_estimates({{0, 2500}, {0, 1500}, {0, 4}});
-    stride.set_estimate(5008);
-    pixelFormat.set_estimate(0);
-    quantize.set_estimate(4);    
-}
-
 ///////////////
 
 class MeasureNoiseGenerator : public Generator<MeasureNoiseGenerator>, public PostProcessBase {
@@ -4076,5 +4010,4 @@ HALIDE_REGISTER_GENERATOR(HdrMaskGenerator, hdr_mask_generator)
 HALIDE_REGISTER_GENERATOR(LinearImageGenerator, linear_image_generator)
 HALIDE_REGISTER_GENERATOR(BuildBayerGenerator, build_bayer_generator)
 HALIDE_REGISTER_GENERATOR(BuildBayerGenerator2, build_bayer_generator2)
-HALIDE_REGISTER_GENERATOR(DecorrelateGenerator, decorrelate_generator)
 

@@ -7,17 +7,16 @@
 #include "motioncam/Measure.h"
 
 #include <zstd.h>
+#include <zstd_errors.h>
 
 #include <memory>
 
 namespace motioncam {
-    const int NumCompressThreads = 2;
-    const int NumWriteThreads    = 1;
+    const int NumCompressThreads = 1;
+    const int NumProcessThreads  = 2;
 
     RawBufferStreamer::RawBufferStreamer() :
         mRunning(false),
-        mMemoryUsage(0),
-        mMaxMemoryUsageBytes(0),
         mCropVertical(0),
         mCropHorizontal(0)
     {
@@ -27,27 +26,27 @@ namespace motioncam {
         stop();
     }
 
-    void RawBufferStreamer::start(const int fd, const int64_t maxMemoryUsageBytes, const RawCameraMetadata& cameraMetadata) {
+    void RawBufferStreamer::start(const int fd, const RawCameraMetadata& cameraMetadata) {
         stop();
         
         mRunning = true;
-        mMaxMemoryUsageBytes = maxMemoryUsageBytes;
         
-        logger::log("Maximum memory usage is " + std::to_string(mMaxMemoryUsageBytes));
-        
-        // Create IO threads
-        for(int i = 0; i < NumWriteThreads; i++) {
-            auto t = std::unique_ptr<std::thread>(new std::thread(&RawBufferStreamer::doStream, this, fd, cameraMetadata));
-            
-            // Set priority on IO thread
-            sched_param priority{};
-            priority.sched_priority = 99;
+        // Create IO threads with maximum priority
+        mIoThread = std::unique_ptr<std::thread>(new std::thread(&RawBufferStreamer::doStream, this, fd, cameraMetadata));
 
-            pthread_setschedparam(t->native_handle(), SCHED_FIFO, &priority);
-            
-            mIoThreads.push_back(std::move(t));
-        }
+        // Update priority
+        sched_param priority{};
+        priority.sched_priority = 99;
+
+        pthread_setschedparam(mIoThread->native_handle(), SCHED_FIFO, &priority);
         
+        // Create process threads
+        for(int i = 0; i < NumProcessThreads; i++) {
+            auto t = std::unique_ptr<std::thread>(new std::thread(&RawBufferStreamer::doProcess, this));
+            
+            mProcessThreads.push_back(std::move(t));
+        }
+
         // Create compression threads
         for(int i = 0; i < NumCompressThreads; i++) {
             auto t = std::unique_ptr<std::thread>(new std::thread(&RawBufferStreamer::doCompress, this));
@@ -56,33 +55,28 @@ namespace motioncam {
         }
     }
 
-    bool RawBufferStreamer::add(const std::shared_ptr<RawImageBuffer>& frame) {
-        if(mMemoryUsage > mMaxMemoryUsageBytes) {
-            return false;
-        }
-        else {
-            mRawBufferQueue.enqueue(frame);
-            mMemoryUsage += frame->data->len();
-        }
-
-        return true;
+    void RawBufferStreamer::add(const std::shared_ptr<RawImageBuffer>& frame) {
+        mUnprocessedBuffers.enqueue(frame);
     }
 
     void RawBufferStreamer::stop() {
         mRunning = false;
 
-        for(auto & mCompressThread : mCompressThreads) {
-            mCompressThread->join();
+        for(auto& thread : mCompressThreads) {
+            thread->join();
         }
-        
-        mCompressThreads.clear();
 
-        for(auto & mIoThread : mIoThreads) {
-            mIoThread->join();
+        for(auto& thread : mProcessThreads) {
+            thread->join();
         }
-        
-        mIoThreads.clear();
-        mMemoryUsage = 0;
+
+        mCompressThreads.clear();
+        mProcessThreads.clear();
+
+        if(mIoThread)
+            mIoThread->join();
+
+        mIoThread = nullptr;
     }
 
     void RawBufferStreamer::setCropAmount(int horizontal, int vertical) {
@@ -93,109 +87,171 @@ namespace motioncam {
         }
     }
 
-    std::shared_ptr<RawImageBuffer> RawBufferStreamer::crop(const std::shared_ptr<RawImageBuffer>& buffer) const {
-        auto data = buffer->data->lock(true);
+    void RawBufferStreamer::cropAndBin(RawImageBuffer& buffer) const {
+    
+    }
 
-        const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropHorizontal/100.0f * buffer->width)) / 4));
+    void RawBufferStreamer::crop(RawImageBuffer& buffer) const {
+        // Nothing to do
+        if(mCropHorizontal == 0 && mCropVertical == 0)
+            return;
+
+        const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropHorizontal/100.0f * buffer.width)) / 4));
+
         // Even vertical crop to match bayer pattern
-        const int verticalCrop   = static_cast<const int>(2 * (lround(0.5f * (mCropVertical/100.0f * buffer->height)) / 2));
+        const int verticalCrop   = static_cast<const int>(2 * (lround(0.5f * (mCropVertical/100.0f * buffer.height)) / 2));
 
-        auto croppedBuffer = std::make_shared<RawImageBuffer>();
-
-        croppedBuffer->width        = static_cast<const int>(buffer->width - horizontalCrop*2);
-        croppedBuffer->height       = static_cast<const int>(buffer->height - verticalCrop*2);
-        croppedBuffer->metadata     = buffer->metadata;
-        croppedBuffer->pixelFormat  = buffer->pixelFormat;
-        croppedBuffer->isCompressed = false;
-
-        std::vector<uint8_t> dstBuffer;
+        uint32_t croppedWidth  = static_cast<const int>(buffer.width - horizontalCrop*2);
+        uint32_t croppedHeight = static_cast<const int>(buffer.height - verticalCrop*2);
+        
+        auto data = buffer.data->lock(true);
 
         const int ystart = verticalCrop;
-        const int yend = buffer->height - ystart;
+        const int yend = buffer.height - ystart;
 
-        if(buffer->pixelFormat == PixelFormat::RAW10) {
-            croppedBuffer->rowStride = 10*croppedBuffer->width/8;
-            dstBuffer.resize(croppedBuffer->rowStride * croppedBuffer->height);
+        uint32_t croppedRowStride = buffer.rowStride;
+
+        if(buffer.pixelFormat == PixelFormat::RAW10) {
+            croppedRowStride = 10*croppedWidth/8;
 
             for(int y = ystart; y < yend; y++) {
-                const int srcOffset = buffer->rowStride * y;
-                const int dstOffset = croppedBuffer->rowStride * (y - ystart);
+                const int srcOffset = buffer.rowStride * y;
+                const int dstOffset = croppedRowStride * (y - ystart);
 
                 const int xstart = 10*horizontalCrop/8;
 
-                std::memcpy(dstBuffer.data()+dstOffset, data+srcOffset+xstart, croppedBuffer->rowStride);
+                std::memmove(data+dstOffset, data+srcOffset+xstart, croppedRowStride);
             }
         }
-        else if(buffer->pixelFormat == PixelFormat::RAW16) {
-            croppedBuffer->rowStride = 2*croppedBuffer->width;
-            dstBuffer.resize(croppedBuffer->rowStride * croppedBuffer->height);
+        else if(buffer.pixelFormat == PixelFormat::RAW16) {
+            croppedRowStride = 2*croppedWidth;
 
             for(int y = ystart; y < yend; y++) {
-                const int srcOffset = buffer->rowStride * y;
-                const int dstOffset = croppedBuffer->rowStride * (y - ystart);
+                const int srcOffset = buffer.rowStride * y;
+                const int dstOffset = croppedRowStride * (y - ystart);
 
                 const int xstart = 2*horizontalCrop;
 
-                std::memcpy(dstBuffer.data()+dstOffset, data+srcOffset+xstart, croppedBuffer->rowStride);
+                std::memmove(data+dstOffset, data+srcOffset+xstart, croppedRowStride);
             }
         }
+        else {
+            // Unsupported pixel format
+            croppedWidth = buffer.width;
+            croppedHeight = buffer.height;
+        }
 
-        buffer->data->unlock();
+        buffer.data->unlock();
 
-        croppedBuffer->data->copyHostData(dstBuffer);
+        // Update buffer
+        buffer.rowStride = croppedRowStride;
+        buffer.width = croppedWidth;
+        buffer.height = croppedHeight;
 
-        return croppedBuffer;
+        buffer.data->setValidRange(0, buffer.rowStride * buffer.height);
     }
 
-    std::shared_ptr<RawImageBuffer> RawBufferStreamer::compressBuffer(
-            const std::shared_ptr<RawImageBuffer>& buffer, std::vector<uint8_t>& tmpBuffer) const
-    {
-        // Crop buffer
-        auto croppedBuffer = crop(buffer);
+    uint32_t RawBufferStreamer::zcompress(RawImageBuffer& inputBuffer) const {
+        ZSTD_CCtx* const context = ZSTD_createCCtx();
 
-        auto dstBound = ZSTD_compressBound(croppedBuffer->data->len());
-        tmpBuffer.resize(dstBound);
+        ZSTD_CCtx_setParameter(context, ZSTD_c_compressionLevel, ZSTD_fast);
+        ZSTD_CCtx_setParameter(context, ZSTD_c_checksumFlag, 1);
+        ZSTD_CCtx_setParameter(context, ZSTD_c_nbWorkers, 2);
 
-        auto croppedBufferData = croppedBuffer->data->lock(true);
+        const size_t inputChunkSize = ZSTD_CStreamInSize();
+        const size_t outputChunkSize = ZSTD_CStreamOutSize();
 
-        // Compress buffer
-        size_t writtenBytes =
-                ZSTD_compress(&tmpBuffer[0],
-                              tmpBuffer.size(),
-                              croppedBufferData,
-                              croppedBuffer->data->len(),
-                              1);
+        std::vector<uint8_t> outChunk(outputChunkSize);
 
-        tmpBuffer.resize(writtenBytes);
+        size_t start, end;
+        
+        inputBuffer.data->getValidRange(start, end);
 
-        // Copy the data back into the cropped buffer
-        std::memcpy(croppedBufferData, tmpBuffer.data(), tmpBuffer.size());
+        // Update source size
+        size_t err = ZSTD_CCtx_setPledgedSrcSize(context, end - start);
+        if(ZSTD_isError(err))
+            return 0;
 
-        croppedBuffer->data->shrink(tmpBuffer.size());
+        size_t srcOffset = start;
+        size_t dstOffset = 0;
 
-        croppedBuffer->isCompressed = true;
-        croppedBuffer->data->unlock();
+        auto* data = inputBuffer.data->lock(true);
 
-        return croppedBuffer;
+        while(true) {
+            const bool lastChunk = srcOffset + inputChunkSize >= end;
+            const size_t limit = lastChunk ? end - srcOffset : inputChunkSize;
+            const ZSTD_EndDirective mode = lastChunk ? ZSTD_e_end : ZSTD_e_continue;
+
+            ZSTD_inBuffer input = { static_cast<void*>(data + srcOffset), limit, 0 };
+            int finished;
+
+            do {
+                ZSTD_outBuffer output = { outChunk.data(), outChunk.size(), 0 };
+                size_t const remaining = ZSTD_compressStream2(context, &output , &input, mode);
+
+                // Failed
+                err = ZSTD_isError(remaining);
+                if(err != ZSTD_error_no_error) {
+                    inputBuffer.data->setValidRange(0, 0);
+                    inputBuffer.data->unlock();
+                    return 0;
+                }
+                
+                std::memcpy(data + dstOffset, outChunk.data(), output.pos);
+
+                srcOffset += input.pos;
+                dstOffset += output.pos;
+    
+                finished = lastChunk ? (remaining == 0) : (input.pos == input.size);
+            }
+            while (!finished);
+            
+            if(lastChunk)
+                break;
+        }
+        
+        inputBuffer.data->unlock();
+        
+        // Update valid range for compressed data
+        inputBuffer.data->setValidRange(0, dstOffset);
+        inputBuffer.isCompressed = true;
+  
+        ZSTD_freeCCtx(context);
+
+        return static_cast<uint32_t>(dstOffset);
+    }
+
+    void RawBufferStreamer::doProcess() {
+        std::shared_ptr<RawImageBuffer> buffer;
+        
+        while(mRunning) {
+            if(!mUnprocessedBuffers.wait_dequeue_timed(buffer, std::chrono::milliseconds(67))) {
+                continue;
+            }
+            
+            // Crop the buffer
+            crop(*buffer);
+            
+            // Add to the ready list
+            mReadyBuffers.enqueue(buffer);
+        }
+
     }
 
     void RawBufferStreamer::doCompress() {
         std::shared_ptr<RawImageBuffer> buffer;
-        std::vector<uint8_t> tmpBuffer;
 
         while(mRunning) {
-            if(!mRawBufferQueue.wait_dequeue_timed(buffer, std::chrono::milliseconds(67))) {
+            // Pull buffers out of the ready queue and compress them
+            if(!mReadyBuffers.wait_dequeue_timed(buffer, std::chrono::milliseconds(67))) {
                 continue;
             }
 
-            // Keep track of memory usage
-            mMemoryUsage -= buffer->data->len();
-            mMemoryUsage += tmpBuffer.size();
-
-            mCompressedBufferQueue.enqueue(compressBuffer(buffer, tmpBuffer));
+            // Compress
+            zcompress(*buffer);
             
-            // Return the buffer
-            RawBufferManager::get().discardBuffer(buffer);
+            // Add to compressed queue so we don't compress again
+            mCompressedBuffers.enqueue(buffer);
         }
     }
 
@@ -205,19 +261,21 @@ namespace motioncam {
         util::ZipWriter writer(fd);
         std::shared_ptr<RawImageBuffer> buffer;
 
-        // Every 15 minutes
         std::unique_ptr<RawContainer> container = std::unique_ptr<RawContainer>(new RawContainer(cameraMetadata));
         container->save(writer);
-
+        
         while(mRunning) {
-            if(!mCompressedBufferQueue.wait_dequeue_timed(buffer, std::chrono::milliseconds(100))) {
-                logger::log("Out of buffers to write");
-                continue;
+            if(!mCompressedBuffers.try_dequeue(buffer)) {
+                if(!mReadyBuffers.wait_dequeue_timed(buffer, std::chrono::milliseconds(100))) {
+                    continue;
+                }
             }
-            
-            RawContainer::append(writer, buffer);
 
-            mMemoryUsage -= static_cast<int>(buffer->data->len());
+            RawContainer::append(writer, *buffer);
+
+            // Return the buffer after it has been written
+            RawBufferManager::get().discardBuffer(buffer);
+
             writtenFrames++;
         }
         
@@ -227,12 +285,25 @@ namespace motioncam {
 
         std::vector<uint8_t> tmpBuffer;
 
-        while(mCompressedBufferQueue.try_dequeue(buffer)) {
-            RawContainer::append(writer, buffer);
+        // Compressed first
+        while(mCompressedBuffers.try_dequeue(buffer)) {
+            RawContainer::append(writer, *buffer);
+
+            RawBufferManager::get().discardBuffer(buffer);
         }
 
-        while(mRawBufferQueue.try_dequeue(buffer)) {
-            RawContainer::append(writer, compressBuffer(buffer, tmpBuffer));
+        // Ready buffers
+        while(mReadyBuffers.try_dequeue(buffer)) {
+            RawContainer::append(writer, *buffer);
+            
+            RawBufferManager::get().discardBuffer(buffer);
+        }
+
+        // Unprocessed buffers
+        while(mUnprocessedBuffers.try_dequeue(buffer)) {
+            crop(*buffer);
+            
+            RawContainer::append(writer, *buffer);
 
             RawBufferManager::get().discardBuffer(buffer);
         }

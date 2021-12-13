@@ -21,6 +21,7 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
+import android.os.StatFs;
 import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
@@ -207,7 +208,7 @@ public class CameraActivity extends AppCompatActivity implements
             }
 
             String rawVideoRecordingTempUri = prefs.getString(SettingsViewModel.PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI, null);
-            if(rawVideoRecordingTempUri != null)
+            if(rawVideoRecordingTempUri != null && !rawVideoRecordingTempUri.isEmpty())
                 this.rawVideoRecordingTempUri = Uri.parse(rawVideoRecordingTempUri);
         }
 
@@ -642,23 +643,26 @@ public class CameraActivity extends AppCompatActivity implements
         if(mSettings.rawVideoRecordingTempUri == null)
             return -1;
 
-        DocumentFile root = DocumentFile.fromTreeUri(this, mSettings.rawVideoRecordingTempUri);
-        if( root.exists() && root.isDirectory() && root.canWrite() )
-        {
-            DocumentFile output = root.createFile("application/zip", CameraProfile.generateFilename("VIDEO"));
-            ContentResolver resolver = getApplicationContext().getContentResolver();
+        try {
+            DocumentFile root = DocumentFile.fromTreeUri(this, mSettings.rawVideoRecordingTempUri);
+            if (root.exists() && root.isDirectory() && root.canWrite()) {
+                DocumentFile output = root.createFile("application/zip", CameraProfile.generateFilename("VIDEO"));
+                ContentResolver resolver = getApplicationContext().getContentResolver();
 
-            try {
-                ParcelFileDescriptor pfd = resolver.openFileDescriptor(output.getUri(), "w", null);
+                try {
+                    ParcelFileDescriptor pfd = resolver.openFileDescriptor(output.getUri(), "w", null);
 
-                if(pfd != null) {
-                    return pfd.detachFd();
+                    if (pfd != null) {
+                        return pfd.detachFd();
+                    }
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                    return -1;
                 }
             }
-            catch (FileNotFoundException e) {
-                e.printStackTrace();
-                return -1;
-            }
+        }
+        catch(Exception e) {
+            e.printStackTrace();
         }
 
         String error = getString(R.string.invalid_raw_video_folder);
@@ -683,18 +687,18 @@ public class CameraActivity extends AppCompatActivity implements
             return;
         }
 
-        mNativeCamera.streamToFile(fd, mSettings.rawVideoMemoryUseBytes);
+        mNativeCamera.streamToFile(fd);
         mImageCaptureInProgress.set(true);
 
         mBinding.switchCameraBtn.setEnabled(false);
         mBinding.recordingTimer.setVisibility(View.VISIBLE);
-        mBinding.previewFrame.droppedFramesTxt.setVisibility(View.VISIBLE);
+
+        mBinding.previewFrame.videoRecordingBtns.setVisibility(View.GONE);
+        mBinding.previewFrame.videoRecordingStats.setVisibility(View.VISIBLE);
 
         mRecordStartTime = System.currentTimeMillis();
 
         // Update recording time
-        final String droppedFramesText = getText(R.string.dropped_frames).toString();
-
         mRecordingTimer = new Timer();
         mRecordingTimer.scheduleAtFixedRate(new TimerTask() {
             @Override
@@ -707,16 +711,21 @@ public class CameraActivity extends AppCompatActivity implements
                 String recordingText = String.format(Locale.US, "00:%02d:%02d", (int) mins, seconds);
 
                 runOnUiThread(() -> {
+                    float bufferUse = mNativeCamera.getVideoBufferUse();
+
                     mBinding.recordingTimerText.setText(recordingText);
 
-                    int droppedFrames = mNativeCamera.getNumDroppedFrames();
+                    mBinding.previewFrame.memoryUsageProgress.setProgress(Math.round(bufferUse * 100));
 
-                    String info = String.format(Locale.US, "%d %s", droppedFrames, droppedFramesText);
-                    mBinding.previewFrame.droppedFramesTxt.setText(info);
+                    // Keep track of space
+                    StatFs statFs = new StatFs(getFilesDir().getPath());
+                    int spaceLeft = Math.round(100 * (statFs.getAvailableBytes() / (float) statFs.getTotalBytes()));
 
-                    // End recording if too many dropped frames
-                    if(droppedFrames > 120) {
-                        String error = getString(R.string.dropped_frames_error);
+                    mBinding.previewFrame.freeSpaceProgress.setProgress(spaceLeft);
+
+                    // End recording if memory usage is too high
+                    if(bufferUse > 0.90f) {
+                        String error = getString(R.string.video_memory_use_error);
 
                         Toast.makeText(CameraActivity.this, error, Toast.LENGTH_LONG).show();
                         finaliseRawVideo(true);
@@ -727,9 +736,13 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void finaliseRawVideo(boolean showProgress) {
+        mImageCaptureInProgress.set(false);
+
         mBinding.switchCameraBtn.setEnabled(true);
         mBinding.recordingTimer.setVisibility(View.GONE);
-        mBinding.previewFrame.droppedFramesTxt.setVisibility(View.INVISIBLE);
+
+        mBinding.previewFrame.videoRecordingBtns.setVisibility(View.VISIBLE);
+        mBinding.previewFrame.videoRecordingStats.setVisibility(View.GONE);
 
         if(mRecordingTimer != null) {
             mRecordingTimer.cancel();
@@ -940,7 +953,7 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void setCaptureMode(CaptureMode captureMode) {
-        if(mCaptureMode == captureMode)
+        if(mCaptureMode == captureMode || mImageCaptureInProgress.get())
             return;
 
         // Can't use night mode with manual controls
@@ -984,17 +997,15 @@ public class CameraActivity extends AppCompatActivity implements
             if(mNativeCamera != null) {
                 mNativeCamera.setFrameRate(mSettings.frameRate);
                 mNativeCamera.setVideoCropPercentage(mSettings.horizontalVideoCrop, mSettings.verticalVideoCrop);
-                mNativeCamera.setFocusForVideo(true);
+                mNativeCamera.adjustMemory(mSettings.rawVideoMemoryUseBytes);
             }
         }
 
         // If previous capture mode was raw video, reset frame rate
         if(mCaptureMode == CaptureMode.RAW_VIDEO) {
-            Log.i(TAG, "Switching to 30 FPS");
-
             if(mNativeCamera != null) {
                 mNativeCamera.setFrameRate(30);
-                mNativeCamera.setFocusForVideo(false);
+                mNativeCamera.adjustMemory(mSettings.memoryUseBytes);
             }
         }
 
@@ -1050,9 +1061,12 @@ public class CameraActivity extends AppCompatActivity implements
                 mNativeCamera.setManualExposureValues(mUserIso, mUserExposureTime);
             }
             else if(selectionMode == MANUAL_CONTROL_MODE_FOCUS) {
-                float p = ((100.0f - progress)/100.0f) * (mCameraMetadata.minFocusDistance - mCameraMetadata.hyperFocalDistance);
+                double in = (100.0f - progress) / 100.0f;
+                double p =
+                    Math.exp(in * (Math.log(mCameraMetadata.minFocusDistance) - Math.log(mCameraMetadata.hyperFocalDistance)) +
+                            Math.log(mCameraMetadata.hyperFocalDistance));
 
-                mFocusDistance = mCameraMetadata.hyperFocalDistance + p;
+                mFocusDistance = (float) p;
                 mNativeCamera.setManualFocus(mFocusDistance);
 
                 onFocusStateChanged(NativeCameraSessionBridge.CameraFocusState.FOCUS_LOCKED, mFocusDistance);
@@ -1085,10 +1099,12 @@ public class CameraActivity extends AppCompatActivity implements
         ((TextView) findViewById(R.id.manualControlMinText)).setText(minFocus);
         ((TextView) findViewById(R.id.manualControlMaxText)).setText(maxFocus);
 
-        float progress = 1.0f - (mFocusDistance - mCameraMetadata.hyperFocalDistance) / (mCameraMetadata.minFocusDistance - mCameraMetadata.hyperFocalDistance);
+        double progress = 100.0 * (
+            (Math.log(mFocusDistance) - Math.log(mCameraMetadata.hyperFocalDistance)) /
+            (Math.log(mCameraMetadata.minFocusDistance) - Math.log(mCameraMetadata.hyperFocalDistance)));
 
         ((SeekBar) findViewById(R.id.manualControlSeekBar)).setMax(100);
-        ((SeekBar) findViewById(R.id.manualControlSeekBar)).setProgress(Math.round(100 * progress));
+        ((SeekBar) findViewById(R.id.manualControlSeekBar)).setProgress((int)Math.round(100 - progress));
         ((SeekBar) findViewById(R.id.manualControlSeekBar)).setTickMark(null);
 
         findViewById(R.id.manualControl).setTag(R.id.manual_control_tag, MANUAL_CONTROL_MODE_FOCUS);
@@ -1430,8 +1446,6 @@ public class CameraActivity extends AppCompatActivity implements
         }
         else if(mode == CaptureMode.RAW_VIDEO) {
             if(mImageCaptureInProgress.get()) {
-                mImageCaptureInProgress.set(false);
-
                 finaliseRawVideo(true);
             }
             else {
@@ -2266,6 +2280,9 @@ public class CameraActivity extends AppCompatActivity implements
 
     private void onFocusStateChanged(NativeCameraSessionBridge.CameraFocusState state, float focusDistance) {
         Log.i(TAG, "Focus state: " + state.name());
+
+        if(mTextureView == null)
+            return;
 
         if( state == NativeCameraSessionBridge.CameraFocusState.PASSIVE_SCAN ||
             state == NativeCameraSessionBridge.CameraFocusState.ACTIVE_SCAN)

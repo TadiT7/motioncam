@@ -62,7 +62,7 @@
     <string name="enable_dual_exposure">Enable dual exposure controls</string>
     <string name="hint_text">NEW! Enable dual exposure controls in the settings.</string>
     <string name="hdr_settings_description">The amount to underexpose. Higher values lead to better highlight recovery but may lead to unrealistic looking images.</string>
-    <string name="capture_mode_description">Select RAW10 unless the camera does not behave correctly (e.g. issues with focus)</string>
+    <string name="capture_mode_description">Select RAW10 unless the camera does not behave correctly. RAW16 is not recommended for RAW video. It uses significantly more bandwidth without increasing the dynamic range in almost all cases.</string>
     <string name="raw10">RAW10</string>
     <string name="raw12">RAW12</string>
     <string name="raw16">RAW16</string>
@@ -101,7 +101,7 @@
     <string name="raw_video_storage_folder">RAW Video Storage Folder</string>
     <string name="raw_video_storage_folder_description">Where to store RAW videos during recording.</string>
     <string name="select">Select</string>
-    <string name="dropped_frames_error" >Recording has stopped because of too many dropped frames.</string>
+    <string name="video_memory_use_error" >Recording has stopped because the memory limit has been reached.</string>
     <string name="invalid_raw_video_folder">The selected output folder is not available. Using internal storage.</string>
     <string name="recording_failed">Failed to start recording.</string>
     <string name="confirm_delete">Are you sure you want to delete this video?</string>
@@ -112,4 +112,11 @@
     <string name="please_wait">Please wait</string>
     <string name="saving_video">Saving video</string>
     <string name="processing_video">Processing Video</string>
+    <string name="ae_lock">AE LOCK</string>
+    <string name="af_lock">AF LOCK</string>
+    <string name="awb_lock">AWB LOCK</string>
+    <string name="ois">OIS</string>
+    <string name="video_size">VIDEO SIZE:</string>
+    <string name="device_storage">Device Storage:</string>
+    <string name="memory_use">Memory Use:</string>
 </resources>

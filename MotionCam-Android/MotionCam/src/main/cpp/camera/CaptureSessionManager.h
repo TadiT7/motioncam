@@ -91,6 +91,8 @@ namespace motioncam {
 
         void prepareHdrCapture(const int iso, const int64_t exposure);
 
+        void grow(size_t maxMemoryBytes);
+
     private:
         static bool isCameraSupported(const CameraDescription& cameraDescription);
         void enumerateCameras();

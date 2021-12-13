@@ -185,7 +185,7 @@ public class SettingsFragment extends Fragment {
                 requireContext().getSharedPreferences(SettingsViewModel.CAMERA_SHARED_PREFS, Context.MODE_PRIVATE);
 
         String rawVideoStorageLocation =
-                sharedPrefs.getString(SettingsViewModel.PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI, "");
+                sharedPrefs.getString(SettingsViewModel.PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI, null);
 
         mDataBinding.rawVideoStorageFolder.setText(rawVideoStorageLocation);
 

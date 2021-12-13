@@ -11,6 +11,8 @@
 #include "motioncam/BlueNoiseLUT.h"
 #include "motioncam/FaceClassifier.h"
 
+#include <zstd.h>
+
 // Halide
 #include "generate_edges.h"
 #include "measure_image.h"
@@ -26,6 +28,7 @@
 
 #include "linear_image.h"
 #include "hdr_mask.h"
+//#include "decorrelate.h"
 
 #include "preview_landscape2.h"
 #include "preview_portrait2.h"
@@ -51,6 +54,7 @@
 #include <fcntl.h>
 #include <exiv2/exiv2.hpp>
 #include <opencv2/core/ocl.hpp>
+#include <opencv2/core/hal/intrin.hpp>
 
 using std::ios;
 using std::string;
@@ -1023,6 +1027,81 @@ namespace motioncam {
         return histogram;
     }
 
+    uint32_t compress(RawImageBuffer& inputBuffer, uint8_t quantize) {
+        Measure measure("compress()");
+        
+        auto* data = inputBuffer.data->lock(true);
+
+        std::vector<int16_t> row(inputBuffer.width);
+            
+        ZSTD_CCtx* const context = ZSTD_createCCtx();
+
+        ZSTD_CCtx_setParameter(context, ZSTD_c_compressionLevel, ZSTD_fast);
+        ZSTD_CCtx_setParameter(context, ZSTD_c_checksumFlag, 0);
+        ZSTD_CCtx_setParameter(context, ZSTD_c_nbWorkers, 2);
+        
+        uint16_t halfWidth = inputBuffer.width / 2;
+
+        int const lastChunk = 0;
+        ZSTD_EndDirective const mode = lastChunk ? ZSTD_e_end : ZSTD_e_continue;
+        
+        int32_t outputOffset = 0;
+        
+        for(int32_t y = 0; y < inputBuffer.height; y++) {
+            uint32_t start = y*inputBuffer.rowStride;
+            
+            //
+            // Quantize
+            //
+            
+            for(int32_t x = 0; x < inputBuffer.width; x+=4) {
+                uint32_t offset = start + ((10*x) >> 3);
+                
+                // Reference
+                int16_t upper = data[offset + 4];
+                
+                int16_t p0 = (data[offset]   << 2) | ( upper       & 0x03);
+                int16_t p1 = (data[offset+1] << 2) | ((upper >> 2) & 0x03);
+                int16_t p2 = (data[offset+2] << 2) | ((upper >> 4) & 0x03);
+                int16_t p3 = (data[offset+3] << 2) | ((upper >> 6) & 0x03);
+                                                
+                int16_t qp0 = (p1 - p0) >> quantize;
+                int16_t qp1 = (p1 - p3) >> quantize;
+
+                uint16_t X = x / 2;
+                
+                // Green channels
+                row[X]   = p1;
+                row[X+1] = p2;
+
+                // Red/Blue
+                row[X+halfWidth]   = qp0;
+                row[X+halfWidth+1] = qp1;
+            }
+            
+            //
+            // Compress
+            //
+
+            ZSTD_inBuffer input = { static_cast<void*>(row.data()), row.size()*2, 0 };
+            int finished;
+
+            do {
+                ZSTD_outBuffer output = { data + outputOffset, inputBuffer.data->len() - outputOffset, 0 };
+                size_t const remaining = ZSTD_compressStream2(context, &output , &input, mode);
+
+                outputOffset += output.pos;
+
+                finished = lastChunk ? (remaining == 0) : (input.pos == input.size);
+            }
+            while (!finished);
+        }
+                
+        ZSTD_freeCCtx(context);
+        
+        return outputOffset;
+    }
+
     void ImageProcessor::process(RawContainer& rawContainer, const std::string& outputPath, const ImageProcessorProgress& progressListener)
     {
         cv::ocl::setUseOpenCL(false);
@@ -1034,8 +1113,13 @@ namespace motioncam {
         progressListener.onProgressUpdate(0);
         
         auto referenceRawBuffer = rawContainer.loadFrame(rawContainer.getReferenceImage());
+        if(!referenceRawBuffer) {
+            progressListener.onError("Invalid reference frames");
+            return;
+        }
+
         PostProcessSettings settings = rawContainer.getPostProcessSettings();
-        
+
         // Remove all underexposed images
         if(rawContainer.isHdr()) {
             auto refEv = calcEv(rawContainer.getCameraMetadata(), referenceRawBuffer->metadata);
@@ -1047,6 +1131,11 @@ namespace motioncam {
                 if(ev - refEv > 0.25f) {
                     // Load the frame since we intend to remove it from the container
                     auto raw = rawContainer.loadFrame(frameName);
+                    if(!raw) {
+                        logger::log("Invalid frame " + frameName);
+                        continue;
+                    }
+
                     underexposedImages.push_back(raw);
                     
                     rawContainer.removeFrame(frameName);

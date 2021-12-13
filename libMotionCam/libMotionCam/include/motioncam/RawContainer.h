@@ -45,7 +45,7 @@ namespace motioncam {
         void save(const std::string& outputPath);
         void save(util::ZipWriter& writer);
         
-        static size_t append(util::ZipWriter& zipWriter, std::shared_ptr<RawImageBuffer> frame);
+        static size_t append(util::ZipWriter& zipWriter, const RawImageBuffer& frame);
         
         bool isInMemory() const { return mIsInMemory; };
         
@@ -67,7 +67,7 @@ namespace motioncam {
         static json11::Json::array toJsonArray(cv::Mat m);
 
         static std::shared_ptr<RawImageBuffer> loadFrameMetadata(const json11::Json& obj);
-        static void generateMetadata(std::shared_ptr<RawImageBuffer> frame, json11::Json::object& metadata, const std::string& filename);
+        static void generateMetadata(const RawImageBuffer& frame, json11::Json::object& metadata, const std::string& filename);
 
     private:
         std::unique_ptr<util::ZipReader> mZipReader;

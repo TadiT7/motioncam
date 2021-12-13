@@ -1027,49 +1027,9 @@ void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_PrepareHdrCaptu
     sessionManager->prepareHdrCapture(iso, exposure);
 }
 
-extern "C" JNIEXPORT
-jobjectArray JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_DetectFaces(
-        JNIEnv *env, jobject thiz, jlong handle)
-{
-    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
-    if(!sessionManager) {
-        return nullptr;
-    }
-
-    auto cameraId = sessionManager->getSelectedCameraId();
-    auto metadata = sessionManager->getCameraDescription(cameraId)->metadata;
-
-    auto lockedBuffer = RawBufferManager::get().consumeLatestBuffer();
-    if(!lockedBuffer || lockedBuffer->getBuffers().empty())
-        return nullptr;
-
-    auto imageBuffer = lockedBuffer->getBuffers().front();
-    auto faces = ImageProcessor::detectFaces(*imageBuffer, metadata);
-
-    jclass nativeRectClass = env->FindClass("android/graphics/RectF");
-    auto result = env->NewObjectArray(static_cast<jsize>(faces.size()), nativeRectClass, nullptr);
-    if(result == nullptr)
-        return nullptr;
-
-    for (size_t i = 0; i < faces.size(); i++) {
-        jobject obj =
-                env->NewObject(
-                        nativeRectClass,
-                        env->GetMethodID(nativeRectClass, "<init>", "(FFFF)V"),
-                        faces[i].x,
-                        faces[i].y,
-                        faces[i].x + faces[i].width,
-                        faces[i].y + faces[i].height);
-
-        env->SetObjectArrayElement(result, i, obj);
-    }
-
-    return result;
-}
-
 extern "C"
 JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_StartStreamToFile(
-        JNIEnv *env, jobject thiz, jlong handle, jint fd, jlong maxMemoryUsageBytes)
+        JNIEnv *env, jobject thiz, jlong handle, jint fd)
 {
     std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
     if(!sessionManager) {
@@ -1079,7 +1039,7 @@ JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_Start
     auto cameraId = sessionManager->getSelectedCameraId();
     auto metadata = sessionManager->getCameraDescription(cameraId)->metadata;
 
-    RawBufferManager::get().enableStreaming(fd, maxMemoryUsageBytes, metadata);
+    RawBufferManager::get().enableStreaming(fd, metadata);
 }
 
 extern "C"
@@ -1106,8 +1066,8 @@ JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_SetVi
 }
 
 extern "C"
-JNIEXPORT jint JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GetNumDroppedFrames(JNIEnv *env, jobject thiz, jlong handle) {
-    return RawBufferManager::get().numDroppedFrames();
+JNIEXPORT jfloat JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GetVideoBufferUse(JNIEnv *env, jobject thiz, jlong handle) {
+    return RawBufferManager::get().bufferSpaceUse();
 }
 
 extern "C"
@@ -1173,4 +1133,16 @@ Java_com_motioncam_camera_NativeCameraSessionBridge_SetFocusForVideo(JNIEnv *env
     sessionManager->setFocusForVideo(focusForVideo);
 
     return JNI_TRUE;
+}
+
+extern "C"
+JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_AdjustMemoryUse(
+        JNIEnv *env, jobject thiz, jlong handle, jlong maxUseBytes) {
+
+    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
+    if(!sessionManager) {
+        return;
+    }
+
+    sessionManager->grow(maxUseBytes);
 }

@@ -35,6 +35,8 @@ namespace motioncam {
         void start();
         void stop();
 
+        void grow(size_t memoryLimitBytes);
+
         void queueImage(AImage* image);
         void queueMetadata(const ACameraMetadata* metadata, ScreenOrientation screenOrientation, RawType rawType);
 
@@ -60,7 +62,7 @@ namespace motioncam {
         bool copyMetadata(RawImageMetadata& dst, const ACameraMetadata* src);
         void onBufferReady(const std::shared_ptr<RawImageBuffer>& buffer);
 
-        void doSetupBuffers(size_t bufferLength);
+        void doSetupBuffers();
         void doCopyImage();
         void doMatchMetadata();
         void doPreprocess();
@@ -85,6 +87,11 @@ namespace motioncam {
         std::atomic<float> mTempOffset;
         std::atomic<float> mTintOffset;
         std::atomic<bool> mUseVideoPreview;
+
+        std::mutex mBufferMutex;
+        std::condition_variable mBufferCondition;
+        std::atomic<size_t> mBufferSize;
+
         PostProcessSettings mEstimatedSettings;
         float mPreviewShadows;
         float mPreviewShadowStep;

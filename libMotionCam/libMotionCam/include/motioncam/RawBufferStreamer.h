@@ -17,32 +17,34 @@ namespace motioncam {
         RawBufferStreamer();
         ~RawBufferStreamer();
         
-        void start(const int fd, const int64_t maxMemoryUsageBytes, const RawCameraMetadata& cameraMetadata);
-        bool add(const std::shared_ptr<RawImageBuffer>& frame);
+        void start(const int fd, const RawCameraMetadata& cameraMetadata);
+        void add(const std::shared_ptr<RawImageBuffer>& frame);
         void stop();
         
         void setCropAmount(int horizontal, int vertical);    
         bool isRunning() const;
         
     private:
-        std::shared_ptr<RawImageBuffer> crop(const std::shared_ptr<RawImageBuffer>& buffer) const;
-        std::shared_ptr<RawImageBuffer> compressBuffer(const std::shared_ptr<RawImageBuffer>& buffer, std::vector<uint8_t>& tmpBuffer) const;
+        void crop(RawImageBuffer& buffer) const;
+        void cropAndBin(RawImageBuffer& buffer) const;
+        uint32_t zcompress(RawImageBuffer& inputBuffer) const;
+        
+        void doProcess();
         void doCompress();
         void doStream(const int fd, const RawCameraMetadata& cameraMetadata);
         
     private:
-        std::vector<std::unique_ptr<std::thread>> mIoThreads;
+        std::unique_ptr<std::thread> mIoThread;
+        std::vector<std::unique_ptr<std::thread>> mProcessThreads;
         std::vector<std::unique_ptr<std::thread>> mCompressThreads;
         
-        long mMaxMemoryUsageBytes;
         int mCropVertical;
         int mCropHorizontal;
         std::atomic<bool> mRunning;
         
-        moodycamel::BlockingConcurrentQueue<std::shared_ptr<RawImageBuffer>> mRawBufferQueue;
-        moodycamel::BlockingConcurrentQueue<std::shared_ptr<RawImageBuffer>> mCompressedBufferQueue;
-        
-        std::atomic<int64_t> mMemoryUsage;
+        moodycamel::BlockingConcurrentQueue<std::shared_ptr<RawImageBuffer>> mUnprocessedBuffers;
+        moodycamel::BlockingConcurrentQueue<std::shared_ptr<RawImageBuffer>> mReadyBuffers;
+        moodycamel::BlockingConcurrentQueue<std::shared_ptr<RawImageBuffer>> mCompressedBuffers;
     };
 
 }

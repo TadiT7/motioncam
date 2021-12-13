@@ -581,7 +581,7 @@ namespace motioncam {
 
         // Set up a JPEG output that we don't use. For some reason without it the camera auto
         // focus does not work properly
-        setupJpegCaptureOutput(*mSessionContext);
+        //setupJpegCaptureOutput(*mSessionContext);
 
         // Set up output for preview
         setupPreviewCaptureOutput(*mSessionContext, setupForRawPreview);

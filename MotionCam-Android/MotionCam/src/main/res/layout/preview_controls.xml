@@ -9,11 +9,60 @@
     android:layout_marginEnd="10dp">
 
     <LinearLayout
+        android:id="@+id/videoRecordingStats"
+        android:visibility="gone"
+        android:layout_gravity="center_vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="10dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/memoryUsageText"
+                android:visibility="visible"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="@string/memory_use"
+                android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold" />
+
+            <ProgressBar
+                android:id="@+id/memoryUsageProgress"
+                android:layout_width="match_parent"
+                android:layout_height="10dp"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:progress="50"/>
+
+            <TextView
+                android:id="@+id/freeSpaceText"
+                android:visibility="visible"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:gravity="center"
+                android:text="@string/device_storage"
+                android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold" />
+
+            <ProgressBar
+                android:id="@+id/freeSpaceProgress"
+                android:layout_width="match_parent"
+                android:layout_height="10dp"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:progress="50"/>
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <LinearLayout
         android:id="@+id/videoRecordingBtns"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="center_vertical"
-        android:visibility="visible"
+        android:visibility="gone"
         android:orientation="vertical">
 
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -120,19 +169,6 @@
                 android:theme="@style/Widget.AppCompat.SeekBar.Discrete"/>
 
         </LinearLayout>
-
-        <TextView
-            android:id="@+id/droppedFramesTxt"
-            android:visibility="invisible"
-            android:layout_width="match_parent"
-            android:layout_height="20dp"
-            android:layout_marginTop="10dp"
-            android:gravity="center"
-            android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@+id/processVideoBtn"
-            app:layout_constraintLeft_toRightOf="@id/videoResolution"
-            app:layout_constraintTop_toTopOf="parent" />
 
     </LinearLayout>
 

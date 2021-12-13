@@ -99,6 +99,9 @@ namespace motioncam {
         
         for(int i = 0; i < frames.size(); i++) {
             auto frame = container.loadFrame(frames[i]);
+            if(!frame) {
+                continue;
+            }
             
             if(frame->width <= 0 || frame->height <= 0) {
                 continue;
@@ -125,7 +128,9 @@ namespace motioncam {
                 while(true) {
                     if(i + leftOffset >= 0) {
                         auto left = container.loadFrame(frames[i + leftOffset]);
-                        nearestBuffers.push_back(left);
+                        if(left) {
+                            nearestBuffers.push_back(left);
+                        }
 
                         leftOffset--;
 
@@ -135,7 +140,8 @@ namespace motioncam {
 
                     if(i + rightOffset < frames.size()) {
                         auto right = container.loadFrame(frames[i + rightOffset]);
-                        nearestBuffers.push_back(right);
+                        if(right)
+                            nearestBuffers.push_back(right);
 
                         if(nearestBuffers.size() >= mergeFrames)
                             break;

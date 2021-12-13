@@ -139,18 +139,22 @@
                         android:backgroundTint="@color/acceptAction"
                         android:text="@string/select"/>
 
-                    <TextView
-                        android:id="@+id/rawVideoStorageFolder"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:textAppearance="@style/MotionCam.TextAppearance.VerySmall"
-                        android:gravity="center_vertical"
-                        android:padding="5dp"
-                        android:scrollHorizontally="true"
-                        android:ellipsize="end"
-                        android:maxLines="1"
-                        android:textColor="@color/white" />
+                    <HorizontalScrollView
+                        android:layout_width="fill_parent"
+                        android:layout_height="fill_parent">
 
+                        <TextView
+                            android:id="@+id/rawVideoStorageFolder"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:textAppearance="@style/MotionCam.TextAppearance.VerySmall"
+                            android:gravity="center_vertical"
+                            android:padding="5dp"
+                            android:scrollHorizontally="true"
+                            android:maxLines="1"
+                            android:textColor="@color/white" />
+
+                    </HorizontalScrollView>
                 </LinearLayout>
 
             </LinearLayout>
