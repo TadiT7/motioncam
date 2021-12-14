@@ -210,13 +210,13 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             mNativeOps.getContainerMetadata(mContext, item.uri, this);
         }
 
+        ViewGroup previewList = viewHolder.getPreviewList();
+        previewList.removeAllViews();
+
         if(item.previewImages == null) {
             mNativeOps.generateVideoPreview(mContext, item.uri, 8, this);
         }
         else {
-            ViewGroup previewList = viewHolder.getPreviewList();
-            previewList.removeAllViews();
-
             for(Bitmap bitmap : item.previewImages) {
                 ImageView imageView = new ImageView(mContext);
 

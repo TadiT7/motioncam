@@ -58,7 +58,7 @@ namespace motioncam {
                                      const bool cumulative,
                                      const int downscale);
 
-        static float getShadowKeyValue(const RawImageBuffer& rawBuffer, const RawCameraMetadata& cameraMetadata, bool nightMode);
+        static float getShadowKeyValue(float ev, bool nightMode);
         
         static void estimateSettings(const RawImageBuffer& rawBuffer,
                                      const RawCameraMetadata& cameraMetadata,
@@ -70,7 +70,7 @@ namespace motioncam {
                                             float& outBlackPoint,
                                             float& outWhitePoint);
         
-        static float estimateShadows(const cv::Mat& histogram, float keyValue=0.22f);
+        static float estimateShadows(const cv::Mat& histogram, float ev, float keyValue=0.22f);
         static void estimateHdr(const cv::Mat& histogram, float& outLows, float& outHighs);
         static float estimateExposureCompensation(const cv::Mat& histogram, float threshold=1e-4f);
         

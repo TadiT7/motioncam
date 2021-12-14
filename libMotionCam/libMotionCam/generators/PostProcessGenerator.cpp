@@ -3081,38 +3081,39 @@ void DeinterleaveRawGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, 
     using ::Halide::RVar;
     using ::Halide::TailStrategy;
     using ::Halide::Var;
-    Func preview = pipeline.get_func(21);
-    Func f9 = pipeline.get_func(20);
-    Func output = pipeline.get_func(19);
-    Func mirror_image = pipeline.get_func(18);
-    Func f4 = pipeline.get_func(17);
-    Func f3 = pipeline.get_func(16);
-    Func deinterleaveRaw16Result_3 = pipeline.get_func(15);
-    Func f8 = pipeline.get_func(14);
-    Func deinterleaveRaw10Result_3 = pipeline.get_func(13);
-    Func f2 = pipeline.get_func(12);
-    Func deinterleaveRaw16Result_2 = pipeline.get_func(11);
-    Func f7 = pipeline.get_func(10);
-    Func deinterleaveRaw10Result_2 = pipeline.get_func(9);
-    Func f1 = pipeline.get_func(8);
-    Func deinterleaveRaw16Result_1 = pipeline.get_func(7);
-    Func f6 = pipeline.get_func(6);
-    Func deinterleaveRaw10Result_1 = pipeline.get_func(5);
-    Func f0 = pipeline.get_func(4);
+    Func preview = pipeline.get_func(25);
+    Func f13 = pipeline.get_func(24);
+    Func output = pipeline.get_func(23);
+    Func mirror_image = pipeline.get_func(22);
+    Func f4 = pipeline.get_func(21);
+    Func f3 = pipeline.get_func(20);
+    Func f11 = pipeline.get_func(19);
+    Func deinterleaveRaw16Result_3 = pipeline.get_func(18);
+    Func f12 = pipeline.get_func(17);
+    Func deinterleaveRaw10Result_3 = pipeline.get_func(16);
+    Func f2 = pipeline.get_func(15);
+    Func f9 = pipeline.get_func(14);
+    Func deinterleaveRaw16Result_2 = pipeline.get_func(13);
+    Func f10 = pipeline.get_func(12);
+    Func deinterleaveRaw10Result_2 = pipeline.get_func(11);
+    Func f1 = pipeline.get_func(10);
+    Func f7 = pipeline.get_func(9);
+    Func deinterleaveRaw16Result_1 = pipeline.get_func(8);
+    Func f8 = pipeline.get_func(7);
+    Func deinterleaveRaw10Result_1 = pipeline.get_func(6);
+    Func f0 = pipeline.get_func(5);
+    Func f5 = pipeline.get_func(4);
     Func deinterleaveRaw16Result = pipeline.get_func(3);
-    Func f5 = pipeline.get_func(2);
+    Func f6 = pipeline.get_func(2);
     Func deinterleaveRaw10Result = pipeline.get_func(1);
     Var c(output.get_schedule().dims()[2].var);
-    Var i(f9.get_schedule().dims()[0].var);
+    Var i(f13.get_schedule().dims()[0].var);
     Var ii("ii");
     Var x(preview.get_schedule().dims()[0].var);
     Var xi("xi");
-    Var xii("xii");
-    Var xiii("xiii");
     Var y(preview.get_schedule().dims()[1].var);
     Var yi("yi");
     Var yii("yii");
-    Var yiii("yiii");
     preview
         .split(y, y, yi, 94, TailStrategy::ShiftInwards)
         .split(x, x, xi, 32, TailStrategy::ShiftInwards)
@@ -3120,141 +3121,99 @@ void DeinterleaveRawGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, 
         .compute_root()
         .reorder({xi, x, yi, y})
         .parallel(y);
-    f9
+    f13
         .split(i, i, ii, 32, TailStrategy::RoundUp)
         .vectorize(ii)
         .compute_root()
         .reorder({ii, i})
         .parallel(i);
     output
-        .split(y, y, yi, 47, TailStrategy::ShiftInwards)
+        .split(y, y, yi, 12, TailStrategy::ShiftInwards)
         .split(x, x, xi, 16, TailStrategy::ShiftInwards)
         .vectorize(xi)
         .compute_root()
         .reorder({xi, x, yi, c, y})
         .parallel(y);
-    f4
-        .split(y, y, yi, 94, TailStrategy::ShiftInwards)
-        .split(yi, yi, yii, 32, TailStrategy::ShiftInwards)
-        .split(yii, yii, yiii, 4, TailStrategy::ShiftInwards)
-        .split(x, x, xi, 1008, TailStrategy::ShiftInwards)
-        .split(xi, xi, xii, 128, TailStrategy::ShiftInwards)
-        .split(xii, xii, xiii, 16, TailStrategy::ShiftInwards)
-        .vectorize(xiii)
-        .compute_root()
-        .reorder({xiii, xii, c, xi, x, yiii, yii, yi, y})
-        .parallel(y);
     f3
-        .split(y, y, yi, 16, TailStrategy::ShiftInwards)
-        .split(x, x, xi, 64, TailStrategy::ShiftInwards)
-        .split(xi, xi, xii, 16, TailStrategy::ShiftInwards)
-        .unroll(xi)
-        .vectorize(xii)
-        .compute_at(f4, yi)
-        .reorder({xii, xi, yi, x, y});
+        .split(y, y, yi, 94, TailStrategy::ShiftInwards)
+        .split(yi, yi, yii, 4, TailStrategy::ShiftInwards)
+        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
+        .vectorize(xi)
+        .compute_root()
+        .reorder({xi, x, yii, yi, y})
+        .parallel(y);
     deinterleaveRaw16Result_3
         .store_in(MemoryType::Stack)
-        .split(x, x, xi, 8, TailStrategy::RoundUp)
-        .unroll(x)
+        .split(x, x, xi, 8, TailStrategy::ShiftInwards)
         .vectorize(xi)
         .compute_at(f3, yi)
-        .store_at(f3, x)
         .reorder({xi, x, y});
-    f8
+    deinterleaveRaw10Result_3
         .store_in(MemoryType::Stack)
         .split(x, x, xi, 32, TailStrategy::ShiftInwards)
         .vectorize(xi)
         .compute_at(f3, yi)
-        .reorder({xi, x});
-    deinterleaveRaw10Result_3
-        .split(x, x, xi, 32, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_at(f3, y)
         .reorder({xi, x, y});
     f2
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 512, TailStrategy::ShiftInwards)
-        .split(xi, xi, xii, 64, TailStrategy::ShiftInwards)
-        .split(xii, xii, xiii, 16, TailStrategy::ShiftInwards)
-        .unroll(xii)
-        .vectorize(xiii)
-        .compute_at(f4, x)
-        .reorder({xiii, xii, xi, x, y});
+        .split(y, y, yi, 94, TailStrategy::ShiftInwards)
+        .split(yi, yi, yii, 4, TailStrategy::ShiftInwards)
+        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
+        .vectorize(xi)
+        .compute_root()
+        .reorder({xi, x, yii, yi, y})
+        .parallel(y);
     deinterleaveRaw16Result_2
         .store_in(MemoryType::Stack)
-        .split(x, x, xi, 8, TailStrategy::RoundUp)
-        .unroll(x)
+        .split(x, x, xi, 8, TailStrategy::ShiftInwards)
         .vectorize(xi)
-        .compute_at(f2, xi)
+        .compute_at(f2, yi)
         .reorder({xi, x, y});
-    f7
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 32, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_at(f2, x)
-        .reorder({xi, x});
     deinterleaveRaw10Result_2
         .store_in(MemoryType::Stack)
         .split(x, x, xi, 32, TailStrategy::ShiftInwards)
         .vectorize(xi)
-        .compute_at(f4, yii)
+        .compute_at(f2, yi)
         .reorder({xi, x, y});
     f1
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 512, TailStrategy::ShiftInwards)
-        .split(xi, xi, xii, 64, TailStrategy::ShiftInwards)
-        .split(xii, xii, xiii, 16, TailStrategy::ShiftInwards)
-        .unroll(xii)
-        .vectorize(xiii)
-        .compute_at(f4, x)
-        .reorder({xiii, xii, xi, x, y});
+        .split(y, y, yi, 94, TailStrategy::ShiftInwards)
+        .split(yi, yi, yii, 4, TailStrategy::ShiftInwards)
+        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
+        .vectorize(xi)
+        .compute_root()
+        .reorder({xi, x, yii, yi, y})
+        .parallel(y);
     deinterleaveRaw16Result_1
         .store_in(MemoryType::Stack)
-        .split(x, x, xi, 8, TailStrategy::RoundUp)
-        .unroll(x)
+        .split(x, x, xi, 8, TailStrategy::ShiftInwards)
         .vectorize(xi)
-        .compute_at(f1, xi)
+        .compute_at(f1, yi)
         .reorder({xi, x, y});
-    f6
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 32, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_at(f1, x)
-        .reorder({xi, x});
     deinterleaveRaw10Result_1
         .store_in(MemoryType::Stack)
         .split(x, x, xi, 32, TailStrategy::ShiftInwards)
         .vectorize(xi)
-        .compute_at(f4, yii)
+        .compute_at(f1, yi)
         .reorder({xi, x, y});
     f0
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 64, TailStrategy::RoundUp)
-        .split(xi, xi, xii, 16, TailStrategy::RoundUp)
-        .unroll(xi)
-        .vectorize(xii)
-        .compute_at(f4, xi)
-        .reorder({xii, xi, x, y});
+        .split(y, y, yi, 94, TailStrategy::ShiftInwards)
+        .split(yi, yi, yii, 4, TailStrategy::ShiftInwards)
+        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
+        .vectorize(xi)
+        .compute_root()
+        .reorder({xi, x, yii, yi, y})
+        .parallel(y);
     deinterleaveRaw16Result
         .store_in(MemoryType::Stack)
-        .split(x, x, xi, 8, TailStrategy::RoundUp)
-        .unroll(x)
+        .split(x, x, xi, 8, TailStrategy::ShiftInwards)
         .vectorize(xi)
-        .compute_at(f0, x)
+        .compute_at(f0, yi)
         .reorder({xi, x, y});
-    f5
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 32, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_at(f4, x)
-        .reorder({xi, x});
     deinterleaveRaw10Result
         .store_in(MemoryType::Stack)
         .split(x, x, xi, 32, TailStrategy::ShiftInwards)
         .vectorize(xi)
-        .compute_at(f4, yii)
+        .compute_at(f0, yi)
         .reorder({xi, x, y});
-
 }
 
 void DeinterleaveRawGenerator::generate() {
@@ -3876,15 +3835,15 @@ void MeasureNoiseGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::H
     Var x_vi("x_vi");
     Var x_vo("x_vo");
 
-    Func f0 = pipeline.get_func(5);
-    Func f1 = pipeline.get_func(9);
-    Func f2 = pipeline.get_func(13);
-    Func f3 = pipeline.get_func(17);
-    Func mean = pipeline.get_func(21);
-    Func output = pipeline.get_func(24);
-    Func snr = pipeline.get_func(25);
-    Func sum = pipeline.get_func(20);
-    Func sum_1 = pipeline.get_func(23);
+    Func f0 = pipeline.get_func(6);
+    Func f1 = pipeline.get_func(11);
+    Func f2 = pipeline.get_func(16);
+    Func f3 = pipeline.get_func(21);
+    Func mean = pipeline.get_func(25);
+    Func output = pipeline.get_func(28);
+    Func snr = pipeline.get_func(29);
+    Func sum = pipeline.get_func(24);
+    Func sum_1 = pipeline.get_func(27);
 
     {
         Var x = f0.args()[0];
@@ -3959,8 +3918,8 @@ void MeasureNoiseGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::H
         Var x = sum.args()[0];
         Var y = sum.args()[1];
         Var c = sum.args()[2];
-        RVar r37$x(sum.update(0).get_schedule().rvars()[0].var);
-        RVar r37$y(sum.update(0).get_schedule().rvars()[1].var);
+        RVar r45$x(sum.update(0).get_schedule().rvars()[0].var);
+        RVar r45$y(sum.update(0).get_schedule().rvars()[1].var);
         sum
             .compute_root()
             .split(x, x_vo, x_vi, 8)
@@ -3968,7 +3927,7 @@ void MeasureNoiseGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::H
             .parallel(c)
             .parallel(y);
         sum.update(0)
-            .reorder(r37$x, x, r37$y, y, c)
+            .reorder(r45$x, x, r45$y, y, c)
             .split(x, x_vo, x_vi, 8, TailStrategy::GuardWithIf)
             .vectorize(x_vi)
             .parallel(c)
@@ -3978,8 +3937,8 @@ void MeasureNoiseGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::H
         Var x = sum_1.args()[0];
         Var y = sum_1.args()[1];
         Var c = sum_1.args()[2];
-        RVar r37$x(sum_1.update(0).get_schedule().rvars()[0].var);
-        RVar r37$y(sum_1.update(0).get_schedule().rvars()[1].var);
+        RVar r45$x(sum_1.update(0).get_schedule().rvars()[0].var);
+        RVar r45$y(sum_1.update(0).get_schedule().rvars()[1].var);
         sum_1
             .compute_root()
             .split(x, x_vo, x_vi, 8)
@@ -3987,12 +3946,12 @@ void MeasureNoiseGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::H
             .parallel(c)
             .parallel(y);
         sum_1.update(0)
-            .reorder(r37$x, x, r37$y, y, c)
+            .reorder(r45$x, x, r45$y, y, c)
             .split(x, x_vo, x_vi, 8, TailStrategy::GuardWithIf)
             .vectorize(x_vi)
             .parallel(c)
             .parallel(y);
-    }    
+    }
 }
 
 HALIDE_REGISTER_GENERATOR(GenerateEdgesGenerator, generate_edges_generator)

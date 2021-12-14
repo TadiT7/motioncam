@@ -88,14 +88,24 @@ namespace motioncam {
             }
             else {
                 // Shrink memory
-                while(mReadyBuffers.size() > 0 && mMemoryUseBytes > mMemoryTargetBytes) {
-                    buffer = mReadyBuffers.front();
-                    mReadyBuffers.erase(mReadyBuffers.begin());
+                while(true) {
+                    if(mReadyBuffers.size() > 0 && mMemoryUseBytes > mMemoryTargetBytes) {
+                        buffer = mReadyBuffers.front();
+                        mReadyBuffers.erase(mReadyBuffers.begin());
 
-                    mMemoryUseBytes -= buffer->data->len();
-                    --mNumBuffers;
+                        mMemoryUseBytes -= buffer->data->len();
+                        --mNumBuffers;
 
-                    logger::log("Shrinking memory to " + std::to_string(mMemoryUseBytes));
+                        logger::log("Shrinking memory to " + std::to_string(mMemoryUseBytes));
+                    }
+                    else {
+                        if(!mReadyBuffers.empty()) {
+                            buffer = mReadyBuffers.front();
+                            mReadyBuffers.erase(mReadyBuffers.begin());
+
+                            return buffer;
+                        }
+                    }
                 }
                 
                 return buffer;
@@ -422,7 +432,12 @@ namespace motioncam {
     float RawBufferManager::bufferSpaceUse() {
         Lock lock(mMutex, __PRETTY_FUNCTION__);
 
-        return (mNumBuffers - (mReadyBuffers.size() + mUnusedBuffers.size_approx())) / (float) mNumBuffers;
+        float bufferUseAmount = (mNumBuffers - (mReadyBuffers.size() + mUnusedBuffers.size_approx())) / (float) mNumBuffers;
+
+        bufferUseAmount = std::max(0.0f, bufferUseAmount);
+        bufferUseAmount = std::min(1.0f, bufferUseAmount);
+
+        return bufferUseAmount;
     }
 
     void RawBufferManager::endStreaming() {

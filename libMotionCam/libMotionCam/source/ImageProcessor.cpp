@@ -436,11 +436,17 @@ namespace motioncam {
         outWhitePoint = static_cast<float>(endBin + 1) / ((float) histogram.rows);
     }
 
-    float ImageProcessor::estimateShadows(const cv::Mat& histogram, float keyValue) {
+    float ImageProcessor::estimateShadows(const cv::Mat& histogram, float ev, float keyValue) {
         float avgLuminance = 0.0f;
         float totalPixels = 0;
         
-        int lowerBound = (int) (0.5f + histogram.cols * 0.015f);
+        float ignorePixels = 0.005f;
+        if(ev < 7) {
+            // Ignore slightly more pixels since they are more likely to be just noise
+            ignorePixels = 0.01f;
+        }
+
+        int lowerBound = (int) (0.5f + histogram.cols * ignorePixels);
         int upperBound = histogram.cols;
         
         for(int i = lowerBound; i < upperBound; i++) {
@@ -503,8 +509,7 @@ namespace motioncam {
         return WEIGHTS[w];
     }
 
-    float ImageProcessor::getShadowKeyValue(const RawImageBuffer& rawBuffer, const RawCameraMetadata& cameraMetadata, bool nightMode) {
-        float ev = calcEv(cameraMetadata, rawBuffer.metadata);
+    float ImageProcessor::getShadowKeyValue(float ev, bool nightMode) {
         float minKv = 1.03f;
         
         if(nightMode)
@@ -518,7 +523,9 @@ namespace motioncam {
                                           PostProcessSettings& outSettings)
     {
 //        Measure measure("estimateSettings()");
-        float keyValue = getShadowKeyValue(rawBuffer, cameraMetadata, false);
+        
+        float ev = calcEv(cameraMetadata, rawBuffer.metadata);
+        float keyValue = getShadowKeyValue(ev, false);
 
         // Start with basic initial values
         CameraProfile cameraProfile(cameraMetadata, rawBuffer.metadata);
@@ -1142,7 +1149,9 @@ namespace motioncam {
                         
         // Estimate shadows if not set
         if(settings.shadows < 0) {
-            float keyValue = getShadowKeyValue(*referenceRawBuffer, rawContainer.getCameraMetadata(), settings.captureMode == "NIGHT");
+            float ev = calcEv(rawContainer.getCameraMetadata(), referenceRawBuffer->metadata);
+            float keyValue = getShadowKeyValue(ev, settings.captureMode == "NIGHT");
+            
             cv::Mat histogram = calcHistogram(rawContainer.getCameraMetadata(), *referenceRawBuffer, false, 4);
             
             settings.shadows = estimateShadows(histogram, keyValue);
@@ -1625,7 +1634,7 @@ namespace motioncam {
             
             ++it;
         }
-        
+                
         const int width = reference->rawBuffer.width();
         const int height = reference->rawBuffer.height();
 
