@@ -97,6 +97,9 @@ namespace motioncam {
             metadata.whiteLevel = EXPANDED_RANGE;
         }
         
+        Halide::Runtime::Buffer<uint16_t> bayerBuffer;
+        bool createdBuffer = false;
+        
         for(int i = 0; i < frames.size(); i++) {
             auto frame = container.loadFrame(frames[i]);
             if(!frame) {
@@ -107,12 +110,14 @@ namespace motioncam {
                 continue;
             }
             
-            // Convert from RAW10/16 -> bayer image
-            auto bayerBuffer = Halide::Runtime::Buffer<uint16_t>(frame->width, frame->height);
-                        
             if(mergeFrames == 0) {
                 auto data = frame->data->lock(false);
                 auto inputBuffer = Halide::Runtime::Buffer<uint8_t>(data, (int) frame->data->len());
+                
+                if(!createdBuffer) {
+                    bayerBuffer = Halide::Runtime::Buffer<uint16_t>(frame->width , frame->height);
+                    createdBuffer = true;
+                }
 
                 frame->data->unlock();
                 
@@ -128,10 +133,12 @@ namespace motioncam {
                 while(true) {
                     if(i + leftOffset >= 0) {
                         auto left = container.loadFrame(frames[i + leftOffset]);
-                        if(left) {
-                            nearestBuffers.push_back(left);
+                        if(!left) {
+                            left = nullptr;
                         }
 
+                        nearestBuffers.push_back(left);
+                        
                         leftOffset--;
 
                         if(nearestBuffers.size() >= mergeFrames)
@@ -140,8 +147,10 @@ namespace motioncam {
 
                     if(i + rightOffset < frames.size()) {
                         auto right = container.loadFrame(frames[i + rightOffset]);
-                        if(right)
-                            nearestBuffers.push_back(right);
+                        if(!right)
+                            right = nullptr;
+                        
+                        nearestBuffers.push_back(right);
 
                         if(nearestBuffers.size() >= mergeFrames)
                             break;
@@ -157,6 +166,24 @@ namespace motioncam {
                 
                 auto blackLevel = container.getCameraMetadata().blackLevel;
                 auto whiteLevel = container.getCameraMetadata().whiteLevel;
+                
+                // Convert from RAW10/16 -> bayer image
+                if(!createdBuffer) {
+                    const int rawWidth  = frame->width / 2;
+                    const int rawHeight = frame->height / 2;
+
+                    const int T = pow(2, EXTEND_EDGE_AMOUNT);
+
+                    const int offsetX = static_cast<int>(T * ceil(rawWidth / (double) T) - rawWidth);
+                    const int offsetY = static_cast<int>(T * ceil(rawHeight / (double) T) - rawHeight);
+
+                    bayerBuffer = Halide::Runtime::Buffer<uint16_t>((denoiseBuffer.width()-offsetX)*2 , (denoiseBuffer.height()-offsetY)*2);
+                    
+                    bayerBuffer.translate(0, offsetX);
+                    bayerBuffer.translate(1, offsetY);
+                    
+                    createdBuffer = true;
+                }
                 
                 build_bayer2(denoiseBuffer,
                              blackLevel[0],

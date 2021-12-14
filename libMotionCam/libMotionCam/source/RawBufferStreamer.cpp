@@ -151,74 +151,40 @@ namespace motioncam {
         buffer.data->setValidRange(0, buffer.rowStride * buffer.height);
     }
 
-    uint32_t RawBufferStreamer::zcompress(RawImageBuffer& inputBuffer) const {
-        ZSTD_CCtx* const context = ZSTD_createCCtx();
+    size_t RawBufferStreamer::zcompress(RawImageBuffer& inputBuffer, std::vector<uint8_t>& tmpBuffer) const {
+        size_t start, end, size;
 
-        ZSTD_CCtx_setParameter(context, ZSTD_c_compressionLevel, ZSTD_fast);
-        ZSTD_CCtx_setParameter(context, ZSTD_c_checksumFlag, 1);
-        ZSTD_CCtx_setParameter(context, ZSTD_c_nbWorkers, 2);
-
-        const size_t inputChunkSize = ZSTD_CStreamInSize();
-        const size_t outputChunkSize = ZSTD_CStreamOutSize();
-
-        std::vector<uint8_t> outChunk(outputChunkSize);
-
-        size_t start, end;
-        
         inputBuffer.data->getValidRange(start, end);
 
-        // Update source size
-        size_t err = ZSTD_CCtx_setPledgedSrcSize(context, end - start);
-        if(ZSTD_isError(err))
-            return 0;
+        size = end - start;
 
-        size_t srcOffset = start;
-        size_t dstOffset = 0;
+        size_t outputBounds = ZSTD_compressBound(size);
+        tmpBuffer.resize(outputBounds);
 
-        auto* data = inputBuffer.data->lock(true);
+        auto data = inputBuffer.data->lock(true);
+        
+        size_t outputSize = ZSTD_compress(
+            tmpBuffer.data(), tmpBuffer.size(), data + start, size, ZSTD_fast);
+        
+        if(ZSTD_isError(outputSize)) {
+            inputBuffer.data->unlock();
+            return inputBuffer.data->len();
+        }
 
-        while(true) {
-            const bool lastChunk = srcOffset + inputChunkSize >= end;
-            const size_t limit = lastChunk ? end - srcOffset : inputChunkSize;
-            const ZSTD_EndDirective mode = lastChunk ? ZSTD_e_end : ZSTD_e_continue;
-
-            ZSTD_inBuffer input = { static_cast<void*>(data + srcOffset), limit, 0 };
-            int finished;
-
-            do {
-                ZSTD_outBuffer output = { outChunk.data(), outChunk.size(), 0 };
-                size_t const remaining = ZSTD_compressStream2(context, &output , &input, mode);
-
-                // Failed
-                err = ZSTD_isError(remaining);
-                if(err != ZSTD_error_no_error) {
-                    inputBuffer.data->setValidRange(0, 0);
-                    inputBuffer.data->unlock();
-                    return 0;
-                }
-                
-                std::memcpy(data + dstOffset, outChunk.data(), output.pos);
-
-                srcOffset += input.pos;
-                dstOffset += output.pos;
-    
-                finished = lastChunk ? (remaining == 0) : (input.pos == input.size);
-            }
-            while (!finished);
+        // This should hopefully always be true
+        if(outputSize < inputBuffer.data->len()) {
+            std::memcpy(data, tmpBuffer.data(), outputSize);
             
-            if(lastChunk)
-                break;
+            inputBuffer.data->setValidRange(0, outputSize);
+            inputBuffer.isCompressed = true;
+            
+            inputBuffer.data->unlock();
+            
+            return outputSize;
         }
         
         inputBuffer.data->unlock();
-        
-        // Update valid range for compressed data
-        inputBuffer.data->setValidRange(0, dstOffset);
-        inputBuffer.isCompressed = true;
-  
-        ZSTD_freeCCtx(context);
-
-        return static_cast<uint32_t>(dstOffset);
+        return inputBuffer.data->len();
     }
 
     void RawBufferStreamer::doProcess() {
@@ -240,6 +206,7 @@ namespace motioncam {
 
     void RawBufferStreamer::doCompress() {
         std::shared_ptr<RawImageBuffer> buffer;
+        std::vector<uint8_t> tmpBuffer;
 
         while(mRunning) {
             // Pull buffers out of the ready queue and compress them
@@ -248,7 +215,7 @@ namespace motioncam {
             }
 
             // Compress
-            zcompress(*buffer);
+            zcompress(*buffer, tmpBuffer);
             
             // Add to compressed queue so we don't compress again
             mCompressedBuffers.enqueue(buffer);
@@ -282,8 +249,6 @@ namespace motioncam {
         //
         // Flush buffers
         //
-
-        std::vector<uint8_t> tmpBuffer;
 
         // Compressed first
         while(mCompressedBuffers.try_dequeue(buffer)) {

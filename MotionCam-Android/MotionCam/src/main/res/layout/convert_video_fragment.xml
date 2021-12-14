@@ -74,7 +74,7 @@
                     android:id="@+id/mergeFramesSeekBar"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:max="8"
+                    android:max="4"
                     android:tickMark="@drawable/seekbar_tick_mark"/>
 
             </LinearLayout>

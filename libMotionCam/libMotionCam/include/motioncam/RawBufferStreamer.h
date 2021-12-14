@@ -27,7 +27,7 @@ namespace motioncam {
     private:
         void crop(RawImageBuffer& buffer) const;
         void cropAndBin(RawImageBuffer& buffer) const;
-        uint32_t zcompress(RawImageBuffer& inputBuffer) const;
+        size_t zcompress(RawImageBuffer& inputBuffer, std::vector<uint8_t>& tmpBuffer) const;
         
         void doProcess();
         void doCompress();

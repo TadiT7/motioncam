@@ -11,7 +11,9 @@
 #include <HalideBuffer.h>
 
 namespace motioncam {
-    const int EXPANDED_RANGE = 16384;
+    const int EXPANDED_RANGE        = 16384;
+    const int WAVELET_LEVELS        = 4;
+    const int EXTEND_EDGE_AMOUNT    = 6;
 
     class RawImage;
     class RawContainer;

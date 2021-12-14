@@ -63,9 +63,6 @@ using std::vector;
 using std::to_string;
 using std::pair;
 
-const int WAVELET_LEVELS     = 4;
-const int EXTEND_EDGE_AMOUNT = 6;
-
 static std::vector<std::vector<float>> WEIGHTS = {
     { 12, 4,   2,   1  },
     { 8,  4,   2,   1  },
@@ -95,7 +92,7 @@ extern "C" int extern_defringe(halide_buffer_t *in, int32_t width, int32_t heigh
 static std::vector<Halide::Runtime::Buffer<float>> createWaveletBuffers(int width, int height) {
     std::vector<Halide::Runtime::Buffer<float>> buffers;
     
-    for(int level = 0; level < WAVELET_LEVELS; level++) {
+    for(int level = 0; level < motioncam::WAVELET_LEVELS; level++) {
         width = width / 2;
         height = height / 2;
         
@@ -1466,7 +1463,7 @@ namespace motioncam {
         // Measure noise in reference
         measureNoise(*referenceRawBuffer, noise, signal, patchSize);
 
-        auto reference = loadRawImage(*referenceRawBuffer, cameraMetadata, false);
+        auto reference = loadRawImage(*referenceRawBuffer, cameraMetadata, true);
                 
         cv::Mat referenceFlowImage(reference->previewBuffer.height(), reference->previewBuffer.width(), CV_8U, reference->previewBuffer.data());
         
@@ -1478,7 +1475,7 @@ namespace motioncam {
         float w = 1.0f / (2.0f*sqrt(2.0f));
 
         for(int i = 0; i < buffers.size(); i++) {
-            auto current = loadRawImage(*buffers[i], cameraMetadata, false);
+            auto current = loadRawImage(*buffers[i], cameraMetadata, true);
             
             cv::Mat flow;
             cv::Mat currentFlowImage(current->previewBuffer.height(),
@@ -1487,7 +1484,7 @@ namespace motioncam {
                                      current->previewBuffer.data());
             
             cv::Ptr<cv::DISOpticalFlow> opticalFlow =
-                cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_ULTRAFAST);
+                cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_FAST);
                                 
             opticalFlow->setPatchSize(patchSize);
             opticalFlow->setPatchStride(patchSize/2);
@@ -1502,7 +1499,7 @@ namespace motioncam {
             
             auto flowMean = cv::mean(flow);
             
-            fuse_denoise_5x5(
+            fuse_denoise_7x7(
                 reference->rawBuffer,
                 current->rawBuffer,
                 fuseOutput,
@@ -1511,12 +1508,12 @@ namespace motioncam {
                 reference->rawBuffer.width(),
                 reference->rawBuffer.height(),
                 w,
-                2.0f,
+                4.0f,
                 flowMean[0],
                 flowMean[1],
                 fuseOutput);
         }
-             
+        
         return fuseOutput;
     }
 
@@ -1664,7 +1661,6 @@ namespace motioncam {
         auto wavelet = createWaveletBuffers(denoiseInput.width(), denoiseInput.height());
 
         std::vector<float> normalisedNoise;
-
         std::vector<float> weights;
         
         // Auto

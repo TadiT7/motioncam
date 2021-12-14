@@ -686,6 +686,7 @@ namespace motioncam {
             dst->height    = 0;
             dst->rowStride = 0;
             dst->metadata.timestampNs = 0;
+            dst->isCompressed = false;
 
             //
             // Copy buffer
