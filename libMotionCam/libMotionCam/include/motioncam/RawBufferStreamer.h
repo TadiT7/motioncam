@@ -21,12 +21,14 @@ namespace motioncam {
         void add(const std::shared_ptr<RawImageBuffer>& frame);
         void stop();
         
-        void setCropAmount(int horizontal, int vertical);    
+        void setCropAmount(int horizontal, int vertical);
+        void setBin(bool bin);
         bool isRunning() const;
-        
+
+        void cropAndBin(RawImageBuffer& buffer) const;
+
     private:
         void crop(RawImageBuffer& buffer) const;
-        void cropAndBin(RawImageBuffer& buffer) const;
         size_t zcompress(RawImageBuffer& inputBuffer, std::vector<uint8_t>& tmpBuffer) const;
         
         void doProcess();
@@ -40,6 +42,7 @@ namespace motioncam {
         
         int mCropVertical;
         int mCropHorizontal;
+        bool mBin;
         std::atomic<bool> mRunning;
         
         moodycamel::BlockingConcurrentQueue<std::shared_ptr<RawImageBuffer>> mUnprocessedBuffers;

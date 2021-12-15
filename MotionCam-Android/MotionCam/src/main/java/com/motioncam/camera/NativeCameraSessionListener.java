@@ -10,4 +10,7 @@ public interface NativeCameraSessionListener {
     void onCameraHdrImageCaptureProgress(int progress);
     void onCameraHdrImageCaptureFailed();
     void onCameraHdrImageCaptureCompleted();
+
+    void onMemoryAdjusting();
+    void onMemoryStable();
 }

@@ -31,6 +31,7 @@ namespace motioncam {
         ACTION_SET_MANUAL_EXPOSURE,
         ACTION_SET_EXPOSURE_COMP_VALUE,
         ACTION_SET_FRAME_RATE,
+        ACTION_SET_VIDEO_BIN,
         ACTION_SET_AWB_LOCK,
         ACTION_SET_AE_LOCK,
         ACTION_SET_OIS,
@@ -283,6 +284,11 @@ namespace motioncam {
     void CameraSession::setFrameRate(int frameRate) {
         json11::Json::object data = { { "value", frameRate } };
         pushEvent(EventAction::ACTION_SET_FRAME_RATE, data);
+    }
+
+    void CameraSession::setVideoBin(bool bin) {
+        json11::Json::object data = { { "value", bin } };
+        pushEvent(EventAction::ACTION_SET_VIDEO_BIN, data);
     }
 
     void CameraSession::setAWBLock(bool lock) {

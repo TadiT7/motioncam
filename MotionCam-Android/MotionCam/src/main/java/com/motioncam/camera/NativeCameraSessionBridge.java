@@ -97,6 +97,9 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         void onCameraHdrImageCaptureProgress(int progress);
         void onCameraHdrImageCaptureFailed();
         void onCameraHdrImageCaptureCompleted();
+
+        void onMemoryAdjusting();
+        void onMemoryStable();
     }
 
     public interface CameraRawPreviewListener {
@@ -429,6 +432,12 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         SetFrameRate(mNativeCameraHandle, frameRate);
     }
 
+    public void setVideoBin(boolean bin) {
+        ensureValidHandle();
+
+        SetVideoBin(mNativeCameraHandle, bin);
+    }
+
     public void setVideoCropPercentage(int horizontal, int vertical) {
         ensureValidHandle();
 
@@ -484,6 +493,16 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     @Override
     public void onCameraHdrImageCaptureCompleted() {
         mListener.onCameraHdrImageCaptureCompleted();
+    }
+
+    @Override
+    public void onMemoryAdjusting() {
+        mListener.onMemoryAdjusting();
+    }
+
+    @Override
+    public void onMemoryStable() {
+        mListener.onMemoryStable();
     }
 
     @Override
@@ -565,6 +584,7 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native void SetFrameRate(long handle, int frameRate);
     private native void SetVideoCropPercentage(long handle, int horizontal, int vertical);
     private native float GetVideoBufferUse(long handle);
+    private native void SetVideoBin(long handle, boolean bin);
 
     private native void AdjustMemoryUse(long handle, long maxUseBytes);
 }

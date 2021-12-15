@@ -1146,3 +1146,13 @@ JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_Adjus
 
     sessionManager->grow(maxUseBytes);
 }
+
+extern "C"
+JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_SetVideoBin(JNIEnv *env, jobject thiz, jlong handle, jboolean bin) {
+    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
+    if(!sessionManager) {
+        return;
+    }
+
+    RawBufferManager::get().setVideoBin(bin);
+}

@@ -54,6 +54,7 @@ namespace motioncam {
         void setManualExposure(int32_t iso, int64_t exposureTime);
         void setExposureCompensation(float value);
         void setFrameRate(int frameRate);
+        void setVideoBin(bool bin);
         void setAWBLock(bool lock);
         void setOIS(bool on);
         void setAELock(bool lock);

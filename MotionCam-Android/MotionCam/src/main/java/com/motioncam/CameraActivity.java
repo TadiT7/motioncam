@@ -163,6 +163,7 @@ public class CameraActivity extends AppCompatActivity implements
         int horizontalVideoCrop;
         int verticalVideoCrop;
         int frameRate;
+        boolean videoBin;
         Uri rawVideoRecordingTempUri;
 
         void load(SharedPreferences prefs) {
@@ -177,6 +178,7 @@ public class CameraActivity extends AppCompatActivity implements
             this.horizontalVideoCrop = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_HORIZONTAL_VIDEO_CROP, 0);
             this.verticalVideoCrop = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_VERTICAL_VIDEO_CROP, 0);
             this.frameRate = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_FRAME_RATE, 30);
+            this.videoBin = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_VIDEO_BIN, false);
 
             long nativeCameraMemoryUseMb = prefs.getInt(SettingsViewModel.PREFS_KEY_MEMORY_USE_MBYTES, SettingsViewModel.MINIMUM_MEMORY_USE_MB);
             nativeCameraMemoryUseMb = Math.min(nativeCameraMemoryUseMb, SettingsViewModel.MAXIMUM_MEMORY_USE_MB);
@@ -224,6 +226,7 @@ public class CameraActivity extends AppCompatActivity implements
                     .putInt(SettingsViewModel.PREFS_KEY_UI_HORIZONTAL_VIDEO_CROP, this.horizontalVideoCrop)
                     .putInt(SettingsViewModel.PREFS_KEY_UI_VERTICAL_VIDEO_CROP, this.verticalVideoCrop)
                     .putInt(SettingsViewModel.PREFS_KEY_UI_FRAME_RATE, this.frameRate)
+                    .putBoolean(SettingsViewModel.PREFS_KEY_UI_VIDEO_BIN, this.videoBin)
                     .apply();
         }
 
@@ -248,6 +251,8 @@ public class CameraActivity extends AppCompatActivity implements
                     ", horizontalVideoCrop=" + horizontalVideoCrop +
                     ", verticalVideoCrop=" + verticalVideoCrop +
                     ", frameRate=" + frameRate +
+                    ", videoBin=" + videoBin +
+                    ", rawVideoRecordingTempUri=" + rawVideoRecordingTempUri +
                     '}';
         }
     }
@@ -869,7 +874,8 @@ public class CameraActivity extends AppCompatActivity implements
     private void updateVideoUi() {
         String cropText = getText(R.string.crop).toString();
         String fpsText = getText(R.string.fps).toString();
-        String resText = getText(R.string.res).toString();
+        String resText = getText(R.string.output).toString();
+        String binText = getText(R.string.bin).toString();
 
         mBinding.previewFrame.videoCropToggle.setText(
                 String.format(Locale.US, "%d%% / %d%%\n%s", mSettings.horizontalVideoCrop, mSettings.verticalVideoCrop, cropText));
@@ -877,11 +883,16 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.previewFrame.videoFrameRateBtn.setText(
                 String.format(Locale.US, "%d\n%s", mSettings.frameRate, fpsText));
 
+        mBinding.previewFrame.videoBinBtn.setText(
+                String.format(Locale.US, "%s\n%s", mSettings.videoBin ? "2x2" : "1x1", binText));
+
         if(mNativeCamera != null) {
             Size captureOutputSize = mNativeCamera.getRawConfigurationOutput(mSelectedCamera);
 
-            int width = captureOutputSize.getWidth();
-            int height = captureOutputSize.getHeight();
+            int bin = mSettings.videoBin ? 2 : 1;
+
+            int width = captureOutputSize.getWidth() / bin;
+            int height = captureOutputSize.getHeight() / bin;
 
             width = Math.round(width - (mSettings.horizontalVideoCrop / 100.0f) * width);
             height = Math.round(height - (mSettings.verticalVideoCrop / 100.0f) * height);
@@ -952,6 +963,46 @@ public class CameraActivity extends AppCompatActivity implements
         }
     }
 
+    private void setupRawVideoCapture() {
+        mBinding.previewFrame.videoRecordingBtns.setVisibility(View.VISIBLE);
+        mBinding.previewFrame.previewControlBtns.setVisibility(View.GONE);
+        mBinding.previewFrame.previewAdjustments.setVisibility(View.GONE);
+
+        if(mSettings.useDualExposure && mNativeCamera != null) {
+            mNativeCamera.setFrameRate(mSettings.frameRate);
+            mNativeCamera.setVideoCropPercentage(mSettings.horizontalVideoCrop, mSettings.verticalVideoCrop);
+            mNativeCamera.setVideoBin(mSettings.videoBin);
+            mNativeCamera.adjustMemory(mSettings.rawVideoMemoryUseBytes);
+
+            // Disable RAW preview
+            mNativeCamera.disableRawPreview();
+
+            mBinding.rawCameraPreview.setVisibility(View.GONE);
+            mBinding.shadowsLayout.setVisibility(View.GONE);
+
+            mTextureView.setAlpha(1);
+        }
+    }
+
+    private void restoreFromRawVideoCapture() {
+        if(mNativeCamera == null) {
+            return;
+        }
+
+        mNativeCamera.setFrameRate(30);
+        mNativeCamera.adjustMemory(mSettings.memoryUseBytes);
+
+        if(mSettings.useDualExposure) {
+            mBinding.rawCameraPreview.setVisibility(View.VISIBLE);
+            mBinding.shadowsLayout.setVisibility(View.VISIBLE);
+
+            if(mTextureView != null)
+                mTextureView.setAlpha(0);
+
+            mNativeCamera.enableRawPreview(this, mSettings.cameraPreviewQuality, false);
+        }
+    }
+
     private void setCaptureMode(CaptureMode captureMode) {
         if(mCaptureMode == captureMode || mImageCaptureInProgress.get())
             return;
@@ -988,25 +1039,12 @@ public class CameraActivity extends AppCompatActivity implements
         }
 
         if(captureMode == CaptureMode.RAW_VIDEO) {
-            Toast.makeText(this, "Warning: This is an experimental feature.", Toast.LENGTH_SHORT).show();
-
-            mBinding.previewFrame.videoRecordingBtns.setVisibility(View.VISIBLE);
-            mBinding.previewFrame.previewControlBtns.setVisibility(View.GONE);
-            mBinding.previewFrame.previewAdjustments.setVisibility(View.GONE);
-
-            if(mNativeCamera != null) {
-                mNativeCamera.setFrameRate(mSettings.frameRate);
-                mNativeCamera.setVideoCropPercentage(mSettings.horizontalVideoCrop, mSettings.verticalVideoCrop);
-                mNativeCamera.adjustMemory(mSettings.rawVideoMemoryUseBytes);
-            }
+            setupRawVideoCapture();
         }
 
         // If previous capture mode was raw video, reset frame rate
         if(mCaptureMode == CaptureMode.RAW_VIDEO) {
-            if(mNativeCamera != null) {
-                mNativeCamera.setFrameRate(30);
-                mNativeCamera.adjustMemory(mSettings.memoryUseBytes);
-            }
+            restoreFromRawVideoCapture();
         }
 
         mCaptureMode = captureMode;
@@ -1294,6 +1332,15 @@ public class CameraActivity extends AppCompatActivity implements
 
         if(mNativeCamera != null)
             mNativeCamera.setFrameRate(mSettings.frameRate);
+
+        updateVideoUi();
+    }
+
+    private void toggleVideoBin() {
+        mSettings.videoBin = !mSettings.videoBin;
+
+        if(mNativeCamera != null)
+            mNativeCamera.setVideoBin(mSettings.videoBin);
 
         updateVideoUi();
     }
@@ -1783,6 +1830,8 @@ public class CameraActivity extends AppCompatActivity implements
                     mTextureView.getWidth(),
                     mTextureView.getHeight());
         }
+
+        updateVideoUi();
     }
 
     /**
@@ -1937,11 +1986,10 @@ public class CameraActivity extends AppCompatActivity implements
 
         mBinding.previewFrame.videoCropToggle.setOnClickListener(v -> toggleVideoCrop());
         mBinding.previewFrame.videoFrameRateBtn.setOnClickListener(v -> toggleFrameRate());
+        mBinding.previewFrame.videoBinBtn.setOnClickListener(v -> toggleVideoBin());
 
         mBinding.previewFrame.horizontalCropSeekBar.setOnSeekBarChangeListener(mSeekBarChangeListener);
         mBinding.previewFrame.verticalCropSeekBar.setOnSeekBarChangeListener(mSeekBarChangeListener);
-
-        updateVideoUi();
     }
 
     @Override
@@ -2145,6 +2193,24 @@ public class CameraActivity extends AppCompatActivity implements
                     .start();
 
             startImageProcessor();
+        });
+    }
+
+    @Override
+    public void onMemoryAdjusting() {
+        runOnUiThread(() -> {
+            mBinding.captureBtn.setEnabled(false);
+
+            mBinding.captureProgressBar.setVisibility(View.VISIBLE);
+            mBinding.captureProgressBar.setIndeterminateMode(true);
+        });
+    }
+
+    @Override
+    public void onMemoryStable() {
+        runOnUiThread(() -> {
+            mBinding.captureBtn.setEnabled(true);
+            mBinding.captureProgressBar.setVisibility(View.INVISIBLE);
         });
     }
 

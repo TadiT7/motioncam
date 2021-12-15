@@ -146,4 +146,28 @@ namespace motioncam {
         if(callbackMethod)
             env.getEnv()->CallVoidMethod(mListenerInstance, callbackMethod);
     }
+
+    void NativeCameraBridgeListener::onMemoryAdjusting() {
+        JavaEnv env(mJavaVm);
+        if (!env.getEnv()) {
+            LOGE("Dropped onMemoryAdjusting()");
+            return;
+        }
+
+        jmethodID callbackMethod = env.getEnv()->GetMethodID(mListenerClass, "onMemoryAdjusting", "()V");
+        if(callbackMethod)
+            env.getEnv()->CallVoidMethod(mListenerInstance, callbackMethod);
+    }
+
+    void NativeCameraBridgeListener::onMemoryStable() {
+        JavaEnv env(mJavaVm);
+        if (!env.getEnv()) {
+            LOGE("Dropped onMemoryStable()");
+            return;
+        }
+
+        jmethodID callbackMethod = env.getEnv()->GetMethodID(mListenerClass, "onMemoryStable", "()V");
+        if(callbackMethod)
+            env.getEnv()->CallVoidMethod(mListenerInstance, callbackMethod);
+    }
 }

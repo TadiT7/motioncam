@@ -518,7 +518,7 @@ namespace motioncam {
 
         // Create image consumer if we have not done so
         if(!mImageConsumer || cameraId != mSelectedCameraId)
-            mImageConsumer = std::make_shared<RawImageConsumer>(cameraDesc, mMaxMemoryUsageBytes);
+            mImageConsumer = std::make_shared<RawImageConsumer>(cameraDesc, listener, mMaxMemoryUsageBytes);
 
         // Create the camera session and open the camera
         mSelectedCameraId = cameraId;

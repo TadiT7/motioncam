@@ -73,6 +73,7 @@ namespace motioncam {
         
         void enableStreaming(const int fd, const RawCameraMetadata& metadata);
         void setCropAmount(int horizontal, int vertical);
+        void setVideoBin(bool bin);
         void endStreaming();
         float bufferSpaceUse();
         

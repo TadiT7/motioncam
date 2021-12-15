@@ -95,7 +95,8 @@
     <string name="corrupted_video">Corrupted video :(</string>
     <string name="queued">Queued</string>
     <string name="crop">CROP</string>
-    <string name="res">RES</string>
+    <string name="output">OUTPUT</string>
+    <string name="bin">BIN</string>
     <string name="fps">FPS</string>
     <string name="dropped_frames">DROPPED FRAMES</string>
     <string name="raw_video_storage_folder">RAW Video Storage Folder</string>

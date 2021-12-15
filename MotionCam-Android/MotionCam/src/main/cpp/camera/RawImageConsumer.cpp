@@ -1,5 +1,6 @@
 #include "RawImageConsumer.h"
 #include "RawPreviewListener.h"
+#include "CameraSessionListener.h"
 #include "CameraDescription.h"
 #include "Logger.h"
 #include "ClHelper.h"
@@ -41,7 +42,11 @@ namespace motioncam {
 
     //
 
-    RawImageConsumer::RawImageConsumer(std::shared_ptr<CameraDescription> cameraDescription, const size_t maxMemoryUsageBytes) :
+    RawImageConsumer::RawImageConsumer(
+            std::shared_ptr<CameraDescription> cameraDescription,
+            std::shared_ptr<CameraSessionListener> listener,
+            const size_t maxMemoryUsageBytes) :
+        mListener(listener),
         mMaximumMemoryUsageBytes(maxMemoryUsageBytes),
         mRunning(false),
         mEnableRawPreview(false),
@@ -53,6 +58,8 @@ namespace motioncam {
         mUseVideoPreview(false),
         mPreviewShadows(4.0f),
         mPreviewShadowStep(0.0f),
+        mBufferSize(0),
+        mFramesSinceEstimatedSettings(0),
         mCameraDesc(std::move(cameraDescription))
     {
     }
@@ -273,6 +280,13 @@ namespace motioncam {
     }
 
     void RawImageConsumer::onBufferReady(const std::shared_ptr<RawImageBuffer>& buffer) {
+        // Skip estimation when in video preview mode
+        if(mUseVideoPreview) {
+            mPreviewShadows = 1.0f;
+            RawBufferManager::get().enqueueReadyBuffer(buffer);
+            return;
+        }
+
         // Estimate settings every few frames
         if(mFramesSinceEstimatedSettings >= ESTIMATE_SHADOWS_FRAME_INTERVAL)
         {
@@ -291,7 +305,7 @@ namespace motioncam {
 
             // Store noise profile
             if(!buffer->metadata.noiseProfile.empty()) {
-                mEstimatedSettings.noiseSigma = 1024 * sqrt(0.18 * buffer->metadata.noiseProfile[0] + buffer->metadata.noiseProfile[1]);
+                mEstimatedSettings.noiseSigma = 1024 * sqrt(0.18f * buffer->metadata.noiseProfile[0] + buffer->metadata.noiseProfile[1]);
             }
 
             mPreviewShadowStep = (1.0f / ESTIMATE_SHADOWS_FRAME_INTERVAL) * (mEstimatedSettings.shadows - mPreviewShadows);
@@ -305,7 +319,6 @@ namespace motioncam {
         }
 
         RawBufferManager::get().enqueueReadyBuffer(buffer);
-
     }
 
     void RawImageConsumer::doMatchMetadata() {
@@ -378,6 +391,8 @@ namespace motioncam {
                 continue;
             }
 
+            mListener->onMemoryAdjusting();
+
             while(  mRunning
                     &&  (  memoryUseBytes + bufferSize < mMaximumMemoryUsageBytes
                         || RawBufferManager::get().numBuffers() < MINIMUM_BUFFERS) ) {
@@ -396,6 +411,8 @@ namespace motioncam {
 
                 LOGI("Memory use: %zu, max: %zu", memoryUseBytes, mMaximumMemoryUsageBytes);
             }
+
+            mListener->onMemoryStable();
         }
 
         LOGD("Exiting buffer thread");

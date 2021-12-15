@@ -429,6 +429,10 @@ namespace motioncam {
         mStreamer->setCropAmount(horizontal, vertical);
     }
 
+    void RawBufferManager::setVideoBin(bool bin) {
+        mStreamer->setBin(bin);
+    }
+
     float RawBufferManager::bufferSpaceUse() {
         Lock lock(mMutex, __PRETTY_FUNCTION__);
 

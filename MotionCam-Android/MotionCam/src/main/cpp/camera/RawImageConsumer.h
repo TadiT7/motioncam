@@ -21,6 +21,7 @@
 namespace motioncam {
     // Forward declarations
     class RawPreviewListener;
+    class CameraSessionListener;
 
     struct CameraDescription;
     struct RawImageMetadata;
@@ -29,7 +30,9 @@ namespace motioncam {
 
     class RawImageConsumer {
     public:
-        RawImageConsumer(std::shared_ptr<CameraDescription> cameraDescription, const size_t maxMemoryUsageBytes);
+        RawImageConsumer(std::shared_ptr<CameraDescription> cameraDescription,
+                         std::shared_ptr<CameraSessionListener> listener,
+                         const size_t maxMemoryUsageBytes);
         ~RawImageConsumer();
 
         void start();
@@ -76,6 +79,7 @@ namespace motioncam {
 #endif
 
     private:
+        std::shared_ptr<CameraSessionListener> mListener;
         size_t mMaximumMemoryUsageBytes;
         std::vector<std::shared_ptr<std::thread>> mConsumerThreads;
         std::shared_ptr<std::thread> mSetupBuffersThread;
