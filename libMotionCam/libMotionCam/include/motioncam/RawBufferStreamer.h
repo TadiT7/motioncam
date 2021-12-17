@@ -11,19 +11,26 @@
 namespace motioncam {
     struct RawCameraMetadata;
     struct RawImageBuffer;
+    class AudioInterface;
 
     class RawBufferStreamer {
     public:
         RawBufferStreamer();
         ~RawBufferStreamer();
         
-        void start(const int fd, const RawCameraMetadata& cameraMetadata);
+        void start(const std::vector<int>& fds,
+                   const int& audioFd,
+                   const std::shared_ptr<AudioInterface> audioInterface,
+                   const RawCameraMetadata& cameraMetadata);
+        
         void add(const std::shared_ptr<RawImageBuffer>& frame);
         void stop();
         
         void setCropAmount(int horizontal, int vertical);
         void setBin(bool bin);
         bool isRunning() const;
+        float estimateFps() const;
+        size_t writenOutputBytes() const;
 
         void cropAndBin(RawImageBuffer& buffer) const;
 
@@ -36,14 +43,21 @@ namespace motioncam {
         void doStream(const int fd, const RawCameraMetadata& cameraMetadata);
         
     private:
-        std::unique_ptr<std::thread> mIoThread;
+        std::shared_ptr<AudioInterface> mAudioInterface;
+        int mAudioFd;
+        
+        std::vector<std::unique_ptr<std::thread>> mIoThreads;
         std::vector<std::unique_ptr<std::thread>> mProcessThreads;
         std::vector<std::unique_ptr<std::thread>> mCompressThreads;
         
         int mCropVertical;
         int mCropHorizontal;
         bool mBin;
+        
         std::atomic<bool> mRunning;
+        std::atomic<uint32_t> mWrittenFrames;
+        std::atomic<size_t> mWrittenBytes;
+        std::chrono::steady_clock::time_point mStartTime;
         
         moodycamel::BlockingConcurrentQueue<std::shared_ptr<RawImageBuffer>> mUnprocessedBuffers;
         moodycamel::BlockingConcurrentQueue<std::shared_ptr<RawImageBuffer>> mReadyBuffers;

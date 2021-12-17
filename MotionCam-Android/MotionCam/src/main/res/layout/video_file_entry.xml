@@ -19,13 +19,13 @@
 
     <ImageView
         android:id="@+id/deleteVideo"
-        android:layout_width="30dp"
+        android:layout_width="wrap_content"
         android:layout_height="0dp"
         android:scaleType="centerInside"
         android:src="@drawable/baseline_cancel_24"
         android:background="@color/cancelAction"
-        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
     <LinearLayout
@@ -33,32 +33,17 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:layout_marginStart="10dp"
+        android:layout_marginStart="5dp"
         android:gravity="center_vertical"
         app:layout_constraintTop_toBottomOf="@id/filename"
         app:layout_constraintStart_toEndOf="@id/deleteVideo"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <HorizontalScrollView
-            android:id="@+id/previewListSctollView"
-            android:padding="5dp"
-            android:layout_width="match_parent"
-            android:layout_height="60dp">
-
-            <LinearLayout
-                android:id="@+id/previewList"
-                android:orientation="horizontal"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent">
-
-            </LinearLayout>
-
-        </HorizontalScrollView>
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
+            android:layout_marginStart="5dp"
             android:baselineAligned="false">
 
             <LinearLayout
@@ -124,13 +109,31 @@
                     android:layout_height="wrap_content"
                     android:gravity="center"
                     android:textAppearance="@style/MotionCam.TextAppearance.VerySmall" />
+
+
             </LinearLayout>
 
         </LinearLayout>
 
+        <HorizontalScrollView
+            android:id="@+id/previewListSctollView"
+            android:padding="5dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:id="@+id/previewList"
+                android:orientation="horizontal"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent">
+
+            </LinearLayout>
+
+        </HorizontalScrollView>
+
         <ProgressBar
             android:id="@+id/progressBar"
-            android:visibility="gone"
+            android:visibility="visible"
             style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

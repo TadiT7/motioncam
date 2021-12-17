@@ -28,7 +28,6 @@
 
 #include "linear_image.h"
 #include "hdr_mask.h"
-//#include "decorrelate.h"
 
 #include "preview_landscape2.h"
 #include "preview_portrait2.h"
@@ -596,6 +595,57 @@ namespace motioncam {
         pcsToSrgb.copyTo(outPcsToSrgb);
     }
 
+    Halide::Runtime::Buffer<uint8_t> ImageProcessor::createFastPreview(const RawImageBuffer& rawBuffer,
+                                                                       const int sx,
+                                                                       const int sy,
+                                                                       const RawCameraMetadata& cameraMetadata)
+    {
+        //Measure measure("fastPreview()");
+        
+        cv::Mat cameraToPcs;
+        cv::Mat pcsToSrgb;
+        cv::Vec3f cameraWhite;
+        
+        createSrgbMatrix(cameraMetadata, rawBuffer.metadata, rawBuffer.metadata.asShot, cameraWhite, cameraToPcs, pcsToSrgb);
+
+        cv::Mat cameraToSrgb = pcsToSrgb * cameraToPcs;
+        
+        Halide::Runtime::Buffer<float> cameraToSrgbBuffer = ToHalideBuffer<float>(cameraToSrgb);
+        NativeBufferContext inputBufferContext(*rawBuffer.data, false);
+
+        // Set up rotation based on orientation of image
+        int width = rawBuffer.width / 2 / sx; // Divide by 2 because we are not demosaicing the RAW data
+        int height = rawBuffer.height / 2 / sy;
+        
+        Halide::Runtime::Buffer<uint8_t> outputBuffer =
+            Halide::Runtime::Buffer<uint8_t>::make_interleaved(width, height, 4);
+        
+        fast_preview(
+            inputBufferContext.getHalideBuffer(),
+            rawBuffer.rowStride,
+            static_cast<int>(rawBuffer.pixelFormat),
+            static_cast<int>(cameraMetadata.sensorArrangment),
+            width,
+            height,
+            sx,
+            sy,
+            static_cast<uint16_t>(cameraMetadata.whiteLevel),
+            cameraMetadata.blackLevel[0],
+            cameraMetadata.blackLevel[1],
+            cameraMetadata.blackLevel[2],
+            cameraMetadata.blackLevel[3],
+            rawBuffer.metadata.asShot[0],
+            rawBuffer.metadata.asShot[1],
+            rawBuffer.metadata.asShot[2],
+            cameraToSrgbBuffer,
+            outputBuffer);
+
+        outputBuffer.device_sync();
+        outputBuffer.copy_to_host();
+        
+        return outputBuffer;
+    }
+
     Halide::Runtime::Buffer<uint8_t> ImageProcessor::createPreview(const RawImageBuffer& rawBuffer,
                                                                    const int downscaleFactor,
                                                                    const RawCameraMetadata& cameraMetadata,
@@ -1046,7 +1096,7 @@ namespace motioncam {
             progressListener.onError("Invalid reference frames");
             return;
         }
-
+        
         PostProcessSettings settings = rawContainer.getPostProcessSettings();
 
         // Remove all underexposed images
@@ -1418,7 +1468,7 @@ namespace motioncam {
                                      current->previewBuffer.data());
             
             cv::Ptr<cv::DISOpticalFlow> opticalFlow =
-                cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_FAST);
+                cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_ULTRAFAST);
                                 
             opticalFlow->setPatchSize(patchSize);
             opticalFlow->setPatchStride(patchSize/2);
@@ -1831,80 +1881,82 @@ namespace motioncam {
     std::vector<cv::Rect2f> ImageProcessor::detectFaces(const RawImageBuffer& buffer, const RawCameraMetadata& cameraMetadata) {
         Measure measure("detectFaces()");
         
-        NativeBufferContext inputBufferContext(*buffer.data, false);
-        Halide::Runtime::Buffer<uint8_t> output;
-        
-        int scale = 4;
-        
-        if(buffer.metadata.screenOrientation == ScreenOrientation::LANDSCAPE ||
-           buffer.metadata.screenOrientation == ScreenOrientation::REVERSE_LANDSCAPE)
-        {
-            output = Halide::Runtime::Buffer<uint8_t>(buffer.width/scale, buffer.height/scale);
-        }
-        else {
-            output = Halide::Runtime::Buffer<uint8_t>(buffer.height/scale, buffer.width/scale);
-        }
-        
-        int rotation = 0;
-        switch(buffer.metadata.screenOrientation) {
-            case ScreenOrientation::PORTRAIT:
-                rotation = -90;
-                break;
-            case ScreenOrientation::REVERSE_PORTRAIT:
-                rotation = 90;
-                break;
-            case ScreenOrientation::REVERSE_LANDSCAPE:
-                rotation = 180;
-                break;
-                
-            default:
-            case ScreenOrientation::LANDSCAPE:
-                rotation = 0;
-        }
-        
-        fast_preview(inputBufferContext.getHalideBuffer(),
-                     buffer.rowStride,
-                     static_cast<int>(buffer.pixelFormat),
-                     static_cast<int>(cameraMetadata.sensorArrangment),
-                     buffer.width/scale,
-                     buffer.height/scale,
-                     rotation,
-                     scale/2,
-                     scale/2,
-                     cameraMetadata.whiteLevel,
-                     cameraMetadata.blackLevel[0],
-                     cameraMetadata.blackLevel[1],
-                     cameraMetadata.blackLevel[2],
-                     cameraMetadata.blackLevel[3],
-                     output);
-
-        auto previewImage = cv::Mat(output.height(), output.width(), CV_8U, output.data());        
-        cv::equalizeHist(previewImage, previewImage);
-
-        static cv::CascadeClassifier c;
-        
-        if(c.empty()) {
-            cv::FileStorage fs;
-            auto classifier = cv::String(&lbpcascade_frontalface_improved_xml[0]);
-            
-            fs.open(classifier, cv::FileStorage::READ | cv::FileStorage::MEMORY);
-            
-            c.read(fs.getFirstTopLevelNode());
-        }
-
-        std::vector<cv::Rect> dets;
         std::vector<cv::Rect2f> result;
         
-        c.detectMultiScale(previewImage, dets, 1.5);
-        
-        for(int i = 0; i < dets.size(); i++) {
-            float x = dets[i].tl().x / (float) output.width();
-            float y = dets[i].tl().y / (float) output.height();
-            float width = dets[i].width / (float) output.width();
-            float height = dets[i].height / (float) output.height();
-
-            result.push_back(cv::Rect2f(x, y, width, height));
-        }
+//        NativeBufferContext inputBufferContext(*buffer.data, false);
+//        Halide::Runtime::Buffer<uint8_t> output;
+//
+//        int scale = 4;
+//
+//        if(buffer.metadata.screenOrientation == ScreenOrientation::LANDSCAPE ||
+//           buffer.metadata.screenOrientation == ScreenOrientation::REVERSE_LANDSCAPE)
+//        {
+//            output = Halide::Runtime::Buffer<uint8_t>(buffer.width/scale, buffer.height/scale);
+//        }
+//        else {
+//            output = Halide::Runtime::Buffer<uint8_t>(buffer.height/scale, buffer.width/scale);
+//        }
+//
+//        int rotation = 0;
+//        switch(buffer.metadata.screenOrientation) {
+//            case ScreenOrientation::PORTRAIT:
+//                rotation = -90;
+//                break;
+//            case ScreenOrientation::REVERSE_PORTRAIT:
+//                rotation = 90;
+//                break;
+//            case ScreenOrientation::REVERSE_LANDSCAPE:
+//                rotation = 180;
+//                break;
+//
+//            default:
+//            case ScreenOrientation::LANDSCAPE:
+//                rotation = 0;
+//        }
+//
+//        fast_preview(inputBufferContext.getHalideBuffer(),
+//                     buffer.rowStride,
+//                     static_cast<int>(buffer.pixelFormat),
+//                     static_cast<int>(cameraMetadata.sensorArrangment),
+//                     buffer.width/scale,
+//                     buffer.height/scale,
+//                     rotation,
+//                     scale/2,
+//                     scale/2,
+//                     cameraMetadata.whiteLevel,
+//                     cameraMetadata.blackLevel[0],
+//                     cameraMetadata.blackLevel[1],
+//                     cameraMetadata.blackLevel[2],
+//                     cameraMetadata.blackLevel[3],
+//                     output);
+//
+//        auto previewImage = cv::Mat(output.height(), output.width(), CV_8U, output.data());
+//        cv::equalizeHist(previewImage, previewImage);
+//
+//        static cv::CascadeClassifier c;
+//
+//        if(c.empty()) {
+//            cv::FileStorage fs;
+//            auto classifier = cv::String(&lbpcascade_frontalface_improved_xml[0]);
+//
+//            fs.open(classifier, cv::FileStorage::READ | cv::FileStorage::MEMORY);
+//
+//            c.read(fs.getFirstTopLevelNode());
+//        }
+//
+//        std::vector<cv::Rect> dets;
+//        std::vector<cv::Rect2f> result;
+//
+//        c.detectMultiScale(previewImage, dets, 1.5);
+//
+//        for(int i = 0; i < dets.size(); i++) {
+//            float x = dets[i].tl().x / (float) output.width();
+//            float y = dets[i].tl().y / (float) output.height();
+//            float width = dets[i].width / (float) output.width();
+//            float height = dets[i].height / (float) output.height();
+//
+//            result.push_back(cv::Rect2f(x, y, width, height));
+//        }
 
 //        static dlib::frontal_face_detector detector = dlib::get_frontal_face_detector();
 //

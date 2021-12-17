@@ -66,7 +66,7 @@ public class SettingsViewModel extends ViewModel {
         autoNightMode.setValue(prefs.getBoolean(PREFS_KEY_AUTO_NIGHT_MODE, true));
         dualExposureControls.setValue(prefs.getBoolean(PREFS_KEY_DUAL_EXPOSURE_CONTROLS, false));
         rawVideoToDng.setValue(prefs.getBoolean(PREFS_KEY_RAW_VIDEO_TO_DNG, true));
-        rawVideoTempStorageFolder.setValue(prefs.getString(PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI, ""));
+        rawVideoTempStorageFolder.setValue(prefs.getString(PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI, null));
 
         // Capture mode
         String rawModeStr = prefs.getString(PREFS_KEY_CAPTURE_MODE, RawMode.RAW10.name());
@@ -99,7 +99,7 @@ public class SettingsViewModel extends ViewModel {
         editor.putBoolean(PREFS_KEY_AUTO_NIGHT_MODE, getSetting(autoNightMode, true));
         editor.putBoolean(PREFS_KEY_DUAL_EXPOSURE_CONTROLS, getSetting(dualExposureControls, false));
         editor.putBoolean(PREFS_KEY_RAW_VIDEO_TO_DNG, getSetting(rawVideoToDng, true));
-        editor.putString(PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI, getSetting(rawVideoTempStorageFolder, ""));
+        editor.putString(PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI, getSetting(rawVideoTempStorageFolder, null));
 
         // Capture mode
         RawMode rawMode = RawMode.RAW10;

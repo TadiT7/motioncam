@@ -2949,6 +2949,7 @@ void PreviewGenerator::schedule_for_cpu() {
 class FastPreviewGenerator : public Halide::Generator<FastPreviewGenerator>, public PostProcessBase {
 public:
     Input<Buffer<uint8_t>> input{"input", 1};
+
     Input<int> stride{"stride"};
     Input<int> pixelFormat{"pixelFormat"};
     Input<int> sensorArrangement{"sensorArrangement"};
@@ -2956,19 +2957,16 @@ public:
     Input<int> width{"width"};
     Input<int> height{"height"};
 
-    Input<int> rotation{"rotation", 0};
-
     Input<int> sx{"sx"};
     Input<int> sy{"sy"};
 
     Input<int>    whiteLevel{"whiteLevel"};
     Input<int[4]> blackLevel{"blackLevel"};
 
-    Output<Buffer<uint8_t>> output{"output", 2};
+    Input<float[3]> asShotVector{"asShotVector"};
+    Input<Buffer<float>> cameraToSrgb{"cameraToSrgb", 2};
 
-    Func clamped;
-    Func deinterleaved{"deinterleaved"};
-    Func gammaCorrected{"gammaCorrected"};
+    Output<Buffer<uint8_t>> output{"output", 3};
 
     void generate();
     void schedule_for_cpu();
@@ -2976,44 +2974,84 @@ public:
 
 void FastPreviewGenerator::generate() {
     Func channels[4];
+    Func linear{"linear"};
+    Func bayerInput{"bayerInput"};
+    Func clamped{"clamped"};
+    Func colorCorrected{"colorCorrected"};
+    Func colorCorrectInput{"colorCorrectInput"};
+    Func toLinear{"toLinear"};
 
     // Deinterleave
-    deinterleave(channels[0], input, 0, stride, pixelFormat);
-    deinterleave(channels[1], input, 1, stride, pixelFormat);
-    deinterleave(channels[2], input, 2, stride, pixelFormat);
-    deinterleave(channels[3], input, 3, stride, pixelFormat);
+    clamped = BoundaryConditions::repeat_edge(input);
 
-    deinterleaved(v_x, v_y, v_c) = select(
-        v_c == 0, channels[0](v_x * sx, v_y * sy),
-        v_c == 1, channels[1](v_x * sx, v_y * sy),
-        v_c == 2, channels[2](v_x * sx, v_y * sy),
-                  channels[3](v_x * sx, v_y * sy));
+    deinterleave(channels[0], clamped, 0, stride, pixelFormat);
+    deinterleave(channels[1], clamped, 1, stride, pixelFormat);
+    deinterleave(channels[2], clamped, 2, stride, pixelFormat);
+    deinterleave(channels[3], clamped, 3, stride, pixelFormat);
 
-    clamped = BoundaryConditions::mirror_image(deinterleaved, { {0, width - 1}, {0, height - 1}, {0, 4} });
-    
-    // Gamma correct preview
-    Func gammaLut;
-    
-    gammaLut(v_i) = cast<uint8_t>(clamp(pow(v_i / 255.0f, 1.0f / 2.2f) * 255, 0, 255));    
+    toLinear(v_c) = select(
+        v_c == 0, 1.0f / cast<float>(whiteLevel - blackLevel[0]),
+        v_c == 1, 1.0f / cast<float>(whiteLevel - blackLevel[1]),
+        v_c == 2, 1.0f / cast<float>(whiteLevel - blackLevel[2]),
+                  1.0f / cast<float>(whiteLevel - blackLevel[3])
+    );
 
-    if(!get_auto_schedule())
+    linear(v_x, v_y, v_c) =
+        mux(v_c,
+            {   (channels[0](v_x*sx, v_y*sy) - blackLevel[0]) * toLinear(v_c),
+                (channels[1](v_x*sx, v_y*sy) - blackLevel[1]) * toLinear(v_c),
+                (channels[2](v_x*sx, v_y*sy) - blackLevel[2]) * toLinear(v_c),
+                (channels[3](v_x*sx, v_y*sy) - blackLevel[3]) * toLinear(v_c) }
+        );
+
+
+    bayerInput(v_x, v_y, v_c) =
+        select(sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
+                select( v_c == 0, linear(v_x, v_y, 0),
+                        v_c == 1, linear(v_x, v_y, 1),
+                                  linear(v_x, v_y, 3) ),
+
+            sensorArrangement == static_cast<int>(SensorArrangement::GRBG),
+                select( v_c == 0, linear(v_x, v_y, 1),
+                        v_c == 1, linear(v_x, v_y, 0),
+                                  linear(v_x, v_y, 2) ),
+
+            sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
+                select( v_c == 0, linear(v_x, v_y, 2),
+                        v_c == 1, linear(v_x, v_y, 1),
+                                  linear(v_x, v_y, 0) ),
+
+                // BGGR
+                select( v_c == 0, linear(v_x, v_y, 3),
+                        v_c == 1, linear(v_x, v_y, 1),
+                                  linear(v_x, v_y, 0) )                
+        );
+
+    colorCorrectInput(v_x, v_y, v_c) =
+        select( v_c == 0, clamp( bayerInput(v_x, v_y, 0), 0.0f, asShotVector[0] ),
+                v_c == 1, clamp( bayerInput(v_x, v_y, 1), 0.0f, asShotVector[1] ),
+                          clamp( bayerInput(v_x, v_y, 2), 0.0f, asShotVector[2] ));
+
+    transform(colorCorrected, colorCorrectInput, cameraToSrgb);
+
+    Func gammaLut{"gammaLut"};    
+    Expr h = v_i / 255.0f;
+
+    gammaLut(v_i) = saturating_cast<uint8_t>(select(h < 0.0031308f, h * 12.92f, pow(h, 1.0f / 2.4f) * 1.055f - 0.055f) * 255.0f);
+    if(!auto_schedule)
         gammaLut.compute_root().vectorize(v_i, 8);
 
-    Expr P = 0.25f * (clamped(v_x, v_y, 0) +
-                      clamped(v_x, v_y, 1) +
-                      clamped(v_x, v_y, 2) +
-                      clamped(v_x, v_y, 3));
+    output(v_x, v_y, v_c) = gammaLut(saturating_cast<uint8_t>(
+        select( v_c == 0, colorCorrected(v_x, v_y, 2) * 255.0f + 0.5f,
+                v_c == 1, colorCorrected(v_x, v_y, 1) * 255.0f + 0.5f,
+                v_c == 2, colorCorrected(v_x, v_y, 0) * 255.0f + 0.5f,
+                255)));
 
-    Expr S = (P - blackLevel[0]) / (whiteLevel - blackLevel[0]);
-
-    gammaCorrected(v_x, v_y) = gammaLut(cast<uint8_t>(clamp(S * 255.0f + 0.5f, 0, 255)));
-
-    output(v_x, v_y) = select(
-        rotation == 90,  gammaCorrected(width - v_y, v_x),
-        rotation == -90, gammaCorrected(v_y, height - v_x),
-        rotation == 180, gammaCorrected(v_x, height - v_y),
-                         gammaCorrected(v_x, v_y) );
-
+    // Output interleaved
+    output
+        .dim(0).set_stride(4)
+        .dim(2).set_stride(1);
+    
     input.set_estimates({ {0, 18000000} });
     width.set_estimate(4000);
     height.set_estimate(3000);
@@ -3026,24 +3064,24 @@ void FastPreviewGenerator::generate() {
     sy.set_estimate(2);
     stride.set_estimate(4000);
     sensorArrangement.set_estimate(0);
-    rotation.set_estimate(90);
     pixelFormat.set_estimate(0);
+    cameraToSrgb.set_estimates({{0, 3}, {0, 3}});
 
-    output.set_estimates({{0, 1000}, {0, 750} } );
+    asShotVector.set_estimate(0, 1.0f);
+    asShotVector.set_estimate(1, 1.0f);
+    asShotVector.set_estimate(2, 1.0f);
+
+    output.set_estimates({{0, 250}, {0, 150}, {0, 3} } );
 
     if(!get_auto_schedule()) {
         schedule_for_cpu();
     }
  }
 
-void FastPreviewGenerator::schedule_for_cpu() {    
-    gammaCorrected
-        .compute_root()
-        .vectorize(v_x, 16)
-        .parallel(v_y);
-
+void FastPreviewGenerator::schedule_for_cpu() {
     output.compute_root()
         .vectorize(v_x, 16)
+        .parallel(v_c)
         .parallel(v_y);
 }
 

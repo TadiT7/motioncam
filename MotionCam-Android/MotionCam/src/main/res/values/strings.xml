@@ -98,6 +98,8 @@
     <string name="output">OUTPUT</string>
     <string name="bin">BIN</string>
     <string name="fps">FPS</string>
+    <string name="output_fps">OUTPUT FPS</string>
+    <string name="size">SIZE</string>
     <string name="dropped_frames">DROPPED FRAMES</string>
     <string name="raw_video_storage_folder">RAW Video Storage Folder</string>
     <string name="raw_video_storage_folder_description">Where to store RAW videos during recording.</string>

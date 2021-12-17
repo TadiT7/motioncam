@@ -49,10 +49,15 @@ namespace motioncam {
         static void process(RawContainer& rawContainer, const std::string& outputPath, const ImageProcessorProgress& progressListener);
 
         static Halide::Runtime::Buffer<uint8_t> createPreview(const RawImageBuffer& rawBuffer,
-                                                       const int downscaleFactor,
-                                                       const RawCameraMetadata& cameraMetadata,
-                                                       const PostProcessSettings& settings);
-        
+                                                              const int downscaleFactor,
+                                                              const RawCameraMetadata& cameraMetadata,
+                                                              const PostProcessSettings& settings);
+
+        static Halide::Runtime::Buffer<uint8_t> createFastPreview(const RawImageBuffer& rawBuffer,
+                                                                  const int sx,
+                                                                  const int sy,
+                                                                  const RawCameraMetadata& cameraMetadata);
+
         static cv::Mat calcHistogram(const RawCameraMetadata& cameraMetadata,
                                      const RawImageBuffer& reference,
                                      const bool cumulative,

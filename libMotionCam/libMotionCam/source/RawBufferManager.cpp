@@ -45,6 +45,12 @@ namespace motioncam {
         return mNumBuffers;
     }
 
+    void RawBufferManager::recordingStats(size_t& outMemoryUseBytes, float& outFps, size_t& outOutputSizeBytes) const {
+        outMemoryUseBytes = mMemoryUseBytes;
+        outFps = mStreamer->estimateFps();
+        outOutputSizeBytes = mStreamer->writenOutputBytes();
+    }
+
     size_t RawBufferManager::memoryUseBytes() const {
         return mMemoryUseBytes;
     }
@@ -416,13 +422,17 @@ namespace motioncam {
         return latest->metadata.timestampNs;
     }
 
-    void RawBufferManager::enableStreaming(const int fd, const RawCameraMetadata& metadata) {
+    void RawBufferManager::enableStreaming(const std::vector<int>& fds,
+                                           const int audioFd,
+                                           std::shared_ptr<AudioInterface> audioInterface,
+                                           const RawCameraMetadata& metadata)
+    {
         // Clear out buffers before streaming
         {
             consumeAllBuffers();
         }
         
-        mStreamer->start(fd, metadata);
+        mStreamer->start(fds, audioFd, audioInterface, metadata);
     }
 
     void RawBufferManager::setCropAmount(int horizontal, int vertical) {

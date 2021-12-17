@@ -416,6 +416,7 @@ add_library( # Sets the name of the library.
         ${thirdparty-libs}/miniz/miniz_zip.c
         ${thirdparty-libs}/miniz/miniz_tinfl.c
         ${thirdparty-libs}/miniz/miniz_tdef.c
+        ${thirdparty-libs}/tinywav/tinywav.c
         ${libmotioncam-src}/source/CameraProfile.cpp
         ${libmotioncam-src}/source/Color.cpp
         ${libmotioncam-src}/source/ImageOps.cpp
@@ -438,6 +439,7 @@ target_include_directories(motion-cam PUBLIC
         ${thirdparty-libs}/json11
         ${thirdparty-libs}/dlib/include
         ${thirdparty-libs}/miniz
+        ${thirdparty-libs}/tinywav
         ${thirdparty-libs}/halide/include
         ${thirdparty-libs}/opencl
         ${thirdparty-libs}/queue
@@ -458,6 +460,7 @@ set(native-camera-cpp
         src/main/cpp/JavaUtils.cpp
         src/main/cpp/NativeCameraBridgeListener.cpp
         src/main/cpp/NativeRawPreviewListener.cpp
+        src/main/cpp/AudioRecorder.cpp
         src/main/cpp/camera/CaptureSessionManager.cpp
         src/main/cpp/camera/CameraSession.cpp
         src/main/cpp/camera/CameraStateManager.cpp
@@ -499,6 +502,8 @@ target_compile_definitions(native-camera-opencl PRIVATE GPU_CAMERA_PREVIEW=1)
 
 find_library(log log)
 find_library(z z)
+
+find_package (oboe REQUIRED CONFIG)
 
 # Specifies libraries CMake should link to your target library. You
 # can link multiple libraries, such as libraries you define in this
@@ -568,6 +573,7 @@ set(native-camera-libs
         openjp2
 
         # Android libraries
+        oboe::oboe
         camera2ndk
         android
         mediandk

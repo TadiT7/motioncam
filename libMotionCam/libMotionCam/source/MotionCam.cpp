@@ -67,10 +67,7 @@ namespace motioncam {
         std::sort(frames.begin(), frames.end(), [&](std::string& a, std::string& b) {
             return container.getFrame(a)->metadata.timestampNs < container.getFrame(b)->metadata.timestampNs;
         });
-                
-        int64_t timestampOffset = 0;
-        float timestamp = 0;
-
+        
         // Create processing threads
         RUNNING = true;
         
@@ -204,13 +201,7 @@ namespace motioncam {
                 
                 --m;
             }
-            
-            if(timestampOffset <= 0) {
-                timestampOffset = frame->metadata.timestampNs;
-            }
-            
-            timestamp = (frame->metadata.timestampNs - timestampOffset) / (1000.0f*1000.0f*1000.0f);
-                    
+                                
             cv::Mat bayerImage(bayerBuffer.height(), bayerBuffer.width(), CV_16U, bayerBuffer.data());
             
             int fd = progress.onNeedFd(i);
@@ -260,7 +251,13 @@ namespace motioncam {
 
         progress.onCompleted();
 
-        return frames.size() / (1e-5f + timestamp);
+        double startTime = container.getFrame(frames[0])->metadata.timestampNs / 1e-9f;
+        double endTime = container.getFrame(frames[frames.size() - 1])->metadata.timestampNs / 1e-9;
+        
+        if(endTime - startTime <= 0)
+            return 0;
+        
+        return frames.size() / (endTime - startTime);
     }
 
     void ProcessImage(const std::string& containerPath, const std::string& outputFilePath, const ImageProcessorProgress& progressListener) {

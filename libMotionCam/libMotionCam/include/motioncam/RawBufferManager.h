@@ -12,6 +12,7 @@
 
 namespace motioncam {
     class RawContainer;
+    class AudioInterface;
 
     class RawBufferManager {
     public:
@@ -39,6 +40,7 @@ namespace motioncam {
         };
         
         void addBuffer(std::shared_ptr<RawImageBuffer>& buffer);
+        void recordingStats(size_t& outMemoryUseBytes, float& outFps, size_t& outOutputSizeBytes) const;
         size_t memoryUseBytes() const;
         int numBuffers() const;
         void reset();
@@ -71,7 +73,11 @@ namespace motioncam {
                   const PostProcessSettings& settings,
                   const std::string& outputPath);
         
-        void enableStreaming(const int fd, const RawCameraMetadata& metadata);
+        void enableStreaming(const std::vector<int>& fds,
+                             const int audioFd,
+                             std::shared_ptr<AudioInterface> audioInterface,
+                             const RawCameraMetadata& metadata);
+        
         void setCropAmount(int horizontal, int vertical);
         void setVideoBin(bool bin);
         void endStreaming();

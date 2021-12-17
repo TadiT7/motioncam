@@ -163,7 +163,7 @@ JNIEXPORT jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_Generate
             if(!frame)
                 continue;
 
-            auto output = motioncam::ImageProcessor::createPreview(*frame, 8, cameraMetadata, settings);
+            auto output = motioncam::ImageProcessor::createFastPreview(*frame, 4, 4, cameraMetadata);
 
             jobject dst = env->CallObjectMethod(listener, callbackMethod, output.width(), output.height());
 

@@ -694,7 +694,6 @@ namespace motioncam {
 
             // If there are no buffers available, we can't do anything useful here
             if(!dst) {
-                LOGW("Out of buffers");
                 continue;
             }
 

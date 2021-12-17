@@ -408,10 +408,10 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         SetAutoFocus(mNativeCameraHandle);
     }
 
-    public void streamToFile(int fd) {
+    public void streamToFile(int fd0, int fd1, int audioFd) {
         ensureValidHandle();
 
-        StartStreamToFile(mNativeCameraHandle, fd);
+        StartStreamToFile(mNativeCameraHandle, fd0, fd1, audioFd);
     }
 
     public void adjustMemory(long maxMemoryBytes) {
@@ -444,10 +444,10 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         SetVideoCropPercentage(mNativeCameraHandle, horizontal, vertical);
     }
 
-    public float getVideoBufferUse() {
+    public VideoRecordingStats getVideoRecordingStats() {
         ensureValidHandle();
 
-        return GetVideoBufferUse(mNativeCameraHandle);
+        return GetVideoRecordingStats(mNativeCameraHandle);
     }
 
     @Override
@@ -563,7 +563,7 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native Size GetRawOutputSize(long handle, String cameraId);
     private native Size GetPreviewOutputSize(long handle, String cameraId, Size captureSize, Size displaySize);
 
-    private native void StartStreamToFile(long handle, int fd);
+    private native boolean StartStreamToFile(long handle, int fd0, int fd1, int audioFd);
     private native void EndStream(long handle);
 
     private native void PrepareHdrCapture(long handle, int iso, long exposure);
@@ -583,7 +583,7 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
 
     private native void SetFrameRate(long handle, int frameRate);
     private native void SetVideoCropPercentage(long handle, int horizontal, int vertical);
-    private native float GetVideoBufferUse(long handle);
+    private native VideoRecordingStats GetVideoRecordingStats(long handle);
     private native void SetVideoBin(long handle, boolean bin);
 
     private native void AdjustMemoryUse(long handle, long maxUseBytes);

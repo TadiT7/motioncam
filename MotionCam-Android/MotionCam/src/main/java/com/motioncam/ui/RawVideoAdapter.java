@@ -3,6 +3,7 @@ package com.motioncam.ui;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -194,7 +195,7 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             viewHolder.getProgressBar().setProgress(item.progress);
         }
         else {
-            viewHolder.getProgressBar().setVisibility(View.INVISIBLE);
+            viewHolder.getProgressBar().setVisibility(View.GONE);
         }
 
         // Check for corrupted video
@@ -217,12 +218,15 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             mNativeOps.generateVideoPreview(mContext, item.uri, 8, this);
         }
         else {
+            int pixels = (int) TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP, 60, mContext.getResources().getDisplayMetrics() );
+
             for(Bitmap bitmap : item.previewImages) {
                 ImageView imageView = new ImageView(mContext);
 
                 imageView.setImageBitmap(bitmap);
-                imageView.setScaleType(ImageView.ScaleType.FIT_START);
-                imageView.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                imageView.setLayoutParams(new ViewGroup.LayoutParams(pixels, pixels));
 
                 previewList.addView(imageView);
             }

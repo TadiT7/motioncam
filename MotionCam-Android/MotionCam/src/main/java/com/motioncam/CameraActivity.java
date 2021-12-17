@@ -68,6 +68,7 @@ import com.motioncam.camera.NativeCameraInfo;
 import com.motioncam.camera.NativeCameraMetadata;
 import com.motioncam.camera.NativeCameraSessionBridge;
 import com.motioncam.camera.PostProcessSettings;
+import com.motioncam.camera.VideoRecordingStats;
 import com.motioncam.databinding.CameraActivityBinding;
 import com.motioncam.model.CameraProfile;
 import com.motioncam.model.SettingsViewModel;
@@ -121,7 +122,8 @@ public class CameraActivity extends AppCompatActivity implements
 
     private static final String[] REQUEST_PERMISSIONS = {
             Manifest.permission.CAMERA,
-            Manifest.permission.ACCESS_FINE_LOCATION
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.RECORD_AUDIO
     };
 
     private enum FocusState {
@@ -617,9 +619,9 @@ public class CameraActivity extends AppCompatActivity implements
         }
     }
 
-    private int getInternalRecordingFd() {
+    private int getInternalRecordingFd(String filename) {
         File outputDirectory = new File(getFilesDir(), VideoProcessWorker.VIDEOS_PATH);
-        File outputFile = new File(outputDirectory, CameraProfile.generateFilename("VIDEO"));
+        File outputFile = new File(outputDirectory, filename);
 
         try {
             if (!outputDirectory.exists() && !outputDirectory.mkdirs()) {
@@ -644,14 +646,14 @@ public class CameraActivity extends AppCompatActivity implements
         }
     }
 
-    private int getRecordingFd() {
+    private int getRecordingFd(String filename, String mimeType) {
         if(mSettings.rawVideoRecordingTempUri == null)
             return -1;
 
         try {
             DocumentFile root = DocumentFile.fromTreeUri(this, mSettings.rawVideoRecordingTempUri);
             if (root.exists() && root.isDirectory() && root.canWrite()) {
-                DocumentFile output = root.createFile("application/zip", CameraProfile.generateFilename("VIDEO"));
+                DocumentFile output = root.createFile(mimeType, filename);
                 ContentResolver resolver = getApplicationContext().getContentResolver();
 
                 try {
@@ -681,18 +683,27 @@ public class CameraActivity extends AppCompatActivity implements
         Log.i(TAG, "Starting RAW video recording (max memory usage: " + mSettings.rawVideoMemoryUseBytes + ")");
 
         // Try to get a writable fd
-        int fd = getRecordingFd();
-        if(fd < 0) {
-            fd = getInternalRecordingFd();
+        String videoName = CameraProfile.generateFilename("VIDEO", ".zip");
+        String audioName = videoName.replace(".zip", ".wav");
+
+        int videoFd = getRecordingFd(videoName, "application/zip");
+        int audioFd = getRecordingFd(audioName, "audio/wav");
+
+        if(videoFd < 0) {
+            videoFd = getInternalRecordingFd(videoName);
         }
 
-        if(fd < 0) {
+        if(audioFd < 0) {
+            audioFd = getInternalRecordingFd(audioName);
+        }
+
+        if(videoFd < 0) {
             String error = getString(R.string.recording_failed);
             Toast.makeText(CameraActivity.this, error, Toast.LENGTH_LONG).show();
             return;
         }
 
-        mNativeCamera.streamToFile(fd);
+        mNativeCamera.streamToFile(videoFd, -1, audioFd);
         mImageCaptureInProgress.set(true);
 
         mBinding.switchCameraBtn.setEnabled(false);
@@ -716,11 +727,10 @@ public class CameraActivity extends AppCompatActivity implements
                 String recordingText = String.format(Locale.US, "00:%02d:%02d", (int) mins, seconds);
 
                 runOnUiThread(() -> {
-                    float bufferUse = mNativeCamera.getVideoBufferUse();
+                    VideoRecordingStats stats = mNativeCamera.getVideoRecordingStats();
 
                     mBinding.recordingTimerText.setText(recordingText);
-
-                    mBinding.previewFrame.memoryUsageProgress.setProgress(Math.round(bufferUse * 100));
+                    mBinding.previewFrame.memoryUsageProgress.setProgress(Math.round(stats.memoryUse * 100));
 
                     // Keep track of space
                     StatFs statFs = new StatFs(getFilesDir().getPath());
@@ -729,15 +739,35 @@ public class CameraActivity extends AppCompatActivity implements
                     mBinding.previewFrame.freeSpaceProgress.setProgress(spaceLeft);
 
                     // End recording if memory usage is too high
-                    if(bufferUse > 0.90f) {
-                        String error = getString(R.string.video_memory_use_error);
-
-                        Toast.makeText(CameraActivity.this, error, Toast.LENGTH_LONG).show();
-                        finaliseRawVideo(true);
+                    if(stats.memoryUse > 0.75f) {
+                        mBinding.previewFrame.memoryUsageProgress.getProgressDrawable()
+                                .setTint(getColor(R.color.cancelAction));
                     }
+                    else {
+                        mBinding.previewFrame.memoryUsageProgress.getProgressDrawable()
+                                .setTint(getColor(R.color.acceptAction));
+                    }
+
+                    long sizeMb = stats.size / 1024 / 1024;
+                    long sizeGb = sizeMb / 1024;
+
+                    String size;
+
+                    if(sizeMb > 1024) {
+                        size = sizeGb + " GB";
+                    }
+                    else {
+                        size = sizeMb + " MB";
+                    }
+
+                    String outputFpsText = String.format("%.2f\n%s", stats.fps, getString(R.string.output_fps));
+                    String outputSizeText = String.format("%s\n%s", size, getString(R.string.size));
+
+                    mBinding.previewFrame.outputFps.setText(outputFpsText);
+                    mBinding.previewFrame.outputSize.setText(outputSizeText);
                 });
             }
-        }, 0, 1000);
+        }, 0, 500);
     }
 
     private void finaliseRawVideo(boolean showProgress) {
@@ -968,19 +998,21 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.previewFrame.previewControlBtns.setVisibility(View.GONE);
         mBinding.previewFrame.previewAdjustments.setVisibility(View.GONE);
 
-        if(mSettings.useDualExposure && mNativeCamera != null) {
+        if(mNativeCamera != null) {
             mNativeCamera.setFrameRate(mSettings.frameRate);
             mNativeCamera.setVideoCropPercentage(mSettings.horizontalVideoCrop, mSettings.verticalVideoCrop);
             mNativeCamera.setVideoBin(mSettings.videoBin);
             mNativeCamera.adjustMemory(mSettings.rawVideoMemoryUseBytes);
 
             // Disable RAW preview
-            mNativeCamera.disableRawPreview();
+            if(mSettings.useDualExposure) {
+                mNativeCamera.disableRawPreview();
 
-            mBinding.rawCameraPreview.setVisibility(View.GONE);
-            mBinding.shadowsLayout.setVisibility(View.GONE);
+                mBinding.rawCameraPreview.setVisibility(View.GONE);
+                mBinding.shadowsLayout.setVisibility(View.GONE);
 
-            mTextureView.setAlpha(1);
+                mTextureView.setAlpha(1);
+            }
         }
     }
 
@@ -2211,6 +2243,7 @@ public class CameraActivity extends AppCompatActivity implements
         runOnUiThread(() -> {
             mBinding.captureBtn.setEnabled(true);
             mBinding.captureProgressBar.setVisibility(View.INVISIBLE);
+            mBinding.captureProgressBar.setIndeterminateMode(false);
         });
     }
 

@@ -14,7 +14,7 @@ android {
         applicationId "com.motioncam"
         minSdkVersion 24
         targetSdkVersion 31
-        versionCode 83
+        versionCode 84
         versionName "7.0.8-beta"
         externalNativeBuild {
             cmake {
@@ -55,6 +55,7 @@ android {
     buildFeatures {
         dataBinding true
         viewBinding true
+        prefab true
     }
     buildToolsVersion '31.0.0'
     ndkVersion '23.1.7779620'
@@ -81,4 +82,5 @@ dependencies {
     implementation 'com.google.mlkit:face-detection:16.1.2'
     implementation 'com.google.android.gms:play-services-location:18.0.0'
     implementation "androidx.work:work-runtime:$work_version"
+    implementation 'com.google.oboe:oboe:1.6.1'
 }

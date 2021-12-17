@@ -10,6 +10,7 @@
 
 #include "NativeCameraBridgeListener.h"
 #include "NativeRawPreviewListener.h"
+#include "AudioRecorder.h"
 
 #include "camera/CameraSession.h"
 #include "camera/Exceptions.h"
@@ -27,6 +28,8 @@ namespace {
     std::shared_ptr<NativeCameraBridgeListener> gCameraSessionListener = nullptr;
     std::shared_ptr<CaptureSessionManager> gCaptureSessionManager = nullptr;
     std::shared_ptr<motioncam::ImageProcessor> gImageProcessor = nullptr;
+    std::shared_ptr<motioncam::AudioInterface> gAudioRecorder = nullptr;
+
     int gCaptureSessionManagerRefs = 0;
 
     std::string gLastError;
@@ -1028,23 +1031,43 @@ void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_PrepareHdrCaptu
 }
 
 extern "C"
-JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_StartStreamToFile(
-        JNIEnv *env, jobject thiz, jlong handle, jint fd)
+JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_StartStreamToFile(
+        JNIEnv *env, jobject thiz, jlong handle, jint fd0, jint fd1, jint audioFd)
 {
     std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
     if(!sessionManager) {
-        return;
+        return JNI_FALSE;
     }
 
     auto cameraId = sessionManager->getSelectedCameraId();
     auto metadata = sessionManager->getCameraDescription(cameraId)->metadata;
 
-    RawBufferManager::get().enableStreaming(fd, metadata);
+    std::vector<int> fds;
+
+    if(fd0 >= 0)
+        fds.push_back(fd0);
+
+    if(fd1 >= 0)
+        fds.push_back(fd1);
+
+    if(fds.empty())
+        return JNI_FALSE;
+
+    if(gAudioRecorder)
+        return JNI_FALSE;
+
+    gAudioRecorder = std::make_shared<AudioRecorder>();
+
+    RawBufferManager::get().enableStreaming(fds, audioFd, gAudioRecorder, metadata);
+
+    return JNI_TRUE;
 }
 
 extern "C"
 JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_EndStream(JNIEnv *env, jobject thiz, jlong handle) {
     RawBufferManager::get().endStreaming();
+
+    gAudioRecorder = nullptr;
 }
 
 extern "C"
@@ -1066,8 +1089,21 @@ JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_SetVi
 }
 
 extern "C"
-JNIEXPORT jfloat JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GetVideoBufferUse(JNIEnv *env, jobject thiz, jlong handle) {
-    return RawBufferManager::get().bufferSpaceUse();
+JNIEXPORT jobject JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GetVideoRecordingStats(JNIEnv *env, jobject thiz, jlong handle) {
+
+    size_t memoryUseBytes, writtenBytes;
+    float fps;
+
+    RawBufferManager::get().recordingStats(memoryUseBytes, fps, writtenBytes);
+    float bufferUse = RawBufferManager::get().bufferSpaceUse();
+
+    jclass nativeClass = env->FindClass("com/motioncam/camera/VideoRecordingStats");
+    return env->NewObject(
+            nativeClass,
+            env->GetMethodID(nativeClass, "<init>", "(FFJ)V"),
+            bufferUse,
+            fps,
+            static_cast<jlong>(writtenBytes));
 }
 
 extern "C"

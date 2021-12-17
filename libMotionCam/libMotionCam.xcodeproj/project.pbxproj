@@ -176,6 +176,9 @@
 		459D44C22752BB4600E68BF9 /* camera_video_preview4_raw16.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 459D44B62752BB4600E68BF9 /* camera_video_preview4_raw16.a */; };
 		459D44C32752BB4600E68BF9 /* camera_video_preview2_raw16.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 459D44B72752BB4600E68BF9 /* camera_video_preview2_raw16.a */; };
 		459D44C42752BB4600E68BF9 /* camera_video_preview3_raw10.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 459D44B82752BB4600E68BF9 /* camera_video_preview3_raw10.a */; };
+		45C6A3DE276B3B6300042058 /* AudioInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = 45C6A3DD276B3B6300042058 /* AudioInterface.h */; };
+		45C6A3E2276B438200042058 /* tinywav.c in Sources */ = {isa = PBXBuildFile; fileRef = 45C6A3E0276B438200042058 /* tinywav.c */; };
+		45C6A3E3276B438200042058 /* tinywav.h in Headers */ = {isa = PBXBuildFile; fileRef = 45C6A3E1276B438200042058 /* tinywav.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -475,6 +478,9 @@
 		45B9265426F891C900DF6EC3 /* FaceClassifier.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FaceClassifier.h; sourceTree = "<group>"; };
 		45C3BBF42314206100EAABB8 /* blockingconcurrentqueue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = blockingconcurrentqueue.h; sourceTree = "<group>"; };
 		45C3BBF52314206100EAABB8 /* concurrentqueue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = concurrentqueue.h; sourceTree = "<group>"; };
+		45C6A3DD276B3B6300042058 /* AudioInterface.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AudioInterface.h; sourceTree = "<group>"; };
+		45C6A3E0276B438200042058 /* tinywav.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tinywav.c; sourceTree = "<group>"; };
+		45C6A3E1276B438200042058 /* tinywav.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tinywav.h; sourceTree = "<group>"; };
 		45FA2E6D1FF8118A00BE34C3 /* CameraProfile.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CameraProfile.cpp; sourceTree = "<group>"; };
 		45FA2E731FF82F6200BE34C3 /* Temperature.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Temperature.cpp; sourceTree = "<group>"; };
 		45FA2E771FF8333000BE34C3 /* Color.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Color.cpp; sourceTree = "<group>"; };
@@ -600,6 +606,7 @@
 		450E1E4B214AE37100C1B27A /* motioncam */ = {
 			isa = PBXGroup;
 			children = (
+				45C6A3DD276B3B6300042058 /* AudioInterface.h */,
 				452B6CC126A02FD100992FB4 /* BlueNoiseLUT.h */,
 				45A340A2260B887700405A85 /* CameraPreview.h */,
 				450E1E66214D290300C1B27A /* CameraProfile.h */,
@@ -807,6 +814,15 @@
 			path = queue/queue;
 			sourceTree = "<group>";
 		};
+		45C6A3DF276B438200042058 /* tinywav */ = {
+			isa = PBXGroup;
+			children = (
+				45C6A3E0276B438200042058 /* tinywav.c */,
+				45C6A3E1276B438200042058 /* tinywav.h */,
+			);
+			path = tinywav;
+			sourceTree = "<group>";
+		};
 		45CA974B2317214900698BBE /* halide */ = {
 			isa = PBXGroup;
 			children = (
@@ -956,6 +972,7 @@
 		45FA2E611FF7DFC400BE34C3 /* thirdparty */ = {
 			isa = PBXGroup;
 			children = (
+				45C6A3DF276B438200042058 /* tinywav */,
 				457B8EB32218401F004E4E7A /* dng */,
 				45FA2E621FF7DFC400BE34C3 /* json11 */,
 				458976A92449DACF008F348E /* miniz */,
@@ -1078,8 +1095,10 @@
 				459D44BE2752BB4600E68BF9 /* camera_video_preview2_raw10.h in Headers */,
 				4521E0172732E69800DEBD25 /* preview_portrait2.h in Headers */,
 				4521E0292732E69900DEBD25 /* preview_reverse_landscape2.h in Headers */,
+				45C6A3DE276B3B6300042058 /* AudioInterface.h in Headers */,
 				4521E0332732E69900DEBD25 /* preview_landscape4.h in Headers */,
 				4521E03C2732E69900DEBD25 /* linear_image.h in Headers */,
+				45C6A3E3276B438200042058 /* tinywav.h in Headers */,
 				4521E0452732E69900DEBD25 /* preview_reverse_landscape8.h in Headers */,
 				4521E00B2732E69800DEBD25 /* preview_reverse_portrait4.h in Headers */,
 				4521E0272732E69900DEBD25 /* postprocess.h in Headers */,
@@ -1241,6 +1260,7 @@
 				45684CB72720AC24004E7A12 /* Color.cpp in Sources */,
 				45684CB82720AC24004E7A12 /* ImageOps.cpp in Sources */,
 				45684CB92720AC24004E7A12 /* ImageProcessor.cpp in Sources */,
+				45C6A3E2276B438200042058 /* tinywav.c in Sources */,
 				45684CBA2720AC24004E7A12 /* Logger.cpp in Sources */,
 				45684CBB2720AC24004E7A12 /* Measure.cpp in Sources */,
 				45684CBC2720AC24004E7A12 /* RawBufferManager.cpp in Sources */,
@@ -1273,6 +1293,7 @@
 					./thirdparty/dng_sdk,
 					./thirdparty/queue,
 					./thirdparty/miniz,
+					./thirdparty/tinywav,
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1307,6 +1328,7 @@
 					./thirdparty/dng_sdk,
 					./thirdparty/queue,
 					./thirdparty/miniz,
+					./thirdparty/tinywav,
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
