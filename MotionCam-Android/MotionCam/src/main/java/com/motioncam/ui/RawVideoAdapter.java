@@ -13,17 +13,16 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.documentfile.provider.DocumentFile;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.motioncam.R;
 import com.motioncam.camera.AsyncNativeCameraOps;
 import com.motioncam.processor.ContainerMetadata;
 
-import java.io.File;
 import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -35,12 +34,12 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
     private final Context mContext;
 
     interface OnQueueListener {
-        void onQueueClicked(Uri uri);
-        void onDeleteClicked(Uri uri);
+        void onQueueClicked(VideoEntry entry);
+        void onDeleteClicked(VideoEntry entry);
     }
 
     static class Item {
-        Uri uri;
+        VideoEntry entry;
         int numFrames;
         float frameRate;
         boolean haveMetadata;
@@ -48,8 +47,8 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         boolean isQueued;
         List<Bitmap> previewImages;
 
-        Item(Uri uri) {
-            this.uri = uri;
+        Item(VideoEntry entry) {
+            this.entry = entry;
             this.numFrames = 0;
             this.frameRate = 0;
             this.haveMetadata = false;
@@ -117,11 +116,11 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         }
     }
 
-    public RawVideoAdapter(Context context, Uri[] uris, OnQueueListener listener) {
+    public RawVideoAdapter(Context context, Collection<VideoEntry> entries, OnQueueListener listener) {
         mItems = new ArrayList<>();
 
-        for(Uri uri : uris) {
-            mItems.add(new Item(uri));
+        for(VideoEntry entry : entries) {
+            mItems.add(new Item(entry));
         }
 
         mListener = listener;
@@ -144,32 +143,16 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
     public void onBindViewHolder(ViewHolder viewHolder, final int position) {
         Item item = mItems.get(position);
 
-        String name;
-        long modifiedTime;
-
-        if(item.uri.getScheme().equalsIgnoreCase("file")) {
-            File file = new File(item.uri.getPath());
-
-            name = file.getName();
-            modifiedTime = file.lastModified();
-        }
-        else {
-            DocumentFile documentFile = DocumentFile.fromSingleUri(mContext, item.uri);
-
-            name = documentFile.getName();
-            modifiedTime = documentFile.lastModified();
-        }
-
-        viewHolder.getFileNameView().setText(name);
+        viewHolder.getFileNameView().setText(item.entry.getName());
 
         // Buttons
-        Date createdDate = new Date(modifiedTime);
+        Date createdDate = new Date(item.entry.getCreatedAt());
 
         viewHolder.getCaptureTime().setText(FORMATTER.format(createdDate));
         viewHolder.getQueueVideoBtn().setOnClickListener((v) ->
-                mListener.onQueueClicked(item.uri));
+                mListener.onQueueClicked(item.entry));
 
-        viewHolder.getDeleteVideoBtn().setOnClickListener((v) -> mListener.onDeleteClicked(item.uri));
+        viewHolder.getDeleteVideoBtn().setOnClickListener((v) -> mListener.onDeleteClicked(item.entry));
 
         // Metadata
         viewHolder.getFrameRate().setText(String.valueOf(Math.round(item.frameRate)));
@@ -208,14 +191,14 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         }
 
         if(!item.haveMetadata) {
-            mNativeOps.getContainerMetadata(mContext, item.uri, this);
+            mNativeOps.getContainerMetadata(mContext, item.entry.getVideoUri(), this);
         }
 
         ViewGroup previewList = viewHolder.getPreviewList();
         previewList.removeAllViews();
 
         if(item.previewImages == null) {
-            mNativeOps.generateVideoPreview(mContext, item.uri, 8, this);
+            mNativeOps.generateVideoPreview(mContext, item.entry.getVideoUri(), 8, this);
         }
         else {
             int pixels = (int) TypedValue.applyDimension(
@@ -240,14 +223,14 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
 
     @Override
     public long getItemId(int position) {
-        return mItems.get(position).uri.hashCode();
+        return mItems.get(position).entry.getName().hashCode();
     }
 
-    public int remove(Uri uri) {
+    public int remove(VideoEntry entry) {
         for(int i = 0; i < mItems.size(); i++) {
             Item item = mItems.get(i);
 
-            if (item.uri.equals(uri)) {
+            if (item.entry.getVideoUri().equals(entry.getVideoUri())) {
                 mItems.remove(i);
                 notifyItemRemoved(i);
                 break;
@@ -257,11 +240,11 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         return mItems.size();
     }
 
-    public void update(Uri inputUri, boolean isQueued, int progress) {
+    public void update(Uri videoUri, boolean isQueued, int progress) {
         for(int i = 0; i < mItems.size(); i++) {
             Item item = mItems.get(i);
 
-            if(item.uri.equals(inputUri)) {
+            if(item.entry.getVideoUri().equals(videoUri)) {
                 item.isQueued = isQueued;
                 item.progress = progress;
                 notifyItemChanged(i);
@@ -275,7 +258,7 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         for(int i = 0; i < mItems.size(); i++) {
             Item item = mItems.get(i);
 
-            if(item.uri.equals(inputUri)) {
+            if(item.entry.getVideoUri().equals(inputUri)) {
                 item.frameRate = metadata.frameRate;
                 item.numFrames = metadata.numFrames;
                 item.haveMetadata = true;
@@ -291,7 +274,7 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         for(int i = 0; i < mItems.size(); i++) {
             Item item = mItems.get(i);
 
-            if(item.uri.equals(inputUri)) {
+            if(item.entry.getVideoUri().equals(inputUri)) {
                 item.previewImages = previewImages;
                 notifyItemChanged(i);
                 break;

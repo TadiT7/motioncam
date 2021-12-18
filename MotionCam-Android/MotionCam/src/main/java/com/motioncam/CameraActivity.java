@@ -683,10 +683,10 @@ public class CameraActivity extends AppCompatActivity implements
         Log.i(TAG, "Starting RAW video recording (max memory usage: " + mSettings.rawVideoMemoryUseBytes + ")");
 
         // Try to get a writable fd
-        String videoName = CameraProfile.generateFilename("VIDEO", ".zip");
-        String audioName = videoName.replace(".zip", ".wav");
+        String videoName = CameraProfile.generateFilename("VIDEO", ".container");
+        String audioName = videoName.replace(".container", ".wav");
 
-        int videoFd = getRecordingFd(videoName, "application/zip");
+        int videoFd = getRecordingFd(videoName, "application/octet-stream");
         int audioFd = getRecordingFd(audioName, "audio/wav");
 
         if(videoFd < 0) {
@@ -748,16 +748,16 @@ public class CameraActivity extends AppCompatActivity implements
                                 .setTint(getColor(R.color.acceptAction));
                     }
 
-                    long sizeMb = stats.size / 1024 / 1024;
-                    long sizeGb = sizeMb / 1024;
+                    float sizeMb = stats.size / 1024.0f / 1024.0f;
+                    float sizeGb = sizeMb / 1024.0f;
 
                     String size;
 
                     if(sizeMb > 1024) {
-                        size = sizeGb + " GB";
+                        size = String.format("%.2f GB", sizeGb);
                     }
                     else {
-                        size = sizeMb + " MB";
+                        size = String.format("%d MB", Math.round(sizeMb));
                     }
 
                     String outputFpsText = String.format("%.2f\n%s", stats.fps, getString(R.string.output_fps));

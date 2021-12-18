@@ -231,7 +231,8 @@ namespace motioncam {
             width(0),
             height(0),
             rowStride(0),
-            isCompressed(false)
+            isCompressed(false),
+            offset(0)
         {
         }
         
@@ -241,7 +242,8 @@ namespace motioncam {
             width(0),
             height(0),
             rowStride(0),
-            isCompressed(false)
+            isCompressed(false),
+            offset(0)
         {
         }
 
@@ -251,7 +253,8 @@ namespace motioncam {
             width(other.width),
             height(other.height),
             rowStride(other.rowStride),
-            isCompressed(other.isCompressed)
+            isCompressed(other.isCompressed),
+            offset(other.offset)
         {
             data = other.data->clone();
         }
@@ -263,7 +266,8 @@ namespace motioncam {
                 width(other.width),
                 height(other.height),
                 rowStride(other.rowStride),
-                isCompressed(other.isCompressed)
+                isCompressed(other.isCompressed),
+                offset(other.offset)
         {
         }
 
@@ -275,8 +279,19 @@ namespace motioncam {
             height = obj.height;
             rowStride = obj.rowStride;
             isCompressed = obj.isCompressed;
-
+            offset = obj.offset;
+            
             return *this;
+        }
+        
+        void shallowCopy(const RawImageBuffer &obj) {
+            metadata = obj.metadata;
+            pixelFormat = obj.pixelFormat;
+            width = obj.width;
+            height = obj.height;
+            rowStride = obj.rowStride;
+            isCompressed = obj.isCompressed;
+            offset = obj.offset;
         }
 
         std::unique_ptr<NativeBuffer> data;
@@ -286,6 +301,7 @@ namespace motioncam {
         int32_t height;
         int32_t rowStride;
         bool isCompressed;
+        uint64_t offset;
     };
 
     struct RawCameraMetadata {

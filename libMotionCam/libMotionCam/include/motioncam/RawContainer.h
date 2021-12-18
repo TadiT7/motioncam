@@ -28,6 +28,8 @@ namespace motioncam {
                      const bool isHdr,
                      const std::vector<std::shared_ptr<RawImageBuffer>>& buffers);
 
+        ~RawContainer();
+        
         const RawCameraMetadata& getCameraMetadata() const;
         const PostProcessSettings& getPostProcessSettings() const;
 
@@ -41,16 +43,24 @@ namespace motioncam {
         std::shared_ptr<RawImageBuffer> loadFrame(const std::string& frame) const;
         void removeFrame(const std::string& frame);
         
+        bool create(const int fd);
+        bool append(const int fd, const RawImageBuffer& frame);
+        bool commit(const int fd);
+        
         void save(const int fd);
         void save(const std::string& outputPath);
         void save(util::ZipWriter& writer);
-        
-        static size_t append(util::ZipWriter& zipWriter, const RawImageBuffer& frame);
-        
+                
         bool isInMemory() const { return mIsInMemory; };
         
     private:
-        void initialise();
+        void initialise(const std::string& inputPath);
+        void initialise(const int fd);
+        void loadFromBin(FILE* file);
+        void loadFromZip(std::unique_ptr<util::ZipReader> zipReader);
+        
+        void generateContainerMetadata(json11::Json::object& metadataJson);
+        void loadContainerMetadata(const json11::Json& metadata);
         
         static std::string getRequiredSettingAsString(const json11::Json& json, const std::string& key);
         static int getRequiredSettingAsInt(const json11::Json& json, const std::string& key);
@@ -71,6 +81,8 @@ namespace motioncam {
 
     private:
         std::unique_ptr<util::ZipReader> mZipReader;
+        FILE* mFile;
+        
         RawCameraMetadata mCameraMetadata;
         PostProcessSettings mPostProcessSettings;
         int64_t mReferenceTimestamp;

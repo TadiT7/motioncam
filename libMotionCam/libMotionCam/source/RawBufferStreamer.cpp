@@ -33,6 +33,17 @@ namespace motioncam {
     }
 
     static inline __attribute__((always_inline))
+    uint16_t RAW12(uint8_t* data, int16_t x, int16_t y, const uint16_t stride) {
+        const uint16_t X = (x / 3) * 3;
+        const uint32_t xoffset = (y * stride) + ((12*X) >> 3);
+        
+        uint16_t p = x - X;
+        uint8_t shift = p << 2;
+        
+        return (((uint16_t) data[xoffset + p]) << 2) | ((((uint16_t) data[xoffset + 2]) >> shift) & 0x0F);
+    }
+
+    static inline __attribute__((always_inline))
     uint16_t RAW16(uint8_t* data, int16_t x, int16_t y, const uint16_t stride) {
         const uint32_t offset = (y*stride) + (x*2);
         
@@ -248,7 +259,7 @@ namespace motioncam {
 
                         const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
                         
-                        const uint16_t X = (x >> 1) + (ix - x);
+                        const uint16_t X = ((x - xstart) >> 1) + (ix - x);
 
                         row0[X] = out;
                     }
@@ -276,7 +287,7 @@ namespace motioncam {
 
                         const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                        const uint16_t X = (x >> 1) + (ix - x);
+                        const uint16_t X = ((x - xstart) >> 1) + (ix - x);
 
                         row0[X] = out;
                     }
@@ -307,7 +318,7 @@ namespace motioncam {
 
                         const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                        const uint16_t X = (x >> 1) + (ix - x);
+                        const uint16_t X = ((x - xstart) >> 1) + (ix - x);
 
                         row1[X] = out;
                     }
@@ -335,7 +346,7 @@ namespace motioncam {
 
                         const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                        const uint16_t X = (x >> 1) + (ix - x);
+                        const uint16_t X = ((x - xstart) >> 1) + (ix - x);
 
                         row1[X] = out;
                     }
@@ -417,7 +428,7 @@ namespace motioncam {
 
                         const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
                         
-                        const uint16_t X = (x >> 1) + (ix - x);
+                        const uint16_t X = ((x - xstart) >> 1) + (ix - x);
 
                         row0[X] = out;
                     }
@@ -445,7 +456,7 @@ namespace motioncam {
 
                         const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                        const uint16_t X = (x >> 1) + (ix - x);
+                        const uint16_t X = ((x - xstart) >> 1) + (ix - x);
 
                         row0[X] = out;
                     }
@@ -476,7 +487,7 @@ namespace motioncam {
 
                         const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                        const uint16_t X = (x >> 1) + (ix - x);
+                        const uint16_t X = ((x - xstart) >> 1) + (ix - x);
 
                         row1[X] = out;
                     }
@@ -504,7 +515,7 @@ namespace motioncam {
 
                         const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                        const uint16_t X = (x >> 1) + (ix - x);
+                        const uint16_t X = ((x - xstart) >> 1) + (ix - x);
 
                         row1[X] = out;
                     }
@@ -693,6 +704,13 @@ namespace motioncam {
         return inputBuffer.data->len();
     }
 
+    void RawBufferStreamer::processBuffer(std::shared_ptr<RawImageBuffer> buffer) {
+        if(mBin)
+            cropAndBin(*buffer);
+        else
+            crop(*buffer);
+    }
+
     void RawBufferStreamer::doProcess() {
         std::shared_ptr<RawImageBuffer> buffer;
         
@@ -701,11 +719,7 @@ namespace motioncam {
                 continue;
             }
             
-            // Crop the buffer
-            if(mBin)
-                cropAndBin(*buffer);
-            else
-                crop(*buffer);
+            processBuffer(buffer);
             
             // Add to the ready list
             mReadyBuffers.enqueue(buffer);
@@ -733,13 +747,17 @@ namespace motioncam {
     }
 
     void RawBufferStreamer::doStream(const int fd, const RawCameraMetadata& cameraMetadata) {
-        util::ZipWriter writer(fd);
+        util::CloseableFd fdContext(fd);
+        
         std::shared_ptr<RawImageBuffer> buffer;
-
-        std::unique_ptr<RawContainer> container = std::unique_ptr<RawContainer>(new RawContainer(cameraMetadata));
-        container->save(writer);
-
+        RawContainer container(cameraMetadata);
         size_t start, end;
+
+        if(!container.create(fd)) {
+            logger::log("Failed to create container");
+            // TODO: report back error
+            return;
+        }
 
         while(mRunning) {
             if(!mCompressedBuffers.try_dequeue(buffer)) {
@@ -748,51 +766,74 @@ namespace motioncam {
                 }
             }
 
+            if(!container.append(fd, *buffer)) {
+                logger::log("Failed to append buffer");
+                RawBufferManager::get().discardBuffer(buffer);
+                return;
+            }
+
             start = end = 0;
             buffer->data->getValidRange(start, end);
 
-            RawContainer::append(writer, *buffer);
-
             // Return the buffer after it has been written
             RawBufferManager::get().discardBuffer(buffer);
-            
-            mWrittenBytes += end - start;
+
+            mWrittenBytes += (end - start);
             mWrittenFrames++;
         }
-        
+
         //
         // Flush buffers
         //
 
         // Compressed first
         while(mCompressedBuffers.try_dequeue(buffer)) {
-            RawContainer::append(writer, *buffer);
-            mWrittenFrames++;
+            if(!container.append(fd, *buffer)) {
+                logger::log("Failed to flush compressed buffer");
+                RawBufferManager::get().discardBuffer(buffer);
+                return;
+            }
             
+            buffer->data->getValidRange(start, end);
+            mWrittenBytes += (end - start);
+            mWrittenFrames++;
+
             RawBufferManager::get().discardBuffer(buffer);
         }
 
         // Ready buffers
         while(mReadyBuffers.try_dequeue(buffer)) {
-            RawContainer::append(writer, *buffer);
-            
+            if(!container.append(fd, *buffer)) {
+                logger::log("Failed to flush ready buffer");
+                RawBufferManager::get().discardBuffer(buffer);
+                return;
+            }
+
+            buffer->data->getValidRange(start, end);
+            mWrittenBytes += (end - start);
+            mWrittenFrames++;
+
             RawBufferManager::get().discardBuffer(buffer);
         }
 
         // Unprocessed buffers
         while(mUnprocessedBuffers.try_dequeue(buffer)) {
-            if(mBin)
-                cropAndBin(*buffer);
-            else
-                crop(*buffer);
+            processBuffer(buffer);
             
-            RawContainer::append(writer, *buffer);
+            if(!container.append(fd, *buffer)) {
+                logger::log("Failed to flush unprocessed buffer");
+                RawBufferManager::get().discardBuffer(buffer);
+                return;
+            }
+
+            buffer->data->getValidRange(start, end);
+            mWrittenBytes += (end - start);
             mWrittenFrames++;
-            
+
             RawBufferManager::get().discardBuffer(buffer);
         }
 
-        writer.commit();
+        container.commit(fd);
     }
 
     bool RawBufferStreamer::isRunning() const {

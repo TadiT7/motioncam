@@ -76,11 +76,19 @@ private:
 
 namespace motioncam {
     namespace util {
+        CloseableFd::CloseableFd(const int fd) : mFd(fd) {
+        }
+    
+        CloseableFd::~CloseableFd() {
+            if(mFd >= 0)
+                close(mFd);
+        }
+    
         //
         // Very basic zip writer
         //
     
-        ZipWriter::ZipWriter(const int fd, bool append) : mZip{ 0 }, mCommited(false) {
+        ZipWriter::ZipWriter(const int fd, bool append) : mFile(nullptr), mZip{ 0 }, mCommited(false) {
             if(append) {
                 mFile = fdopen(fd, "w");
 
@@ -172,9 +180,8 @@ namespace motioncam {
         // Very basic zip reader
         //
 
-        ZipReader::ZipReader(const int fd) : mZip{ 0 } {
-            mFile = fdopen(fd, "r");
-            
+        ZipReader::ZipReader(FILE* file) : mZip{ 0 }, mFile(file)
+        {
             if(!mz_zip_reader_init_cfile(&mZip, mFile, 0, 0)) {
                 throw IOException("Can't read from fd");
             }
@@ -752,6 +759,15 @@ namespace motioncam {
             }
             
             delete memoryBlock;
+        }
+    
+        bool EndsWith(const std::string& str, const std::string& ending) {
+            if (str.length() >= ending.length()) {
+                return str.compare(str.length() - ending.length(), ending.length(), ending) == 0;
+            }
+            else {
+                return false;
+            }
         }
     }
 }

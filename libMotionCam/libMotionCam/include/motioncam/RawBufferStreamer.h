@@ -42,6 +42,8 @@ namespace motioncam {
         void doCompress();
         void doStream(const int fd, const RawCameraMetadata& cameraMetadata);
         
+        void processBuffer(std::shared_ptr<RawImageBuffer> buffer);
+        
     private:
         std::shared_ptr<AudioInterface> mAudioInterface;
         int mAudioFd;

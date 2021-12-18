@@ -10,8 +10,7 @@
 #include "motioncam/ImageOps.h"
 #include "motioncam/BlueNoiseLUT.h"
 #include "motioncam/FaceClassifier.h"
-
-#include <zstd.h>
+#include "motioncam/RawBufferStreamer.h"
 
 // Halide
 #include "generate_edges.h"
