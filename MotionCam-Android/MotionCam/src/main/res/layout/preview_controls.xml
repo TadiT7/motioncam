@@ -157,7 +157,34 @@
             android:text="@string/manage_videos"/>
 
         <LinearLayout
-            android:id="@+id/horizontalCrop"
+            android:id="@+id/widthCrop"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:padding="5dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
+                android:text="W"/>
+
+            <SeekBar
+                android:id="@+id/widthCropSeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:progress="0"
+                android:progressBackgroundTint="@color/white"
+                android:thumbTint="@color/white"
+                android:progressTint="@color/white"
+                android:max="60"
+                android:theme="@style/Widget.AppCompat.SeekBar.Discrete" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/heightCrop"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:visibility="gone"
@@ -171,34 +198,7 @@
                 android:text="H"/>
 
             <SeekBar
-                android:id="@+id/horizontalCropSeekBar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:progress="0"
-                android:progressBackgroundTint="@color/white"
-                android:thumbTint="@color/white"
-                android:progressTint="@color/white"
-                android:max="60"
-                android:theme="@style/Widget.AppCompat.SeekBar.Discrete" />
-
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/verticalCrop"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:visibility="gone"
-            android:padding="5dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
-                android:text="V"/>
-
-            <SeekBar
-                android:id="@+id/verticalCropSeekBar"
+                android:id="@+id/heightCropSeekBar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:progress="0"

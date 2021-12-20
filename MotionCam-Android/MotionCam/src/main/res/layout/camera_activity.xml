@@ -152,6 +152,24 @@
             app:layout_constraintTop_toTopOf="@+id/cameraFrame"
             app:layout_constraintBottom_toBottomOf="@+id/cameraFrame"/>
 
+<!--        <FrameLayout-->
+<!--            android:id="@+id/cameraSettings"-->
+<!--            android:layout_width="300dp"-->
+<!--            android:layout_height="200dp"-->
+<!--            android:background="@color/black_transparent"-->
+<!--            android:layout_marginTop="10dp"-->
+<!--            app:layout_constraintEnd_toEndOf="parent"-->
+<!--            app:layout_constraintStart_toStartOf="@+id/cameraFrame"-->
+<!--            app:layout_constraintTop_toTopOf="@+id/cameraFrame">-->
+
+<!--            <ScrollView-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="match_parent">-->
+<!--                <include layout="@layout/camera_settings" />-->
+<!--            </ScrollView>-->
+
+<!--        </FrameLayout>-->
+
         <LinearLayout
             android:id="@+id/manualControlsFrame"
             android:layout_width="0dp"

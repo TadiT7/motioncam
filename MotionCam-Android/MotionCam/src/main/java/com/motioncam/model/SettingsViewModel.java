@@ -31,8 +31,8 @@ public class SettingsViewModel extends ViewModel {
     public static final String PREFS_KEY_UI_CAPTURE_MODE                    = "ui_capture_mode";
     public static final String PREFS_KEY_UI_SAVE_RAW                        = "ui_save_raw";
     public static final String PREFS_KEY_UI_HDR                             = "ui_hdr";
-    public static final String PREFS_KEY_UI_HORIZONTAL_VIDEO_CROP           = "ui_horizontal_video_crop";
-    public static final String PREFS_KEY_UI_VERTICAL_VIDEO_CROP             = "ui_vertical_video_crop";
+    public static final String PREFS_KEY_UI_WIDTH_VIDEO_CROP                = "ui_width_video_crop";
+    public static final String PREFS_KEY_UI_HEIGHT_VIDEO_CROP               = "ui_height_video_crop";
     public static final String PREFS_KEY_UI_FRAME_RATE                      = "ui_frame_rate";
     public static final String PREFS_KEY_UI_VIDEO_BIN                       = "ui_video_bin";
     public static final String PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI          = "raw_video_temp_output_uri";

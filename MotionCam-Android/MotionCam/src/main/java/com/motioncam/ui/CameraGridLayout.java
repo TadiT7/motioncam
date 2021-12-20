@@ -17,8 +17,8 @@ public class CameraGridLayout extends FrameLayout {
     private Paint mPaintCrop;
 
     private boolean mCropMode;
-    private int mCropHorizontal;
-    private int mCropVertical;
+    private int mCropHeight;
+    private int mCropWidth;
 
     public CameraGridLayout(@NonNull Context context) {
         super(context);
@@ -63,10 +63,11 @@ public class CameraGridLayout extends FrameLayout {
         mPaintCrop.setColor(getContext().getColor(R.color.background));
     }
 
-    public void setCropMode(boolean cropMode, int cropHorizontal, int cropVertical) {
+    public void setCropMode(boolean cropMode, int cropWidth, int cropHeight) {
         mCropMode = cropMode;
-        mCropHorizontal = cropHorizontal;
-        mCropVertical = cropVertical;
+
+        mCropWidth = cropWidth;
+        mCropHeight = cropHeight;
 
         invalidate();
     }
@@ -79,8 +80,8 @@ public class CameraGridLayout extends FrameLayout {
         int height = getHeight();
 
         if(mCropMode) {
-            float croppedWidth = 0.5f * (width * (mCropHorizontal / 100.0f));
-            float croppedHeight = 0.5f * (width * (mCropVertical / 100.0f));
+            float croppedWidth = 0.5f * (width * (mCropWidth / 100.0f));
+            float croppedHeight = 0.5f * (height * (mCropHeight / 100.0f));
 
             // Top
             canvas.drawRect(

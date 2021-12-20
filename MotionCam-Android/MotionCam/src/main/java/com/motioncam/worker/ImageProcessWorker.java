@@ -331,7 +331,6 @@ public class ImageProcessWorker extends Worker implements NativeProcessorProgres
         List<WorkResult> completedFiles = new ArrayList<>();
 
         completedFiles.addAll(processInMemory(mPreviewDirectory));
-
         completedFiles.addAll(processOnStorage(mPreviewDirectory));
 
         mNotifyManager.cancel(NOTIFICATION_ID);

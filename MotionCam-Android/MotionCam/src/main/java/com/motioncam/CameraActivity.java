@@ -164,8 +164,8 @@ public class CameraActivity extends AppCompatActivity implements
         CaptureMode captureMode;
         SettingsViewModel.RawMode rawMode;
         int cameraPreviewQuality;
-        int horizontalVideoCrop;
-        int verticalVideoCrop;
+        int widthVideoCrop;
+        int heightVideoCrop;
         int frameRate;
         boolean videoBin;
         Uri rawVideoRecordingTempUri;
@@ -179,8 +179,8 @@ public class CameraActivity extends AppCompatActivity implements
             this.saveDng = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_SAVE_RAW, false);
             this.autoNightMode = prefs.getBoolean(SettingsViewModel.PREFS_KEY_AUTO_NIGHT_MODE, true);
             this.hdr = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_HDR, true);
-            this.horizontalVideoCrop = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_HORIZONTAL_VIDEO_CROP, 0);
-            this.verticalVideoCrop = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_VERTICAL_VIDEO_CROP, 0);
+            this.widthVideoCrop = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_WIDTH_VIDEO_CROP, 0);
+            this.heightVideoCrop = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_HEIGHT_VIDEO_CROP, 0);
             this.frameRate = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_FRAME_RATE, 30);
             this.videoBin = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_VIDEO_BIN, false);
 
@@ -227,8 +227,8 @@ public class CameraActivity extends AppCompatActivity implements
                     .putBoolean(SettingsViewModel.PREFS_KEY_UI_SAVE_RAW, this.saveDng)
                     .putBoolean(SettingsViewModel.PREFS_KEY_UI_HDR, this.hdr)
                     .putString(SettingsViewModel.PREFS_KEY_UI_CAPTURE_MODE, this.captureMode.name())
-                    .putInt(SettingsViewModel.PREFS_KEY_UI_HORIZONTAL_VIDEO_CROP, this.horizontalVideoCrop)
-                    .putInt(SettingsViewModel.PREFS_KEY_UI_VERTICAL_VIDEO_CROP, this.verticalVideoCrop)
+                    .putInt(SettingsViewModel.PREFS_KEY_UI_WIDTH_VIDEO_CROP, this.widthVideoCrop)
+                    .putInt(SettingsViewModel.PREFS_KEY_UI_HEIGHT_VIDEO_CROP, this.heightVideoCrop)
                     .putInt(SettingsViewModel.PREFS_KEY_UI_FRAME_RATE, this.frameRate)
                     .putBoolean(SettingsViewModel.PREFS_KEY_UI_VIDEO_BIN, this.videoBin)
                     .apply();
@@ -252,8 +252,8 @@ public class CameraActivity extends AppCompatActivity implements
                     ", captureMode=" + captureMode +
                     ", rawMode=" + rawMode +
                     ", cameraPreviewQuality=" + cameraPreviewQuality +
-                    ", horizontalVideoCrop=" + horizontalVideoCrop +
-                    ", verticalVideoCrop=" + verticalVideoCrop +
+                    ", widthVideoCrop=" + widthVideoCrop +
+                    ", heightVideoCrop=" + heightVideoCrop +
                     ", frameRate=" + frameRate +
                     ", videoBin=" + videoBin +
                     ", rawVideoRecordingTempUri=" + rawVideoRecordingTempUri +
@@ -343,11 +343,11 @@ public class CameraActivity extends AppCompatActivity implements
             else if(seekBar == findViewById(R.id.manualControlSeekBar)) {
                 onManualControlSettingsChanged(progress, fromUser);
             }
-            else if(seekBar == mBinding.previewFrame.horizontalCropSeekBar) {
-                onHorizontalCropChanged(progress, fromUser);
+            else if(seekBar == mBinding.previewFrame.widthCropSeekBar) {
+                onwidthCropChanged(progress, fromUser);
             }
-            else if(seekBar == mBinding.previewFrame.verticalCropSeekBar) {
-                onVerticalCropChanged(progress, fromUser);
+            else if(seekBar == mBinding.previewFrame.heightCropSeekBar) {
+                onheightCropChanged(progress, fromUser);
             }
         }
 
@@ -357,8 +357,8 @@ public class CameraActivity extends AppCompatActivity implements
 
         @Override
         public void onStopTrackingTouch(SeekBar seekBar) {
-            if(seekBar == mBinding.previewFrame.horizontalCropSeekBar
-                || seekBar == mBinding.previewFrame.verticalCropSeekBar) {
+            if(seekBar == mBinding.previewFrame.widthCropSeekBar
+                || seekBar == mBinding.previewFrame.heightCropSeekBar) {
                 toggleVideoCrop();
             }
             else if(seekBar == findViewById(R.id.manualControlSeekBar)) {
@@ -409,7 +409,7 @@ public class CameraActivity extends AppCompatActivity implements
 
         mBinding.focusLockPointFrame.setOnClickListener(v -> onFixedFocusCancelled());
         mBinding.previewFrame.settingsBtn.setOnClickListener(v -> onSettingsClicked());
-        mBinding.previewFrame.processVideoBtn.setOnClickListener(v -> OnProcessVideoClicked());
+        mBinding.previewFrame.processVideoBtn.setOnClickListener(v -> onProcessVideoClicked());
 
         mCameraCapturePreviewAdapter = new CameraCapturePreviewAdapter(getApplicationContext());
         mBinding.previewPager.setAdapter(mCameraCapturePreviewAdapter);
@@ -489,7 +489,7 @@ public class CameraActivity extends AppCompatActivity implements
         startActivityForResult(intent, SETTINGS_ACTIVITY_REQUEST_CODE);
     }
 
-    private void OnProcessVideoClicked() {
+    private void onProcessVideoClicked() {
         Intent intent = new Intent(this, ConvertVideoActivity.class);
         startActivityForResult(intent, CONVERT_VIDEO_ACTIVITY_REQUEST_CODE);
     }
@@ -910,7 +910,7 @@ public class CameraActivity extends AppCompatActivity implements
         String binText = getText(R.string.bin).toString();
 
         mBinding.previewFrame.videoCropToggle.setText(
-                String.format(Locale.US, "%d%% / %d%%\n%s", mSettings.horizontalVideoCrop, mSettings.verticalVideoCrop, cropText));
+                String.format(Locale.US, "%d%% / %d%%\n%s", mSettings.widthVideoCrop, mSettings.heightVideoCrop, cropText));
 
         mBinding.previewFrame.videoFrameRateBtn.setText(
                 String.format(Locale.US, "%d\n%s", mSettings.frameRate, fpsText));
@@ -926,8 +926,8 @@ public class CameraActivity extends AppCompatActivity implements
             int width = captureOutputSize.getWidth() / bin;
             int height = captureOutputSize.getHeight() / bin;
 
-            width = Math.round(width - (mSettings.horizontalVideoCrop / 100.0f) * width);
-            height = Math.round(height - (mSettings.verticalVideoCrop / 100.0f) * height);
+            width = Math.round(width - (mSettings.widthVideoCrop / 100.0f) * width);
+            height = Math.round(height - (mSettings.heightVideoCrop / 100.0f) * height);
 
             width = width / 4 * 4;
             height = height / 2 * 2;
@@ -935,8 +935,9 @@ public class CameraActivity extends AppCompatActivity implements
             mBinding.previewFrame.videoResolution.setText(String.format(Locale.US, "%dx%d\n%s", width, height, resText));
         }
 
-        if(mCaptureMode == CaptureMode.RAW_VIDEO && (mSettings.horizontalVideoCrop > 0 || mSettings.verticalVideoCrop > 0))
-            mBinding.gridLayout.setCropMode(true, mSettings.horizontalVideoCrop, mSettings.verticalVideoCrop);
+        if(mCaptureMode == CaptureMode.RAW_VIDEO && (mSettings.widthVideoCrop > 0 || mSettings.heightVideoCrop > 0))
+            // Swap width/height to match sensor. We are always in portrait mode.
+            mBinding.gridLayout.setCropMode(true, mSettings.heightVideoCrop, mSettings.widthVideoCrop);
         else
             mBinding.gridLayout.setCropMode(false, 0, 0);
     }
@@ -1007,7 +1008,7 @@ public class CameraActivity extends AppCompatActivity implements
 
         if(mNativeCamera != null) {
             mNativeCamera.setFrameRate(mSettings.frameRate);
-            mNativeCamera.setVideoCropPercentage(mSettings.horizontalVideoCrop, mSettings.verticalVideoCrop);
+            mNativeCamera.setVideoCropPercentage(mSettings.widthVideoCrop, mSettings.heightVideoCrop);
             mNativeCamera.setVideoBin(mSettings.videoBin);
             mNativeCamera.adjustMemory(mSettings.rawVideoMemoryUseBytes);
 
@@ -1106,18 +1107,21 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void toggleVideoCrop() {
-        if( mBinding.previewFrame.horizontalCrop.getVisibility() == View.VISIBLE
-            || mBinding.previewFrame.verticalCrop.getVisibility() == View.VISIBLE)
+        if(     mBinding.previewFrame.widthCrop.getVisibility() == View.VISIBLE
+            ||  mBinding.previewFrame.heightCrop.getVisibility() == View.VISIBLE)
         {
-            mBinding.previewFrame.horizontalCrop.setVisibility(View.GONE);
-            mBinding.previewFrame.verticalCrop.setVisibility(View.GONE);
+            mBinding.previewFrame.widthCrop.setVisibility(View.GONE);
+            mBinding.previewFrame.heightCrop.setVisibility(View.GONE);
+            mBinding.previewFrame.processVideoBtn.setVisibility(View.VISIBLE);
         }
         else {
-            mBinding.previewFrame.horizontalCropSeekBar.setProgress(mSettings.horizontalVideoCrop);
-            mBinding.previewFrame.horizontalCrop.setVisibility(View.VISIBLE);
+            mBinding.previewFrame.widthCropSeekBar.setProgress(mSettings.widthVideoCrop);
+            mBinding.previewFrame.widthCrop.setVisibility(View.VISIBLE);
 
-            mBinding.previewFrame.verticalCropSeekBar.setProgress(mSettings.verticalVideoCrop);
-            mBinding.previewFrame.verticalCrop.setVisibility(View.VISIBLE);
+            mBinding.previewFrame.heightCropSeekBar.setProgress(mSettings.heightVideoCrop);
+            mBinding.previewFrame.heightCrop.setVisibility(View.VISIBLE);
+
+            mBinding.previewFrame.processVideoBtn.setVisibility(View.GONE);
         }
     }
 
@@ -1364,18 +1368,18 @@ public class CameraActivity extends AppCompatActivity implements
 //        mOIS = ois;
 //    }
 
-    private void onHorizontalCropChanged(int progress, boolean fromUser) {
-        mSettings.horizontalVideoCrop = progress;
+    private void onwidthCropChanged(int progress, boolean fromUser) {
+        mSettings.widthVideoCrop = progress;
         if(mNativeCamera != null)
-            mNativeCamera.setVideoCropPercentage(mSettings.horizontalVideoCrop, mSettings.verticalVideoCrop);
+            mNativeCamera.setVideoCropPercentage(mSettings.widthVideoCrop, mSettings.heightVideoCrop);
 
         updateVideoUi();
     }
 
-    private void onVerticalCropChanged(int progress, boolean fromUser) {
-        mSettings.verticalVideoCrop = progress;
+    private void onheightCropChanged(int progress, boolean fromUser) {
+        mSettings.heightVideoCrop = progress;
         if(mNativeCamera != null)
-            mNativeCamera.setVideoCropPercentage(mSettings.horizontalVideoCrop, mSettings.verticalVideoCrop);
+            mNativeCamera.setVideoCropPercentage(mSettings.widthVideoCrop, mSettings.heightVideoCrop);
 
         updateVideoUi();
     }
@@ -2048,8 +2052,8 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.previewFrame.videoFrameRateBtn.setOnClickListener(v -> toggleFrameRate());
         mBinding.previewFrame.videoBinBtn.setOnClickListener(v -> toggleVideoBin());
 
-        mBinding.previewFrame.horizontalCropSeekBar.setOnSeekBarChangeListener(mSeekBarChangeListener);
-        mBinding.previewFrame.verticalCropSeekBar.setOnSeekBarChangeListener(mSeekBarChangeListener);
+        mBinding.previewFrame.widthCropSeekBar.setOnSeekBarChangeListener(mSeekBarChangeListener);
+        mBinding.previewFrame.heightCropSeekBar.setOnSeekBarChangeListener(mSeekBarChangeListener);
 
         configureTransform(width, height, previewOutputSize);
     }

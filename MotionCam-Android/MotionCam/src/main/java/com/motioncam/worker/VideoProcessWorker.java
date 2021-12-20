@@ -24,6 +24,7 @@ import com.motioncam.processor.NativeProcessor;
 import org.apache.commons.io.IOUtil;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -120,7 +121,6 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         Log.d(TAG, "Starting video worker");
 
         if(inputAudioUriString == null && inputUriString == null) {
-            // Nothing to do
             Log.d(TAG, "Nothing to do");
             return Result.success();
         }
@@ -151,8 +151,12 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
 
         if(videoInputUri != null)
             outputName = getName(videoInputUri);
-        else
+        else if(audioInputUri != null)
             outputName = getName(audioInputUri);
+        else {
+            mNotifyManager.cancel(NOTIFICATION_ID);
+            return Result.failure();
+        }
 
         String outputDirectoryName = getNameWithoutExtension(outputName);
         String finalOutputDirectoryName = outputDirectoryName;
@@ -182,25 +186,12 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
             }
         }
 
-        // Move audio
         if(audioInputUri != null) {
             try {
-                DocumentFile srcAudioFile = DocumentFile.fromSingleUri(getApplicationContext(), audioInputUri);
-                DocumentFile dstAudioFile = mOutputDocument.createFile("audio/wav", getName(audioInputUri));
-
-                if(srcAudioFile != null || dstAudioFile != null) {
-                    if (srcAudioFile.exists()) {
-                        try (InputStream inputStream = getApplicationContext().getContentResolver().openInputStream(srcAudioFile.getUri());
-                             OutputStream outputStream = getApplicationContext().getContentResolver().openOutputStream(dstAudioFile.getUri())) {
-
-                            if(inputStream != null && outputStream != null)
-                                IOUtil.copy(inputStream, outputStream);
-                        }
-                    }
-                }
+                moveAudio(audioInputUri);
             }
             catch (Exception e) {
-                Log.e(TAG, "Failed to move " + inputAudioUriString, e);
+                Log.e(TAG, "Failed to move audio from " + inputUriString, e);
             }
         }
 
@@ -214,6 +205,33 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
                 .build();
 
         return Result.success(result);
+    }
+
+    private void moveAudio(Uri audioInputUri) throws IOException {
+        DocumentFile dstAudioFile = mOutputDocument.createFile("audio/wav", getName(audioInputUri));
+        if(dstAudioFile == null) {
+            Log.e(TAG, "Failed to create destination audio file");
+            return;
+        }
+
+        InputStream inputStream;
+
+        if(audioInputUri.getScheme().equalsIgnoreCase("file")) {
+            inputStream = new FileInputStream(audioInputUri.getPath());
+        }
+        else {
+            DocumentFile audioFile = DocumentFile.fromSingleUri(getApplicationContext(), audioInputUri);
+            inputStream = getApplicationContext().getContentResolver().openInputStream(audioFile.getUri());
+        }
+
+        try (OutputStream outputStream = getApplicationContext().getContentResolver().openOutputStream(dstAudioFile.getUri())) {
+            if(inputStream != null && outputStream != null)
+                IOUtil.copy(inputStream, outputStream);
+        }
+        finally {
+            if(inputStream != null)
+                inputStream.close();
+        }
     }
 
     @Override

@@ -93,7 +93,7 @@ jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_ProcessVideo(
     try {
         DngConverterListener listener(env, progressListener);
 
-        motioncam::ConvertVideoToDNG(fd, listener, 4, numFramesToMerge);
+        motioncam::ConvertVideoToDNG(fd, listener, 2, numFramesToMerge);
     }
     catch(std::runtime_error& e) {
         jclass exClass = env->FindClass("java/lang/RuntimeException");
