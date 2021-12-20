@@ -321,8 +321,10 @@ public class ImageProcessWorker extends Worker implements NativeProcessorProgres
     @NonNull
     @Override
     public Result doWork() {
-        if(!init())
+        if(!init()) {
+            mNotifyManager.cancel(NOTIFICATION_ID);
             return Result.failure();
+        }
 
         setForegroundAsync(new ForegroundInfo(NOTIFICATION_ID, mNotificationBuilder.build()));
 

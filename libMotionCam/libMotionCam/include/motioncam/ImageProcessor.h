@@ -11,7 +11,9 @@
 #include <HalideBuffer.h>
 
 namespace motioncam {
-    const int EXPANDED_RANGE = 16384;
+    const int EXPANDED_RANGE        = 16384;
+    const int WAVELET_LEVELS        = 4;
+    const int EXTEND_EDGE_AMOUNT    = 6;
 
     class RawImage;
     class RawContainer;
@@ -47,16 +49,21 @@ namespace motioncam {
         static void process(RawContainer& rawContainer, const std::string& outputPath, const ImageProcessorProgress& progressListener);
 
         static Halide::Runtime::Buffer<uint8_t> createPreview(const RawImageBuffer& rawBuffer,
-                                                       const int downscaleFactor,
-                                                       const RawCameraMetadata& cameraMetadata,
-                                                       const PostProcessSettings& settings);
-        
+                                                              const int downscaleFactor,
+                                                              const RawCameraMetadata& cameraMetadata,
+                                                              const PostProcessSettings& settings);
+
+        static Halide::Runtime::Buffer<uint8_t> createFastPreview(const RawImageBuffer& rawBuffer,
+                                                                  const int sx,
+                                                                  const int sy,
+                                                                  const RawCameraMetadata& cameraMetadata);
+
         static cv::Mat calcHistogram(const RawCameraMetadata& cameraMetadata,
                                      const RawImageBuffer& reference,
                                      const bool cumulative,
                                      const int downscale);
 
-        static float getShadowKeyValue(const RawImageBuffer& rawBuffer, const RawCameraMetadata& cameraMetadata, bool nightMode);
+        static float getShadowKeyValue(float ev, bool nightMode);
         
         static void estimateSettings(const RawImageBuffer& rawBuffer,
                                      const RawCameraMetadata& cameraMetadata,
@@ -68,7 +75,7 @@ namespace motioncam {
                                             float& outBlackPoint,
                                             float& outWhitePoint);
         
-        static float estimateShadows(const cv::Mat& histogram, float keyValue=0.22f);
+        static float estimateShadows(const cv::Mat& histogram, float ev, float keyValue=0.22f);
         static void estimateHdr(const cv::Mat& histogram, float& outLows, float& outHighs);
         static float estimateExposureCompensation(const cv::Mat& histogram, float threshold=1e-4f);
         

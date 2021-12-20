@@ -21,6 +21,7 @@
 namespace motioncam {
     // Forward declarations
     class RawPreviewListener;
+    class CameraSessionListener;
 
     struct CameraDescription;
     struct RawImageMetadata;
@@ -29,11 +30,15 @@ namespace motioncam {
 
     class RawImageConsumer {
     public:
-        RawImageConsumer(std::shared_ptr<CameraDescription> cameraDescription, const size_t maxMemoryUsageBytes);
+        RawImageConsumer(std::shared_ptr<CameraDescription> cameraDescription,
+                         std::shared_ptr<CameraSessionListener> listener,
+                         const size_t maxMemoryUsageBytes);
         ~RawImageConsumer();
 
         void start();
         void stop();
+
+        void grow(size_t memoryLimitBytes);
 
         void queueImage(AImage* image);
         void queueMetadata(const ACameraMetadata* metadata, ScreenOrientation screenOrientation, RawType rawType);
@@ -60,7 +65,7 @@ namespace motioncam {
         bool copyMetadata(RawImageMetadata& dst, const ACameraMetadata* src);
         void onBufferReady(const std::shared_ptr<RawImageBuffer>& buffer);
 
-        void doSetupBuffers(size_t bufferLength);
+        void doSetupBuffers();
         void doCopyImage();
         void doMatchMetadata();
         void doPreprocess();
@@ -74,6 +79,7 @@ namespace motioncam {
 #endif
 
     private:
+        std::shared_ptr<CameraSessionListener> mListener;
         size_t mMaximumMemoryUsageBytes;
         std::vector<std::shared_ptr<std::thread>> mConsumerThreads;
         std::shared_ptr<std::thread> mSetupBuffersThread;
@@ -85,6 +91,11 @@ namespace motioncam {
         std::atomic<float> mTempOffset;
         std::atomic<float> mTintOffset;
         std::atomic<bool> mUseVideoPreview;
+
+        std::mutex mBufferMutex;
+        std::condition_variable mBufferCondition;
+        std::atomic<size_t> mBufferSize;
+
         PostProcessSettings mEstimatedSettings;
         float mPreviewShadows;
         float mPreviewShadowStep;

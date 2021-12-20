@@ -22,7 +22,7 @@ public class DenoiseSettings {
         int mergeImages;
 
         sharpen0 = 2.0f;
-        sharpen1 = 2.0f;
+        sharpen1 = 1.5f;
 
         if(ev > 7.99) {
             mergeImages             = 4;
@@ -41,7 +41,7 @@ public class DenoiseSettings {
         else {
             mergeImages             = 12;
             sharpen0                = 2.0f;
-            sharpen1                = 3.5f;
+            sharpen1                = 3.0f;
         }
 
         if(shadows > 7.99) {

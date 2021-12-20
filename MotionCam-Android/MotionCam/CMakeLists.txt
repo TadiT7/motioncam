@@ -161,17 +161,17 @@ add_library(camera_video_preview4_raw10 STATIC IMPORTED)
 set_target_properties(camera_video_preview4_raw10 PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview4_raw10.a)
 
-add_library(camera_preview2_raw10 STATIC IMPORTED)
-set_target_properties(camera_preview2_raw10 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview2_raw10.a)
+add_library(camera_video_preview2_raw12 STATIC IMPORTED)
+set_target_properties(camera_video_preview2_raw12 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview2_raw12.a)
 
-add_library(camera_preview3_raw10 STATIC IMPORTED)
-set_target_properties(camera_preview3_raw10 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview3_raw10.a)
+add_library(camera_video_preview3_raw12 STATIC IMPORTED)
+set_target_properties(camera_video_preview3_raw12 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview3_raw12.a)
 
-add_library(camera_preview4_raw10 STATIC IMPORTED)
-set_target_properties(camera_preview4_raw10 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview4_raw10.a)
+add_library(camera_video_preview4_raw12 STATIC IMPORTED)
+set_target_properties(camera_video_preview4_raw12 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview4_raw12.a)
 
 add_library(camera_video_preview2_raw16 STATIC IMPORTED)
 set_target_properties(camera_video_preview2_raw16 PROPERTIES IMPORTED_LOCATION
@@ -184,6 +184,30 @@ set_target_properties(camera_video_preview3_raw16 PROPERTIES IMPORTED_LOCATION
 add_library(camera_video_preview4_raw16 STATIC IMPORTED)
 set_target_properties(camera_video_preview4_raw16 PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview4_raw16.a)
+
+add_library(camera_preview2_raw10 STATIC IMPORTED)
+set_target_properties(camera_preview2_raw10 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview2_raw10.a)
+
+add_library(camera_preview3_raw10 STATIC IMPORTED)
+set_target_properties(camera_preview3_raw10 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview3_raw10.a)
+
+add_library(camera_preview4_raw10 STATIC IMPORTED)
+set_target_properties(camera_preview4_raw10 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview4_raw10.a)
+
+add_library(camera_preview2_raw12 STATIC IMPORTED)
+set_target_properties(camera_preview2_raw12 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview2_raw12.a)
+
+add_library(camera_preview3_raw12 STATIC IMPORTED)
+set_target_properties(camera_preview3_raw12 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview3_raw12.a)
+
+add_library(camera_preview4_raw12 STATIC IMPORTED)
+set_target_properties(camera_preview4_raw12 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview4_raw12.a)
 
 add_library(camera_preview2_raw16 STATIC IMPORTED)
 set_target_properties(camera_preview2_raw16 PROPERTIES IMPORTED_LOCATION
@@ -416,6 +440,7 @@ add_library( # Sets the name of the library.
         ${thirdparty-libs}/miniz/miniz_zip.c
         ${thirdparty-libs}/miniz/miniz_tinfl.c
         ${thirdparty-libs}/miniz/miniz_tdef.c
+        ${thirdparty-libs}/tinywav/tinywav.c
         ${libmotioncam-src}/source/CameraProfile.cpp
         ${libmotioncam-src}/source/Color.cpp
         ${libmotioncam-src}/source/ImageOps.cpp
@@ -438,6 +463,7 @@ target_include_directories(motion-cam PUBLIC
         ${thirdparty-libs}/json11
         ${thirdparty-libs}/dlib/include
         ${thirdparty-libs}/miniz
+        ${thirdparty-libs}/tinywav
         ${thirdparty-libs}/halide/include
         ${thirdparty-libs}/opencl
         ${thirdparty-libs}/queue
@@ -458,6 +484,7 @@ set(native-camera-cpp
         src/main/cpp/JavaUtils.cpp
         src/main/cpp/NativeCameraBridgeListener.cpp
         src/main/cpp/NativeRawPreviewListener.cpp
+        src/main/cpp/AudioRecorder.cpp
         src/main/cpp/camera/CaptureSessionManager.cpp
         src/main/cpp/camera/CameraSession.cpp
         src/main/cpp/camera/CameraStateManager.cpp
@@ -499,6 +526,8 @@ target_compile_definitions(native-camera-opencl PRIVATE GPU_CAMERA_PREVIEW=1)
 
 find_library(log log)
 find_library(z z)
+
+find_package (oboe REQUIRED CONFIG)
 
 # Specifies libraries CMake should link to your target library. You
 # can link multiple libraries, such as libraries you define in this
@@ -568,6 +597,7 @@ set(native-camera-libs
         openjp2
 
         # Android libraries
+        oboe::oboe
         camera2ndk
         android
         mediandk
@@ -589,12 +619,18 @@ target_link_libraries(native-camera-opencl
         camera_video_preview2_raw10
         camera_video_preview3_raw10
         camera_video_preview4_raw10
-        camera_preview2_raw10
-        camera_preview3_raw10
-        camera_preview4_raw10
+        camera_video_preview2_raw12
+        camera_video_preview3_raw12
+        camera_video_preview4_raw12
         camera_video_preview2_raw16
         camera_video_preview3_raw16
         camera_video_preview4_raw16
+        camera_preview2_raw10
+        camera_preview3_raw10
+        camera_preview4_raw10
+        camera_preview2_raw12
+        camera_preview3_raw12
+        camera_preview4_raw12
         camera_preview2_raw16
         camera_preview3_raw16
         camera_preview4_raw16

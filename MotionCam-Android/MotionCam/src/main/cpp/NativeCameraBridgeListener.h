@@ -19,6 +19,8 @@ namespace motioncam {
         void onCameraHdrImageCaptureProgress(int progress);
         void onCameraHdrImageCaptureCompleted();
         void onCameraHdrImageCaptureFailed();
+        void onMemoryAdjusting();
+        void onMemoryStable();
 
     private:
         JavaVM *mJavaVm;

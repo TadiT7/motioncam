@@ -29,6 +29,7 @@ namespace motioncam {
 
         static bool getRawConfiguration(
                 const CameraDescription& cameraDesc,
+                const bool preferRaw12,
                 const bool preferRaw16,
                 OutputConfiguration& rawConfiguration);
 
@@ -41,6 +42,7 @@ namespace motioncam {
                 std::shared_ptr<CameraSessionListener> listener,
                 std::shared_ptr<ANativeWindow> previewOutputWindow,
                 bool setupForRawPreview,
+                bool preferRaw12,
                 bool preferRaw16);
 
         void pauseCamera(bool pause);
@@ -90,6 +92,8 @@ namespace motioncam {
                 const std::string& outputPath);
 
         void prepareHdrCapture(const int iso, const int64_t exposure);
+
+        void grow(size_t maxMemoryBytes);
 
     private:
         static bool isCameraSupported(const CameraDescription& cameraDescription);

@@ -125,7 +125,7 @@ namespace motioncam {
 
         // Check for RAW outputs
         OutputConfiguration outputConfig;
-        bool hasRawOutput = getRawConfiguration(cameraDescription, false, outputConfig);
+        bool hasRawOutput = getRawConfiguration(cameraDescription, false, false, outputConfig);
 
         return ( cameraDescription.hardwareLevel == ACAMERA_INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED ||
                  cameraDescription.hardwareLevel == ACAMERA_INFO_SUPPORTED_HARDWARE_LEVEL_FULL ||
@@ -404,20 +404,45 @@ namespace motioncam {
         }
     }
 
-    bool CaptureSessionManager::getRawConfiguration(const CameraDescription& cameraDesc, bool preferRaw16, OutputConfiguration& rawConfiguration) {
+    bool CaptureSessionManager::getRawConfiguration(
+            const CameraDescription& cameraDesc, const bool preferRaw12, const bool preferRaw16, OutputConfiguration& rawConfiguration)
+    {
         auto outputConfigs = cameraDesc.outputConfigs;
 
         std::map<int32_t, std::vector<OutputConfiguration>>::iterator rawIt;
 
+        // Try RAW16 -> RAW12 -> RAW10
         if(preferRaw16) {
             rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW16);
-            if (rawIt == outputConfigs.end())
-                rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW10);
+
+            if (rawIt == outputConfigs.end()) {
+                rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW12);
+                if (rawIt == outputConfigs.end()) {
+                    rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW10);
+                }
+            }
         }
+        // Try RAW12 -> RAW10 -> RAW16
+        else if(preferRaw12) {
+            rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW12);
+
+            if (rawIt == outputConfigs.end()) {
+                rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW10);
+                if (rawIt == outputConfigs.end()) {
+                    rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW16);
+                }
+            }
+        }
+        // Try RAW12 -> RAW10 -> RAW16
         else {
-            rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW10);
-            if (rawIt == outputConfigs.end())
-                rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW16);
+            rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW12);
+
+            if (rawIt == outputConfigs.end()) {
+                rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW10);
+                if (rawIt == outputConfigs.end()) {
+                    rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW16);
+                }
+            }
         }
 
         if (rawIt != outputConfigs.end()) {
@@ -500,6 +525,7 @@ namespace motioncam {
             std::shared_ptr<CameraSessionListener> listener,
             std::shared_ptr<ANativeWindow> previewOutputWindow,
             bool setupForRawPreview,
+            bool preferRaw12,
             bool preferRaw16)
     {
         OutputConfiguration outputConfig;
@@ -512,13 +538,13 @@ namespace motioncam {
         if(!cameraDesc)
             throw CameraSessionException("Invalid camera");
 
-        if(!getRawConfiguration(*cameraDesc, preferRaw16, outputConfig)) {
+        if(!getRawConfiguration(*cameraDesc, preferRaw12, preferRaw16, outputConfig)) {
             throw CameraSessionException("Failed to get output configuration");
         }
 
         // Create image consumer if we have not done so
         if(!mImageConsumer || cameraId != mSelectedCameraId)
-            mImageConsumer = std::make_shared<RawImageConsumer>(cameraDesc, mMaxMemoryUsageBytes);
+            mImageConsumer = std::make_shared<RawImageConsumer>(cameraDesc, listener, mMaxMemoryUsageBytes);
 
         // Create the camera session and open the camera
         mSelectedCameraId = cameraId;
@@ -654,5 +680,10 @@ namespace motioncam {
     void CaptureSessionManager::setAutoFocus() {
         if(mCameraSession)
             mCameraSession->setAutoFocus();
+    }
+
+    void CaptureSessionManager::grow(size_t maxMemoryBytes) {
+        if(mImageConsumer)
+            mImageConsumer->grow(maxMemoryBytes);
     }
 }

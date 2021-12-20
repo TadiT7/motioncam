@@ -31,6 +31,7 @@ namespace motioncam {
         ACTION_SET_MANUAL_EXPOSURE,
         ACTION_SET_EXPOSURE_COMP_VALUE,
         ACTION_SET_FRAME_RATE,
+        ACTION_SET_VIDEO_BIN,
         ACTION_SET_AWB_LOCK,
         ACTION_SET_AE_LOCK,
         ACTION_SET_OIS,
@@ -506,8 +507,8 @@ namespace motioncam {
 
         media_status_t result =
                 AImageReader_new(
-                        640,
-                        480,
+                        state.outputConfig.outputSize.originalWidth(),
+                        state.outputConfig.outputSize.originalHeight(),
                         AIMAGE_FORMAT_YUV_420_888,
                         2,
                         &imageReader);
@@ -573,7 +574,7 @@ namespace motioncam {
         mSessionContext->captureSessionContainer = std::shared_ptr<ACaptureSessionOutputContainer>(container, ACaptureSessionOutputContainer_free);
 
         // Create capture request
-        mSessionContext->repeatCaptureRequest = std::make_shared<CaptureRequest>(createCaptureRequest(TEMPLATE_PREVIEW), true);
+        mSessionContext->repeatCaptureRequest = std::make_shared<CaptureRequest>(createCaptureRequest(TEMPLATE_ZERO_SHUTTER_LAG), true);
 
         // Create HDR requests
         mSessionContext->hdrCaptureRequests[0] = std::make_shared<CaptureRequest>(createCaptureRequest(TEMPLATE_STILL_CAPTURE), false);

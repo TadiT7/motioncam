@@ -76,15 +76,41 @@ private:
 
 namespace motioncam {
     namespace util {
+        CloseableFd::CloseableFd(const int fd) : mFd(fd) {
+        }
+    
+        CloseableFd::~CloseableFd() {
+            if(mFd >= 0)
+                close(mFd);
+        }
+    
         //
         // Very basic zip writer
         //
     
-        ZipWriter::ZipWriter(const int fd) : mZip{ 0 }, mCommited(false) {
-            mFile = fdopen(fd, "w");
-            
-            if(!mz_zip_writer_init_cfile(&mZip, mFile, 0)) {
-                throw IOException("Can't create from fd");
+        ZipWriter::ZipWriter(const int fd, bool append) : mFile(nullptr), mZip{ 0 }, mCommited(false) {
+            if(append) {
+                mFile = fdopen(fd, "w");
+
+                int result = mz_zip_reader_init_cfile(&mZip, mFile, 0, 0);
+                
+                if(!result) {
+                    throw IOException("Failed to init reader err: " + std::string(mz_zip_get_error_string(mz_zip_get_last_error(&mZip))));
+                }
+                
+                result = mz_zip_writer_init_from_reader(&mZip, nullptr);
+                if(!result) {
+                    throw IOException("Failed to convert to writer err: " + std::string(mz_zip_get_error_string(mz_zip_get_last_error(&mZip))));
+                }
+            }
+            else {
+                mFile = fdopen(fd, "w");
+                
+                int result = mz_zip_writer_init_cfile(&mZip, mFile, 0);
+                
+                if(!result) {
+                    throw IOException("Can't create err: " + std::string(mz_zip_get_error_string(mz_zip_get_last_error(&mZip))));
+                }
             }
         }
     
@@ -153,7 +179,26 @@ namespace motioncam {
         //
         // Very basic zip reader
         //
-        
+
+        ZipReader::ZipReader(FILE* file) : mZip{ 0 }, mFile(file)
+        {
+            if(!mz_zip_reader_init_cfile(&mZip, mFile, 0, 0)) {
+                throw IOException("Can't read from fd");
+            }
+            
+            auto numFiles = mz_zip_reader_get_num_files(&mZip);
+            char entry[512];
+
+            for(auto i = 0; i < numFiles; i++) {
+                auto len = mz_zip_reader_get_filename(&mZip, i, entry, 512);
+                if(len == 0) {
+                    throw IOException("Failed to parse entry");
+                }
+                
+                mFiles.emplace_back(entry, len - 1);
+            }
+        }
+
         ZipReader::ZipReader(const string& filename) : mZip{ 0 } {
             if(!mz_zip_reader_init_file(&mZip, filename.c_str(), 0)) {
                 throw IOException("Can't read " + filename);
@@ -174,6 +219,10 @@ namespace motioncam {
     
         ZipReader::~ZipReader() {
             mz_zip_reader_end(&mZip);
+            
+            if(mFile) {
+                fclose(mFile);
+            }
         }
     
         void ZipReader::read(const std::string& filename, std::string& output) {
@@ -661,7 +710,7 @@ namespace motioncam {
             // Write DNG file to disk
             AutoPtr<dng_image_writer> dngWriter(new dng_image_writer());
             
-            dngWriter->WriteDNG(host, dngStream, *negative.Get(), nullptr, ccUncompressed);
+            dngWriter->WriteDNG(host, dngStream, *negative.Get(), nullptr, false);
         }
 
         void WriteDng(cv::Mat rawImage,
@@ -710,6 +759,15 @@ namespace motioncam {
             }
             
             delete memoryBlock;
+        }
+    
+        bool EndsWith(const std::string& str, const std::string& ending) {
+            if (str.length() >= ending.length()) {
+                return str.compare(str.length() - ending.length(), ending.length(), ending) == 0;
+            }
+            else {
+                return false;
+            }
         }
     }
 }

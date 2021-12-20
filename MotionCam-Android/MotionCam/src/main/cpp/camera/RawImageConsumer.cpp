@@ -1,5 +1,6 @@
 #include "RawImageConsumer.h"
 #include "RawPreviewListener.h"
+#include "CameraSessionListener.h"
 #include "CameraDescription.h"
 #include "Logger.h"
 #include "ClHelper.h"
@@ -41,7 +42,11 @@ namespace motioncam {
 
     //
 
-    RawImageConsumer::RawImageConsumer(std::shared_ptr<CameraDescription> cameraDescription, const size_t maxMemoryUsageBytes) :
+    RawImageConsumer::RawImageConsumer(
+            std::shared_ptr<CameraDescription> cameraDescription,
+            std::shared_ptr<CameraSessionListener> listener,
+            const size_t maxMemoryUsageBytes) :
+        mListener(listener),
         mMaximumMemoryUsageBytes(maxMemoryUsageBytes),
         mRunning(false),
         mEnableRawPreview(false),
@@ -53,6 +58,8 @@ namespace motioncam {
         mUseVideoPreview(false),
         mPreviewShadows(4.0f),
         mPreviewShadowStep(0.0f),
+        mBufferSize(0),
+        mFramesSinceEstimatedSettings(0),
         mCameraDesc(std::move(cameraDescription))
     {
     }
@@ -71,11 +78,14 @@ namespace motioncam {
         }
 
         mRunning = true;
+        mBufferSize = 0;
 
         // Start consumer threads
         for(int i = 0; i < COPY_THREADS; i++) {
             mConsumerThreads.push_back(std::make_shared<std::thread>(&RawImageConsumer::doCopyImage, this));
         }
+
+        mSetupBuffersThread = std::make_shared<std::thread>(&RawImageConsumer::doSetupBuffers, this);
     }
 
     void RawImageConsumer::stop() {
@@ -85,14 +95,31 @@ namespace motioncam {
 
         disableRawPreview();
 
-        // Stop consumer threads
+        // Stop all threads
         mRunning = false;
+
+        mBufferCondition.notify_one();
+
+        if(mSetupBuffersThread)
+            mSetupBuffersThread->join();
+        mSetupBuffersThread = nullptr;
 
         for(auto& mConsumerThread : mConsumerThreads) {
             mConsumerThread->join();
         }
 
         mConsumerThreads.clear();
+    }
+
+    void RawImageConsumer::grow(size_t memoryLimitBytes) {
+        const size_t currentLimitBytes = mMaximumMemoryUsageBytes;
+        mMaximumMemoryUsageBytes = memoryLimitBytes;
+
+        RawBufferManager::get().setTargetMemory(memoryLimitBytes);
+
+        if(memoryLimitBytes > currentLimitBytes) {
+            mBufferCondition.notify_one();
+        }
     }
 
     void RawImageConsumer::queueImage(AImage* image) {
@@ -253,6 +280,13 @@ namespace motioncam {
     }
 
     void RawImageConsumer::onBufferReady(const std::shared_ptr<RawImageBuffer>& buffer) {
+        // Skip estimation when in video preview mode
+        if(mUseVideoPreview) {
+            mPreviewShadows = 1.0f;
+            RawBufferManager::get().enqueueReadyBuffer(buffer);
+            return;
+        }
+
         // Estimate settings every few frames
         if(mFramesSinceEstimatedSettings >= ESTIMATE_SHADOWS_FRAME_INTERVAL)
         {
@@ -271,7 +305,7 @@ namespace motioncam {
 
             // Store noise profile
             if(!buffer->metadata.noiseProfile.empty()) {
-                mEstimatedSettings.noiseSigma = 1024 * sqrt(0.18 * buffer->metadata.noiseProfile[0] + buffer->metadata.noiseProfile[1]);
+                mEstimatedSettings.noiseSigma = 1024 * sqrt(0.18f * buffer->metadata.noiseProfile[0] + buffer->metadata.noiseProfile[1]);
             }
 
             mPreviewShadowStep = (1.0f / ESTIMATE_SHADOWS_FRAME_INTERVAL) * (mEstimatedSettings.shadows - mPreviewShadows);
@@ -285,7 +319,6 @@ namespace motioncam {
         }
 
         RawBufferManager::get().enqueueReadyBuffer(buffer);
-
     }
 
     void RawImageConsumer::doMatchMetadata() {
@@ -334,11 +367,7 @@ namespace motioncam {
         mPendingMetadata.enqueue_bulk(unmatched.begin(), unmatched.size());
     }
 
-    void RawImageConsumer::doSetupBuffers(size_t bufferLength) {
-        int memoryUseBytes = RawBufferManager::get().memoryUseBytes();
-
-        LOGI("Setting up buffers");
-
+    void RawImageConsumer::doSetupBuffers() {
 #ifdef GPU_CAMERA_PREVIEW
         {
             // Make sure the OpenCL library is loaded/symbols looked up in Halide
@@ -349,27 +378,44 @@ namespace motioncam {
             halide_opencl_set_build_options("-cl-fast-relaxed-math -cl-mad-enable");
         }
 #endif
+        while(mRunning) {
+            std::unique_lock<std::mutex> lock(mBufferMutex);
 
-        while(  mRunning
-                &&  ( memoryUseBytes + bufferLength < mMaximumMemoryUsageBytes
-                    || RawBufferManager::get().numBuffers() < MINIMUM_BUFFERS) )
-        {
-            std::shared_ptr<RawImageBuffer> buffer;
+            mBufferCondition.wait(lock);
 
-#ifdef GPU_CAMERA_PREVIEW
-            buffer = std::make_shared<RawImageBuffer>(std::make_unique<NativeClBuffer>(bufferLength));
-#else
-            buffer = std::make_shared<RawImageBuffer>(std::make_unique<NativeHostBuffer>(bufferLength));
-#endif
+            // Do we need to allocate more buffers?
+            size_t memoryUseBytes = RawBufferManager::get().memoryUseBytes();
 
-            RawBufferManager::get().addBuffer(buffer);
+            const size_t bufferSize = mBufferSize;
+            if(bufferSize <= 0 || memoryUseBytes >= mMaximumMemoryUsageBytes) {
+                continue;
+            }
 
-            memoryUseBytes = RawBufferManager::get().memoryUseBytes();
+            mListener->onMemoryAdjusting();
 
-            LOGI("Memory use: %d, max: %zu", memoryUseBytes, mMaximumMemoryUsageBytes);
+            while(  mRunning
+                    &&  (  memoryUseBytes + bufferSize < mMaximumMemoryUsageBytes
+                        || RawBufferManager::get().numBuffers() < MINIMUM_BUFFERS) ) {
+
+                std::shared_ptr<RawImageBuffer> buffer;
+
+    #ifdef GPU_CAMERA_PREVIEW
+                buffer = std::make_shared<RawImageBuffer>(std::make_unique<NativeClBuffer>(bufferSize));
+    #else
+                buffer = std::make_shared<RawImageBuffer>(std::make_unique<NativeHostBuffer>(bufferSize));
+    #endif
+
+                RawBufferManager::get().addBuffer(buffer);
+
+                memoryUseBytes = RawBufferManager::get().memoryUseBytes();
+
+                LOGI("Memory use: %zu, max: %zu", memoryUseBytes, mMaximumMemoryUsageBytes);
+            }
+
+            mListener->onMemoryStable();
         }
 
-        LOGD("Finished setting up %d buffers", RawBufferManager::get().numBuffers());
+        LOGD("Exiting buffer thread");
     }
 
 #ifdef GPU_CAMERA_PREVIEW
@@ -599,7 +645,8 @@ namespace motioncam {
         LOGI("Disabling RAW preview mode");
 
         mEnableRawPreview = false;
-        mPreprocessThread->join();
+        if(mPreprocessThread)
+            mPreprocessThread->join();
 
         mPreprocessThread = nullptr;
         mPreviewListener.reset();
@@ -626,10 +673,7 @@ namespace motioncam {
             if(!pendingImage)
                 continue;
 
-            std::shared_ptr<RawImageBuffer> dst, previewBuffer;
-
-            // Lock and get an image out
-            if(!mSetupBuffersThread) {
+            if(!mBufferSize) {
                 int length = 0;
                 uint8_t* data = nullptr;
 
@@ -637,19 +681,19 @@ namespace motioncam {
                 if(AImage_getPlaneData(pendingImage.get(), 0, &data, &length) != AMEDIA_OK) {
                     LOGE("Failed to get size of camera buffer!");
                 }
-                else {
-                    mSetupBuffersThread = std::make_shared<std::thread>(&RawImageConsumer::doSetupBuffers, this, static_cast<size_t>(length));
+
+                {
+                    std::lock_guard<std::mutex> lock(mBufferMutex);
+                    mBufferSize = length;
                 }
 
-                // Give the buffers thread a chance to create some buffers before we try to get one below.
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                mBufferCondition.notify_one();
             }
 
-            dst = RawBufferManager::get().dequeueUnusedBuffer();
+            std::shared_ptr<RawImageBuffer> dst = RawBufferManager::get().dequeueUnusedBuffer();
 
             // If there are no buffers available, we can't do anything useful here
             if(!dst) {
-                LOGW("Out of buffers");
                 continue;
             }
 
@@ -658,6 +702,7 @@ namespace motioncam {
             dst->height    = 0;
             dst->rowStride = 0;
             dst->metadata.timestampNs = 0;
+            dst->isCompressed = false;
 
             //
             // Copy buffer
@@ -718,6 +763,7 @@ namespace motioncam {
                         std::copy(data, data + length, dstBuffer);
 
                     dst->data->unlock();
+                    dst->data->setValidRange(0, length);
                 }
             }
             else {
@@ -763,11 +809,6 @@ namespace motioncam {
         }
 
         mPendingBuffers.clear();
-
-        if(mSetupBuffersThread)
-            mSetupBuffersThread->join();
-
-        mSetupBuffersThread = nullptr;
 
         LOGD("Exiting copy thread");
     }

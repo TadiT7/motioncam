@@ -13,10 +13,19 @@ namespace motioncam {
     struct RawCameraMetadata;
 
     namespace util {
-        
+    
+        class CloseableFd {
+        public:
+            CloseableFd(const int fd);
+            ~CloseableFd();
+            
+        private:
+            const int mFd;
+        };
+    
         class ZipWriter {
         public:
-            ZipWriter(const int fd);
+            ZipWriter(const int fd, bool append=false);
             ZipWriter(const std::string& pathname, bool append=false);
             ~ZipWriter();
             
@@ -34,6 +43,7 @@ namespace motioncam {
 
         class ZipReader {
         public:
+            ZipReader(FILE* file);
             ZipReader(const std::string& pathname);
             ~ZipReader();
             
@@ -44,19 +54,18 @@ namespace motioncam {
             
         private:
             mz_zip_archive mZip;
+            FILE* mFile;
             std::vector<std::string> mFiles;
         };
 
-#ifdef ZSTD_AVAILABLE
         void ReadCompressedFile(const std::string& inputPath, std::vector<uint8_t>& output);
         void WriteCompressedFile(const std::vector<uint8_t>& data, const std::string& outputPath);
-#endif
-
         void ReadFile(const std::string& inputPath, std::vector<uint8_t>& output);
         void WriteFile(const uint8_t* data, size_t size, const std::string& outputPath);
         json11::Json ReadJsonFromFile(const std::string& path);
-        void GetBasePath(const std::string& path, std::string& basePath, std::string& filename);
-    
+        void GetBasePath(const std::string& path, std::string& basePath, std::string& filename);    
+        bool EndsWith(const std::string& str, const std::string& ending);
+
         cv::Mat BuildRawImage(std::vector<cv::Mat> channels, int cropX, int cropY);
     
         void WriteDng(cv::Mat rawImage,

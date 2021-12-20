@@ -57,22 +57,18 @@ namespace motioncam {
         }
     }
 
-    float ConvertVideoToDNG(const std::string& containerPath, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
+    float ConvertVideoToDNG(RawContainer& container, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
         if(RUNNING)
             throw std::runtime_error("Already running");
-        
-        RawContainer container(containerPath);
-        
+                
         auto frames = container.getFrames();
+        
         
         // Sort frames by timestamp
         std::sort(frames.begin(), frames.end(), [&](std::string& a, std::string& b) {
             return container.getFrame(a)->metadata.timestampNs < container.getFrame(b)->metadata.timestampNs;
         });
-                
-        int64_t timestampOffset = 0;
-        float timestamp = 0;
-
+        
         // Create processing threads
         RUNNING = true;
         
@@ -99,19 +95,27 @@ namespace motioncam {
             metadata.whiteLevel = EXPANDED_RANGE;
         }
         
+        Halide::Runtime::Buffer<uint16_t> bayerBuffer;
+        bool createdBuffer = false;
+        
         for(int i = 0; i < frames.size(); i++) {
             auto frame = container.loadFrame(frames[i]);
+            if(!frame) {
+                continue;
+            }
             
             if(frame->width <= 0 || frame->height <= 0) {
                 continue;
             }
             
-            // Convert from RAW10/16 -> bayer image
-            auto bayerBuffer = Halide::Runtime::Buffer<uint16_t>(frame->width, frame->height);
-                        
             if(mergeFrames == 0) {
                 auto data = frame->data->lock(false);
                 auto inputBuffer = Halide::Runtime::Buffer<uint8_t>(data, (int) frame->data->len());
+                
+                if(!createdBuffer) {
+                    bayerBuffer = Halide::Runtime::Buffer<uint16_t>(frame->width , frame->height);
+                    createdBuffer = true;
+                }
 
                 frame->data->unlock();
                 
@@ -127,8 +131,12 @@ namespace motioncam {
                 while(true) {
                     if(i + leftOffset >= 0) {
                         auto left = container.loadFrame(frames[i + leftOffset]);
-                        nearestBuffers.push_back(left);
+                        if(!left) {
+                            left = nullptr;
+                        }
 
+                        nearestBuffers.push_back(left);
+                        
                         leftOffset--;
 
                         if(nearestBuffers.size() >= mergeFrames)
@@ -137,6 +145,9 @@ namespace motioncam {
 
                     if(i + rightOffset < frames.size()) {
                         auto right = container.loadFrame(frames[i + rightOffset]);
+                        if(!right)
+                            right = nullptr;
+                        
                         nearestBuffers.push_back(right);
 
                         if(nearestBuffers.size() >= mergeFrames)
@@ -153,6 +164,24 @@ namespace motioncam {
                 
                 auto blackLevel = container.getCameraMetadata().blackLevel;
                 auto whiteLevel = container.getCameraMetadata().whiteLevel;
+                
+                // Convert from RAW10/16 -> bayer image
+                if(!createdBuffer) {
+                    const int rawWidth  = frame->width / 2;
+                    const int rawHeight = frame->height / 2;
+
+                    const int T = pow(2, EXTEND_EDGE_AMOUNT);
+
+                    const int offsetX = static_cast<int>(T * ceil(rawWidth / (double) T) - rawWidth);
+                    const int offsetY = static_cast<int>(T * ceil(rawHeight / (double) T) - rawHeight);
+
+                    bayerBuffer = Halide::Runtime::Buffer<uint16_t>((denoiseBuffer.width()-offsetX)*2 , (denoiseBuffer.height()-offsetY)*2);
+                    
+                    bayerBuffer.translate(0, offsetX);
+                    bayerBuffer.translate(1, offsetY);
+                    
+                    createdBuffer = true;
+                }
                 
                 build_bayer2(denoiseBuffer,
                              blackLevel[0],
@@ -173,13 +202,7 @@ namespace motioncam {
                 
                 --m;
             }
-            
-            if(timestampOffset <= 0) {
-                timestampOffset = frame->metadata.timestampNs;
-            }
-            
-            timestamp = (frame->metadata.timestampNs - timestampOffset) / (1000.0f*1000.0f*1000.0f);
-                    
+                                
             cv::Mat bayerImage(bayerBuffer.height(), bayerBuffer.width(), CV_16U, bayerBuffer.data());
             
             int fd = progress.onNeedFd(i);
@@ -229,7 +252,13 @@ namespace motioncam {
 
         progress.onCompleted();
 
-        return frames.size() / (1e-5f + timestamp);
+        double startTime = container.getFrame(frames[0])->metadata.timestampNs / 1e-9f;
+        double endTime = container.getFrame(frames[frames.size() - 1])->metadata.timestampNs / 1e-9;
+        
+        if(endTime - startTime <= 0)
+            return 0;
+        
+        return frames.size() / (endTime - startTime);
     }
 
     void ProcessImage(const std::string& containerPath, const std::string& outputFilePath, const ImageProcessorProgress& progressListener) {
@@ -240,8 +269,8 @@ namespace motioncam {
         ImageProcessor::process(rawContainer, outputFilePath, progressListener);
     }
 
-    void GetMetadata(const std::string& containerPath, float& outFrameRate, int& outNumFrames) {
-        RawContainer container(containerPath);
+    void GetMetadata(const int fd, float& outFrameRate, int& outNumFrames) {
+        RawContainer container(fd);
         
         auto frames = container.getFrames();
         
@@ -269,5 +298,17 @@ namespace motioncam {
             outFrameRate = 0;
         else
             outFrameRate  = frames.size() / time;
+    }
+
+    float ConvertVideoToDNG(const std::string& inputPath, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
+        RawContainer container(inputPath);
+        
+        return ConvertVideoToDNG(container, progress, numThreads, mergeFrames);
+    }
+
+    float ConvertVideoToDNG(const int fd, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
+        RawContainer container(fd);
+        
+        return ConvertVideoToDNG(container, progress, numThreads, mergeFrames);
     }
 }

@@ -10,13 +10,13 @@
     <ScrollView
         android:id="@+id/settingsLayout"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         tools:context=".ui.SettingsFragment">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="10dp"
             android:orientation="vertical">
 
             <LinearLayout
@@ -24,6 +24,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="10dp"
                 android:layout_marginEnd="10dp"
+                android:layout_marginBottom="10dp"
                 android:orientation="vertical">
 
                 <TextView
@@ -70,6 +71,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="10dp"
                 android:layout_marginEnd="10dp"
+                android:layout_marginBottom="10dp"
                 android:orientation="vertical">
 
                 <TextView
@@ -89,6 +91,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
                     android:orientation="horizontal">
 
                     <TextView
@@ -109,29 +112,57 @@
                         android:progress="@={viewModel.rawVideoMemoryUseMb}" />
                 </LinearLayout>
 
-<!--                <TextView-->
-<!--                    android:layout_width="match_parent"-->
-<!--                    android:layout_height="wrap_content"-->
-<!--                    android:layout_marginBottom="5dp"-->
-<!--                    android:text="@string/convert_raw_video"-->
-<!--                    android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold" />-->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="5dp"
+                    android:text="@string/raw_video_storage_folder"
+                    android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold" />
 
-<!--                <TextView-->
-<!--                    android:layout_width="match_parent"-->
-<!--                    android:layout_height="wrap_content"-->
-<!--                    android:text="@string/convert_raw_video_description"-->
-<!--                    android:textAppearance="@style/MotionCam.TextAppearance.Small"-->
-<!--                    android:textColor="@color/silver" />-->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/raw_video_storage_folder_description"
+                    android:textAppearance="@style/MotionCam.TextAppearance.Small"
+                    android:textColor="@color/silver" />
 
-<!--                <CheckBox-->
-<!--                    android:layout_width="wrap_content"-->
-<!--                    android:layout_height="wrap_content"-->
-<!--                    android:text="@string/convert_to_dng"-->
-<!--                    android:textAppearance="@style/MotionCam.TextAppearance.Small"-->
-<!--                    android:textColor="@color/white"-->
-<!--                    android:paddingTop="@dimen/seekBarPadding"-->
-<!--                    android:paddingBottom="@dimen/seekBarPadding"-->
-<!--                    android:checked="@={viewModel.rawVideoToDng}"/>-->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="5dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/rawVideoStorageSelectBtn"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:backgroundTint="@color/acceptAction"
+                        android:text="@string/select"/>
+
+                    <Button
+                        android:id="@+id/rawVideoStorageClearBtn"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:backgroundTint="@color/cancelAction"
+                        android:text="Clear"/>
+
+                    <HorizontalScrollView
+                        android:layout_width="fill_parent"
+                        android:layout_height="fill_parent">
+
+                        <TextView
+                            android:id="@+id/rawVideoStorageFolder"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:textAppearance="@style/MotionCam.TextAppearance.VerySmall"
+                            android:gravity="center_vertical"
+                            android:padding="5dp"
+                            android:scrollHorizontally="true"
+                            android:maxLines="1"
+                            android:textColor="@color/white" />
+
+                    </HorizontalScrollView>
+                </LinearLayout>
 
             </LinearLayout>
 
@@ -160,6 +191,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
                     android:orientation="horizontal">
 
                     <TextView
@@ -203,6 +235,7 @@
                     android:textColor="@color/white"
                     android:paddingTop="@dimen/seekBarPadding"
                     android:paddingBottom="@dimen/seekBarPadding"
+                    android:layout_marginBottom="10dp"
                     android:checked="@={viewModel.autoNightMode}"/>
 
                 <TextView
@@ -227,6 +260,7 @@
                     android:textColor="@color/white"
                     android:paddingTop="@dimen/seekBarPadding"
                     android:paddingBottom="@dimen/seekBarPadding"
+                    android:layout_marginBottom="10dp"
                     android:checked="@={viewModel.dualExposureControls}"/>
 
                 <TextView
@@ -246,6 +280,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
                     android:orientation="horizontal">
 
                     <TextView
@@ -285,15 +320,27 @@
                 <RadioGroup
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:padding="10dp"
+                    android:layout_marginBottom="10dp"
+                    android:orientation="vertical">
 
                     <RadioButton
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textColor="@color/white"
                         android:layout_weight="1"
+                        android:layout_marginBottom="5dp"
                         android:text="@string/raw10"
                         android:checked="@={viewModel.raw10}"/>
+
+                    <RadioButton
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/white"
+                        android:layout_weight="1"
+                        android:layout_marginBottom="5dp"
+                        android:text="@string/raw12"
+                        android:checked="@={viewModel.raw12}"/>
 
                     <RadioButton
                         android:layout_width="wrap_content"
@@ -302,9 +349,7 @@
                         android:textColor="@color/white"
                         android:text="@string/raw16"
                         android:checked="@={viewModel.raw16}"/>
-
                 </RadioGroup>
-
             </LinearLayout>
         </LinearLayout>
     </ScrollView>

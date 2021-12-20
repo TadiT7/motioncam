@@ -9,7 +9,12 @@
 namespace motioncam {
     class RawContainer;
 
-    float ConvertVideoToDNG(const std::string& containerPath,
+    float ConvertVideoToDNG(const std::string& inputFile,
+                            const DngProcessorProgress& progress,
+                            const int numThreads=4,
+                            const int mergeFrames=0);
+
+    float ConvertVideoToDNG(const int fd,
                             const DngProcessorProgress& progress,
                             const int numThreads=4,
                             const int mergeFrames=0);
@@ -17,7 +22,7 @@ namespace motioncam {
     void ProcessImage(RawContainer& rawContainer, const std::string& outputFilePath, const ImageProcessorProgress& progressListener);
     void ProcessImage(const std::string& containerPath, const std::string& outputFilePath, const ImageProcessorProgress& progressListener);
 
-    void GetMetadata(const std::string& containerPath, float& outFrameRate, int& outNumFrames);
+    void GetMetadata(const int fd, float& outFrameRate, int& outNumFrames);
 }
 
 #endif /* MotionCam_hpp */

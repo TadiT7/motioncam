@@ -22,8 +22,8 @@ namespace motioncam {
     // This needs to match the generator input
     enum class PixelFormat : int {
         RAW10 = 0,
-        RAW16 = 1,
         RAW12,
+        RAW16,
         YUV_420_888
     };
 
@@ -119,7 +119,9 @@ namespace motioncam {
 
     class NativeBuffer {
     public:
-        NativeBuffer() {}        
+        NativeBuffer() : mValidStart{0}, mValidEnd{0} {
+            
+        }
         virtual ~NativeBuffer() {}
 
         virtual uint8_t* lock(bool write) = 0;
@@ -131,6 +133,26 @@ namespace motioncam {
         virtual void release() = 0;
         virtual std::unique_ptr<NativeBuffer> clone() = 0;
         virtual void shrink(size_t newSize) = 0;
+        
+        void setValidRange(size_t start, size_t end) {
+            mValidStart = start;
+            mValidEnd = end;
+        }
+        
+        void getValidRange(size_t& outStart, size_t& outEnd) {
+            if(mValidStart == mValidEnd) {
+                outStart = 0;
+                outEnd = len();
+            }
+            else {
+                outStart = mValidStart;
+                outEnd = mValidEnd;
+            }
+        }
+        
+    private:
+        size_t mValidStart;
+        size_t mValidEnd;
     };
 
     class NativeHostBuffer : public NativeBuffer {
@@ -209,7 +231,8 @@ namespace motioncam {
             width(0),
             height(0),
             rowStride(0),
-            isCompressed(false)
+            isCompressed(false),
+            offset(0)
         {
         }
         
@@ -219,7 +242,8 @@ namespace motioncam {
             width(0),
             height(0),
             rowStride(0),
-            isCompressed(false)
+            isCompressed(false),
+            offset(0)
         {
         }
 
@@ -229,7 +253,8 @@ namespace motioncam {
             width(other.width),
             height(other.height),
             rowStride(other.rowStride),
-            isCompressed(other.isCompressed)
+            isCompressed(other.isCompressed),
+            offset(other.offset)
         {
             data = other.data->clone();
         }
@@ -241,7 +266,8 @@ namespace motioncam {
                 width(other.width),
                 height(other.height),
                 rowStride(other.rowStride),
-                isCompressed(other.isCompressed)
+                isCompressed(other.isCompressed),
+                offset(other.offset)
         {
         }
 
@@ -253,8 +279,19 @@ namespace motioncam {
             height = obj.height;
             rowStride = obj.rowStride;
             isCompressed = obj.isCompressed;
-
+            offset = obj.offset;
+            
             return *this;
+        }
+        
+        void shallowCopy(const RawImageBuffer &obj) {
+            metadata = obj.metadata;
+            pixelFormat = obj.pixelFormat;
+            width = obj.width;
+            height = obj.height;
+            rowStride = obj.rowStride;
+            isCompressed = obj.isCompressed;
+            offset = obj.offset;
         }
 
         std::unique_ptr<NativeBuffer> data;
@@ -264,6 +301,7 @@ namespace motioncam {
         int32_t height;
         int32_t rowStride;
         bool isCompressed;
+        uint64_t offset;
     };
 
     struct RawCameraMetadata {

@@ -17,6 +17,8 @@ namespace motioncam {
         virtual void onCameraHdrImageCaptureProgress(int progress) = 0;
         virtual void onCameraHdrImageCaptureCompleted() = 0;
         virtual void onCameraHdrImageCaptureFailed() = 0;
+        virtual void onMemoryAdjusting() = 0;
+        virtual void onMemoryStable() = 0;
     };
 }
 

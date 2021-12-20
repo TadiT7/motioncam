@@ -18,6 +18,7 @@ namespace motioncam {
 
     class RawContainer {
     public:
+        RawContainer(const int fd);
         RawContainer(const std::string& inputPath);
         RawContainer(const RawCameraMetadata& cameraMetadata);
 
@@ -27,6 +28,8 @@ namespace motioncam {
                      const bool isHdr,
                      const std::vector<std::shared_ptr<RawImageBuffer>>& buffers);
 
+        ~RawContainer();
+        
         const RawCameraMetadata& getCameraMetadata() const;
         const PostProcessSettings& getPostProcessSettings() const;
 
@@ -40,14 +43,24 @@ namespace motioncam {
         std::shared_ptr<RawImageBuffer> loadFrame(const std::string& frame) const;
         void removeFrame(const std::string& frame);
         
+        bool create(const int fd);
+        bool append(const int fd, const RawImageBuffer& frame);
+        bool commit(const int fd);
+        
+        void save(const int fd);
         void save(const std::string& outputPath);
-        
-        static size_t append(util::ZipWriter& zipWriter, std::shared_ptr<RawImageBuffer> frame);
-        
+        void save(util::ZipWriter& writer);
+                
         bool isInMemory() const { return mIsInMemory; };
         
     private:
-        void initialise();
+        void initialise(const std::string& inputPath);
+        void initialise(const int fd);
+        void loadFromBin(FILE* file);
+        void loadFromZip(std::unique_ptr<util::ZipReader> zipReader);
+        
+        void generateContainerMetadata(json11::Json::object& metadataJson);
+        void loadContainerMetadata(const json11::Json& metadata);
         
         static std::string getRequiredSettingAsString(const json11::Json& json, const std::string& key);
         static int getRequiredSettingAsInt(const json11::Json& json, const std::string& key);
@@ -64,10 +77,12 @@ namespace motioncam {
         static json11::Json::array toJsonArray(cv::Mat m);
 
         static std::shared_ptr<RawImageBuffer> loadFrameMetadata(const json11::Json& obj);
-        static void generateMetadata(std::shared_ptr<RawImageBuffer> frame, json11::Json::object& metadata, const std::string& filename);
+        static void generateMetadata(const RawImageBuffer& frame, json11::Json::object& metadata, const std::string& filename);
 
     private:
         std::unique_ptr<util::ZipReader> mZipReader;
+        FILE* mFile;
+        
         RawCameraMetadata mCameraMetadata;
         PostProcessSettings mPostProcessSettings;
         int64_t mReferenceTimestamp;

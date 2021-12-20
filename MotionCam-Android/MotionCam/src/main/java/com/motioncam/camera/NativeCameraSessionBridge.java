@@ -2,7 +2,6 @@ package com.motioncam.camera;
 
 import android.graphics.Bitmap;
 import android.graphics.PointF;
-import android.graphics.RectF;
 import android.util.Size;
 import android.view.Surface;
 
@@ -98,6 +97,9 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         void onCameraHdrImageCaptureProgress(int progress);
         void onCameraHdrImageCaptureFailed();
         void onCameraHdrImageCaptureCompleted();
+
+        void onMemoryAdjusting();
+        void onMemoryStable();
     }
 
     public interface CameraRawPreviewListener {
@@ -158,10 +160,16 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         return GetSupportedCameras(mNativeCameraHandle);
     }
 
-    public void startCapture(NativeCameraInfo cameraInfo, Surface previewOutput, boolean setupForRawPreview, boolean preferRaw16) {
+    public void startCapture(
+            NativeCameraInfo cameraInfo,
+            Surface previewOutput,
+            boolean setupForRawPreview,
+            boolean preferRaw12,
+            boolean preferRaw16)
+    {
         ensureValidHandle();
 
-        if(!StartCapture(mNativeCameraHandle, cameraInfo.cameraId, previewOutput, setupForRawPreview, preferRaw16)) {
+        if(!StartCapture(mNativeCameraHandle, cameraInfo.cameraId, previewOutput, setupForRawPreview, preferRaw12, preferRaw16)) {
             throw new CameraException(GetLastError());
         }
     }
@@ -406,16 +414,16 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         SetAutoFocus(mNativeCameraHandle);
     }
 
-    public RectF[] detectFaces() {
+    public void streamToFile(int fd0, int fd1, int audioFd) {
         ensureValidHandle();
 
-        return DetectFaces(mNativeCameraHandle);
+        StartStreamToFile(mNativeCameraHandle, fd0, fd1, audioFd);
     }
 
-    public void streamToFile(String outputPath, long maxMemoryUsageBytes) {
+    public void adjustMemory(long maxMemoryBytes) {
         ensureValidHandle();
 
-        StartStreamToFile(mNativeCameraHandle, outputPath, maxMemoryUsageBytes);
+        AdjustMemoryUse(mNativeCameraHandle, maxMemoryBytes);
     }
 
     public void endStream() {
@@ -430,16 +438,22 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         SetFrameRate(mNativeCameraHandle, frameRate);
     }
 
+    public void setVideoBin(boolean bin) {
+        ensureValidHandle();
+
+        SetVideoBin(mNativeCameraHandle, bin);
+    }
+
     public void setVideoCropPercentage(int horizontal, int vertical) {
         ensureValidHandle();
 
         SetVideoCropPercentage(mNativeCameraHandle, horizontal, vertical);
     }
 
-    public int getNumDroppedFrames() {
+    public VideoRecordingStats getVideoRecordingStats() {
         ensureValidHandle();
 
-        return GetNumDroppedFrames(mNativeCameraHandle);
+        return GetVideoRecordingStats(mNativeCameraHandle);
     }
 
     @Override
@@ -488,6 +502,16 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     }
 
     @Override
+    public void onMemoryAdjusting() {
+        mListener.onMemoryAdjusting();
+    }
+
+    @Override
+    public void onMemoryStable() {
+        mListener.onMemoryStable();
+    }
+
+    @Override
     public Bitmap onRawPreviewBitmapNeeded(int width, int height) {
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
 
@@ -514,7 +538,7 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
 
     private native NativeCameraInfo[] GetSupportedCameras(long handle);
 
-    private native boolean StartCapture(long handle, String cameraId, Surface previewSurface, boolean setupForRawPreview, boolean preferRaw16);
+    private native boolean StartCapture(long handle, String cameraId, Surface previewSurface, boolean setupForRawPreview, boolean preferRaw12, boolean preferRaw16);
     private native boolean StopCapture(long handle);
 
     private native boolean PauseCapture(long handle);
@@ -545,7 +569,7 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native Size GetRawOutputSize(long handle, String cameraId);
     private native Size GetPreviewOutputSize(long handle, String cameraId, Size captureSize, Size displaySize);
 
-    private native void StartStreamToFile(long handle, String outputPath, long maxMemoryUsageBytes);
+    private native boolean StartStreamToFile(long handle, int fd0, int fd1, int audioFd);
     private native void EndStream(long handle);
 
     private native void PrepareHdrCapture(long handle, int iso, long exposure);
@@ -563,9 +587,10 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native float EstimateShadows(long handle, float bias);
     private native String EstimatePostProcessSettings(long bufferHandle, float shadowsBias);
 
-    private native RectF[] DetectFaces(long handle);
-
     private native void SetFrameRate(long handle, int frameRate);
     private native void SetVideoCropPercentage(long handle, int horizontal, int vertical);
-    private native int GetNumDroppedFrames(long handle);
+    private native VideoRecordingStats GetVideoRecordingStats(long handle);
+    private native void SetVideoBin(long handle, boolean bin);
+
+    private native void AdjustMemoryUse(long handle, long maxUseBytes);
 }

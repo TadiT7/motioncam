@@ -8,13 +8,21 @@
 #include "camera_video_preview3_raw10.h"
 #include "camera_video_preview4_raw10.h"
 
-#include "camera_preview2_raw10.h"
-#include "camera_preview3_raw10.h"
-#include "camera_preview4_raw10.h"
+#include "camera_video_preview2_raw12.h"
+#include "camera_video_preview3_raw12.h"
+#include "camera_video_preview4_raw12.h"
 
 #include "camera_video_preview2_raw16.h"
 #include "camera_video_preview3_raw16.h"
 #include "camera_video_preview4_raw16.h"
+
+#include "camera_preview2_raw10.h"
+#include "camera_preview3_raw10.h"
+#include "camera_preview4_raw10.h"
+
+#include "camera_preview2_raw12.h"
+#include "camera_preview3_raw12.h"
+#include "camera_preview4_raw12.h"
 
 #include "camera_preview2_raw16.h"
 #include "camera_preview3_raw16.h"
@@ -74,6 +82,16 @@ namespace motioncam {
                 camera_preview = &camera_video_preview3_raw10;
             else if(downscaleFactor == 4)
                 camera_preview = &camera_video_preview4_raw10;
+            else
+                return;
+        }
+        else if(rawBuffer.pixelFormat == PixelFormat::RAW12) {
+            if(downscaleFactor == 2)
+                camera_preview = &camera_video_preview2_raw12;
+            else if(downscaleFactor == 3)
+                camera_preview = &camera_video_preview3_raw12;
+            else if(downscaleFactor == 4)
+                camera_preview = &camera_video_preview4_raw12;
             else
                 return;
         }
@@ -174,6 +192,16 @@ namespace motioncam {
                 camera_preview = &camera_preview3_raw10;
             else if(downscaleFactor == 4)
                 camera_preview = &camera_preview4_raw10;
+            else
+                return;
+        }
+        else if(rawBuffer.pixelFormat == PixelFormat::RAW12) {
+            if(downscaleFactor == 2)
+                camera_preview = &camera_preview2_raw12;
+            else if(downscaleFactor == 3)
+                camera_preview = &camera_preview3_raw12;
+            else if(downscaleFactor == 4)
+                camera_preview = &camera_preview4_raw12;
             else
                 return;
         }

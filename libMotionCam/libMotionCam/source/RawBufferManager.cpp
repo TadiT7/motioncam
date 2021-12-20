@@ -14,9 +14,9 @@ namespace motioncam {
 
     RawBufferManager::RawBufferManager() :
         mMemoryUseBytes(0),
+        mMemoryTargetBytes(0),
         mNumBuffers(0),
-        mStreamer(new RawBufferStreamer()),
-        mDroppedFrames(0)
+        mStreamer(new RawBufferStreamer())
     {
     }
 
@@ -36,14 +36,22 @@ namespace motioncam {
         mUnusedBuffers.enqueue(buffer);
         
         ++mNumBuffers;
+        
         mMemoryUseBytes += static_cast<int>(buffer->data->len());
+        mMemoryTargetBytes = static_cast<size_t>(mMemoryUseBytes);
     }
 
     int RawBufferManager::numBuffers() const {
         return mNumBuffers;
     }
 
-    int RawBufferManager::memoryUseBytes() const {
+    void RawBufferManager::recordingStats(size_t& outMemoryUseBytes, float& outFps, size_t& outOutputSizeBytes) const {
+        outMemoryUseBytes = mMemoryUseBytes;
+        outFps = mStreamer->estimateFps();
+        outOutputSizeBytes = mStreamer->writenOutputBytes();
+    }
+
+    size_t RawBufferManager::memoryUseBytes() const {
         return mMemoryUseBytes;
     }
 
@@ -59,6 +67,11 @@ namespace motioncam {
         
         mNumBuffers = 0;
         mMemoryUseBytes = 0;
+        mMemoryTargetBytes = 0;
+    }
+
+    void RawBufferManager::setTargetMemory(size_t memoryUseBytes) {
+        mMemoryTargetBytes = memoryUseBytes;
     }
 
     std::shared_ptr<RawImageBuffer> RawBufferManager::dequeueUnusedBuffer() {
@@ -71,16 +84,40 @@ namespace motioncam {
         {
             Lock lock(mMutex, __PRETTY_FUNCTION__);
 
-            if(!mReadyBuffers.empty()) {
-                buffer = mReadyBuffers.front();
-                mReadyBuffers.erase(mReadyBuffers.begin());
+            if(mMemoryUseBytes <= mMemoryTargetBytes) {
+                if(!mReadyBuffers.empty()) {
+                    buffer = mReadyBuffers.front();
+                    mReadyBuffers.erase(mReadyBuffers.begin());
 
+                    return buffer;
+                }
+            }
+            else {
+                // Shrink memory
+                while(true) {
+                    if(mReadyBuffers.size() > 0 && mMemoryUseBytes > mMemoryTargetBytes) {
+                        buffer = mReadyBuffers.front();
+                        mReadyBuffers.erase(mReadyBuffers.begin());
+
+                        mMemoryUseBytes -= buffer->data->len();
+                        --mNumBuffers;
+
+                        logger::log("Shrinking memory to " + std::to_string(mMemoryUseBytes));
+                    }
+                    else {
+                        if(!mReadyBuffers.empty()) {
+                            buffer = mReadyBuffers.front();
+                            mReadyBuffers.erase(mReadyBuffers.begin());
+
+                            return buffer;
+                        }
+                    }
+                }
+                
                 return buffer;
             }
         }
-
-        mDroppedFrames++;
-        
+                
         return nullptr;
     }
 
@@ -88,10 +125,7 @@ namespace motioncam {
         Lock lock(mMutex, __PRETTY_FUNCTION__);
 
         if(mStreamer->isRunning()) {
-            if(!mStreamer->add(buffer)) {
-                mReadyBuffers.push_back(buffer);
-                mDroppedFrames++;
-            }
+            mStreamer->add(buffer);
         }
         else
             mReadyBuffers.push_back(buffer);
@@ -388,26 +422,39 @@ namespace motioncam {
         return latest->metadata.timestampNs;
     }
 
-    void RawBufferManager::enableStreaming(const std::string outputPath, const int64_t maxMemoryUsageBytes, const RawCameraMetadata& metadata) {
+    void RawBufferManager::enableStreaming(const std::vector<int>& fds,
+                                           const int audioFd,
+                                           std::shared_ptr<AudioInterface> audioInterface,
+                                           const RawCameraMetadata& metadata)
+    {
         // Clear out buffers before streaming
         {
             consumeAllBuffers();
         }
         
-        mDroppedFrames = 0;
-        mStreamer->start(outputPath, maxMemoryUsageBytes, metadata);
+        mStreamer->start(fds, audioFd, audioInterface, metadata);
     }
 
     void RawBufferManager::setCropAmount(int horizontal, int vertical) {
         mStreamer->setCropAmount(horizontal, vertical);
     }
 
-    uint32_t RawBufferManager::numDroppedFrames() const {
-        return mDroppedFrames;
+    void RawBufferManager::setVideoBin(bool bin) {
+        mStreamer->setBin(bin);
+    }
+
+    float RawBufferManager::bufferSpaceUse() {
+        Lock lock(mMutex, __PRETTY_FUNCTION__);
+
+        float bufferUseAmount = (mNumBuffers - (mReadyBuffers.size() + mUnusedBuffers.size_approx())) / (float) mNumBuffers;
+
+        bufferUseAmount = std::max(0.0f, bufferUseAmount);
+        bufferUseAmount = std::min(1.0f, bufferUseAmount);
+
+        return bufferUseAmount;
     }
 
     void RawBufferManager::endStreaming() {
         mStreamer->stop();
-        mDroppedFrames = 0;
     }
 }
