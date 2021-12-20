@@ -1536,7 +1536,7 @@ namespace motioncam {
         Halide::Runtime::Buffer<float> fuseOutput(reference->rawBuffer.width(), reference->rawBuffer.height(), 4);
         
         fuseOutput.fill(0);
-        
+                
         auto processFrames = rawContainer.getFrames();
         auto it = processFrames.begin();
 

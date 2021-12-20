@@ -34,13 +34,13 @@ namespace motioncam {
 
     static inline __attribute__((always_inline))
     uint16_t RAW12(uint8_t* data, int16_t x, int16_t y, const uint16_t stride) {
-        const uint16_t X = (x / 3) * 3;
+        const uint16_t X = (x >> 1) << 1;
         const uint32_t xoffset = (y * stride) + ((12*X) >> 3);
         
         uint16_t p = x - X;
         uint8_t shift = p << 2;
         
-        return (((uint16_t) data[xoffset + p]) << 2) | ((((uint16_t) data[xoffset + 2]) >> shift) & 0x0F);
+        return (((uint16_t) data[xoffset + p]) << 4) | ((((uint16_t) data[xoffset + 2]) >> shift) & 0x0F);
     }
 
     static inline __attribute__((always_inline))
@@ -205,6 +205,526 @@ namespace motioncam {
     //    }
     //}
 
+    void RawBufferStreamer::cropAndBin_RAW10(RawImageBuffer& buffer,
+                                             uint8_t* data,
+                                             const int16_t ystart,
+                                             const int16_t yend,
+                                             const int16_t xstart,
+                                             const int16_t xend,
+                                             const int16_t binnedWidth) const
+    {
+        std::vector<uint16_t> row0(binnedWidth);
+        std::vector<uint16_t> row1(binnedWidth);
+        uint32_t dstOffset = 0;
+
+        for(int16_t y = ystart; y < yend; y+=4) {
+            for(int16_t x = xstart; x < xend; x+=4) {
+                uint16_t iy = y;
+
+                // Unroll inner loops
+                
+                {
+                    const int16_t ix = x;
+                    
+                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    
+                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+                    
+                    const uint16_t p0 = RAW10(data, ix_m2, iy_m2,  buffer.rowStride);
+                    const uint16_t p1 = RAW10(data, ix,    iy_m2,  buffer.rowStride) << 1;
+                    const uint16_t p2 = RAW10(data, ix_p2, iy_m2,  buffer.rowStride);
+                    
+                    const uint16_t p3 = RAW10(data, ix_m2, iy,     buffer.rowStride) << 1;
+                    const uint16_t p4 = RAW10(data, ix,    iy,     buffer.rowStride) << 2;
+                    const uint16_t p5 = RAW10(data, ix_p2, iy,     buffer.rowStride) << 1;
+                    
+                    const uint16_t p6 = RAW10(data, ix_m2, iy_p2,  buffer.rowStride);
+                    const uint16_t p7 = RAW10(data, ix,    iy_p2,  buffer.rowStride) << 1;
+                    const uint16_t p8 = RAW10(data, ix_p2, iy_p2,  buffer.rowStride);
+
+                    const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
+                    
+                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
+
+                    row0[X] = out;
+                }
+
+                {
+                    const uint16_t ix = x + 1;
+
+                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    
+                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+
+                    const uint16_t p0 = RAW10(data, ix_m2, iy_m2,  buffer.rowStride);
+                    const uint16_t p1 = RAW10(data, ix,    iy_m2,  buffer.rowStride) << 1;
+                    const uint16_t p2 = RAW10(data, ix_p2, iy_m2,  buffer.rowStride);
+                    
+                    const uint16_t p3 = RAW10(data, ix_m2, iy,     buffer.rowStride) << 1;
+                    const uint16_t p4 = RAW10(data, ix,    iy,     buffer.rowStride) << 2;
+                    const uint16_t p5 = RAW10(data, ix_p2, iy,     buffer.rowStride) << 1;
+                    
+                    const uint16_t p6 = RAW10(data, ix_m2, iy_p2,  buffer.rowStride);
+                    const uint16_t p7 = RAW10(data, ix,    iy_p2,  buffer.rowStride) << 1;
+                    const uint16_t p8 = RAW10(data, ix_p2, iy_p2,  buffer.rowStride);
+
+                    const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
+
+                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
+
+                    row0[X] = out;
+                }
+
+                // Next row
+                iy = y + 1;
+
+                {
+                    const uint16_t ix = x;
+                    
+                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    
+                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+
+                    const uint16_t p0 = RAW10(data, ix_m2, iy_m2,  buffer.rowStride);
+                    const uint16_t p1 = RAW10(data, ix,    iy_m2,  buffer.rowStride) << 1;
+                    const uint16_t p2 = RAW10(data, ix_p2, iy_m2,  buffer.rowStride);
+                    
+                    const uint16_t p3 = RAW10(data, ix_m2, iy,     buffer.rowStride) << 1;
+                    const uint16_t p4 = RAW10(data, ix,    iy,     buffer.rowStride) << 2;
+                    const uint16_t p5 = RAW10(data, ix_p2, iy,     buffer.rowStride) << 1;
+                    
+                    const uint16_t p6 = RAW10(data, ix_m2, iy_p2,  buffer.rowStride);
+                    const uint16_t p7 = RAW10(data, ix,    iy_p2,  buffer.rowStride) << 1;
+                    const uint16_t p8 = RAW10(data, ix_p2, iy_p2,  buffer.rowStride);
+
+                    const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
+
+                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
+
+                    row1[X] = out;
+                }
+                
+                {
+                    const uint16_t ix = x + 1;
+                    
+                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    
+                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+
+                    const uint16_t p0 = RAW10(data, ix_m2, iy_m2,  buffer.rowStride);
+                    const uint16_t p1 = RAW10(data, ix,    iy_m2,  buffer.rowStride) << 1;
+                    const uint16_t p2 = RAW10(data, ix_p2, iy_m2,  buffer.rowStride);
+                    
+                    const uint16_t p3 = RAW10(data, ix_m2, iy,     buffer.rowStride) << 1;
+                    const uint16_t p4 = RAW10(data, ix,    iy,     buffer.rowStride) << 2;
+                    const uint16_t p5 = RAW10(data, ix_p2, iy,     buffer.rowStride) << 1;
+                    
+                    const uint16_t p6 = RAW10(data, ix_m2, iy_p2,  buffer.rowStride);
+                    const uint16_t p7 = RAW10(data, ix,    iy_p2,  buffer.rowStride) << 1;
+                    const uint16_t p8 = RAW10(data, ix_p2, iy_p2,  buffer.rowStride);
+
+                    const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
+
+                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
+
+                    row1[X] = out;
+                }
+            }
+            
+            //
+            // Pack into RAW10
+            //
+            
+            for(uint16_t i = 0; i < row0.size(); i+=4) {
+                const uint8_t p0 = static_cast<uint8_t>( row0[i    ] >> 2 );
+                const uint8_t p1 = static_cast<uint8_t>( row0[i + 1] >> 2 );
+                const uint8_t p2 = static_cast<uint8_t>( row0[i + 2] >> 2 );
+                const uint8_t p3 = static_cast<uint8_t>( row0[i + 3] >> 2 );
+                
+                const uint8_t upper =
+                    static_cast<uint8_t>( (row0[i]     & 0x03))         |
+                    static_cast<uint8_t>( (row0[i + 1] & 0x03) << 2)    |
+                    static_cast<uint8_t>( (row0[i + 2] & 0x03) << 4)    |
+                    static_cast<uint8_t>( (row0[i + 3] & 0x03) << 6);
+                
+                data[dstOffset    ] = p0;
+                data[dstOffset + 1] = p1;
+                data[dstOffset + 2] = p2;
+                data[dstOffset + 3] = p3;
+                data[dstOffset + 4] = upper;
+                
+                dstOffset += 5;
+            }
+
+            for(uint16_t i = 0; i < row1.size(); i+=4) {
+                const uint8_t p0 = static_cast<uint8_t>( row1[i    ] >> 2 );
+                const uint8_t p1 = static_cast<uint8_t>( row1[i + 1] >> 2 );
+                const uint8_t p2 = static_cast<uint8_t>( row1[i + 2] >> 2 );
+                const uint8_t p3 = static_cast<uint8_t>( row1[i + 3] >> 2 );
+                
+                const uint8_t upper =
+                    static_cast<uint8_t>( (row1[i]     & 0x03))         |
+                    static_cast<uint8_t>( (row1[i + 1] & 0x03) << 2)    |
+                    static_cast<uint8_t>( (row1[i + 2] & 0x03) << 4)    |
+                    static_cast<uint8_t>( (row1[i + 3] & 0x03) << 6);
+                
+                data[dstOffset    ] = p0;
+                data[dstOffset + 1] = p1;
+                data[dstOffset + 2] = p2;
+                data[dstOffset + 3] = p3;
+                data[dstOffset + 4] = upper;
+                
+                dstOffset += 5;
+            }
+        }
+    }
+
+    void RawBufferStreamer::cropAndBin_RAW12(RawImageBuffer& buffer,
+                                             uint8_t* data,
+                                             const int16_t ystart,
+                                             const int16_t yend,
+                                             const int16_t xstart,
+                                             const int16_t xend,
+                                             const int16_t binnedWidth) const
+    {
+        std::vector<uint16_t> row0(binnedWidth);
+        std::vector<uint16_t> row1(binnedWidth);
+        uint32_t dstOffset = 0;
+
+        for(int16_t y = ystart; y < yend; y+=4) {
+            for(int16_t x = xstart; x < xend; x+=4) {
+                uint16_t iy = y;
+
+                // Unroll inner loops
+                
+                {
+                    const int16_t ix = x;
+                    
+                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    
+                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+                    
+                    const uint16_t p0 = RAW12(data, ix_m2, iy_m2,  buffer.rowStride);
+                    const uint16_t p1 = RAW12(data, ix,    iy_m2,  buffer.rowStride) << 1;
+                    const uint16_t p2 = RAW12(data, ix_p2, iy_m2,  buffer.rowStride);
+                    
+                    const uint16_t p3 = RAW12(data, ix_m2, iy,     buffer.rowStride) << 1;
+                    const uint16_t p4 = RAW12(data, ix,    iy,     buffer.rowStride) << 2;
+                    const uint16_t p5 = RAW12(data, ix_p2, iy,     buffer.rowStride) << 1;
+                    
+                    const uint16_t p6 = RAW12(data, ix_m2, iy_p2,  buffer.rowStride);
+                    const uint16_t p7 = RAW12(data, ix,    iy_p2,  buffer.rowStride) << 1;
+                    const uint16_t p8 = RAW12(data, ix_p2, iy_p2,  buffer.rowStride);
+
+                    const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
+                    
+                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
+
+                    row0[X] = out;
+                }
+
+                {
+                    const uint16_t ix = x + 1;
+
+                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    
+                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+
+                    const uint16_t p0 = RAW12(data, ix_m2, iy_m2,  buffer.rowStride);
+                    const uint16_t p1 = RAW12(data, ix,    iy_m2,  buffer.rowStride) << 1;
+                    const uint16_t p2 = RAW12(data, ix_p2, iy_m2,  buffer.rowStride);
+                    
+                    const uint16_t p3 = RAW12(data, ix_m2, iy,     buffer.rowStride) << 1;
+                    const uint16_t p4 = RAW12(data, ix,    iy,     buffer.rowStride) << 2;
+                    const uint16_t p5 = RAW12(data, ix_p2, iy,     buffer.rowStride) << 1;
+                    
+                    const uint16_t p6 = RAW12(data, ix_m2, iy_p2,  buffer.rowStride);
+                    const uint16_t p7 = RAW12(data, ix,    iy_p2,  buffer.rowStride) << 1;
+                    const uint16_t p8 = RAW12(data, ix_p2, iy_p2,  buffer.rowStride);
+
+                    const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
+
+                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
+
+                    row0[X] = out;
+                }
+
+                // Next row
+                iy = y + 1;
+
+                {
+                    const uint16_t ix = x;
+                    
+                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    
+                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+
+                    const uint16_t p0 = RAW12(data, ix_m2, iy_m2,  buffer.rowStride);
+                    const uint16_t p1 = RAW12(data, ix,    iy_m2,  buffer.rowStride) << 1;
+                    const uint16_t p2 = RAW12(data, ix_p2, iy_m2,  buffer.rowStride);
+                    
+                    const uint16_t p3 = RAW12(data, ix_m2, iy,     buffer.rowStride) << 1;
+                    const uint16_t p4 = RAW12(data, ix,    iy,     buffer.rowStride) << 2;
+                    const uint16_t p5 = RAW12(data, ix_p2, iy,     buffer.rowStride) << 1;
+                    
+                    const uint16_t p6 = RAW12(data, ix_m2, iy_p2,  buffer.rowStride);
+                    const uint16_t p7 = RAW12(data, ix,    iy_p2,  buffer.rowStride) << 1;
+                    const uint16_t p8 = RAW12(data, ix_p2, iy_p2,  buffer.rowStride);
+
+                    const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
+
+                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
+
+                    row1[X] = out;
+                }
+                
+                {
+                    const uint16_t ix = x + 1;
+                    
+                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    
+                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+
+                    const uint16_t p0 = RAW12(data, ix_m2, iy_m2,  buffer.rowStride);
+                    const uint16_t p1 = RAW12(data, ix,    iy_m2,  buffer.rowStride) << 1;
+                    const uint16_t p2 = RAW12(data, ix_p2, iy_m2,  buffer.rowStride);
+                    
+                    const uint16_t p3 = RAW12(data, ix_m2, iy,     buffer.rowStride) << 1;
+                    const uint16_t p4 = RAW12(data, ix,    iy,     buffer.rowStride) << 2;
+                    const uint16_t p5 = RAW12(data, ix_p2, iy,     buffer.rowStride) << 1;
+                    
+                    const uint16_t p6 = RAW12(data, ix_m2, iy_p2,  buffer.rowStride);
+                    const uint16_t p7 = RAW12(data, ix,    iy_p2,  buffer.rowStride) << 1;
+                    const uint16_t p8 = RAW12(data, ix_p2, iy_p2,  buffer.rowStride);
+
+                    const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
+
+                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
+
+                    row1[X] = out;
+                }
+            }
+            
+            //
+            // Pack into RAW12
+            //
+            
+            for(uint16_t i = 0; i < row0.size(); i+=2) {
+                const uint8_t p0 = static_cast<uint8_t>( row0[i    ] >> 4 );
+                const uint8_t p1 = static_cast<uint8_t>( row0[i + 1] >> 4 );
+                
+                const uint8_t upper =
+                    static_cast<uint8_t>( (p0 & 0x0F)) |
+                    static_cast<uint8_t>( (p1 & 0x0F) << 4);
+
+                data[dstOffset    ] = p0;
+                data[dstOffset + 1] = p1;
+                data[dstOffset + 2] = upper;
+                
+                dstOffset += 3;
+            }
+
+            for(uint16_t i = 0; i < row1.size(); i+=2) {
+                const uint8_t p0 = static_cast<uint8_t>( row1[i    ] >> 4 );
+                const uint8_t p1 = static_cast<uint8_t>( row1[i + 1] >> 4 );
+                
+                const uint8_t upper =
+                    static_cast<uint8_t>( (p0 & 0x0F)) |
+                    static_cast<uint8_t>( (p1 & 0x0F) << 4);
+
+                data[dstOffset    ] = p0;
+                data[dstOffset + 1] = p1;
+                data[dstOffset + 2] = upper;
+                
+                dstOffset += 3;
+            }
+        }
+    }
+
+    void RawBufferStreamer::cropAndBin_RAW16(RawImageBuffer& buffer,
+                                             uint8_t* data,
+                                             const int16_t ystart,
+                                             const int16_t yend,
+                                             const int16_t xstart,
+                                             const int16_t xend,
+                                             const int16_t binnedWidth) const
+    {
+        std::vector<uint16_t> row0(binnedWidth);
+        std::vector<uint16_t> row1(binnedWidth);
+        uint32_t dstOffset = 0;
+
+        for(int16_t y = ystart; y < yend; y+=4) {
+            for(int16_t x = xstart; x < xend; x+=4) {
+                uint16_t iy = y;
+
+                // Unroll inner loops
+                {
+                    const int16_t ix = x;
+                    
+                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    
+                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+                    
+                    const uint16_t p0 = RAW16(data, ix_m2, iy_m2,  buffer.rowStride);
+                    const uint16_t p1 = RAW16(data, ix,    iy_m2,  buffer.rowStride) << 1;
+                    const uint16_t p2 = RAW16(data, ix_p2, iy_m2,  buffer.rowStride);
+                    
+                    const uint16_t p3 = RAW16(data, ix_m2, iy,     buffer.rowStride) << 1;
+                    const uint16_t p4 = RAW16(data, ix,    iy,     buffer.rowStride) << 2;
+                    const uint16_t p5 = RAW16(data, ix_p2, iy,     buffer.rowStride) << 1;
+                    
+                    const uint16_t p6 = RAW16(data, ix_m2, iy_p2,  buffer.rowStride);
+                    const uint16_t p7 = RAW16(data, ix,    iy_p2,  buffer.rowStride) << 1;
+                    const uint16_t p8 = RAW16(data, ix_p2, iy_p2,  buffer.rowStride);
+
+                    const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
+                    
+                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
+
+                    row0[X] = out;
+                }
+
+                {
+                    const uint16_t ix = x + 1;
+
+                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    
+                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+
+                    const uint16_t p0 = RAW16(data, ix_m2, iy_m2,  buffer.rowStride);
+                    const uint16_t p1 = RAW16(data, ix,    iy_m2,  buffer.rowStride) << 1;
+                    const uint16_t p2 = RAW16(data, ix_p2, iy_m2,  buffer.rowStride);
+                    
+                    const uint16_t p3 = RAW16(data, ix_m2, iy,     buffer.rowStride) << 1;
+                    const uint16_t p4 = RAW16(data, ix,    iy,     buffer.rowStride) << 2;
+                    const uint16_t p5 = RAW16(data, ix_p2, iy,     buffer.rowStride) << 1;
+                    
+                    const uint16_t p6 = RAW16(data, ix_m2, iy_p2,  buffer.rowStride);
+                    const uint16_t p7 = RAW16(data, ix,    iy_p2,  buffer.rowStride) << 1;
+                    const uint16_t p8 = RAW16(data, ix_p2, iy_p2,  buffer.rowStride);
+
+                    const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
+
+                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
+
+                    row0[X] = out;
+                }
+
+                // Next row
+                iy = y + 1;
+
+                {
+                    const uint16_t ix = x;
+                    
+                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    
+                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+
+                    const uint16_t p0 = RAW16(data, ix_m2, iy_m2,  buffer.rowStride);
+                    const uint16_t p1 = RAW16(data, ix,    iy_m2,  buffer.rowStride) << 1;
+                    const uint16_t p2 = RAW16(data, ix_p2, iy_m2,  buffer.rowStride);
+                    
+                    const uint16_t p3 = RAW16(data, ix_m2, iy,     buffer.rowStride) << 1;
+                    const uint16_t p4 = RAW16(data, ix,    iy,     buffer.rowStride) << 2;
+                    const uint16_t p5 = RAW16(data, ix_p2, iy,     buffer.rowStride) << 1;
+                    
+                    const uint16_t p6 = RAW16(data, ix_m2, iy_p2,  buffer.rowStride);
+                    const uint16_t p7 = RAW16(data, ix,    iy_p2,  buffer.rowStride) << 1;
+                    const uint16_t p8 = RAW16(data, ix_p2, iy_p2,  buffer.rowStride);
+
+                    const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
+
+                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
+
+                    row1[X] = out;
+                }
+                
+                {
+                    const uint16_t ix = x + 1;
+                    
+                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    
+                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+
+                    const uint16_t p0 = RAW16(data, ix_m2, iy_m2,  buffer.rowStride);
+                    const uint16_t p1 = RAW16(data, ix,    iy_m2,  buffer.rowStride) << 1;
+                    const uint16_t p2 = RAW16(data, ix_p2, iy_m2,  buffer.rowStride);
+                    
+                    const uint16_t p3 = RAW16(data, ix_m2, iy,     buffer.rowStride) << 1;
+                    const uint16_t p4 = RAW16(data, ix,    iy,     buffer.rowStride) << 2;
+                    const uint16_t p5 = RAW16(data, ix_p2, iy,     buffer.rowStride) << 1;
+                    
+                    const uint16_t p6 = RAW16(data, ix_m2, iy_p2,  buffer.rowStride);
+                    const uint16_t p7 = RAW16(data, ix,    iy_p2,  buffer.rowStride) << 1;
+                    const uint16_t p8 = RAW16(data, ix_p2, iy_p2,  buffer.rowStride);
+
+                    const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
+
+                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
+
+                    row1[X] = out;
+                }
+            }
+            
+            //
+            // Pack into RAW12
+            //
+            
+            for(uint16_t i = 0; i < row0.size(); i+=2) {
+                const uint8_t p0 = static_cast<uint8_t>( row0[i    ] >> 4 );
+                const uint8_t p1 = static_cast<uint8_t>( row0[i + 1] >> 4 );
+                
+                const uint8_t upper =
+                    static_cast<uint8_t>( (p0 & 0x0F)) |
+                    static_cast<uint8_t>( (p1 & 0x0F) << 4);
+
+                data[dstOffset    ] = p0;
+                data[dstOffset + 1] = p1;
+                data[dstOffset + 2] = upper;
+                
+                dstOffset += 3;
+            }
+
+            for(uint16_t i = 0; i < row1.size(); i+=2) {
+                const uint8_t p0 = static_cast<uint8_t>( row1[i    ] >> 4 );
+                const uint8_t p1 = static_cast<uint8_t>( row1[i + 1] >> 4 );
+                
+                const uint8_t upper =
+                    static_cast<uint8_t>( (p0 & 0x0F)) |
+                    static_cast<uint8_t>( (p1 & 0x0F) << 4);
+
+                data[dstOffset    ] = p0;
+                data[dstOffset + 1] = p1;
+                data[dstOffset + 2] = upper;
+                
+                dstOffset += 3;
+            }
+        }
+    }
 
     void RawBufferStreamer::cropAndBin(RawImageBuffer& buffer) const {
 //        Measure m("cropAndBin");
@@ -227,346 +747,18 @@ namespace motioncam {
         std::vector<uint16_t> row1(croppedWidth / 2);
 
         auto data = buffer.data->lock(true);
-        uint32_t dstOffset = 0;
-
+        
         if(buffer.pixelFormat == PixelFormat::RAW10) {
-            for(int16_t y = ystart; y < yend; y+=4) {
-                for(int16_t x = xstart; x < xend; x+=4) {
-                    uint16_t iy = y;
-
-                    // Unroll inner loops
-                    
-                    {
-                        const int16_t ix = x;
-                        
-                        const int16_t ix_m2 = std::max(0, ix - 2);
-                        const int16_t ix_p2 = (ix + 2) % buffer.width;
-                        
-                        const int16_t iy_m2 = std::max(0, iy - 2);
-                        const int16_t iy_p2 = (iy + 2) % buffer.height;
-                        
-                        const uint16_t p0 = RAW10(data, ix_m2, iy_m2,  buffer.rowStride);
-                        const uint16_t p1 = RAW10(data, ix,    iy_m2,  buffer.rowStride) << 1;
-                        const uint16_t p2 = RAW10(data, ix_p2, iy_m2,  buffer.rowStride);
-                        
-                        const uint16_t p3 = RAW10(data, ix_m2, iy,     buffer.rowStride) << 1;
-                        const uint16_t p4 = RAW10(data, ix,    iy,     buffer.rowStride) << 2;
-                        const uint16_t p5 = RAW10(data, ix_p2, iy,     buffer.rowStride) << 1;
-                        
-                        const uint16_t p6 = RAW10(data, ix_m2, iy_p2,  buffer.rowStride);
-                        const uint16_t p7 = RAW10(data, ix,    iy_p2,  buffer.rowStride) << 1;
-                        const uint16_t p8 = RAW10(data, ix_p2, iy_p2,  buffer.rowStride);
-
-                        const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
-                        
-                        const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
-                        row0[X] = out;
-                    }
-
-                    {
-                        const uint16_t ix = x + 1;
-
-                        const int16_t ix_m2 = std::max(0, ix - 2);
-                        const int16_t ix_p2 = (ix + 2) % buffer.width;
-                        
-                        const int16_t iy_m2 = std::max(0, iy - 2);
-                        const int16_t iy_p2 = (iy + 2) % buffer.height;
-
-                        const uint16_t p0 = RAW10(data, ix_m2, iy_m2,  buffer.rowStride);
-                        const uint16_t p1 = RAW10(data, ix,    iy_m2,  buffer.rowStride) << 1;
-                        const uint16_t p2 = RAW10(data, ix_p2, iy_m2,  buffer.rowStride);
-                        
-                        const uint16_t p3 = RAW10(data, ix_m2, iy,     buffer.rowStride) << 1;
-                        const uint16_t p4 = RAW10(data, ix,    iy,     buffer.rowStride) << 2;
-                        const uint16_t p5 = RAW10(data, ix_p2, iy,     buffer.rowStride) << 1;
-                        
-                        const uint16_t p6 = RAW10(data, ix_m2, iy_p2,  buffer.rowStride);
-                        const uint16_t p7 = RAW10(data, ix,    iy_p2,  buffer.rowStride) << 1;
-                        const uint16_t p8 = RAW10(data, ix_p2, iy_p2,  buffer.rowStride);
-
-                        const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
-
-                        const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
-                        row0[X] = out;
-                    }
-
-                    // Next row
-                    iy = y + 1;
- 
-                    {
-                        const uint16_t ix = x;
-                        
-                        const int16_t ix_m2 = std::max(0, ix - 2);
-                        const int16_t ix_p2 = (ix + 2) % buffer.width;
-                        
-                        const int16_t iy_m2 = std::max(0, iy - 2);
-                        const int16_t iy_p2 = (iy + 2) % buffer.height;
-
-                        const uint16_t p0 = RAW10(data, ix_m2, iy_m2,  buffer.rowStride);
-                        const uint16_t p1 = RAW10(data, ix,    iy_m2,  buffer.rowStride) << 1;
-                        const uint16_t p2 = RAW10(data, ix_p2, iy_m2,  buffer.rowStride);
-                        
-                        const uint16_t p3 = RAW10(data, ix_m2, iy,     buffer.rowStride) << 1;
-                        const uint16_t p4 = RAW10(data, ix,    iy,     buffer.rowStride) << 2;
-                        const uint16_t p5 = RAW10(data, ix_p2, iy,     buffer.rowStride) << 1;
-                        
-                        const uint16_t p6 = RAW10(data, ix_m2, iy_p2,  buffer.rowStride);
-                        const uint16_t p7 = RAW10(data, ix,    iy_p2,  buffer.rowStride) << 1;
-                        const uint16_t p8 = RAW10(data, ix_p2, iy_p2,  buffer.rowStride);
-
-                        const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
-
-                        const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
-                        row1[X] = out;
-                    }
-                    
-                    {
-                        const uint16_t ix = x + 1;
-                        
-                        const int16_t ix_m2 = std::max(0, ix - 2);
-                        const int16_t ix_p2 = (ix + 2) % buffer.width;
-                        
-                        const int16_t iy_m2 = std::max(0, iy - 2);
-                        const int16_t iy_p2 = (iy + 2) % buffer.height;
-
-                        const uint16_t p0 = RAW10(data, ix_m2, iy_m2,  buffer.rowStride);
-                        const uint16_t p1 = RAW10(data, ix,    iy_m2,  buffer.rowStride) << 1;
-                        const uint16_t p2 = RAW10(data, ix_p2, iy_m2,  buffer.rowStride);
-                        
-                        const uint16_t p3 = RAW10(data, ix_m2, iy,     buffer.rowStride) << 1;
-                        const uint16_t p4 = RAW10(data, ix,    iy,     buffer.rowStride) << 2;
-                        const uint16_t p5 = RAW10(data, ix_p2, iy,     buffer.rowStride) << 1;
-                        
-                        const uint16_t p6 = RAW10(data, ix_m2, iy_p2,  buffer.rowStride);
-                        const uint16_t p7 = RAW10(data, ix,    iy_p2,  buffer.rowStride) << 1;
-                        const uint16_t p8 = RAW10(data, ix_p2, iy_p2,  buffer.rowStride);
-
-                        const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
-
-                        const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
-                        row1[X] = out;
-                    }
-                }
-                
-                //
-                // Pack into RAW10
-                //
-                
-                for(uint16_t i = 0; i < row0.size(); i+=4) {
-                    const uint8_t p0 = static_cast<uint8_t>( row0[i    ] >> 2 );
-                    const uint8_t p1 = static_cast<uint8_t>( row0[i + 1] >> 2 );
-                    const uint8_t p2 = static_cast<uint8_t>( row0[i + 2] >> 2 );
-                    const uint8_t p3 = static_cast<uint8_t>( row0[i + 3] >> 2 );
-                    
-                    const uint8_t upper =
-                        static_cast<uint8_t>( (row0[i]     & 0x03))         |
-                        static_cast<uint8_t>( (row0[i + 1] & 0x03) << 2)    |
-                        static_cast<uint8_t>( (row0[i + 2] & 0x03) << 4)    |
-                        static_cast<uint8_t>( (row0[i + 3] & 0x03) << 6);
-                    
-                    data[dstOffset    ] = p0;
-                    data[dstOffset + 1] = p1;
-                    data[dstOffset + 2] = p2;
-                    data[dstOffset + 3] = p3;
-                    data[dstOffset + 4] = upper;
-                    
-                    dstOffset += 5;
-                }
-
-                for(uint16_t i = 0; i < row1.size(); i+=4) {
-                    const uint8_t p0 = static_cast<uint8_t>( row1[i    ] >> 2 );
-                    const uint8_t p1 = static_cast<uint8_t>( row1[i + 1] >> 2 );
-                    const uint8_t p2 = static_cast<uint8_t>( row1[i + 2] >> 2 );
-                    const uint8_t p3 = static_cast<uint8_t>( row1[i + 3] >> 2 );
-                    
-                    const uint8_t upper =
-                        static_cast<uint8_t>( (row1[i]     & 0x03))         |
-                        static_cast<uint8_t>( (row1[i + 1] & 0x03) << 2)    |
-                        static_cast<uint8_t>( (row1[i + 2] & 0x03) << 4)    |
-                        static_cast<uint8_t>( (row1[i + 3] & 0x03) << 6);
-                    
-                    data[dstOffset    ] = p0;
-                    data[dstOffset + 1] = p1;
-                    data[dstOffset + 2] = p2;
-                    data[dstOffset + 3] = p3;
-                    data[dstOffset + 4] = upper;
-                    
-                    dstOffset += 5;
-                }
-            }
+            cropAndBin_RAW10(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2);
+        }
+        else if(buffer.pixelFormat == PixelFormat::RAW12) {
+            cropAndBin_RAW12(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2);
         }
         else if(buffer.pixelFormat == PixelFormat::RAW16) {
-            for(int16_t y = ystart; y < yend; y+=4) {
-                for(int16_t x = xstart; x < xend; x+=4) {
-                    uint16_t iy = y;
-
-                    // Unroll inner loops
-                    {
-                        const int16_t ix = x;
-                        
-                        const int16_t ix_m2 = std::max(0, ix - 2);
-                        const int16_t ix_p2 = (ix + 2) % buffer.width;
-                        
-                        const int16_t iy_m2 = std::max(0, iy - 2);
-                        const int16_t iy_p2 = (iy + 2) % buffer.height;
-                        
-                        const uint16_t p0 = RAW16(data, ix_m2, iy_m2,  buffer.rowStride);
-                        const uint16_t p1 = RAW16(data, ix,    iy_m2,  buffer.rowStride) << 1;
-                        const uint16_t p2 = RAW16(data, ix_p2, iy_m2,  buffer.rowStride);
-                        
-                        const uint16_t p3 = RAW16(data, ix_m2, iy,     buffer.rowStride) << 1;
-                        const uint16_t p4 = RAW16(data, ix,    iy,     buffer.rowStride) << 2;
-                        const uint16_t p5 = RAW16(data, ix_p2, iy,     buffer.rowStride) << 1;
-                        
-                        const uint16_t p6 = RAW16(data, ix_m2, iy_p2,  buffer.rowStride);
-                        const uint16_t p7 = RAW16(data, ix,    iy_p2,  buffer.rowStride) << 1;
-                        const uint16_t p8 = RAW16(data, ix_p2, iy_p2,  buffer.rowStride);
-
-                        const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
-                        
-                        const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
-                        row0[X] = out;
-                    }
-
-                    {
-                        const uint16_t ix = x + 1;
-
-                        const int16_t ix_m2 = std::max(0, ix - 2);
-                        const int16_t ix_p2 = (ix + 2) % buffer.width;
-                        
-                        const int16_t iy_m2 = std::max(0, iy - 2);
-                        const int16_t iy_p2 = (iy + 2) % buffer.height;
-
-                        const uint16_t p0 = RAW16(data, ix_m2, iy_m2,  buffer.rowStride);
-                        const uint16_t p1 = RAW16(data, ix,    iy_m2,  buffer.rowStride) << 1;
-                        const uint16_t p2 = RAW16(data, ix_p2, iy_m2,  buffer.rowStride);
-                        
-                        const uint16_t p3 = RAW16(data, ix_m2, iy,     buffer.rowStride) << 1;
-                        const uint16_t p4 = RAW16(data, ix,    iy,     buffer.rowStride) << 2;
-                        const uint16_t p5 = RAW16(data, ix_p2, iy,     buffer.rowStride) << 1;
-                        
-                        const uint16_t p6 = RAW16(data, ix_m2, iy_p2,  buffer.rowStride);
-                        const uint16_t p7 = RAW16(data, ix,    iy_p2,  buffer.rowStride) << 1;
-                        const uint16_t p8 = RAW16(data, ix_p2, iy_p2,  buffer.rowStride);
-
-                        const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
-
-                        const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
-                        row0[X] = out;
-                    }
-
-                    // Next row
-                    iy = y + 1;
- 
-                    {
-                        const uint16_t ix = x;
-                        
-                        const int16_t ix_m2 = std::max(0, ix - 2);
-                        const int16_t ix_p2 = (ix + 2) % buffer.width;
-                        
-                        const int16_t iy_m2 = std::max(0, iy - 2);
-                        const int16_t iy_p2 = (iy + 2) % buffer.height;
-
-                        const uint16_t p0 = RAW16(data, ix_m2, iy_m2,  buffer.rowStride);
-                        const uint16_t p1 = RAW16(data, ix,    iy_m2,  buffer.rowStride) << 1;
-                        const uint16_t p2 = RAW16(data, ix_p2, iy_m2,  buffer.rowStride);
-                        
-                        const uint16_t p3 = RAW16(data, ix_m2, iy,     buffer.rowStride) << 1;
-                        const uint16_t p4 = RAW16(data, ix,    iy,     buffer.rowStride) << 2;
-                        const uint16_t p5 = RAW16(data, ix_p2, iy,     buffer.rowStride) << 1;
-                        
-                        const uint16_t p6 = RAW16(data, ix_m2, iy_p2,  buffer.rowStride);
-                        const uint16_t p7 = RAW16(data, ix,    iy_p2,  buffer.rowStride) << 1;
-                        const uint16_t p8 = RAW16(data, ix_p2, iy_p2,  buffer.rowStride);
-
-                        const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
-
-                        const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
-                        row1[X] = out;
-                    }
-                    
-                    {
-                        const uint16_t ix = x + 1;
-                        
-                        const int16_t ix_m2 = std::max(0, ix - 2);
-                        const int16_t ix_p2 = (ix + 2) % buffer.width;
-                        
-                        const int16_t iy_m2 = std::max(0, iy - 2);
-                        const int16_t iy_p2 = (iy + 2) % buffer.height;
-
-                        const uint16_t p0 = RAW16(data, ix_m2, iy_m2,  buffer.rowStride);
-                        const uint16_t p1 = RAW16(data, ix,    iy_m2,  buffer.rowStride) << 1;
-                        const uint16_t p2 = RAW16(data, ix_p2, iy_m2,  buffer.rowStride);
-                        
-                        const uint16_t p3 = RAW16(data, ix_m2, iy,     buffer.rowStride) << 1;
-                        const uint16_t p4 = RAW16(data, ix,    iy,     buffer.rowStride) << 2;
-                        const uint16_t p5 = RAW16(data, ix_p2, iy,     buffer.rowStride) << 1;
-                        
-                        const uint16_t p6 = RAW16(data, ix_m2, iy_p2,  buffer.rowStride);
-                        const uint16_t p7 = RAW16(data, ix,    iy_p2,  buffer.rowStride) << 1;
-                        const uint16_t p8 = RAW16(data, ix_p2, iy_p2,  buffer.rowStride);
-
-                        const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
-
-                        const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
-                        row1[X] = out;
-                    }
-                }
-                
-                //
-                // Pack into RAW10
-                //
-                
-                for(uint16_t i = 0; i < row0.size(); i+=4) {
-                    const uint8_t p0 = static_cast<uint8_t>( row0[i    ] >> 2 );
-                    const uint8_t p1 = static_cast<uint8_t>( row0[i + 1] >> 2 );
-                    const uint8_t p2 = static_cast<uint8_t>( row0[i + 2] >> 2 );
-                    const uint8_t p3 = static_cast<uint8_t>( row0[i + 3] >> 2 );
-                    
-                    const uint8_t upper =
-                        static_cast<uint8_t>( (row0[i]     & 0x03))         |
-                        static_cast<uint8_t>( (row0[i + 1] & 0x03) << 2)    |
-                        static_cast<uint8_t>( (row0[i + 2] & 0x03) << 4)    |
-                        static_cast<uint8_t>( (row0[i + 3] & 0x03) << 6);
-                    
-                    data[dstOffset    ] = p0;
-                    data[dstOffset + 1] = p1;
-                    data[dstOffset + 2] = p2;
-                    data[dstOffset + 3] = p3;
-                    data[dstOffset + 4] = upper;
-                    
-                    dstOffset += 5;
-                }
-
-                for(uint16_t i = 0; i < row1.size(); i+=4) {
-                    const uint8_t p0 = static_cast<uint8_t>( row1[i    ] >> 2 );
-                    const uint8_t p1 = static_cast<uint8_t>( row1[i + 1] >> 2 );
-                    const uint8_t p2 = static_cast<uint8_t>( row1[i + 2] >> 2 );
-                    const uint8_t p3 = static_cast<uint8_t>( row1[i + 3] >> 2 );
-                    
-                    const uint8_t upper =
-                        static_cast<uint8_t>( (row1[i]     & 0x03))         |
-                        static_cast<uint8_t>( (row1[i + 1] & 0x03) << 2)    |
-                        static_cast<uint8_t>( (row1[i + 2] & 0x03) << 4)    |
-                        static_cast<uint8_t>( (row1[i + 3] & 0x03) << 6);
-                    
-                    data[dstOffset    ] = p0;
-                    data[dstOffset + 1] = p1;
-                    data[dstOffset + 2] = p2;
-                    data[dstOffset + 3] = p3;
-                    data[dstOffset + 4] = upper;
-                    
-                    dstOffset += 5;
-                }
-            }
+            cropAndBin_RAW16(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2);
+            
+            // RAW16 -> RAW12
+            buffer.pixelFormat = PixelFormat::RAW12;
         }
         else {
             // Not supported
@@ -574,12 +766,11 @@ namespace motioncam {
             return;
         }
 
+        buffer.data->unlock();
+
         buffer.width = croppedWidth / 2;
         buffer.height = croppedHeight / 2;
-        buffer.pixelFormat = PixelFormat::RAW10;
-        buffer.rowStride = 10*buffer.width/8;
-        
-        buffer.data->unlock();
+        buffer.rowStride = buffer.pixelFormat == PixelFormat::RAW10 ? 10*buffer.width/8 : 12*buffer.width/8;
                 
         // Update valid range
         size_t end = buffer.height*buffer.rowStride;
@@ -608,9 +799,23 @@ namespace motioncam {
         const int ystart = verticalCrop;
         const int yend = buffer.height - ystart;
 
-        const uint32_t croppedRowStride = 10*croppedWidth/8;
+        uint32_t croppedRowStride;
 
         if(buffer.pixelFormat == PixelFormat::RAW10) {
+            croppedRowStride = 10*croppedWidth/8;
+            
+            for(int y = ystart; y < yend; y++) {
+                const int srcOffset = buffer.rowStride * y;
+                const int dstOffset = croppedRowStride * (y - ystart);
+
+                const int xstart = 10*horizontalCrop/8;
+
+                std::memmove(data+dstOffset, data+srcOffset+xstart, croppedRowStride);
+            }
+        }
+        else if(buffer.pixelFormat == PixelFormat::RAW12) {
+            croppedRowStride = 12*croppedWidth/8;
+            
             for(int y = ystart; y < yend; y++) {
                 const int srcOffset = buffer.rowStride * y;
                 const int dstOffset = croppedRowStride * (y - ystart);
@@ -621,35 +826,32 @@ namespace motioncam {
             }
         }
         else if(buffer.pixelFormat == PixelFormat::RAW16) {
+            croppedRowStride = 12*croppedWidth/8; // Pack into RAW12
             uint32_t dstOffset = 0;
 
             for(int y = ystart; y < yend; y++) {
 
                 //
-                // Pack into RAW10
+                // Pack into RAW12
                 //
                 
-                for(int x = horizontalCrop; x < buffer.width - horizontalCrop; x+=4) {
+                for(int x = horizontalCrop; x < buffer.width - horizontalCrop; x+=2) {
                     const uint16_t p0 = RAW16(data, x,   y, buffer.rowStride);
                     const uint16_t p1 = RAW16(data, x+1, y, buffer.rowStride);
-                    const uint16_t p2 = RAW16(data, x+2, y, buffer.rowStride);
-                    const uint16_t p3 = RAW16(data, x+3, y, buffer.rowStride);
                     
                     const uint8_t upper =
-                        static_cast<uint8_t>( (p0 & 0x03))         |
-                        static_cast<uint8_t>( (p1 & 0x03) << 2)    |
-                        static_cast<uint8_t>( (p2 & 0x03) << 4)    |
-                        static_cast<uint8_t>( (p3 & 0x03) << 6);
-                    
-                    data[dstOffset    ] = static_cast<uint8_t>(p0 >> 2);
-                    data[dstOffset + 1] = static_cast<uint8_t>(p1 >> 2);
-                    data[dstOffset + 2] = static_cast<uint8_t>(p2 >> 2);
-                    data[dstOffset + 3] = static_cast<uint8_t>(p3 >> 2);
-                    data[dstOffset + 4] = upper;
-                    
-                    dstOffset += 5;
+                        static_cast<uint8_t>( (p0 & 0x0F)) |
+                        static_cast<uint8_t>( (p1 & 0x0F) << 4);
+
+                    data[dstOffset    ] = static_cast<uint8_t>(p0 >> 4);
+                    data[dstOffset + 1] = static_cast<uint8_t>(p1 >> 4);
+                    data[dstOffset + 2] = upper;
+
+                    dstOffset += 3;
                 }
             }
+            
+            buffer.pixelFormat = PixelFormat::RAW12;
         }
         else {
             // Not supported
@@ -663,7 +865,6 @@ namespace motioncam {
         buffer.rowStride = croppedRowStride;
         buffer.width = croppedWidth;
         buffer.height = croppedHeight;
-        buffer.pixelFormat = PixelFormat::RAW10;
 
         buffer.data->setValidRange(0, buffer.rowStride * buffer.height);
     }

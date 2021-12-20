@@ -21,15 +21,20 @@ import com.motioncam.R;
 import com.motioncam.processor.NativeDngConverterListener;
 import com.motioncam.processor.NativeProcessor;
 
+import org.apache.commons.io.IOUtil;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Locale;
 
 public class VideoProcessWorker extends Worker implements NativeDngConverterListener {
     public static final String TAG = "MotionVideoCamWorker";
 
     public static final String INPUT_URI_KEY = "input_uri";
+    public static final String INPUT_AUDIO_URI_KEY = "input_audio_uri";
     public static final String INPUT_NUM_FRAMES_TO_MERGE = "num_frames_to_merge";
 
     public static final String OUTPUT_URI_KEY = "output_uri";
@@ -61,19 +66,8 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         }
     }
 
-    private void processVideo(Uri inputUri, DocumentFile output, int numFramesToMerge) throws IOException {
+    private void processVideo(Uri inputUri, int numFramesToMerge) throws IOException {
         mInputUri = inputUri;
-
-        String outputDirectoryName = getNameWithoutExtension(getName(inputUri));
-        String finalOutputDirectoryName = outputDirectoryName;
-
-        int i = 1;
-
-        while(output.findFile(finalOutputDirectoryName) != null) {
-            finalOutputDirectoryName = outputDirectoryName + "-" + i;
-        }
-
-        mOutputDocument = output.createDirectory(finalOutputDirectoryName);
 
         ContentResolver resolver = getApplicationContext().getContentResolver();
         try(ParcelFileDescriptor pfd = resolver.openFileDescriptor(inputUri, "r", null)) {
@@ -105,17 +99,30 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
 
         return true;
     }
+
     @NonNull
     @Override
     public Result doWork() {
-        Data inputData = getInputData();
+        if(!init()) {
+            Log.e(TAG, "Failed to initialise");
+            mNotifyManager.cancel(NOTIFICATION_ID);
+            return Result.failure();
+        }
 
+        setForegroundAsync(new ForegroundInfo(NOTIFICATION_ID, mNotificationBuilder.build()));
+
+        Data inputData = getInputData();
         int numFramesToMerge = inputData.getInt(INPUT_NUM_FRAMES_TO_MERGE, 0);
 
-        String inputUriString = inputData.getString(INPUT_URI_KEY);
-        if(inputUriString == null) {
-            Log.e(TAG, "Invalid input URI");
-            return Result.failure();
+        String inputUriString       = inputData.getString(INPUT_URI_KEY);
+        String inputAudioUriString  = inputData.getString(INPUT_AUDIO_URI_KEY);
+
+        Log.d(TAG, "Starting video worker");
+
+        if(inputAudioUriString == null && inputUriString == null) {
+            // Nothing to do
+            Log.d(TAG, "Nothing to do");
+            return Result.success();
         }
 
         String outputUriString = inputData.getString(OUTPUT_URI_KEY);
@@ -124,27 +131,80 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
             return Result.failure();
         }
 
-        if(!init())
-            return Result.failure();
-
-        setForegroundAsync(new ForegroundInfo(NOTIFICATION_ID, mNotificationBuilder.build()));
-
-        Uri inputUri = Uri.parse(inputUriString);
         Uri outputUri = Uri.parse(outputUriString);
-
         DocumentFile output = DocumentFile.fromTreeUri(getApplicationContext(), outputUri);
         if(output == null) {
             Log.e(TAG, "Invalid output");
             return Result.failure();
         }
 
-        try {
-            Log.d(TAG, "Processing video " + inputUriString);
-            processVideo(inputUri, output, numFramesToMerge);
+        Uri videoInputUri = null;
+        if(inputUriString != null)
+            videoInputUri = Uri.parse(inputUriString);
+
+        Uri audioInputUri = null;
+        if(inputAudioUriString != null)
+            audioInputUri = Uri.parse(inputAudioUriString);
+
+        // Get output folder
+        String outputName;
+
+        if(videoInputUri != null)
+            outputName = getName(videoInputUri);
+        else
+            outputName = getName(audioInputUri);
+
+        String outputDirectoryName = getNameWithoutExtension(outputName);
+        String finalOutputDirectoryName = outputDirectoryName;
+
+        int i = 1;
+        while(output.findFile(finalOutputDirectoryName) != null) {
+            finalOutputDirectoryName = outputDirectoryName + "-" + i;
+            ++i;
         }
-        catch (Exception e) {
-            Log.e(TAG, "Failed to process " + inputUriString, e);
+
+        mOutputDocument = output.createDirectory(finalOutputDirectoryName);
+
+        if(mOutputDocument == null || !mOutputDocument.exists() ) {
+            Log.e(TAG, "Failed to create output directory");
+            mNotifyManager.cancel(NOTIFICATION_ID);
+            return Result.failure();
         }
+
+        // Process video first
+        if(videoInputUri != null) {
+            try {
+                Log.d(TAG, "Processing video " + inputUriString);
+                processVideo(videoInputUri, numFramesToMerge);
+            }
+            catch (Exception e) {
+                Log.e(TAG, "Failed to process " + inputUriString, e);
+            }
+        }
+
+        // Move audio
+        if(audioInputUri != null) {
+            try {
+                DocumentFile srcAudioFile = DocumentFile.fromSingleUri(getApplicationContext(), audioInputUri);
+                DocumentFile dstAudioFile = mOutputDocument.createFile("audio/wav", getName(audioInputUri));
+
+                if(srcAudioFile != null || dstAudioFile != null) {
+                    if (srcAudioFile.exists()) {
+                        try (InputStream inputStream = getApplicationContext().getContentResolver().openInputStream(srcAudioFile.getUri());
+                             OutputStream outputStream = getApplicationContext().getContentResolver().openOutputStream(dstAudioFile.getUri())) {
+
+                            if(inputStream != null && outputStream != null)
+                                IOUtil.copy(inputStream, outputStream);
+                        }
+                    }
+                }
+            }
+            catch (Exception e) {
+                Log.e(TAG, "Failed to move " + inputAudioUriString, e);
+            }
+        }
+
+        Log.d(TAG, "Stopping video worker");
 
         mNotifyManager.cancel(NOTIFICATION_ID);
 

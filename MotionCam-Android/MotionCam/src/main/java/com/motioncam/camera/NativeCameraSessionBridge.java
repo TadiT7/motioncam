@@ -160,10 +160,16 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         return GetSupportedCameras(mNativeCameraHandle);
     }
 
-    public void startCapture(NativeCameraInfo cameraInfo, Surface previewOutput, boolean setupForRawPreview, boolean preferRaw16) {
+    public void startCapture(
+            NativeCameraInfo cameraInfo,
+            Surface previewOutput,
+            boolean setupForRawPreview,
+            boolean preferRaw12,
+            boolean preferRaw16)
+    {
         ensureValidHandle();
 
-        if(!StartCapture(mNativeCameraHandle, cameraInfo.cameraId, previewOutput, setupForRawPreview, preferRaw16)) {
+        if(!StartCapture(mNativeCameraHandle, cameraInfo.cameraId, previewOutput, setupForRawPreview, preferRaw12, preferRaw16)) {
             throw new CameraException(GetLastError());
         }
     }
@@ -532,7 +538,7 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
 
     private native NativeCameraInfo[] GetSupportedCameras(long handle);
 
-    private native boolean StartCapture(long handle, String cameraId, Surface previewSurface, boolean setupForRawPreview, boolean preferRaw16);
+    private native boolean StartCapture(long handle, String cameraId, Surface previewSurface, boolean setupForRawPreview, boolean preferRaw12, boolean preferRaw16);
     private native boolean StopCapture(long handle);
 
     private native boolean PauseCapture(long handle);

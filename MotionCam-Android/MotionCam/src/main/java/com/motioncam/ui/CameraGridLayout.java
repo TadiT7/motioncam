@@ -10,8 +10,15 @@ import android.widget.FrameLayout;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.motioncam.R;
+
 public class CameraGridLayout extends FrameLayout {
-    Paint mPaint;
+    private Paint mPaintLines;
+    private Paint mPaintCrop;
+
+    private boolean mCropMode;
+    private int mCropHorizontal;
+    private int mCropVertical;
 
     public CameraGridLayout(@NonNull Context context) {
         super(context);
@@ -42,12 +49,26 @@ public class CameraGridLayout extends FrameLayout {
     }
 
     void createPaint() {
-        mPaint = new Paint();
+        mPaintLines = new Paint();
 
-        mPaint.setAntiAlias(true);
-        mPaint.setStrokeWidth(1);
-        mPaint.setStyle(Paint.Style.STROKE);
-        mPaint.setColor(Color.argb(96, 255, 255, 255));
+        mPaintLines.setAntiAlias(true);
+        mPaintLines.setStrokeWidth(1);
+        mPaintLines.setStyle(Paint.Style.STROKE);
+        mPaintLines.setColor(Color.argb(96, 255, 255, 255));
+
+        mPaintCrop = new Paint();
+
+        mPaintCrop.setAntiAlias(false);
+        mPaintCrop.setStyle(Paint.Style.FILL);
+        mPaintCrop.setColor(getContext().getColor(R.color.background));
+    }
+
+    public void setCropMode(boolean cropMode, int cropHorizontal, int cropVertical) {
+        mCropMode = cropMode;
+        mCropHorizontal = cropHorizontal;
+        mCropVertical = cropVertical;
+
+        invalidate();
     }
 
     @Override
@@ -57,10 +78,40 @@ public class CameraGridLayout extends FrameLayout {
         int width = getWidth();
         int height = getHeight();
 
-        canvas.drawLine(width/3, 0, width/3, height, mPaint);
-        canvas.drawLine(width/3*2, 0, width/3*2, height, mPaint);
+        if(mCropMode) {
+            float croppedWidth = 0.5f * (width * (mCropHorizontal / 100.0f));
+            float croppedHeight = 0.5f * (width * (mCropVertical / 100.0f));
 
-        canvas.drawLine(0, height/3, width, height/3, mPaint);
-        canvas.drawLine(0, height/3*2, width, height/3*2, mPaint);
+            // Top
+            canvas.drawRect(
+                    0,      0,
+                    width,  croppedHeight,
+                    mPaintCrop);
+
+            // Bottom
+            canvas.drawRect(
+                    0,      height - croppedHeight,
+                    width,  height,
+                    mPaintCrop);
+
+            // Left
+            canvas.drawRect(
+                    0,              0,
+                    croppedWidth,   height,
+                    mPaintCrop);
+
+            // Right
+            canvas.drawRect(
+                    width - croppedWidth,   0,
+                    width,                  height,
+                    mPaintCrop);
+        }
+        else {
+            canvas.drawLine(width/3, 0, width/3, height, mPaintLines);
+            canvas.drawLine(width/3*2, 0, width/3*2, height, mPaintLines);
+
+            canvas.drawLine(0, height/3, width, height/3, mPaintLines);
+            canvas.drawLine(0, height/3*2, width, height/3*2, mPaintLines);
+        }
     }
 }

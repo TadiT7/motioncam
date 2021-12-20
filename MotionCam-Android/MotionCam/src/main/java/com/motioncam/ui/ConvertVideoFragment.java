@@ -41,6 +41,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class ConvertVideoFragment  extends Fragment implements LifecycleObserver, RawVideoAdapter.OnQueueListener {
     private ActivityResultLauncher<Intent> mSelectDocumentLauncher;
@@ -56,6 +57,9 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
     }
 
     static private String normalisedName(String name) {
+        if(name == null)
+            return null;
+
         if(name.contains("."))
             name = name.substring(0, name.lastIndexOf('.'));
 
@@ -67,14 +71,13 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
             return false;
 
         String name = file.getName();
+        if(name == null)
+            return false;
 
         if(name.toLowerCase(Locale.ROOT).endsWith("zip"))
             return true;
 
-        if(name.toLowerCase(Locale.ROOT).endsWith("container"))
-            return true;
-
-        return false;
+        return name.toLowerCase(Locale.ROOT).endsWith("container");
     }
 
     static private boolean isAudio(DocumentFile file) {
@@ -82,11 +85,10 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
             return false;
 
         String name = file.getName();
+        if(name == null)
+            return false;
 
-        if(name.toLowerCase(Locale.ROOT).endsWith("wav"))
-            return true;
-
-        return false;
+        return name.toLowerCase(Locale.ROOT).endsWith("wav");
     }
 
     private boolean deleteUri(Uri uri) {
@@ -104,8 +106,10 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
     }
 
     private boolean deleteEntry(VideoEntry entry) {
-        deleteUri(entry.getAudioUri());
-        return deleteUri(entry.getVideoUri());
+        boolean deleted = deleteUri(entry.getAudioUri());
+        deleted |= deleteUri(entry.getVideoUri());
+
+        return deleted;
     }
 
     @Nullable
@@ -115,6 +119,17 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                              @Nullable Bundle savedInstanceState) {
 
         return inflater.inflate(R.layout.convert_video_fragment, container, false);
+    }
+
+    private Uri getExportUri() {
+        SharedPreferences sharedPrefs =
+                getActivity().getSharedPreferences(SettingsViewModel.CAMERA_SHARED_PREFS, Context.MODE_PRIVATE);
+
+        String exportUriString = sharedPrefs.getString(SettingsViewModel.PREFS_KEY_RAW_VIDEO_OUTPUT_URI, null);
+        if(exportUriString == null)
+            return null;
+
+        return Uri.parse(exportUriString);
     }
 
     @Override
@@ -160,23 +175,46 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
 
         DocumentFile[] documentFiles = root.listFiles();
 
+        Uri exportUri = getExportUri();
+        DocumentFile exportDocumentFile = null;
+
+        if(exportUri != null)
+            exportDocumentFile = DocumentFile.fromTreeUri(requireContext(), exportUri);
+
         for(DocumentFile documentFile : documentFiles) {
             String name = normalisedName(documentFile.getName());
+            if(name == null)
+                continue;
+
+            Uri uri = documentFile.getUri();
             VideoEntry entry;
 
-            if(entries.containsKey(name))
-                entry = entries.get(name);
-            else {
+            entry = entries.get(name);
+
+            boolean isAudio = false;
+            boolean isVideo = false;
+
+            if(isVideo(documentFile))
+                isVideo = true;
+            else if(isAudio(documentFile))
+                isAudio = true;
+
+            if(entry == null && (isAudio || isVideo)) {
                 entry = new VideoEntry(name);
                 entries.put(name, entry);
+
+                if(exportDocumentFile != null && exportDocumentFile.findFile(name) != null)
+                    entry.setAlreadyExported(true);
+                else
+                    entry.setAlreadyExported(false);
             }
 
-            if(isVideo(documentFile)) {
-                entry.setVideoUri(documentFile.getUri());
+            if(isVideo) {
+                entry.setVideoUri(uri);
                 entry.setCreatedAt(documentFile.lastModified());
             }
-            else if(isAudio(documentFile)) {
-                entry.setAudioUri(documentFile.getUri());
+            else if(isAudio) {
+                entry.setAudioUri(uri);
             }
         }
     }
@@ -208,9 +246,12 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
         }
 
         // Sort the videos by creation time
-        entries.values().stream().sorted((o1, o2) -> ((Long) o1.getCreatedAt()).compareTo(o2.getCreatedAt()));
+        List<VideoEntry> result = entries.values()
+                .stream()
+                .sorted((o1, o2) -> ((Long) o1.getCreatedAt()).compareTo(o2.getCreatedAt()))
+                .collect(Collectors.toList());
 
-        return entries.values();
+        return result;
     }
 
     @Override
@@ -287,13 +328,19 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
     }
 
     private void startWorker(VideoEntry videoEntry, Uri outputUri, int numFramesToMerge) {
+        Data.Builder inputDataBuilder = new Data.Builder()
+                .putString(VideoProcessWorker.OUTPUT_URI_KEY, outputUri.toString())
+                .putInt(VideoProcessWorker.INPUT_NUM_FRAMES_TO_MERGE, numFramesToMerge);
+
+        if(videoEntry.getVideoUri() != null)
+            inputDataBuilder.putString(VideoProcessWorker.INPUT_URI_KEY, videoEntry.getVideoUri().toString());
+
+        if(videoEntry.getAudioUri() != null)
+            inputDataBuilder.putString(VideoProcessWorker.INPUT_AUDIO_URI_KEY, videoEntry.getAudioUri().toString());
+
         OneTimeWorkRequest request =
                 new OneTimeWorkRequest.Builder(VideoProcessWorker.class)
-                        .setInputData(new Data.Builder()
-                                .putString(VideoProcessWorker.INPUT_URI_KEY, videoEntry.getVideoUri().toString())
-                                .putString(VideoProcessWorker.OUTPUT_URI_KEY, outputUri.toString())
-                                .putInt(VideoProcessWorker.INPUT_NUM_FRAMES_TO_MERGE, numFramesToMerge)
-                                .build())
+                        .setInputData(inputDataBuilder.build())
                         .build();
 
         WorkManager.getInstance(requireActivity())
@@ -327,7 +374,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
             }
         }
 
-        mAdapter.update(entry.getVideoUri(), true, 0);
+        mAdapter.update(entry.getVideoUri(), true, false, 0);
     }
 
     private void onProgressChanged(List<WorkInfo> workInfos) {
@@ -343,6 +390,8 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
             }
         }
 
+        Uri currentUri = null;
+
         if(currentWorkInfo != null) {
             Data progress = currentWorkInfo.getProgress();
 
@@ -351,9 +400,9 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
 
             if (state == State.STATE_PROCESSING) {
                 int progressAmount = progress.getInt(State.PROGRESS_PROGRESS_KEY, 0);
-                Uri inputUri = Uri.parse(inputUriString);
+                currentUri = Uri.parse(inputUriString);
 
-                mAdapter.update(inputUri, true, progressAmount);
+                mAdapter.update(currentUri, true, false, progressAmount);
             }
         }
 
@@ -362,14 +411,22 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                 Data output = workInfo.getOutputData();
                 int state = output.getInt(State.PROGRESS_STATE_KEY, -1);
 
-                if (state == State.STATE_COMPLETED) {
-                    String inputUriString = output.getString(State.PROGRESS_INPUT_URI_KEY);
-                    if(inputUriString != null) {
-                        Uri inputUri = Uri.parse(inputUriString);
-
-                        mAdapter.update(inputUri, false, -1);
-                    }
+                if (state != State.STATE_COMPLETED) {
+                    continue;
                 }
+
+                String inputUriString = output.getString(State.PROGRESS_INPUT_URI_KEY);
+                if(inputUriString == null) {
+                    continue;
+                }
+
+                Uri inputUri = Uri.parse(inputUriString);
+
+                // Don't update if there's an existing one in progress with the same input URI
+                if(currentUri != null && currentUri.equals(inputUri))
+                    continue;
+
+                mAdapter.update(inputUri, false, true, -1);
             }
         }
     }

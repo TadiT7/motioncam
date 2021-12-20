@@ -17,7 +17,7 @@ using std::pair;
 
 class PostProcessBase {
 protected:
-    void deinterleave(Func& result, Func in, int c, Expr stride, Expr rawFormat);
+    void deinterleave(Func& result, Func in, Expr stride, Expr rawFormat);
     void transform(Func& output, Func input, Func matrixSrgb);
 
     void rearrange(Func& output, Func input, Expr sensorArrangement);
@@ -46,9 +46,9 @@ protected:
     void warp(Func& output, const Func& in, const Func& m);
 
 private:
-    Func deinterleaveRaw16(Func in, int c, Expr stride);
-    Func deinterleaveRaw12(Func in, int c, Expr stride);
-    Func deinterleaveRaw10(Func in, int c, Expr stride);
+    Func deinterleaveRaw16(Func in, Expr stride);
+    Func deinterleaveRaw12(Func in, Expr stride);
+    Func deinterleaveRaw10(Func in, Expr stride);
 
 protected:
     Var v_i{"i"};
@@ -94,96 +94,58 @@ void PostProcessBase::warp(Func& output, const Func& in, const Func& m) {
     output(v_x, v_y, v_c) = saturating_cast<uint16_t>(lerp(p0, p1, b) + 0.5f);
 }
 
-void PostProcessBase::deinterleave(Func& result, Func in, int c, Expr stride, Expr rawFormat) {
-    result(v_x, v_y) =
-        select( rawFormat == static_cast<int>(RawFormat::RAW10), cast<uint16_t>(deinterleaveRaw10(in, c, stride)(v_x, v_y)),
-                rawFormat == static_cast<int>(RawFormat::RAW12), cast<uint16_t>(deinterleaveRaw12(in, c, stride)(v_x, v_y)),
-                rawFormat == static_cast<int>(RawFormat::RAW16), cast<uint16_t>(deinterleaveRaw16(in, c, stride)(v_x, v_y)),
-                0);
+void PostProcessBase::deinterleave(Func& result, Func in, Expr stride, Expr rawFormat) {
+    Func bayer{"bayer"};
+
+    bayer(v_x, v_y) =
+        select( rawFormat == static_cast<int>(RawFormat::RAW10), cast<uint16_t>(deinterleaveRaw10(in, stride)(v_x, v_y)),
+                rawFormat == static_cast<int>(RawFormat::RAW12), cast<uint16_t>(deinterleaveRaw12(in, stride)(v_x, v_y)),
+                rawFormat == static_cast<int>(RawFormat::RAW16), cast<uint16_t>(deinterleaveRaw16(in, stride)(v_x, v_y)),
+                cast<uint16_t>(0));
+
+    result(v_x, v_y, v_c) = select(
+        v_c == 0, bayer(v_x*2,      v_y*2),
+        v_c == 1, bayer(v_x*2 + 1,  v_y*2),
+        v_c == 2, bayer(v_x*2,      v_y*2 + 1),
+                  bayer(v_x*2 + 1,  v_y*2 + 1));
 }
 
-Func PostProcessBase::deinterleaveRaw16(Func in, int c, Expr stride) {
-    Func result("deinterleaveRaw16Result");
-    Func in32;
+Func PostProcessBase::deinterleaveRaw10(Func in, Expr stride) {
+    Func bayer{"bayer"};
 
-    in32(v_x) = cast<int32_t>(in(v_x));
+    Expr X = (v_x / 4) * 4;
+    Expr xoffset = (v_y * stride) + 10*X/8;
+    
+    Expr p = v_x - X;
+    Expr shift = p * 2;
 
-    switch(c)
-    {
-        case 0:
-            result(v_x, v_y) = in32(v_y*2 * stride + v_x*4 + 0) | (in32(v_y*2 * stride + v_x*4 + 1) << 8);
-            break;
+    bayer(v_x, v_y) = (cast<uint16_t>(in(xoffset + p)) << 2) | ((cast<uint16_t>(in(xoffset + 4)) >> shift) & 0x03);
 
-        case 1:
-            result(v_x, v_y) = in32(v_y*2 * stride + v_x*4 + 2) | (in32(v_y*2 * stride + v_x*4 + 3) << 8);
-            break;
-
-        case 2:
-            result(v_x, v_y) = in32((v_y*2 + 1) * stride + v_x*4 + 0) | (in32((v_y*2 + 1) * stride + v_x*4 + 1) << 8);
-            break;
-
-        case 3:
-            result(v_x, v_y) = in32((v_y*2 + 1) * stride + v_x*4 + 2) | (in32((v_y*2 + 1) * stride + v_x*4 + 3) << 8);
-        break;
-
-        default:
-            throw std::runtime_error("invalid channel");
-    }
-
-    return result;
+    return bayer;
 }
 
-Func PostProcessBase::deinterleaveRaw10(Func in, int c, Expr stride) {
-    Func result("deinterleaveRaw10Result");
+Func PostProcessBase::deinterleaveRaw12(Func in, Expr stride) {
+    Func bayer{"bayer"};
 
-    Expr X = (v_y<<1) * stride + (v_x>>1) * 5;
-    Expr Y = ((v_y<<1) + 1) * stride + (v_x>>1) * 5;
+    Expr X = (v_x / 2) * 2;
+    Expr xoffset = (v_y*stride) + 12*X/8;
 
-    switch(c)
-    {
-        case 0:
-            result(v_x, v_y) =
-                select((v_x & 1) == 0,
-                    (cast<uint16_t>(in(X))     << 2) | (cast<uint16_t>(in(X + 4)) & 0x03),
-                    (cast<uint16_t>(in(X + 2)) << 2) | (cast<uint16_t>(in(X + 4)) & 0x30) >> 4);
-        break;
+    Expr p = v_x - X;
+    Expr shift = p * 4;
 
-        case 1:
-            result(v_x, v_y) =
-                select((v_x & 1) == 0,
-                    (cast<uint16_t>(in(X + 1)) << 2) | (cast<uint16_t>(in(X + 4)) & 0x0C) >> 2,
-                    (cast<uint16_t>(in(X + 3)) << 2) | (cast<uint16_t>(in(X + 4)) & 0xC0) >> 6);
-            break;
+    bayer(v_x, v_y) = (cast<uint16_t>(in(xoffset + p)) << 4) | ((cast<uint16_t>(in(xoffset + 2)) >> shift) & 0x0F);
 
-        case 2:
-            result(v_x, v_y) =
-                select((v_x & 1) == 0,
-                    (cast<uint16_t>(in(Y))     << 2) | (cast<uint16_t>(in(Y + 4)) & 0x03),
-                    (cast<uint16_t>(in(Y + 2)) << 2) | (cast<uint16_t>(in(Y + 4)) & 0x30) >> 4);        
-        break;
-
-        case 3:
-        result(v_x, v_y) =
-            select((v_x & 1) == 0,
-                (cast<uint16_t>(in(Y + 1)) << 2) | (cast<uint16_t>(in(Y + 4)) & 0x0C) >> 2,
-                (cast<uint16_t>(in(Y + 3)) << 2) | (cast<uint16_t>(in(Y + 4)) & 0xC0) >> 6);
-
-        break;
-
-        default:
-            throw std::runtime_error("invalid channel");
-    }
-
-    return result;
+    return bayer;
 }
 
-Func PostProcessBase::deinterleaveRaw12(Func in, int c, Expr stride) {
-    Func result;
+Func PostProcessBase::deinterleaveRaw16(Func in, Expr stride) {
+    Func bayer{"bayer"};
+    
+    Expr offset = (v_y*stride) + (v_x*2);
 
-    // TODO
-    result(v_x, v_y) = 0;
+    bayer(v_x, v_y) = cast<uint16_t>(in(offset)) | (cast<uint16_t>(in(offset + 1)) << 8);
 
-    return result;
+    return bayer;
 }
 
 void PostProcessBase::blur(Func& output, Func& outputTmp, Func input) {
@@ -2774,19 +2736,8 @@ Func PreviewGenerator::downscale(Func f, Func& downx) {
 }
 
 void PreviewGenerator::generate() {
-    // Deinterleave
-    deinterleave(in[0], input, 0, stride, pixelFormat);
-    deinterleave(in[1], input, 1, stride, pixelFormat);
-    deinterleave(in[2], input, 2, stride, pixelFormat);
-    deinterleave(in[3], input, 3, stride, pixelFormat);
+    deinterleave(inMuxed, input, stride, pixelFormat);
     
-    inMuxed(v_x, v_y, v_c) =
-        mux(v_c,
-            {   in[0](v_x, v_y),
-                in[1](v_x, v_y),
-                in[2](v_x, v_y),
-                in[3](v_x, v_y) });
-
     Func inDownscale = Halide::BoundaryConditions::repeat_edge(inMuxed, { { 0, width * downscaleFactor - 1 }, { 0, height * downscaleFactor - 1 } } );
 
     int iterations = (int) (std::log((float)downscaleFactor) / std::log(2.0f));
@@ -2973,21 +2924,19 @@ public:
 };
 
 void FastPreviewGenerator::generate() {
-    Func channels[4];
+    Func bayer{"bayer"};
     Func linear{"linear"};
     Func bayerInput{"bayerInput"};
     Func clamped{"clamped"};
     Func colorCorrected{"colorCorrected"};
     Func colorCorrectInput{"colorCorrectInput"};
     Func toLinear{"toLinear"};
+    Func bl{"bl"};
 
     // Deinterleave
     clamped = BoundaryConditions::repeat_edge(input);
 
-    deinterleave(channels[0], clamped, 0, stride, pixelFormat);
-    deinterleave(channels[1], clamped, 1, stride, pixelFormat);
-    deinterleave(channels[2], clamped, 2, stride, pixelFormat);
-    deinterleave(channels[3], clamped, 3, stride, pixelFormat);
+    deinterleave(bayer, clamped, stride, pixelFormat);
 
     toLinear(v_c) = select(
         v_c == 0, 1.0f / cast<float>(whiteLevel - blackLevel[0]),
@@ -2996,14 +2945,14 @@ void FastPreviewGenerator::generate() {
                   1.0f / cast<float>(whiteLevel - blackLevel[3])
     );
 
-    linear(v_x, v_y, v_c) =
-        mux(v_c,
-            {   (channels[0](v_x*sx, v_y*sy) - blackLevel[0]) * toLinear(v_c),
-                (channels[1](v_x*sx, v_y*sy) - blackLevel[1]) * toLinear(v_c),
-                (channels[2](v_x*sx, v_y*sy) - blackLevel[2]) * toLinear(v_c),
-                (channels[3](v_x*sx, v_y*sy) - blackLevel[3]) * toLinear(v_c) }
-        );
+    bl(v_c) = mux(v_c, {
+        blackLevel[0],
+        blackLevel[1],
+        blackLevel[2],
+        blackLevel[3]
+    });
 
+    linear(v_x, v_y, v_c) = (bayer(v_x * sx, v_y * sy, v_c) - bl(v_c)) * toLinear(v_c);
 
     bayerInput(v_x, v_y, v_c) =
         select(sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
@@ -3018,14 +2967,13 @@ void FastPreviewGenerator::generate() {
 
             sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
                 select( v_c == 0, linear(v_x, v_y, 2),
-                        v_c == 1, linear(v_x, v_y, 1),
-                                  linear(v_x, v_y, 0) ),
+                        v_c == 1, linear(v_x, v_y, 0),
+                                  linear(v_x, v_y, 1) ),
 
-                // BGGR
                 select( v_c == 0, linear(v_x, v_y, 3),
                         v_c == 1, linear(v_x, v_y, 1),
-                                  linear(v_x, v_y, 0) )                
-        );
+                                  linear(v_x, v_y, 0) ) );
+
 
     colorCorrectInput(v_x, v_y, v_c) =
         select( v_c == 0, clamp( bayerInput(v_x, v_y, 0), 0.0f, asShotVector[0] ),
@@ -3042,9 +2990,9 @@ void FastPreviewGenerator::generate() {
         gammaLut.compute_root().vectorize(v_i, 8);
 
     output(v_x, v_y, v_c) = gammaLut(saturating_cast<uint8_t>(
-        select( v_c == 0, colorCorrected(v_x, v_y, 2) * 255.0f + 0.5f,
+        select( v_c == 0, colorCorrected(v_x, v_y, 0) * 255.0f + 0.5f,
                 v_c == 1, colorCorrected(v_x, v_y, 1) * 255.0f + 0.5f,
-                v_c == 2, colorCorrected(v_x, v_y, 0) * 255.0f + 0.5f,
+                v_c == 2, colorCorrected(v_x, v_y, 2) * 255.0f + 0.5f,
                 255)));
 
     // Output interleaved
@@ -3119,36 +3067,21 @@ void DeinterleaveRawGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, 
     using ::Halide::RVar;
     using ::Halide::TailStrategy;
     using ::Halide::Var;
-    Func preview = pipeline.get_func(25);
-    Func f13 = pipeline.get_func(24);
-    Func output = pipeline.get_func(23);
-    Func mirror_image = pipeline.get_func(22);
-    Func f4 = pipeline.get_func(21);
-    Func f3 = pipeline.get_func(20);
-    Func f11 = pipeline.get_func(19);
-    Func deinterleaveRaw16Result_3 = pipeline.get_func(18);
-    Func f12 = pipeline.get_func(17);
-    Func deinterleaveRaw10Result_3 = pipeline.get_func(16);
-    Func f2 = pipeline.get_func(15);
-    Func f9 = pipeline.get_func(14);
-    Func deinterleaveRaw16Result_2 = pipeline.get_func(13);
-    Func f10 = pipeline.get_func(12);
-    Func deinterleaveRaw10Result_2 = pipeline.get_func(11);
-    Func f1 = pipeline.get_func(10);
-    Func f7 = pipeline.get_func(9);
-    Func deinterleaveRaw16Result_1 = pipeline.get_func(8);
-    Func f8 = pipeline.get_func(7);
-    Func deinterleaveRaw10Result_1 = pipeline.get_func(6);
-    Func f0 = pipeline.get_func(5);
-    Func f5 = pipeline.get_func(4);
-    Func deinterleaveRaw16Result = pipeline.get_func(3);
-    Func f6 = pipeline.get_func(2);
-    Func deinterleaveRaw10Result = pipeline.get_func(1);
+    Func preview = pipeline.get_func(9);
+    Func f0 = pipeline.get_func(8);
+    Func output = pipeline.get_func(7);
+    Func mirror_image = pipeline.get_func(6);
+    Func bayer = pipeline.get_func(5);
+    Func bayer_1 = pipeline.get_func(4);
+    Func bayer_4 = pipeline.get_func(3);
+    Func bayer_3 = pipeline.get_func(2);
+    Func bayer_2 = pipeline.get_func(1);
     Var c(output.get_schedule().dims()[2].var);
-    Var i(f13.get_schedule().dims()[0].var);
+    Var i(f0.get_schedule().dims()[0].var);
     Var ii("ii");
     Var x(preview.get_schedule().dims()[0].var);
     Var xi("xi");
+    Var xii("xii");
     Var y(preview.get_schedule().dims()[1].var);
     Var yi("yi");
     Var yii("yii");
@@ -3159,118 +3092,61 @@ void DeinterleaveRawGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, 
         .compute_root()
         .reorder({xi, x, yi, y})
         .parallel(y);
-    f13
+    f0
         .split(i, i, ii, 32, TailStrategy::RoundUp)
         .vectorize(ii)
         .compute_root()
         .reorder({ii, i})
         .parallel(i);
     output
-        .split(y, y, yi, 12, TailStrategy::ShiftInwards)
+        .split(y, y, yi, 47, TailStrategy::ShiftInwards)
         .split(x, x, xi, 16, TailStrategy::ShiftInwards)
         .vectorize(xi)
         .compute_root()
         .reorder({xi, x, yi, c, y})
         .parallel(y);
-    f3
-        .split(y, y, yi, 94, TailStrategy::ShiftInwards)
-        .split(yi, yi, yii, 4, TailStrategy::ShiftInwards)
+    bayer
+        .split(x, x, xi, 1008, TailStrategy::ShiftInwards)
+        .split(y, y, yi, 12, TailStrategy::ShiftInwards)
+        .split(yi, yi, yii, 3, TailStrategy::ShiftInwards)
+        .split(xi, xi, xii, 16, TailStrategy::ShiftInwards)
+        .vectorize(xii)
+        .compute_root()
+        .reorder({xii, xi, yii, c, yi, x, y})
+        .fuse(x, y, x)
+        .parallel(x);
+    bayer_1
+        .store_in(MemoryType::Stack)
         .split(x, x, xi, 16, TailStrategy::ShiftInwards)
         .vectorize(xi)
-        .compute_root()
-        .reorder({xi, x, yii, yi, y})
-        .parallel(y);
-    deinterleaveRaw16Result_3
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 8, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_at(f3, yi)
+        .compute_at(bayer, yi)
         .reorder({xi, x, y});
-    deinterleaveRaw10Result_3
+    bayer_4
         .store_in(MemoryType::Stack)
         .split(x, x, xi, 32, TailStrategy::ShiftInwards)
         .vectorize(xi)
-        .compute_at(f3, yi)
+        .compute_at(bayer_1, y)
         .reorder({xi, x, y});
-    f2
-        .split(y, y, yi, 94, TailStrategy::ShiftInwards)
-        .split(yi, yi, yii, 4, TailStrategy::ShiftInwards)
-        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_root()
-        .reorder({xi, x, yii, yi, y})
-        .parallel(y);
-    deinterleaveRaw16Result_2
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 8, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_at(f2, yi)
-        .reorder({xi, x, y});
-    deinterleaveRaw10Result_2
+    bayer_3
         .store_in(MemoryType::Stack)
         .split(x, x, xi, 32, TailStrategy::ShiftInwards)
         .vectorize(xi)
-        .compute_at(f2, yi)
+        .compute_at(bayer_1, y)
         .reorder({xi, x, y});
-    f1
-        .split(y, y, yi, 94, TailStrategy::ShiftInwards)
-        .split(yi, yi, yii, 4, TailStrategy::ShiftInwards)
-        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_root()
-        .reorder({xi, x, yii, yi, y})
-        .parallel(y);
-    deinterleaveRaw16Result_1
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 8, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_at(f1, yi)
-        .reorder({xi, x, y});
-    deinterleaveRaw10Result_1
+    bayer_2
         .store_in(MemoryType::Stack)
         .split(x, x, xi, 32, TailStrategy::ShiftInwards)
         .vectorize(xi)
-        .compute_at(f1, yi)
-        .reorder({xi, x, y});
-    f0
-        .split(y, y, yi, 94, TailStrategy::ShiftInwards)
-        .split(yi, yi, yii, 4, TailStrategy::ShiftInwards)
-        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_root()
-        .reorder({xi, x, yii, yi, y})
-        .parallel(y);
-    deinterleaveRaw16Result
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 8, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_at(f0, yi)
-        .reorder({xi, x, y});
-    deinterleaveRaw10Result
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 32, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_at(f0, yi)
+        .compute_at(bayer_1, y)
         .reorder({xi, x, y});
 }
 
 void DeinterleaveRawGenerator::generate() {
-    Func channels[4];
-    Func deinterleaved;
+    Func bayer{"bayer"};
 
-    // Deinterleave
-    deinterleave(channels[0], input, 0, stride, pixelFormat);
-    deinterleave(channels[1], input, 1, stride, pixelFormat);
-    deinterleave(channels[2], input, 2, stride, pixelFormat);
-    deinterleave(channels[3], input, 3, stride, pixelFormat);
+    deinterleave(bayer, input, stride, pixelFormat);
 
-    deinterleaved(v_x, v_y, v_c) = select(
-        v_c == 0, channels[0](v_x, v_y),
-        v_c == 1, channels[1](v_x, v_y),
-        v_c == 2, channels[2](v_x, v_y),
-                  channels[3](v_x, v_y));
-
-    Func clamped = BoundaryConditions::mirror_image(deinterleaved, { {0, width - 1}, {0, height - 1}, {0, 4} });
+    Func clamped = BoundaryConditions::mirror_image(bayer, { {0, width - 1}, {0, height - 1}, {0, 4} });
     
     // Gamma correct preview
     Func gammaLut;
@@ -3364,9 +3240,9 @@ public:
 };
 
 void MeasureImageGenerator::generate() {
-    Func inputRepeated{"inputRepeated"};
-    Func in[4];
     Func shadingMap[4];
+    Func inputRepeated{"inputRepeated"};
+    Func bayer{"bayer"};
     Func downscaled{"downscaled"};
     Func result16u{"result16u"};
     Func colorCorrected{"colorCorrected"};
@@ -3377,20 +3253,12 @@ void MeasureImageGenerator::generate() {
     inputRepeated = BoundaryConditions::repeat_edge(input);
 
     // Deinterleave
-    deinterleave(in[0], inputRepeated, 0, stride, pixelFormat);
-    deinterleave(in[1], inputRepeated, 1, stride, pixelFormat);
-    deinterleave(in[2], inputRepeated, 2, stride, pixelFormat);
-    deinterleave(in[3], inputRepeated, 3, stride, pixelFormat);
+    deinterleave(bayer, inputRepeated, stride, pixelFormat);
 
     Expr w = width / downscaleFactor;
     Expr h = height / downscaleFactor;
     
-    downscaled(v_x, v_y, v_c) =
-        mux(v_c,
-            {   in[0](v_x*downscaleFactor, v_y*downscaleFactor),
-                in[1](v_x*downscaleFactor, v_y*downscaleFactor),
-                in[2](v_x*downscaleFactor, v_y*downscaleFactor),
-                in[3](v_x*downscaleFactor, v_y*downscaleFactor) });
+    downscaled(v_x, v_y, v_c) = bayer(v_x*downscaleFactor, v_y*downscaleFactor, v_c);
 
     // Shading map
     linearScale(shadingMap[0], inShadingMap[0], inShadingMap[0].width(), inShadingMap[0].height(), w, h);
@@ -3449,20 +3317,18 @@ public:
 };
 
 void GenerateEdgesGenerator::generate() {
-    Func channel[4], channel32;
+    Func bayer{"bayer"};
+    Func sum{"sum"};
 
-    deinterleave(channel[0], input, 0, stride, pixelFormat);
-    deinterleave(channel[1], input, 1, stride, pixelFormat);
-    deinterleave(channel[2], input, 2, stride, pixelFormat);
-    deinterleave(channel[3], input, 3, stride, pixelFormat);
+    deinterleave(bayer, input, stride, pixelFormat);
     
-    channel32(v_x, v_y) =
-        cast<int32_t>(channel[0](v_x, v_y)) +
-        cast<int32_t>(channel[1](v_x, v_y)) +
-        cast<int32_t>(channel[2](v_x, v_y)) +
-        cast<int32_t>(channel[3](v_x, v_y));
+    sum(v_x, v_y) =
+        cast<int32_t>(bayer(v_x, v_y, 0)) +
+        cast<int32_t>(bayer(v_x, v_y, 1)) +
+        cast<int32_t>(bayer(v_x, v_y, 2)) +
+        cast<int32_t>(bayer(v_x, v_y, 3));
 
-    Func bounded = BoundaryConditions::repeat_edge(channel32, { { 0, width - 1}, {0, height - 1} });
+    Func bounded = BoundaryConditions::repeat_edge(sum, { { 0, width - 1}, {0, height - 1} });
 
     Func sobel_x_avg{"sobel_x_avg"}, sobel_y_avg{"sobel_y_avg"};
     Func sobel_x{"sobel_x"}, sobel_y{"sobel_y"};
@@ -3475,7 +3341,7 @@ void GenerateEdgesGenerator::generate() {
     
     output(v_x, v_y) = cast<uint16_t>(clamp(sobel_x(v_x, v_y) + sobel_y(v_x, v_y), 0, 65535));
 
-    channel32
+    sum
         .compute_at(output, v_yi)
         .store_at(output, v_yo)
         .vectorize(v_x, 8);
@@ -3727,18 +3593,9 @@ public:
     Output<Buffer<uint16_t>> output{"output", 2 };
 
     void generate() {
-        Func inputChannels[4];
         Func inputDeinterleaved{"inputDeinterleaved"};
 
-        for(int i = 0; i < 4; i++)
-            deinterleave(inputChannels[i], BoundaryConditions::repeat_edge(input), i, stride, pixelFormat);
-
-        inputDeinterleaved(v_x, v_y, v_c) = 
-            mux(v_c,
-                {   inputChannels[0](v_x, v_y),
-                    inputChannels[1](v_x, v_y),
-                    inputChannels[2](v_x, v_y),
-                    inputChannels[3](v_x, v_y) } );
+        deinterleave(inputDeinterleaved, BoundaryConditions::repeat_edge(input), stride, pixelFormat);
 
         output(v_x, v_y) =
             select(v_y % 2 == 0,
@@ -3826,21 +3683,11 @@ void MeasureNoiseGenerator::generate() {
     Func noise{"noise"};
     Func deinterleaved{"deinterleaved"};
     Func clamped{"clamped"};
-    Func channels[4];
 
     // Deinterleave
     clamped(v_x) = input(clamp(v_x, 0, input.width() - 1));
 
-    deinterleave(channels[0], clamped, 0, stride, pixelFormat);
-    deinterleave(channels[1], clamped, 1, stride, pixelFormat);
-    deinterleave(channels[2], clamped, 2, stride, pixelFormat);
-    deinterleave(channels[3], clamped, 3, stride, pixelFormat);
-
-    deinterleaved(v_x, v_y, v_c) = select(
-        v_c == 0, channels[0](v_x, v_y),
-        v_c == 1, channels[1](v_x, v_y),
-        v_c == 2, channels[2](v_x, v_y),
-                  channels[3](v_x, v_y));
+    deinterleave(deinterleaved, clamped, stride, pixelFormat);
 
     RDom r(0, blockSize, 0, blockSize);
 
@@ -3870,126 +3717,131 @@ void MeasureNoiseGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::H
     using ::Halide::RVar;
     using ::Halide::TailStrategy;
     using ::Halide::Var;
-    Var x_vi("x_vi");
-    Var x_vo("x_vo");
-
-    Func f0 = pipeline.get_func(6);
-    Func f1 = pipeline.get_func(11);
-    Func f2 = pipeline.get_func(16);
-    Func f3 = pipeline.get_func(21);
-    Func mean = pipeline.get_func(25);
-    Func output = pipeline.get_func(28);
-    Func snr = pipeline.get_func(29);
-    Func sum = pipeline.get_func(24);
-    Func sum_1 = pipeline.get_func(27);
-
-    {
-        Var x = f0.args()[0];
-        Var y = f0.args()[1];
-        f0
-            .compute_root()
-            .split(x, x_vo, x_vi, 16)
-            .vectorize(x_vi)
-            .parallel(y);
-    }
-    {
-        Var x = f1.args()[0];
-        Var y = f1.args()[1];
-        f1
-            .compute_root()
-            .split(x, x_vo, x_vi, 16)
-            .vectorize(x_vi)
-            .parallel(y);
-    }
-    {
-        Var x = f2.args()[0];
-        Var y = f2.args()[1];
-        f2
-            .compute_root()
-            .split(x, x_vo, x_vi, 16)
-            .vectorize(x_vi)
-            .parallel(y);
-    }
-    {
-        Var x = f3.args()[0];
-        Var y = f3.args()[1];
-        f3
-            .compute_root()
-            .split(x, x_vo, x_vi, 16)
-            .vectorize(x_vi)
-            .parallel(y);
-    }
-    {
-        Var x = mean.args()[0];
-        Var y = mean.args()[1];
-        Var c = mean.args()[2];
-        mean
-            .compute_root()
-            .split(x, x_vo, x_vi, 8)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-    }
-    {
-        Var x = output.args()[0];
-        Var y = output.args()[1];
-        Var c = output.args()[2];
-        output
-            .compute_root()
-            .split(x, x_vo, x_vi, 8)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-    }
-    {
-        Var x = snr.args()[0];
-        Var y = snr.args()[1];
-        Var c = snr.args()[2];
-        snr
-            .compute_root()
-            .split(x, x_vo, x_vi, 8)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-    }
-    {
-        Var x = sum.args()[0];
-        Var y = sum.args()[1];
-        Var c = sum.args()[2];
-        RVar r45$x(sum.update(0).get_schedule().rvars()[0].var);
-        RVar r45$y(sum.update(0).get_schedule().rvars()[1].var);
-        sum
-            .compute_root()
-            .split(x, x_vo, x_vi, 8)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-        sum.update(0)
-            .reorder(r45$x, x, r45$y, y, c)
-            .split(x, x_vo, x_vi, 8, TailStrategy::GuardWithIf)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-    }
-    {
-        Var x = sum_1.args()[0];
-        Var y = sum_1.args()[1];
-        Var c = sum_1.args()[2];
-        RVar r45$x(sum_1.update(0).get_schedule().rvars()[0].var);
-        RVar r45$y(sum_1.update(0).get_schedule().rvars()[1].var);
-        sum_1
-            .compute_root()
-            .split(x, x_vo, x_vi, 8)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-        sum_1.update(0)
-            .reorder(r45$x, x, r45$y, y, c)
-            .split(x, x_vo, x_vi, 8, TailStrategy::GuardWithIf)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-    }
+    Func snr = pipeline.get_func(13);
+    Func output = pipeline.get_func(12);
+    Func sum_1 = pipeline.get_func(11);
+    Func noise = pipeline.get_func(10);
+    Func mean = pipeline.get_func(9);
+    Func sum = pipeline.get_func(8);
+    Func blocks = pipeline.get_func(7);
+    Func deinterleaved = pipeline.get_func(6);
+    Func bayer = pipeline.get_func(5);
+    Func bayer_3 = pipeline.get_func(4);
+    Func bayer_2 = pipeline.get_func(3);
+    Func bayer_1 = pipeline.get_func(2);
+    Func clamped = pipeline.get_func(1);
+    Var c(snr.get_schedule().dims()[2].var);
+    Var x(snr.get_schedule().dims()[0].var);
+    Var xi("xi");
+    Var xii("xii");
+    Var xiii("xiii");
+    Var xiiii("xiiii");
+    Var y(snr.get_schedule().dims()[1].var);
+    Var yi("yi");
+    Var yii("yii");
+    RVar r17_x(sum_1.update(0).get_schedule().dims()[0].var);
+    RVar r17_y(sum_1.update(0).get_schedule().dims()[1].var);
+    snr
+        .split(y, y, yi, 24, TailStrategy::ShiftInwards)
+        .split(x, x, xi, 8, TailStrategy::ShiftInwards)
+        .vectorize(xi)
+        .compute_root()
+        .reorder({xi, x, yi, y, c})
+        .fuse(y, c, y)
+        .parallel(y);
+    output
+        .split(x, x, xi, 32, TailStrategy::ShiftInwards)
+        .split(y, y, yi, 6, TailStrategy::ShiftInwards)
+        .split(xi, xi, xii, 8, TailStrategy::ShiftInwards)
+        .vectorize(xii)
+        .compute_root()
+        .reorder({xii, xi, yi, x, y, c})
+        .fuse(y, c, y)
+        .fuse(x, y, x)
+        .parallel(x);
+    sum_1
+        .store_in(MemoryType::Stack)
+        .split(x, x, xi, 8, TailStrategy::RoundUp)
+        .vectorize(xi)
+        .compute_at(output, xi)
+        .reorder({xi, x, y, c});
+    sum_1.update(0)
+        .split(x, x, xi, 8, TailStrategy::RoundUp)
+        .vectorize(xi)
+        .reorder({xi, x, y, c, r17_x, r17_y});
+    mean
+        .split(y, y, yi, 3, TailStrategy::RoundUp)
+        .split(x, x, xi, 64, TailStrategy::RoundUp)
+        .split(xi, xi, xii, 8, TailStrategy::RoundUp)
+        .unroll(xi)
+        .vectorize(xii)
+        .compute_root()
+        .reorder({xii, xi, x, yi, y, c})
+        .fuse(y, c, y)
+        .parallel(y);
+    sum
+        .store_in(MemoryType::Stack)
+        .split(x, x, xi, 8, TailStrategy::RoundUp)
+        .unroll(x)
+        .vectorize(xi)
+        .compute_at(mean, x)
+        .reorder({xi, x, y, c});
+    sum.update(0)
+        .split(x, x, xi, 8, TailStrategy::RoundUp)
+        .unroll(x)
+        .vectorize(xi)
+        .reorder({xi, x, r17_x, r17_y, y, c});
+    blocks
+        .store_in(MemoryType::Stack)
+        .split(x, x, xi, 16, TailStrategy::RoundUp)
+        .vectorize(xi)
+        .compute_at(sum, r17_x)
+        .store_at(sum, r17_y)
+        .reorder({xi, x, y, c});
+    deinterleaved
+        .split(y, y, yi, 96, TailStrategy::ShiftInwards)
+        .split(yi, yi, yii, 4, TailStrategy::ShiftInwards)
+        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
+        .vectorize(xi)
+        .compute_root()
+        .reorder({xi, x, c, yii, yi, y})
+        .parallel(y);
+    bayer
+        .store_in(MemoryType::Stack)
+        .split(x, x, xi, 1024, TailStrategy::RoundUp)
+        .split(xi, xi, xii, 512, TailStrategy::RoundUp)
+        .split(xii, xii, xiii, 256, TailStrategy::RoundUp)
+        .split(xiii, xiii, xiiii, 16, TailStrategy::RoundUp)
+        .vectorize(xiiii)
+        .compute_at(deinterleaved, yii)
+        .reorder({xiiii, xiii, xii, xi, x, y});
+    bayer_3
+        .store_in(MemoryType::Stack)
+        .split(x, x, xi, 32, TailStrategy::RoundUp)
+        .vectorize(xi)
+        .compute_at(bayer, x)
+        .reorder({xi, x, y});
+    bayer_2
+        .store_in(MemoryType::Stack)
+        .split(x, x, xi, 32, TailStrategy::RoundUp)
+        .unroll(x)
+        .vectorize(xi)
+        .compute_at(bayer, xii)
+        .reorder({xi, x, y});
+    bayer_1
+        .store_in(MemoryType::Stack)
+        .split(x, x, xi, 32, TailStrategy::RoundUp)
+        .unroll(x)
+        .vectorize(xi)
+        .compute_at(bayer, xii)
+        .store_at(bayer, xi)
+        .reorder({xi, x, y});
+    clamped
+        .store_in(MemoryType::Stack)
+        .split(x, x, xi, 32, TailStrategy::ShiftInwards)
+        .vectorize(xi)
+        .compute_at(deinterleaved, yi)
+        .reorder({xi, x});
 }
 
 HALIDE_REGISTER_GENERATOR(GenerateEdgesGenerator, generate_edges_generator)

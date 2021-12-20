@@ -125,12 +125,11 @@ void CameraVideoPreviewGenerator::transform(Func& output, Func input, Func m) {
 }
 
 void CameraVideoPreviewGenerator::generate() {
+    Func bayer{"bayer"};
     Func linear{"linear"};
     Func colorCorrected{"colorCorrected"};
-    Func gammaContrastLut;
-
+    Func gammaContrastLut{"gammaContrastLut"};
     Func inputRepeated{"inputRepeated"};
-    Func channels[4] { Func("channels[0]"), Func("channels[1]"), Func("channels[2]"), Func("channels[3]") };
     Func scaledShadingMap[4] { Func("scaledShadingMap[0]"), Func("scaledShadingMap[1]"), Func("scaledShadingMap[2]"), Func("scaledShadingMap[3]") };
     Func shadingMapInput{"shadingMapInput"};
     Func rawInput{"rawInput"};
@@ -139,6 +138,7 @@ void CameraVideoPreviewGenerator::generate() {
     Func demosaicInput("demosaicInput");
     Func blackLevelFunc{"blackLevelFunc"};
     Func linearFunc{"linearFunc"};
+    Func clampedInput{"clampedInput"};
 
     Expr HALF_0_0 = cast<float16_t>(0.0f);
     Expr HALF_0_5 = cast<float16_t>(0.5f);
@@ -151,48 +151,38 @@ void CameraVideoPreviewGenerator::generate() {
     }
 
     if(pixel_format == static_cast<int>(RawFormat::RAW10)) {
-        Expr C_RAW10[4];
-
-        // RAW10
-        Expr Xc = (v_y<<1) * stride + (v_x>>1) * 5;
-        Expr Yc = ((v_y<<1) + 1) * stride + (v_x>>1) * 5;
-
-        C_RAW10[0] = select( (v_x & 1) == 0,
-                            (inputRepeated(Xc)     << 2) | (inputRepeated(Xc + 4) & 0x03),
-                            (inputRepeated(Xc + 2) << 2) | (inputRepeated(Xc + 4) & 0x30) >> 4);
-
-        C_RAW10[1] = select( (v_x & 1) == 0,
-                            (inputRepeated(Xc + 1) << 2) | (inputRepeated(Xc + 4) & 0x0C) >> 2,
-                            (inputRepeated(Xc + 3) << 2) | (inputRepeated(Xc + 4) & 0xC0) >> 6);
-
-        C_RAW10[2] = select( (v_x & 1) == 0,
-                            (inputRepeated(Yc)     << 2) | (inputRepeated(Yc + 4) & 0x03),
-                            (inputRepeated(Yc + 2) << 2) | (inputRepeated(Yc + 4) & 0x30) >> 4);
-
-        C_RAW10[3] = select( (v_x & 1) == 0,
-                            (inputRepeated(Yc + 1) << 2) | (inputRepeated(Yc + 4) & 0x0C) >> 2,
-                            (inputRepeated(Yc + 3) << 2) | (inputRepeated(Yc + 4) & 0xC0) >> 6);
+        Expr X = (v_x / 4) * 4;
+        Expr xoffset = (v_y * stride) + 10*X/8;
         
+        Expr p = v_x - X;
+        Expr shift = p * 2;
 
-        rawInput(v_x, v_y, v_c) = mux(v_c, { C_RAW10[0], C_RAW10[1], C_RAW10[2], C_RAW10[3] } );
-
+        bayer(v_x, v_y) = (inputRepeated(xoffset + p) << 2) | ((inputRepeated(xoffset + 4) >> shift) & 0x03);
     }
+    else if(pixel_format == static_cast<int>(RawFormat::RAW12)) {
+        Expr X = (v_x / 2) * 2;
+        Expr xoffset = (v_y*stride) + 12*X/8;
+
+        Expr p = v_x - X;
+        Expr shift = p * 4;
+
+        bayer(v_x, v_y) = (inputRepeated(xoffset + p)) << 4 | ((inputRepeated(xoffset + 2) >> shift) & 0x0F);
+
+    }    
     else if(pixel_format == static_cast<int>(RawFormat::RAW16)) {
-        Expr C_RAW16[4];
+        Expr offset = (v_y*stride) + (v_x*2);
 
-        // RAW16
-        C_RAW16[0] = cast<uint16_t>(inputRepeated(v_y*2 * stride + v_x*4 + 0)) | cast<uint16_t>(inputRepeated(v_y*2 * stride + v_x*4 + 1) << 8);
-        C_RAW16[1] = cast<uint16_t>(inputRepeated(v_y*2 * stride + v_x*4 + 2)) | cast<uint16_t>(inputRepeated(v_y*2 * stride + v_x*4 + 3) << 8);
-        C_RAW16[2] = cast<uint16_t>(inputRepeated((v_y*2 + 1) * stride + v_x*4 + 0)) | cast<uint16_t>(inputRepeated((v_y*2 + 1) * stride + v_x*4 + 1) << 8);
-        C_RAW16[3] = cast<uint16_t>(inputRepeated((v_y*2 + 1) * stride + v_x*4 + 2)) | cast<uint16_t>(inputRepeated((v_y*2 + 1) * stride + v_x*4 + 3) << 8);
-
-        rawInput(v_x, v_y, v_c) = mux(v_c, { C_RAW16[0], C_RAW16[1], C_RAW16[2], C_RAW16[3] } );   
+        bayer(v_x, v_y) = inputRepeated(offset) | (inputRepeated(offset + 1) << 8);
     }
     else {
         throw std::runtime_error("invalid pixel format");
     }
 
-    Func clampedInput{"clampedInput"};
+    rawInput(v_x, v_y, v_c) = select(
+        v_c == 0, bayer(v_x*2,      v_y*2),
+        v_c == 1, bayer(v_x*2 + 1,  v_y*2),
+        v_c == 2, bayer(v_x*2,      v_y*2 + 1),
+                  bayer(v_x*2 + 1,  v_y*2 + 1));
 
     clampedInput(v_x, v_y, v_c) = rawInput(clamp(v_x, 0, width*downscale_factor-1), clamp(v_y, 0, height*downscale_factor-1), v_c);
 
@@ -289,6 +279,8 @@ void CameraVideoPreviewGenerator::generate() {
     }
     else {
         // TODO: Better schedule
+        clampedInput.compute_root();
+        downscaledTemp.compute_root();
         downscaled.compute_root();
         output.compute_root();
     }    
@@ -601,6 +593,8 @@ Func CameraPreviewGenerator::tonemap(Func input, Expr gain, Expr gamma, Expr var
         }
         else {
             // TODO: Better schedule
+            up.compute_root();
+            upIntermediate.compute_root();
             laplacian.compute_root();
         }
 
@@ -666,6 +660,8 @@ Func CameraPreviewGenerator::tonemap(Func input, Expr gain, Expr gamma, Expr var
         }
         else {
             // TODO: Better schedule
+            upIntermediate.compute_root();
+            up.compute_root();
             outputLvl.compute_root();
         }
 
@@ -697,15 +693,15 @@ Func CameraPreviewGenerator::tonemap(Func input, Expr gain, Expr gamma, Expr var
 void CameraPreviewGenerator::generate() {
     Func yuvOutput{"yuvOutput"};
     Func linear{"linear"};
+    Func clampedInput{"clampedInput"};
     Func colorCorrected{"colorCorrected"};
     Func colorCorrectedYuv{"colorCorrectedYuv"};
     Func tonemapOutputRgb{"tonemapOutputRgb"};
-    Func gammaContrastLut;
-
+    Func gammaContrastLut{"gammaContrastLut"};
     Func inputRepeated{"inputRepeated"};
-    Func channels[4] { Func("channels[0]"), Func("channels[1]"), Func("channels[2]"), Func("channels[3]") };
     Func scaledShadingMap[4] { Func("scaledShadingMap[0]"), Func("scaledShadingMap[1]"), Func("scaledShadingMap[2]"), Func("scaledShadingMap[3]") };
     Func shadingMapInput{"shadingMapInput"};
+    Func bayer{"bayer"};
     Func rawInput{"rawInput"};
     Func downscaled{"downscaled"};
     Func downscaledTemp{"downscaledTemp"};
@@ -720,48 +716,38 @@ void CameraPreviewGenerator::generate() {
     }
 
     if(pixel_format == static_cast<int>(RawFormat::RAW10)) {
-        Expr C_RAW10[4];
-
-        // RAW10
-        Expr Xc = (v_y<<1) * stride + (v_x>>1) * 5;
-        Expr Yc = ((v_y<<1) + 1) * stride + (v_x>>1) * 5;
-
-        C_RAW10[0] = select( (v_x & 1) == 0,
-                            (inputRepeated(Xc)     << 2) | (inputRepeated(Xc + 4) & 0x03),
-                            (inputRepeated(Xc + 2) << 2) | (inputRepeated(Xc + 4) & 0x30) >> 4);
-
-        C_RAW10[1] = select( (v_x & 1) == 0,
-                            (inputRepeated(Xc + 1) << 2) | (inputRepeated(Xc + 4) & 0x0C) >> 2,
-                            (inputRepeated(Xc + 3) << 2) | (inputRepeated(Xc + 4) & 0xC0) >> 6);
-
-        C_RAW10[2] = select( (v_x & 1) == 0,
-                            (inputRepeated(Yc)     << 2) | (inputRepeated(Yc + 4) & 0x03),
-                            (inputRepeated(Yc + 2) << 2) | (inputRepeated(Yc + 4) & 0x30) >> 4);
-
-        C_RAW10[3] = select( (v_x & 1) == 0,
-                            (inputRepeated(Yc + 1) << 2) | (inputRepeated(Yc + 4) & 0x0C) >> 2,
-                            (inputRepeated(Yc + 3) << 2) | (inputRepeated(Yc + 4) & 0xC0) >> 6);
+        Expr X = (v_x / 4) * 4;
+        Expr xoffset = (v_y * stride) + 10*X/8;
         
+        Expr p = v_x - X;
+        Expr shift = p * 2;
 
-        rawInput(v_x, v_y, v_c) = mux(v_c, { C_RAW10[0], C_RAW10[1], C_RAW10[2], C_RAW10[3] } );
-
+        bayer(v_x, v_y) = (inputRepeated(xoffset + p) << 2) | ((inputRepeated(xoffset + 4) >> shift) & 0x03);
     }
+    else if(pixel_format == static_cast<int>(RawFormat::RAW12)) {
+        Expr X = (v_x / 2) * 2;
+        Expr xoffset = (v_y*stride) + 12*X/8;
+
+        Expr p = v_x - X;
+        Expr shift = p * 4;
+
+        bayer(v_x, v_y) = (inputRepeated(xoffset + p)) << 4 | ((inputRepeated(xoffset + 2) >> shift) & 0x0F);
+
+    }    
     else if(pixel_format == static_cast<int>(RawFormat::RAW16)) {
-        Expr C_RAW16[4];
+        Expr offset = (v_y*stride) + (v_x*2);
 
-        // RAW16
-        C_RAW16[0] = cast<uint16_t>(inputRepeated(v_y*2 * stride + v_x*4 + 0)) | cast<uint16_t>(inputRepeated(v_y*2 * stride + v_x*4 + 1) << 8);
-        C_RAW16[1] = cast<uint16_t>(inputRepeated(v_y*2 * stride + v_x*4 + 2)) | cast<uint16_t>(inputRepeated(v_y*2 * stride + v_x*4 + 3) << 8);
-        C_RAW16[2] = cast<uint16_t>(inputRepeated((v_y*2 + 1) * stride + v_x*4 + 0)) | cast<uint16_t>(inputRepeated((v_y*2 + 1) * stride + v_x*4 + 1) << 8);
-        C_RAW16[3] = cast<uint16_t>(inputRepeated((v_y*2 + 1) * stride + v_x*4 + 2)) | cast<uint16_t>(inputRepeated((v_y*2 + 1) * stride + v_x*4 + 3) << 8);
-
-        rawInput(v_x, v_y, v_c) = mux(v_c, { C_RAW16[0], C_RAW16[1], C_RAW16[2], C_RAW16[3] } );   
+        bayer(v_x, v_y) = inputRepeated(offset) | (inputRepeated(offset + 1) << 8);
     }
     else {
         throw std::runtime_error("invalid pixel format");
     }
 
-    Func clampedInput{"clampedInput"};
+    rawInput(v_x, v_y, v_c) = select(
+        v_c == 0, bayer(v_x*2,      v_y*2),
+        v_c == 1, bayer(v_x*2 + 1,  v_y*2),
+        v_c == 2, bayer(v_x*2,      v_y*2 + 1),
+                  bayer(v_x*2 + 1,  v_y*2 + 1));
 
     clampedInput(v_x, v_y, v_c) = rawInput(clamp(v_x, 0, width*downscale_factor-1), clamp(v_y, 0, height*downscale_factor-1), v_c);
 
@@ -935,8 +921,9 @@ void CameraPreviewGenerator::generate() {
     }
     else {
         // TODO: Better schedule
+        clampedInput.compute_root();
+        downscaledTemp.compute_root();
         downscaled.compute_root();
-        yuvOutput.compute_root();
         output.compute_root();
     }
 }

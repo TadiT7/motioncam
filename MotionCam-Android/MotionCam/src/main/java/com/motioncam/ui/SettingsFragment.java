@@ -181,6 +181,10 @@ public class SettingsFragment extends Fragment {
             mSelectDocumentLauncher.launch(intent);
         });
 
+        mDataBinding.rawVideoStorageClearBtn.setOnClickListener((v) -> {
+            mViewModel.rawVideoTempStorageFolder.setValue(null);
+        });
+
         SharedPreferences sharedPrefs =
                 requireContext().getSharedPreferences(SettingsViewModel.CAMERA_SHARED_PREFS, Context.MODE_PRIVATE);
 

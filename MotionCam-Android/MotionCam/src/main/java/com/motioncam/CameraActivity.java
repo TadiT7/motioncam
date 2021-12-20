@@ -35,6 +35,7 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.animation.BounceInterpolator;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -42,6 +43,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.content.res.AppCompatResources;
 import androidx.constraintlayout.motion.widget.MotionLayout;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -544,8 +546,8 @@ public class CameraActivity extends AppCompatActivity implements
         // Defaults
         setAwbLock(false);
         setAeLock(false);
-        setAfLock(false);
-        setOIS(true);
+        setAfLock(false, false);
+        //setOIS(true);
 
         mBinding.focusLockPointFrame.setVisibility(View.GONE);
         mBinding.previewPager.registerOnPageChangeCallback(mCapturedPreviewPagerListener);
@@ -754,14 +756,14 @@ public class CameraActivity extends AppCompatActivity implements
                     String size;
 
                     if(sizeMb > 1024) {
-                        size = String.format("%.2f GB", sizeGb);
+                        size = String.format(Locale.US, "%.2f GB", sizeGb);
                     }
                     else {
-                        size = String.format("%d MB", Math.round(sizeMb));
+                        size = String.format(Locale.US, "%d MB", Math.round(sizeMb));
                     }
 
-                    String outputFpsText = String.format("%.2f\n%s", stats.fps, getString(R.string.output_fps));
-                    String outputSizeText = String.format("%s\n%s", size, getString(R.string.size));
+                    String outputFpsText = String.format(Locale.US, "%.2f\n%s", stats.fps, getString(R.string.output_fps));
+                    String outputSizeText = String.format(Locale.US, "%s\n%s", size, getString(R.string.size));
 
                     mBinding.previewFrame.outputFps.setText(outputFpsText);
                     mBinding.previewFrame.outputSize.setText(outputSizeText);
@@ -876,7 +878,7 @@ public class CameraActivity extends AppCompatActivity implements
             return;
         }
 
-        boolean currentFrontFacing = mSelectedCamera == null ? false : mSelectedCamera.isFrontFacing;
+        boolean currentFrontFacing = mSelectedCamera != null && mSelectedCamera.isFrontFacing;
 
         // Rotate switch camera button
         mBinding.switchCameraBtn.setEnabled(false);
@@ -932,6 +934,11 @@ public class CameraActivity extends AppCompatActivity implements
 
             mBinding.previewFrame.videoResolution.setText(String.format(Locale.US, "%dx%d\n%s", width, height, resText));
         }
+
+        if(mCaptureMode == CaptureMode.RAW_VIDEO && (mSettings.horizontalVideoCrop > 0 || mSettings.verticalVideoCrop > 0))
+            mBinding.gridLayout.setCropMode(true, mSettings.horizontalVideoCrop, mSettings.verticalVideoCrop);
+        else
+            mBinding.gridLayout.setCropMode(false, 0, 0);
     }
 
     private void updatePreviewTabUi(boolean updateModeSelection) {
@@ -1082,6 +1089,7 @@ public class CameraActivity extends AppCompatActivity implements
         mCaptureMode = captureMode;
 
         updatePreviewSettings();
+        updateVideoUi();
     }
 
     private void setHdr(boolean hdr) {
@@ -1114,6 +1122,15 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void hideManualControls() {
+        ((ImageView) findViewById(R.id.isoBtnIcon))
+                .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_down));
+
+        ((ImageView) findViewById(R.id.focusBtnIcon))
+                .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_down));
+
+        ((ImageView) findViewById(R.id.shutterSpeedIcon))
+                .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_down));
+
         findViewById(R.id.manualControl).setVisibility(View.GONE);
         updateManualControlView(mSensorEventManager.getOrientation());
     }
@@ -1155,7 +1172,7 @@ public class CameraActivity extends AppCompatActivity implements
             }
         }
 
-        setAfLock(true);
+        setAfLock(true, false);
 
         String minFocus = "-";
         String maxFocus = "-";
@@ -1179,6 +1196,9 @@ public class CameraActivity extends AppCompatActivity implements
 
         findViewById(R.id.manualControl).setTag(R.id.manual_control_tag, MANUAL_CONTROL_MODE_FOCUS);
         findViewById(R.id.manualControl).setVisibility(View.VISIBLE);
+
+        ((ImageView) findViewById(R.id.focusBtnIcon))
+                .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_up));
 
         updateManualControlView(mSensorEventManager.getOrientation());
     }
@@ -1206,7 +1226,8 @@ public class CameraActivity extends AppCompatActivity implements
         ((TextView) findViewById(R.id.manualControlMaxText)).setText(mIsoValues.get(mIsoValues.size() - 1).toString());
 
         ((SeekBar) findViewById(R.id.manualControlSeekBar)).setMax(mIsoValues.size() - 1);
-        ((SeekBar) findViewById(R.id.manualControlSeekBar)).setTickMark(getDrawable(R.drawable.seekbar_tick_mark));
+        ((SeekBar) findViewById(R.id.manualControlSeekBar)).setTickMark(
+                AppCompatResources.getDrawable(this, R.drawable.seekbar_tick_mark));
 
         int isoIdx = CameraManualControl.GetClosestIso(mIsoValues, mUserIso).ordinal();
 
@@ -1214,6 +1235,9 @@ public class CameraActivity extends AppCompatActivity implements
 
         findViewById(R.id.manualControl).setTag(R.id.manual_control_tag, MANUAL_CONTROL_MODE_ISO);
         findViewById(R.id.manualControl).setVisibility(View.VISIBLE);
+
+        ((ImageView) findViewById(R.id.isoBtnIcon))
+                .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_up));
 
         updateManualControlView(mSensorEventManager.getOrientation());
     }
@@ -1241,7 +1265,7 @@ public class CameraActivity extends AppCompatActivity implements
         ((TextView) findViewById(R.id.manualControlMaxText)).setText(mExposureValues.get(mExposureValues.size() - 1).toString());
 
         ((SeekBar) findViewById(R.id.manualControlSeekBar)).setMax(mExposureValues.size() - 1);
-        ((SeekBar) findViewById(R.id.manualControlSeekBar)).setTickMark(getDrawable(R.drawable.seekbar_tick_mark));
+        ((SeekBar) findViewById(R.id.manualControlSeekBar)).setTickMark(AppCompatResources.getDrawable(this, R.drawable.seekbar_tick_mark));
 
         int shutterIso = CameraManualControl.GetClosestShutterSpeed(mUserExposureTime).ordinal();
 
@@ -1250,21 +1274,27 @@ public class CameraActivity extends AppCompatActivity implements
         findViewById(R.id.manualControl).setTag(R.id.manual_control_tag, MANUAL_CONTROL_MODE_SHUTTER_SPEED);
         findViewById(R.id.manualControl).setVisibility(View.VISIBLE);
 
+        ((ImageView) findViewById(R.id.shutterSpeedIcon))
+                .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_up));
+
         updateManualControlView(mSensorEventManager.getOrientation());
     }
 
-    private void setAfLock(boolean afLock) {
-        if(mAfLock == afLock)
+    private void setAfLock(boolean lock, boolean uiOnly) {
+        if(mAfLock == lock)
             return;
 
-        int color = afLock ? R.color.colorAccent : R.color.white;
-        ((TextView) findViewById(R.id.afLockBtn)).setTextColor(getColor(color));
+        int color = lock ? R.color.colorAccent : R.color.white;
+        int drawable = lock ? R.drawable.lock : R.drawable.lock_open;
 
-        if(mNativeCamera != null) {
-            mNativeCamera.setManualFocus(afLock ? mFocusDistance : 0);
+        ((ImageView) findViewById(R.id.afLockBtnIcon)).setImageDrawable(AppCompatResources.getDrawable(this, drawable));
+        ((TextView) findViewById(R.id.afLockBtnText)).setTextColor(getColor(color));
+
+        if(!uiOnly && mNativeCamera != null) {
+            mNativeCamera.setManualFocus(lock ? mFocusDistance : 0);
         }
 
-        mAfLock = afLock;
+        mAfLock = lock;
 
         if(!mAfLock) {
             hideManualControls();
@@ -1278,7 +1308,10 @@ public class CameraActivity extends AppCompatActivity implements
             return;
 
         int color = lock ? R.color.colorAccent : R.color.white;
-        ((TextView) findViewById(R.id.awbLockBtn)).setTextColor(getColor(color));
+        int drawable = lock ? R.drawable.lock : R.drawable.lock_open;
+
+        ((ImageView) findViewById(R.id.awbLockBtnIcon)).setImageDrawable(AppCompatResources.getDrawable(this, drawable));
+        ((TextView) findViewById(R.id.awbLockBtnText)).setTextColor(getColor(color));
 
         if(mNativeCamera != null) {
             mNativeCamera.setAWBLock(lock);
@@ -1292,7 +1325,10 @@ public class CameraActivity extends AppCompatActivity implements
             return;
 
         int color = lock ? R.color.colorAccent : R.color.white;
-        ((TextView) findViewById(R.id.aeLockBtn)).setTextColor(getColor(color));
+        int drawable = lock ? R.drawable.lock : R.drawable.lock_open;
+
+        ((ImageView) findViewById(R.id.aeLockBtnIcon)).setImageDrawable(AppCompatResources.getDrawable(this, drawable));
+        ((TextView) findViewById(R.id.aeLockBtnText)).setTextColor(getColor(color));
 
         if(mNativeCamera != null) {
             if(mManualControlsSet && !lock) {
@@ -1314,19 +1350,19 @@ public class CameraActivity extends AppCompatActivity implements
         }
     }
 
-    private void setOIS(boolean ois) {
-        if(mOIS == ois)
-            return;
-
-        int color = ois ? R.color.colorAccent : R.color.white;
-        ((TextView) findViewById(R.id.oisBtn)).setTextColor(getColor(color));
-
-        if(mNativeCamera != null) {
-            mNativeCamera.setOIS(ois);
-        }
-
-        mOIS = ois;
-    }
+//    private void setOIS(boolean ois) {
+//        if(mOIS == ois)
+//            return;
+//
+//        int color = ois ? R.color.colorAccent : R.color.white;
+//        ((TextView) findViewById(R.id.oisBtn)).setTextColor(getColor(color));
+//
+//        if(mNativeCamera != null) {
+//            mNativeCamera.setOIS(ois);
+//        }
+//
+//        mOIS = ois;
+//    }
 
     private void onHorizontalCropChanged(int progress, boolean fromUser) {
         mSettings.horizontalVideoCrop = progress;
@@ -1828,12 +1864,12 @@ public class CameraActivity extends AppCompatActivity implements
                 mCameraMetadata.exposureTimeMin,
                 Math.min(MAX_EXPOSURE_TIME.getExposureTime(), mCameraMetadata.exposureTimeMax));
 
-        if(mCameraMetadata.oisSupport) {
-            findViewById(R.id.oisBtn).setVisibility(View.VISIBLE);
-        }
-        else {
-            findViewById(R.id.oisBtn).setVisibility(View.INVISIBLE);
-        }
+//        if(mCameraMetadata.oisSupport) {
+//            findViewById(R.id.oisBtn).setVisibility(View.VISIBLE);
+//        }
+//        else {
+//            findViewById(R.id.oisBtn).setVisibility(View.INVISIBLE);
+//        }
 
         ((TextView) findViewById(R.id.isoBtn)).setText("-");
         ((TextView) findViewById(R.id.shutterSpeedBtn)).setText("-");
@@ -1870,21 +1906,13 @@ public class CameraActivity extends AppCompatActivity implements
      * configureTransform()
      * Courtesy to https://github.com/google/cameraview/blob/master/library/src/main/api14/com/google/android/cameraview/TextureViewPreview.java#L108
      */
-    private void configureTransform(int textureWidth, int textureHeight, Size previewOutputSize) {
-        int displayOrientation = getWindowManager().getDefaultDisplay().getRotation() * 90;
-
-        int width = textureWidth;
-        int height = textureWidth * previewOutputSize.getWidth() / previewOutputSize.getHeight();
-
-        if (Surface.ROTATION_90 == displayOrientation || Surface.ROTATION_270 == displayOrientation) {
-            height = (textureWidth * previewOutputSize.getHeight()) / previewOutputSize.getWidth();
-        }
-
-        Matrix cameraMatrix = new Matrix();
+    private void configureTransform(int width, int height, Size previewOutputSize) {
+        Matrix matrix = new Matrix();
+        int displayOrientation = getWindowManager().getDefaultDisplay().getRotation();
 
         if (displayOrientation % 180 == 90) {
             // Rotate the camera preview when the screen is landscape.
-            cameraMatrix.setPolyToPoly(
+            matrix.setPolyToPoly(
                     new float[]{
                             0.f, 0.f, // top left
                             width, 0.f, // top right
@@ -1895,7 +1923,7 @@ public class CameraActivity extends AppCompatActivity implements
                             // Clockwise
                             new float[]{
                                     0.f, height, // top left
-                                    0.f, 0.f,    // top right
+                                    0.f, 0.f, // top right
                                     width, height, // bottom left
                                     width, 0.f, // bottom right
                             } : // mDisplayOrientation == 270
@@ -1909,13 +1937,10 @@ public class CameraActivity extends AppCompatActivity implements
                     4);
         }
         else if (displayOrientation == 180) {
-            cameraMatrix.postRotate(180, width / 2.0f, height / 2.0f);
+            matrix.postRotate(180, width / 2, height / 2);
         }
 
-        if(mSelectedCamera.isFrontFacing)
-            cameraMatrix.preScale(1, -1, width / 2.0f, height / 2.0f);
-
-        mTextureView.setTransform(cameraMatrix);
+        mTextureView.setTransform(matrix);
     }
 
     @Override
@@ -1966,10 +1991,13 @@ public class CameraActivity extends AppCompatActivity implements
                 mNativeCamera.getPreviewConfigurationOutput(mSelectedCamera, captureOutputSize, new Size(displayWidth, displayHeight));
         surfaceTexture.setDefaultBufferSize(previewOutputSize.getWidth(), previewOutputSize.getHeight());
 
-        configureTransform(width, height, previewOutputSize);
-
         mSurface = new Surface(surfaceTexture);
-        mNativeCamera.startCapture(mSelectedCamera, mSurface, mSettings.useDualExposure, mSettings.rawMode == SettingsViewModel.RawMode.RAW16);
+        mNativeCamera.startCapture(
+                mSelectedCamera,
+                mSurface,
+                mSettings.useDualExposure,
+                mSettings.rawMode == SettingsViewModel.RawMode.RAW12,
+                mSettings.rawMode == SettingsViewModel.RawMode.RAW16);
 
         // Update orientation in case we've switched front/back cameras
         NativeCameraBuffer.ScreenOrientation orientation = mSensorEventManager.getOrientation();
@@ -2008,10 +2036,10 @@ public class CameraActivity extends AppCompatActivity implements
 
         findViewById(R.id.aeLockBtn).setOnClickListener(v -> setAeLock(!mAeLock));
         findViewById(R.id.awbLockBtn).setOnClickListener(v -> setAwbLock(!mAwbLock));
-        findViewById(R.id.oisBtn).setOnClickListener(v -> setOIS(!mOIS));
+        //findViewById(R.id.oisBtn).setOnClickListener(v -> setOIS(!mOIS));
         findViewById(R.id.isoBtn).setOnClickListener(v -> toggleIso());
         findViewById(R.id.focusBtn).setOnClickListener(v -> toggleFocus());
-        findViewById(R.id.afLockBtn).setOnClickListener(v -> setAfLock(!mAfLock));
+        findViewById(R.id.afLockBtn).setOnClickListener(v -> setAfLock(!mAfLock, false));
         findViewById(R.id.shutterSpeedBtn).setOnClickListener(v -> toggleShutterSpeed());
 
         ((SeekBar) findViewById(R.id.manualControlSeekBar)).setOnSeekBarChangeListener(mSeekBarChangeListener);
@@ -2022,6 +2050,8 @@ public class CameraActivity extends AppCompatActivity implements
 
         mBinding.previewFrame.horizontalCropSeekBar.setOnSeekBarChangeListener(mSeekBarChangeListener);
         mBinding.previewFrame.verticalCropSeekBar.setOnSeekBarChangeListener(mSeekBarChangeListener);
+
+        configureTransform(width, height, previewOutputSize);
     }
 
     @Override
@@ -2511,8 +2541,7 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.focusLockPointFrame.animate().cancel();
 
         // AF lock turned off
-        mAfLock = false;
-        ((TextView) findViewById(R.id.afLockBtn)).setTextColor(getColor(R.color.white));
+        setAfLock(false, true);
 
         setFocusState(FocusState.FIXED, pt);
     }

@@ -286,11 +286,6 @@ namespace motioncam {
         pushEvent(EventAction::ACTION_SET_FRAME_RATE, data);
     }
 
-    void CameraSession::setVideoBin(bool bin) {
-        json11::Json::object data = { { "value", bin } };
-        pushEvent(EventAction::ACTION_SET_VIDEO_BIN, data);
-    }
-
     void CameraSession::setAWBLock(bool lock) {
         json11::Json::object data = { { "value", lock } };
         pushEvent(EventAction::ACTION_SET_AWB_LOCK, data);
@@ -512,8 +507,8 @@ namespace motioncam {
 
         media_status_t result =
                 AImageReader_new(
-                        640,
-                        480,
+                        state.outputConfig.outputSize.originalWidth(),
+                        state.outputConfig.outputSize.originalHeight(),
                         AIMAGE_FORMAT_YUV_420_888,
                         2,
                         &imageReader);
@@ -579,7 +574,7 @@ namespace motioncam {
         mSessionContext->captureSessionContainer = std::shared_ptr<ACaptureSessionOutputContainer>(container, ACaptureSessionOutputContainer_free);
 
         // Create capture request
-        mSessionContext->repeatCaptureRequest = std::make_shared<CaptureRequest>(createCaptureRequest(TEMPLATE_PREVIEW), true);
+        mSessionContext->repeatCaptureRequest = std::make_shared<CaptureRequest>(createCaptureRequest(TEMPLATE_ZERO_SHUTTER_LAG), true);
 
         // Create HDR requests
         mSessionContext->hdrCaptureRequests[0] = std::make_shared<CaptureRequest>(createCaptureRequest(TEMPLATE_STILL_CAPTURE), false);
@@ -587,7 +582,7 @@ namespace motioncam {
 
         // Set up a JPEG output that we don't use. For some reason without it the camera auto
         // focus does not work properly
-        //setupJpegCaptureOutput(*mSessionContext);
+        setupJpegCaptureOutput(*mSessionContext);
 
         // Set up output for preview
         setupPreviewCaptureOutput(*mSessionContext, setupForRawPreview);

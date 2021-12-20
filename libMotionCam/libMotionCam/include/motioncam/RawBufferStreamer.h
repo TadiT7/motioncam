@@ -32,6 +32,30 @@ namespace motioncam {
         float estimateFps() const;
         size_t writenOutputBytes() const;
 
+        void cropAndBin_RAW10(RawImageBuffer& buffer,
+                              uint8_t* data,
+                              const int16_t ystart,
+                              const int16_t yend,
+                              const int16_t xstart,
+                              const int16_t xend,
+                              const int16_t binnedWidth) const;
+
+        void cropAndBin_RAW12(RawImageBuffer& buffer,
+                              uint8_t* data,
+                              const int16_t ystart,
+                              const int16_t yend,
+                              const int16_t xstart,
+                              const int16_t xend,
+                              const int16_t binnedWidth) const;
+
+        void cropAndBin_RAW16(RawImageBuffer& buffer,
+                              uint8_t* data,
+                              const int16_t ystart,
+                              const int16_t yend,
+                              const int16_t xstart,
+                              const int16_t xend,
+                              const int16_t binnedWidth) const;
+
         void cropAndBin(RawImageBuffer& buffer) const;
 
     private:

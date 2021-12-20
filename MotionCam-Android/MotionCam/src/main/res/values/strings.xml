@@ -102,7 +102,7 @@
     <string name="size">SIZE</string>
     <string name="dropped_frames">DROPPED FRAMES</string>
     <string name="raw_video_storage_folder">RAW Video Storage Folder</string>
-    <string name="raw_video_storage_folder_description">Where to store RAW videos during recording.</string>
+    <string name="raw_video_storage_folder_description">Where to store RAW videos during recording.\nNOTE: Choosing a different folder on the device\'s internal storage can significantly reduce performance.</string>
     <string name="select">Select</string>
     <string name="video_memory_use_error" >Recording has stopped because the memory limit has been reached.</string>
     <string name="invalid_raw_video_folder">The selected output folder is not available. Using internal storage.</string>
@@ -115,11 +115,12 @@
     <string name="please_wait">Please wait</string>
     <string name="saving_video">Saving video</string>
     <string name="processing_video">Processing Video</string>
-    <string name="ae_lock">AE LOCK</string>
-    <string name="af_lock">AF LOCK</string>
-    <string name="awb_lock">AWB LOCK</string>
+    <string name="ae_lock">AE</string>
+    <string name="af_lock">AF</string>
+    <string name="awb_lock">AWB</string>
     <string name="ois">OIS</string>
     <string name="video_size">VIDEO SIZE:</string>
     <string name="device_storage">Device Storage:</string>
     <string name="memory_use">Memory Use:</string>
+    <string name="this_video_has_been_exported">This video has been exported</string>
 </resources>

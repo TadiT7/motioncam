@@ -61,6 +61,7 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
     private final AsyncNativeCameraOps mNativeOps;
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
+        private final View background;
         private final TextView fileNameView;
         private final TextView captureTime;
         private final TextView frameRate;
@@ -69,10 +70,12 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         private final ImageView deleteVideoBtn;
         private final ProgressBar progressBar;
         private final ViewGroup previewList;
+        private final View isExportedText;
 
         public ViewHolder(View view) {
             super(view);
 
+            background = view;
             fileNameView = view.findViewById(R.id.filename);
             queueVideoBtn = view.findViewById(R.id.queueVideo);
             deleteVideoBtn = view.findViewById(R.id.deleteVideo);
@@ -81,6 +84,11 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             totalFrames = view.findViewById(R.id.numFrames);
             progressBar = view.findViewById(R.id.progressBar);
             previewList = view.findViewById(R.id.previewList);
+            isExportedText = view.findViewById(R.id.videoExportedText);
+        }
+
+        public View getBackground() {
+            return background;
         }
 
         public TextView getFileNameView() {
@@ -113,6 +121,10 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
 
         public ViewGroup getPreviewList() {
             return previewList;
+        }
+
+        public View getIsExportedText() {
+            return isExportedText;
         }
     }
 
@@ -168,7 +180,15 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         else {
             viewHolder.getQueueVideoBtn().setText(R.string.convert_to_dng);
 
-            viewHolder.getQueueVideoBtn().setEnabled(true);
+            // Check for corrupted video
+            if(item.frameRate < 0 || item.numFrames < 0) {
+                viewHolder.getFileNameView().setText(R.string.corrupted_video);
+                viewHolder.getQueueVideoBtn().setEnabled(false);
+            }
+            else {
+                viewHolder.getQueueVideoBtn().setEnabled(true);
+            }
+
             viewHolder.getDeleteVideoBtn().setEnabled(true);
         }
 
@@ -179,15 +199,6 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         }
         else {
             viewHolder.getProgressBar().setVisibility(View.GONE);
-        }
-
-        // Check for corrupted video
-        if(item.frameRate < 0 || item.numFrames < 0) {
-            viewHolder.getFileNameView().setText(R.string.corrupted_video);
-            viewHolder.getQueueVideoBtn().setEnabled(false);
-        }
-        else {
-            viewHolder.getQueueVideoBtn().setEnabled(true);
         }
 
         if(!item.haveMetadata) {
@@ -214,6 +225,11 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
                 previewList.addView(imageView);
             }
         }
+
+        if(item.entry.isAlreadyExported())
+            viewHolder.getIsExportedText().setVisibility(View.VISIBLE);
+        else
+            viewHolder.getIsExportedText().setVisibility(View.INVISIBLE);
     }
 
     @Override
@@ -240,13 +256,14 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         return mItems.size();
     }
 
-    public void update(Uri videoUri, boolean isQueued, int progress) {
+    public void update(Uri videoUri, boolean isQueued, boolean isExported, int progress) {
         for(int i = 0; i < mItems.size(); i++) {
             Item item = mItems.get(i);
 
             if(item.entry.getVideoUri().equals(videoUri)) {
                 item.isQueued = isQueued;
                 item.progress = progress;
+                item.entry.setAlreadyExported(isExported);
                 notifyItemChanged(i);
                 break;
             }

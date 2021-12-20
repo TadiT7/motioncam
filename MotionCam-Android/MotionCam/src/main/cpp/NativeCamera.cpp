@@ -120,6 +120,7 @@ jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_StartCaptur
         jstring jcameraId,
         jobject previewSurface,
         jboolean setupForRawPreview,
+        jboolean preferRaw12,
         jboolean preferRaw16)
 {
     std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(sessionHandle);
@@ -139,7 +140,7 @@ jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_StartCaptur
     try {
         std::shared_ptr<ANativeWindow> window(ANativeWindow_fromSurface(env, previewSurface), ANativeWindow_release);
 
-        sessionManager->startCamera(cameraId, gCameraSessionListener, window, setupForRawPreview, preferRaw16);
+        sessionManager->startCamera(cameraId, gCameraSessionListener, window, setupForRawPreview, preferRaw12, preferRaw16);
     }
     catch(const CameraSessionException& e) {
         gLastError = e.what();
@@ -190,7 +191,7 @@ jobject JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GetRawOutput
         motioncam::OutputConfiguration rawOutputConfig;
         auto cameraDesc = sessionManager->getCameraDescription(cameraId);
 
-        if(sessionManager->getRawConfiguration(*cameraDesc, false, rawOutputConfig)) {
+        if(sessionManager->getRawConfiguration(*cameraDesc, false, false, rawOutputConfig)) {
             jclass cls = env->FindClass("android/util/Size");
 
             jobject captureSize =

@@ -139,6 +139,13 @@
                         android:backgroundTint="@color/acceptAction"
                         android:text="@string/select"/>
 
+                    <Button
+                        android:id="@+id/rawVideoStorageClearBtn"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:backgroundTint="@color/cancelAction"
+                        android:text="Clear"/>
+
                     <HorizontalScrollView
                         android:layout_width="fill_parent"
                         android:layout_height="fill_parent">
