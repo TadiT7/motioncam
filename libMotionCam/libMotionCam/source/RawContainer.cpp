@@ -195,7 +195,8 @@ namespace motioncam {
         mReferenceTimestamp(-1),
         mIsHdr(false),
         mIsInMemory(false),
-        mFile(nullptr)
+        mFile(nullptr),
+        mNumSegments(0)
     {
         initialise(fd);
     }
@@ -204,16 +205,18 @@ namespace motioncam {
         mReferenceTimestamp(-1),
         mIsHdr(false),
         mIsInMemory(false),
-        mFile(nullptr)
+        mFile(nullptr),
+        mNumSegments(0)
     {
         initialise(inputPath);
     }
 
-    RawContainer::RawContainer(const RawCameraMetadata& cameraMetadata) :
+    RawContainer::RawContainer(const RawCameraMetadata& cameraMetadata, const int numSegments) :
         mCameraMetadata(cameraMetadata),
         mIsHdr(false),
         mIsInMemory(false),
-        mFile(nullptr)
+        mFile(nullptr),
+        mNumSegments(numSegments)
     {
         // Empty container for streaming
     }
@@ -228,7 +231,8 @@ namespace motioncam {
         mReferenceTimestamp(referenceTimestamp),
         mIsHdr(isHdr),
         mIsInMemory(true),
-        mFile(nullptr)
+        mFile(nullptr),
+        mNumSegments(0)
     {
         if(buffers.empty()) {
             throw InvalidState("No buffers");
@@ -455,6 +459,7 @@ namespace motioncam {
         
         mReferenceTimestamp = stol(getOptionalStringSetting(metadata, "referenceTimestamp", "0"));
         mIsHdr = getOptionalSetting(metadata, "isHdr", false);
+        mNumSegments = getOptionalSetting(metadata, "numSegments", 1);
 
         // Black/white levels
         vector<Json> blackLevelValues = metadata["blackLevel"].array_items();
@@ -773,6 +778,7 @@ namespace motioncam {
         // Save misc stuff
         metadataJson["referenceTimestamp"]  = std::to_string(mReferenceTimestamp);
         metadataJson["isHdr"]               = mIsHdr;
+        metadataJson["numSegments"]         = mNumSegments;
         
         // Global camera metadata
         json11::Json::object postProcessSettings;
@@ -963,5 +969,9 @@ namespace motioncam {
             return false;
         
         return true;
+    }
+
+    int RawContainer::getNumSegments() const {
+        return mNumSegments;
     }
 }

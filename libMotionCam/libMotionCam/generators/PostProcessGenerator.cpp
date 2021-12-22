@@ -3067,86 +3067,69 @@ void DeinterleaveRawGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, 
     using ::Halide::RVar;
     using ::Halide::TailStrategy;
     using ::Halide::Var;
-    Func preview = pipeline.get_func(9);
-    Func f0 = pipeline.get_func(8);
-    Func output = pipeline.get_func(7);
-    Func mirror_image = pipeline.get_func(6);
-    Func bayer = pipeline.get_func(5);
-    Func bayer_1 = pipeline.get_func(4);
-    Func bayer_4 = pipeline.get_func(3);
-    Func bayer_3 = pipeline.get_func(2);
-    Func bayer_2 = pipeline.get_func(1);
-    Var c(output.get_schedule().dims()[2].var);
-    Var i(f0.get_schedule().dims()[0].var);
-    Var ii("ii");
-    Var x(preview.get_schedule().dims()[0].var);
-    Var xi("xi");
-    Var xii("xii");
-    Var y(preview.get_schedule().dims()[1].var);
-    Var yi("yi");
-    Var yii("yii");
-    preview
-        .split(y, y, yi, 94, TailStrategy::ShiftInwards)
-        .split(x, x, xi, 32, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_root()
-        .reorder({xi, x, yi, y})
-        .parallel(y);
-    f0
-        .split(i, i, ii, 32, TailStrategy::RoundUp)
-        .vectorize(ii)
-        .compute_root()
-        .reorder({ii, i})
-        .parallel(i);
-    output
-        .split(y, y, yi, 47, TailStrategy::ShiftInwards)
-        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_root()
-        .reorder({xi, x, yi, c, y})
-        .parallel(y);
-    bayer
-        .split(x, x, xi, 1008, TailStrategy::ShiftInwards)
-        .split(y, y, yi, 12, TailStrategy::ShiftInwards)
-        .split(yi, yi, yii, 3, TailStrategy::ShiftInwards)
-        .split(xi, xi, xii, 16, TailStrategy::ShiftInwards)
-        .vectorize(xii)
-        .compute_root()
-        .reorder({xii, xi, yii, c, yi, x, y})
-        .fuse(x, y, x)
-        .parallel(x);
-    bayer_1
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_at(bayer, yi)
-        .reorder({xi, x, y});
-    bayer_4
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 32, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_at(bayer_1, y)
-        .reorder({xi, x, y});
-    bayer_3
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 32, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_at(bayer_1, y)
-        .reorder({xi, x, y});
-    bayer_2
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 32, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_at(bayer_1, y)
-        .reorder({xi, x, y});
+    Var _0_vi("_0_vi");
+    Var _0_vo("_0_vo");
+    Var i_vi("i_vi");
+    Var i_vo("i_vo");
+    Var x_vi("x_vi");
+    Var x_vo("x_vo");
+
+    Func bayer_1 = pipeline.get_func(6);
+    Func f0 = pipeline.get_func(9);
+    Func mirror_image = pipeline.get_func(2);
+    Func output = pipeline.get_func(8);
+    Func preview = pipeline.get_func(10);
+
+    {
+        Var x = bayer_1.args()[0];
+        Var y = bayer_1.args()[1];
+        bayer_1
+            .compute_root()
+            .split(x, x_vo, x_vi, 16)
+            .vectorize(x_vi)
+            .parallel(y);
+
+        Var _0 = mirror_image.args()[0];
+        mirror_image
+            .compute_at(bayer_1, y)
+            .split(_0, _0_vo, _0_vi, 32)
+            .vectorize(_0_vi);            
+    }
+    {
+        Var i = f0.args()[0];
+        f0
+            .compute_root()
+            .split(i, i_vo, i_vi, 32)
+            .vectorize(i_vi)
+            .parallel(i_vo);
+    }
+    {
+        Var x = output.args()[0];
+        Var y = output.args()[1];
+        Var c = output.args()[2];
+        output
+            .compute_root()
+            .split(x, x_vo, x_vi, 16)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+    }
+    {
+        Var x = preview.args()[0];
+        Var y = preview.args()[1];
+        preview
+            .compute_root()
+            .split(x, x_vo, x_vi, 32)
+            .vectorize(x_vi)
+            .parallel(y);
+    }
 }
 
 void DeinterleaveRawGenerator::generate() {
     Func bayer{"bayer"};
+    Func clamped = BoundaryConditions::mirror_image(input);
 
-    deinterleave(bayer, input, stride, pixelFormat);
-
-    Func clamped = BoundaryConditions::mirror_image(bayer, { {0, width - 1}, {0, height - 1}, {0, 4} });
+    deinterleave(bayer, clamped, stride, pixelFormat);
     
     // Gamma correct preview
     Func gammaLut;
@@ -3159,18 +3142,18 @@ void DeinterleaveRawGenerator::generate() {
     Expr x = v_x - offsetX;
     Expr y = v_y - offsetY;
 
-    output(v_x, v_y, v_c) = clamped(x, y, v_c);
+    output(v_x, v_y, v_c) = bayer(x, y, v_c);
 
-    Expr P = 0.25f * (clamped(x, y, 0) +
-                      clamped(x, y, 1) +
-                      clamped(x, y, 2) +
-                      clamped(x, y, 3));
+    Expr P = 0.25f * (bayer(x, y, 0) +
+                      bayer(x, y, 1) +
+                      bayer(x, y, 2) +
+                      bayer(x, y, 3));
 
     Expr S = (P - blackLevel[0]) / (whiteLevel - blackLevel[0]);
 
     preview(v_x, v_y) =  gammaLut(cast<uint8_t>(clamp(S * scale * 255.0f + 0.5f, 0, 255)));
 
-    input.set_estimates({ {0, 18000000} });
+    input.set_estimates({ {0, 12000000} });
     width.set_estimate(4000);
     height.set_estimate(3000);
     blackLevel.set_estimate(0, 64);
@@ -3717,131 +3700,114 @@ void MeasureNoiseGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::H
     using ::Halide::RVar;
     using ::Halide::TailStrategy;
     using ::Halide::Var;
-    Func snr = pipeline.get_func(13);
-    Func output = pipeline.get_func(12);
-    Func sum_1 = pipeline.get_func(11);
-    Func noise = pipeline.get_func(10);
-    Func mean = pipeline.get_func(9);
-    Func sum = pipeline.get_func(8);
-    Func blocks = pipeline.get_func(7);
-    Func deinterleaved = pipeline.get_func(6);
+    Var x_i("x_i");
+    Var x_i_vi("x_i_vi");
+    Var x_i_vo("x_i_vo");
+    Var x_o("x_o");
+    Var x_vi("x_vi");
+    Var x_vo("x_vo");
+    Var y_i("y_i");
+    Var y_o("y_o");
+
     Func bayer = pipeline.get_func(5);
-    Func bayer_3 = pipeline.get_func(4);
-    Func bayer_2 = pipeline.get_func(3);
-    Func bayer_1 = pipeline.get_func(2);
-    Func clamped = pipeline.get_func(1);
-    Var c(snr.get_schedule().dims()[2].var);
-    Var x(snr.get_schedule().dims()[0].var);
-    Var xi("xi");
-    Var xii("xii");
-    Var xiii("xiii");
-    Var xiiii("xiiii");
-    Var y(snr.get_schedule().dims()[1].var);
-    Var yi("yi");
-    Var yii("yii");
-    RVar r17_x(sum_1.update(0).get_schedule().dims()[0].var);
-    RVar r17_y(sum_1.update(0).get_schedule().dims()[1].var);
-    snr
-        .split(y, y, yi, 24, TailStrategy::ShiftInwards)
-        .split(x, x, xi, 8, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_root()
-        .reorder({xi, x, yi, y, c})
-        .fuse(y, c, y)
-        .parallel(y);
-    output
-        .split(x, x, xi, 32, TailStrategy::ShiftInwards)
-        .split(y, y, yi, 6, TailStrategy::ShiftInwards)
-        .split(xi, xi, xii, 8, TailStrategy::ShiftInwards)
-        .vectorize(xii)
-        .compute_root()
-        .reorder({xii, xi, yi, x, y, c})
-        .fuse(y, c, y)
-        .fuse(x, y, x)
-        .parallel(x);
-    sum_1
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 8, TailStrategy::RoundUp)
-        .vectorize(xi)
-        .compute_at(output, xi)
-        .reorder({xi, x, y, c});
-    sum_1.update(0)
-        .split(x, x, xi, 8, TailStrategy::RoundUp)
-        .vectorize(xi)
-        .reorder({xi, x, y, c, r17_x, r17_y});
-    mean
-        .split(y, y, yi, 3, TailStrategy::RoundUp)
-        .split(x, x, xi, 64, TailStrategy::RoundUp)
-        .split(xi, xi, xii, 8, TailStrategy::RoundUp)
-        .unroll(xi)
-        .vectorize(xii)
-        .compute_root()
-        .reorder({xii, xi, x, yi, y, c})
-        .fuse(y, c, y)
-        .parallel(y);
-    sum
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 8, TailStrategy::RoundUp)
-        .unroll(x)
-        .vectorize(xi)
-        .compute_at(mean, x)
-        .reorder({xi, x, y, c});
-    sum.update(0)
-        .split(x, x, xi, 8, TailStrategy::RoundUp)
-        .unroll(x)
-        .vectorize(xi)
-        .reorder({xi, x, r17_x, r17_y, y, c});
-    blocks
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 16, TailStrategy::RoundUp)
-        .vectorize(xi)
-        .compute_at(sum, r17_x)
-        .store_at(sum, r17_y)
-        .reorder({xi, x, y, c});
-    deinterleaved
-        .split(y, y, yi, 96, TailStrategy::ShiftInwards)
-        .split(yi, yi, yii, 4, TailStrategy::ShiftInwards)
-        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_root()
-        .reorder({xi, x, c, yii, yi, y})
-        .parallel(y);
-    bayer
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 1024, TailStrategy::RoundUp)
-        .split(xi, xi, xii, 512, TailStrategy::RoundUp)
-        .split(xii, xii, xiii, 256, TailStrategy::RoundUp)
-        .split(xiii, xiii, xiiii, 16, TailStrategy::RoundUp)
-        .vectorize(xiiii)
-        .compute_at(deinterleaved, yii)
-        .reorder({xiiii, xiii, xii, xi, x, y});
-    bayer_3
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 32, TailStrategy::RoundUp)
-        .vectorize(xi)
-        .compute_at(bayer, x)
-        .reorder({xi, x, y});
-    bayer_2
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 32, TailStrategy::RoundUp)
-        .unroll(x)
-        .vectorize(xi)
-        .compute_at(bayer, xii)
-        .reorder({xi, x, y});
-    bayer_1
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 32, TailStrategy::RoundUp)
-        .unroll(x)
-        .vectorize(xi)
-        .compute_at(bayer, xii)
-        .store_at(bayer, xi)
-        .reorder({xi, x, y});
-    clamped
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 32, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_at(deinterleaved, yi)
-        .reorder({xi, x});
+    Func deinterleaved = pipeline.get_func(6);
+    Func mean = pipeline.get_func(9);
+    Func output = pipeline.get_func(12);
+    Func snr = pipeline.get_func(13);
+    Func sum = pipeline.get_func(8);
+    Func sum_1 = pipeline.get_func(11);
+
+    {
+        Var x = bayer.args()[0];
+        bayer
+            .compute_at(deinterleaved, x_o)
+            .split(x, x_vo, x_vi, 16)
+            .vectorize(x_vi);
+    }
+    {
+        Var x = deinterleaved.args()[0];
+        Var y = deinterleaved.args()[1];
+        Var c = deinterleaved.args()[2];
+        deinterleaved
+            .compute_root()
+            .split(x, x_o, x_i, 64)
+            .split(y, y_o, y_i, 4)
+            .reorder(x_i, y_i, c, x_o, y_o)
+            .split(x_i, x_i_vo, x_i_vi, 16)
+            .vectorize(x_i_vi)
+            .parallel(y_o);
+    }
+    {
+        Var x = mean.args()[0];
+        Var y = mean.args()[1];
+        Var c = mean.args()[2];
+        mean
+            .compute_root()
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+    }
+    {
+        Var x = output.args()[0];
+        Var y = output.args()[1];
+        Var c = output.args()[2];
+        output
+            .compute_root()
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+    }
+    {
+        Var x = snr.args()[0];
+        Var y = snr.args()[1];
+        Var c = snr.args()[2];
+        snr
+            .compute_root()
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+    }
+    {
+        Var x = sum.args()[0];
+        Var y = sum.args()[1];
+        Var c = sum.args()[2];
+        RVar r17$x(sum.update(0).get_schedule().rvars()[0].var);
+        RVar r17$y(sum.update(0).get_schedule().rvars()[1].var);
+        sum
+            .compute_root()
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+        sum.update(0)
+            .reorder(r17$x, x, r17$y, y, c)
+            .split(x, x_vo, x_vi, 8, TailStrategy::GuardWithIf)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+    }
+    {
+        Var x = sum_1.args()[0];
+        Var y = sum_1.args()[1];
+        Var c = sum_1.args()[2];
+        RVar r17$x(sum_1.update(0).get_schedule().rvars()[0].var);
+        RVar r17$y(sum_1.update(0).get_schedule().rvars()[1].var);
+        sum_1
+            .compute_root()
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+        sum_1.update(0)
+            .reorder(r17$x, x, r17$y, y, c)
+            .split(x, x_vo, x_vi, 8, TailStrategy::GuardWithIf)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+    }
 }
 
 HALIDE_REGISTER_GENERATOR(GenerateEdgesGenerator, generate_edges_generator)

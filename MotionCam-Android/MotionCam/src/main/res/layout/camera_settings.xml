@@ -26,11 +26,13 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textAppearance="@style/MotionCam.TextAppearance.Small"
-                android:text="Save DNG along side JPEG"/>
+                android:textColor="@color/silver"
+                android:text="@string/dng_description"/>
 
         </LinearLayout>
 
-        <Switch
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/saveDngBtn"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"/>
 
@@ -39,57 +41,76 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="15dp"
         android:orientation="horizontal">
 
-        <TextView
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
             android:layout_weight="1"
-            android:text="@string/hdr"/>
+            android:orientation="vertical">
 
-        <Switch
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
+                android:text="@string/hdr"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/MotionCam.TextAppearance.Small"
+                android:textColor="@color/silver"
+                android:text="@string/hdr_description"/>
+
+        </LinearLayout>
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/hdrBtn"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"/>
+            android:layout_height="match_parent"/>
 
     </LinearLayout>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="@style/MotionCam.TextAppearance.Small"
-        android:text="Capture HDR in photo mode"/>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="15dp"
         android:orientation="horizontal">
 
-        <TextView
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
             android:layout_weight="1"
-            android:text="@string/ois"/>
+            android:orientation="vertical">
 
-        <Switch
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
+                android:text="@string/ois"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/MotionCam.TextAppearance.Small"
+                android:textColor="@color/silver"
+                android:text="@string/ois_description"/>
+
+        </LinearLayout>
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/oisBtn"
+            android:checked="true"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"/>
+            android:layout_height="match_parent"/>
 
     </LinearLayout>
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textAppearance="@style/MotionCam.TextAppearance.Small"
-        android:text="Enable optical image stabilisation"/>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="15dp"
         android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
         android:text="@string/camera_profile"/>
 
@@ -97,67 +118,85 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
+        android:textColor="@color/white"
         android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
         android:text="@string/contrast"/>
 
     <SeekBar
+        android:id="@+id/contrastSeekBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:max="100"
         android:padding="@dimen/seekBarPadding"/>
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
+        android:textColor="@color/white"
         android:text="@string/color"/>
 
     <SeekBar
+        android:id="@+id/colorSeekBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:max="100"
         android:padding="@dimen/seekBarPadding"/>
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
+        android:textColor="@color/white"
         android:text="@string/tint"/>
 
     <SeekBar
+        android:id="@+id/tintSeekBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:max="100"
         android:padding="@dimen/seekBarPadding"/>
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
+        android:textColor="@color/white"
         android:text="@string/preview_warmth"/>
 
     <SeekBar
+        android:id="@+id/warmthSeekBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:max="100"
         android:padding="@dimen/seekBarPadding"/>
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
+        android:textColor="@color/white"
         android:text="@string/sharpness"/>
 
     <SeekBar
+        android:id="@+id/sharpnessSeekBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:max="100"
         android:padding="@dimen/seekBarPadding"/>
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
+        android:textColor="@color/white"
         android:text="@string/detail"/>
 
     <SeekBar
+        android:id="@+id/detailSeekBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:max="100"
         android:padding="@dimen/seekBarPadding"/>
 
 </LinearLayout>

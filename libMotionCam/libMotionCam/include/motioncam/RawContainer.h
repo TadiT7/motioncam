@@ -20,7 +20,7 @@ namespace motioncam {
     public:
         RawContainer(const int fd);
         RawContainer(const std::string& inputPath);
-        RawContainer(const RawCameraMetadata& cameraMetadata);
+        RawContainer(const RawCameraMetadata& cameraMetadata, const int numSegments=1);
 
         RawContainer(const RawCameraMetadata& cameraMetadata,
                      const PostProcessSettings& postProcessSettings,
@@ -52,6 +52,7 @@ namespace motioncam {
         void save(util::ZipWriter& writer);
                 
         bool isInMemory() const { return mIsInMemory; };
+        int getNumSegments() const;
         
     private:
         void initialise(const std::string& inputPath);
@@ -89,6 +90,7 @@ namespace motioncam {
         std::string mReferenceImage;
         bool mIsHdr;
         bool mIsInMemory;
+        int mNumSegments;
         std::vector<std::string> mFrames;
         std::map<std::string, std::shared_ptr<RawImageBuffer>> mFrameBuffers;
     };

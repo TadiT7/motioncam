@@ -9,20 +9,25 @@
 namespace motioncam {
     class RawContainer;
 
-    float ConvertVideoToDNG(const std::string& inputFile,
-                            const DngProcessorProgress& progress,
-                            const int numThreads=4,
-                            const int mergeFrames=0);
+    void ConvertVideoToDNG(std::vector<std::unique_ptr<RawContainer>>& containers,
+                           const DngProcessorProgress& progress,
+                           const int numThreads,
+                           const int mergeFrames);
 
-    float ConvertVideoToDNG(const int fd,
-                            const DngProcessorProgress& progress,
-                            const int numThreads=4,
-                            const int mergeFrames=0);
+    void ConvertVideoToDNG(const std::vector<std::string>& inputFile,
+                           const DngProcessorProgress& progress,
+                           const int numThreads=4,
+                           const int mergeFrames=0);
+
+    void ConvertVideoToDNG(std::vector<int>& fds,
+                           const DngProcessorProgress& progress,
+                           const int numThreads=4,
+                           const int mergeFrames=0);
 
     void ProcessImage(RawContainer& rawContainer, const std::string& outputFilePath, const ImageProcessorProgress& progressListener);
     void ProcessImage(const std::string& containerPath, const std::string& outputFilePath, const ImageProcessorProgress& progressListener);
 
-    void GetMetadata(const int fd, float& outFrameRate, int& outNumFrames);
+    void GetMetadata(const std::vector<int>& fds, float& outFrameRate, int& outNumFrames, int& outNumSegments);
 }
 
 #endif /* MotionCam_hpp */

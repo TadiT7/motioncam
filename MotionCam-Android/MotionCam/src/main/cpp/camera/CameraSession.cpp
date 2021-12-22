@@ -199,7 +199,8 @@ namespace motioncam {
             mRequestedHdrCaptures(0),
             mRequestHdrCaptureTimestamp(-1),
             mLongHdrCaptureInProgress(false),
-            mHdrCaptureSequenceCompleted(true)
+            mHdrCaptureSequenceCompleted(true),
+            mAcceptEvents(false)
     {
     }
 
@@ -234,6 +235,7 @@ namespace motioncam {
             { "setupForRawPreview", setupForRawPreview },
         };
 
+        mAcceptEvents = true;
         pushEvent(EventAction::ACTION_OPEN_CAMERA);
     }
 
@@ -507,8 +509,8 @@ namespace motioncam {
 
         media_status_t result =
                 AImageReader_new(
-                        state.outputConfig.outputSize.originalWidth(),
-                        state.outputConfig.outputSize.originalHeight(),
+                        640,
+                        480,
                         AIMAGE_FORMAT_YUV_420_888,
                         2,
                         &imageReader);
@@ -616,6 +618,14 @@ namespace motioncam {
     }
 
     void CameraSession::doCloseCamera() {
+        // Stop accepting events when we are about to close the camera
+        mAcceptEvents = false;
+
+        // Stop all captures
+        if(mSessionContext->captureSession != nullptr) {
+            ACameraCaptureSession_abortCaptures(mSessionContext->captureSession.get());
+        }
+
         // Close capture session
         LOGD("Closing capture session");
         mSessionContext->captureSession = nullptr;
@@ -662,6 +672,8 @@ namespace motioncam {
         // Stop image consumer
         LOGD("Stopping image consumer");
         mImageConsumer->stop();
+
+        LOGD("Camera closed");
     }
 
     void CameraSession::doPauseCapture() {
@@ -1370,26 +1382,23 @@ namespace motioncam {
 
             // Try to get event
             if(!mEventLoopQueue.wait_dequeue_timed(eventLoopData, std::chrono::milliseconds(100))) {
-                // Stop when the camera session has closed and we've received a STOP message
-                // We need to wait until the camera has closed otherwise the callback may be called after we've been
-                // destroyed.
-                if(recvdStop && mState == CameraCaptureSessionState::CLOSED)
-                    eventLoopRunning = false;
-
                 continue;
             }
 
             if(eventLoopData->eventAction == EventAction::STOP) {
-                recvdStop = true;
+                eventLoopRunning = false;
             }
             else {
                 try {
-                    doProcessEvent(eventLoopData);
+                    if(mAcceptEvents)
+                        doProcessEvent(eventLoopData);
                 }
                 catch (std::exception &e) {
                     doOnInternalError(e.what());
                 }
             }
         }
+
+        LOGD("Event loop has stopped");
     }
  }

@@ -82,13 +82,13 @@
     <string name="high">High</string>
     <string name="adjustments">PROFILE</string>
     <string name="dng">DNG</string>
-    <string name="preview_contrast">CONTRAST</string>
-    <string name="preview_colour">COLOUR</string>
-    <string name="preview_tint">TINT</string>
-    <string name="preview_warmth">WARMTH</string>
+    <string name="preview_contrast">Contrast</string>
+    <string name="preview_colour">Colour</string>
+    <string name="preview_tint">Tint</string>
+    <string name="preview_warmth">Warmth</string>
     <string name="no_videos_available">No videos available</string>
     <string name="video_merge_frames_desc">Reduce noise by merging the nearest frames together. This can provide a significant reduction in noise but will increase the conversion time.</string>
-    <string name="video_merge_frames_title">Number of frames to merge:</string>
+    <string name="video_merge_frames_title">Number of frames to stack:</string>
     <string name="capture_time">Capture Time</string>
     <string name="total_frames">Total Frames</string>
     <string name="manage_videos">MANAGE VIDEOS</string>
@@ -106,6 +106,7 @@
     <string name="select">Select</string>
     <string name="video_memory_use_error" >Recording has stopped because the memory limit has been reached.</string>
     <string name="invalid_raw_video_folder">The selected output folder is not available. Using internal storage.</string>
+    <string name="invalid_secondary_raw_video_folder">The secondary output folder is not available. RAW video will not be split.</string>
     <string name="recording_failed">Failed to start recording.</string>
     <string name="confirm_delete">Are you sure you want to delete this video?</string>
     <string name="delete">Delete</string>
@@ -123,4 +124,13 @@
     <string name="device_storage">Device Storage:</string>
     <string name="memory_use">Memory Use:</string>
     <string name="this_video_has_been_exported">This video has been exported</string>
+    <string name="video_parts_missing">This video has missing parts. It can\'t be converted.</string>
+    <string name="ois_description">Enable optical image stabilisation</string>
+    <string name="hdr_description">Capture HDR in photo mode</string>
+    <string name="dng_description">Save DNG along side JPEG</string>
+    <string name="parts">Parts</string>
+    <string name="delete_after_export">Delete after export</string>
+    <string name="set_export_folder">Set export folder</string>
+    <string name="split_storage_option">Split RAW video recording across two storage locations</string>
+    <string name="split_storage_description">Splitting RAW storage across internal and external storage improves performance.</string>
 </resources>

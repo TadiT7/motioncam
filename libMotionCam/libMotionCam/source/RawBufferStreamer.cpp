@@ -68,7 +68,12 @@ namespace motioncam {
                                   const std::shared_ptr<AudioInterface> audioInterface,
                                   const RawCameraMetadata& cameraMetadata) {
         stop();
-                
+        
+        if(fds.empty()) {
+            logger::log("No file descriptors found");
+            return;
+        }
+        
         mRunning = true;
         mWrittenFrames = 0;
         mWrittenBytes = 0;
@@ -85,7 +90,7 @@ namespace motioncam {
         
         // Create IO threads with maximum priority
         for(int i = 0; i < fds.size(); i++) {
-            auto ioThread = std::unique_ptr<std::thread>(new std::thread(&RawBufferStreamer::doStream, this, fds[i], cameraMetadata));
+            auto ioThread = std::unique_ptr<std::thread>(new std::thread(&RawBufferStreamer::doStream, this, fds[i], cameraMetadata, (int)fds.size()));
 
             mIoThreads.push_back(std::move(ioThread));
         }
@@ -913,11 +918,11 @@ namespace motioncam {
         }
     }
 
-    void RawBufferStreamer::doStream(const int fd, const RawCameraMetadata& cameraMetadata) {
+    void RawBufferStreamer::doStream(const int fd, const RawCameraMetadata& cameraMetadata, const int numContainers) {
         util::CloseableFd fdContext(fd);
         
         std::shared_ptr<RawImageBuffer> buffer;
-        RawContainer container(cameraMetadata);
+        RawContainer container(cameraMetadata, numContainers);
         size_t start, end;
 
         if(!container.create(fd)) {

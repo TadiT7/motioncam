@@ -64,7 +64,7 @@ namespace motioncam {
         
         void doProcess();
         void doCompress();
-        void doStream(const int fd, const RawCameraMetadata& cameraMetadata);
+        void doStream(const int fd, const RawCameraMetadata& cameraMetadata, const int numContainers);
         
         void processBuffer(std::shared_ptr<RawImageBuffer> buffer);
         

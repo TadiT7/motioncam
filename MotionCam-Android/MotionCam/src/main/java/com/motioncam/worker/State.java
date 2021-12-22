@@ -3,9 +3,10 @@ package com.motioncam.worker;
 public class State {
     public static final String PROGRESS_STATE_KEY       = "state";
     public static final String PROGRESS_PROGRESS_KEY    = "progress";
+    public static final String PROGRESS_DELETED         = "isDeleted";
     public static final String PROGRESS_ERROR_KEY       = "errorMessage";
     public static final String PROGRESS_URI_KEY         = "uri";
-    public static final String PROGRESS_INPUT_URI_KEY   = "inputUri";
+    public static final String PROGRESS_NAME_KEY        = "name";
     public static final String PROGRESS_IMAGE_PATH      = "imagePath";
     public static final String PROGRESS_PREVIEW_PATH    = "previewPath";
 

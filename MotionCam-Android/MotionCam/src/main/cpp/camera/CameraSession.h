@@ -159,6 +159,7 @@ namespace motioncam {
         int mRequestedHdrCaptures;
         int64_t mRequestHdrCaptureTimestamp;
 
+        bool mAcceptEvents;
         moodycamel::BlockingConcurrentQueue<EventLoopDataPtr> mEventLoopQueue;
         std::unique_ptr<std::thread> mEventLoopThread;
 

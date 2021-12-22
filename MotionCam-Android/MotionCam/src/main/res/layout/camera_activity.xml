@@ -152,23 +152,26 @@
             app:layout_constraintTop_toTopOf="@+id/cameraFrame"
             app:layout_constraintBottom_toBottomOf="@+id/cameraFrame"/>
 
-<!--        <FrameLayout-->
-<!--            android:id="@+id/cameraSettings"-->
-<!--            android:layout_width="300dp"-->
-<!--            android:layout_height="200dp"-->
-<!--            android:background="@color/black_transparent"-->
-<!--            android:layout_marginTop="10dp"-->
-<!--            app:layout_constraintEnd_toEndOf="parent"-->
-<!--            app:layout_constraintStart_toStartOf="@+id/cameraFrame"-->
-<!--            app:layout_constraintTop_toTopOf="@+id/cameraFrame">-->
+        <FrameLayout
+            android:id="@+id/cameraSettings"
+            android:visibility="gone"
+            android:layout_width="match_parent"
+            android:layout_height="250dp"
+            android:background="@drawable/camera_settings_background"
+            android:layout_marginTop="10dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="@+id/cameraFrame"
+            app:layout_constraintTop_toTopOf="@+id/cameraFrame">
 
-<!--            <ScrollView-->
-<!--                android:layout_width="match_parent"-->
-<!--                android:layout_height="match_parent">-->
-<!--                <include layout="@layout/camera_settings" />-->
-<!--            </ScrollView>-->
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+                <include layout="@layout/camera_settings" />
+            </ScrollView>
 
-<!--        </FrameLayout>-->
+        </FrameLayout>
 
         <LinearLayout
             android:id="@+id/manualControlsFrame"
@@ -386,6 +389,16 @@
                 android:text="00:00:00"
                 android:textAppearance="@style/MotionCam.TextAppearance.Small"/>
         </LinearLayout>
+
+        <ImageView
+            android:id="@+id/cameraSettingsBtn"
+            android:layout_width="35dp"
+            android:layout_height="35dp"
+            android:src="@drawable/chevron_down"
+            android:padding="10dp"
+            app:layout_constraintBottom_toBottomOf="@+id/preview_frame"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

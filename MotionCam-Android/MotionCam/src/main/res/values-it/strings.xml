@@ -82,10 +82,10 @@
     <string name="high">Alto</string>
     <string name="adjustments">PROFILO</string>
     <string name="dng">DNG</string>
-    <string name="preview_contrast">CONTRASTO</string>
-    <string name="preview_colour">COLORE</string>
-    <string name="preview_tint">TINTA</string>
-    <string name="preview_warmth">AVVCALORE</string>
+    <string name="preview_contrast">Contrasto</string>
+    <string name="preview_colour">Colore</string>
+    <string name="preview_tint">Tinta</string>
+    <string name="preview_warmth">Avvcalore</string>
     <string name="no_videos_available">Nessun video disponibile</string>
     <string name="video_merge_frames_desc">Riduci il rumore unendo i fotogrammi più vicini.\nCiò può fornire una significativa riduzione del rumore ma aumenterà il tempo di conversione.</string>
     <string name="video_merge_frames_title">Numero fotogrammi da unire:</string>

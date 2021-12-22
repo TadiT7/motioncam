@@ -8,8 +8,6 @@ import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.view.View;
 
-import com.motioncam.camera.NativeCameraBuffer;
-
 public class BitmapDrawView extends View {
     private Bitmap mBitmap;
     private RectF mSize;
@@ -26,6 +24,9 @@ public class BitmapDrawView extends View {
     protected void onDraw(Canvas canvas) {
         if(mBitmap != null && mTransform != null) {
             canvas.drawBitmap(mBitmap, mTransform, null);
+        }
+        else {
+            canvas.drawColor(0x000000);
         }
     }
 

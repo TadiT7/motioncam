@@ -140,6 +140,10 @@ jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_StartCaptur
     try {
         std::shared_ptr<ANativeWindow> window(ANativeWindow_fromSurface(env, previewSurface), ANativeWindow_release);
 
+        LOGD("Reseting buffer manager");
+        RawBufferManager::get().reset();
+
+        LOGD("Starting camera %s", cameraId.c_str());
         sessionManager->startCamera(cameraId, gCameraSessionListener, window, setupForRawPreview, preferRaw12, preferRaw16);
     }
     catch(const CameraSessionException& e) {
@@ -159,12 +163,15 @@ JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_S
     }
 
     try {
+        LOGD("Stopping camera");
         sessionManager->stopCamera();
     }
     catch(const CameraSessionException& e) {
         gLastError = e.what();
         return JNI_FALSE;
     }
+
+    LOGD("Stop capture compled");
 
     return JNI_TRUE;
 }

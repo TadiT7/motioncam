@@ -897,7 +897,6 @@ namespace motioncam {
                       noiseBuffer,
                       signalBuffer);
         
-
         for(int c = 0; c < 4; c++) {
             cv::Mat noiseImage(noiseBuffer.height(), noiseBuffer.width(), CV_32F, noiseBuffer.data() + c*noiseBuffer.stride(2));
             cv::Mat signalImage(signalBuffer.height(), signalBuffer.width(), CV_32F, signalBuffer.data() + c*signalBuffer.stride(2));
