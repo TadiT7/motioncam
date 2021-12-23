@@ -133,4 +133,6 @@
     <string name="set_export_folder">Set export folder</string>
     <string name="split_storage_option">Split RAW video recording across two storage locations</string>
     <string name="split_storage_description">Splitting RAW storage across internal and external storage improves performance.</string>
+    <string name="permissions_error">The app needs the camera permission to function.</string>
+    <string name="internal_mic">Internal Mic</string>
 </resources>

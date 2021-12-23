@@ -3127,9 +3127,10 @@ void DeinterleaveRawGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, 
 
 void DeinterleaveRawGenerator::generate() {
     Func bayer{"bayer"};
-    Func clamped = BoundaryConditions::mirror_image(input);
 
-    deinterleave(bayer, clamped, stride, pixelFormat);
+    deinterleave(bayer, input, stride, pixelFormat);
+
+    Func clamped = BoundaryConditions::mirror_image(bayer, { { 0, width - 1}, { 0, height - 1 } });
     
     // Gamma correct preview
     Func gammaLut;
@@ -3142,12 +3143,12 @@ void DeinterleaveRawGenerator::generate() {
     Expr x = v_x - offsetX;
     Expr y = v_y - offsetY;
 
-    output(v_x, v_y, v_c) = bayer(x, y, v_c);
+    output(v_x, v_y, v_c) = clamped(x, y, v_c);
 
-    Expr P = 0.25f * (bayer(x, y, 0) +
-                      bayer(x, y, 1) +
-                      bayer(x, y, 2) +
-                      bayer(x, y, 3));
+    Expr P = 0.25f * (clamped(x, y, 0) +
+                      clamped(x, y, 1) +
+                      clamped(x, y, 2) +
+                      clamped(x, y, 3));
 
     Expr S = (P - blackLevel[0]) / (whiteLevel - blackLevel[0]);
 
@@ -3172,8 +3173,8 @@ void DeinterleaveRawGenerator::generate() {
     preview.set_estimates({{0, 2000}, {0, 1500} });
 
     if(!get_auto_schedule()) {
-        //schedule_for_cpu();
-        apply_auto_schedule(get_pipeline(), get_target());
+        schedule_for_cpu();
+        // apply_auto_schedule(get_pipeline(), get_target());
     }
  }
 

@@ -82,6 +82,7 @@ namespace motioncam {
         
         std::atomic<bool> mRunning;
         std::atomic<uint32_t> mWrittenFrames;
+        std::atomic<uint32_t> mAcceptedFrames;
         std::atomic<size_t> mWrittenBytes;
         std::chrono::steady_clock::time_point mStartTime;
         

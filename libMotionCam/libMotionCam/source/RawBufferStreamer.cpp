@@ -77,6 +77,7 @@ namespace motioncam {
         mRunning = true;
         mWrittenFrames = 0;
         mWrittenBytes = 0;
+        mAcceptedFrames = 0;
         
         // Start audio interface
         if(audioInterface && audioFd >= 0) {
@@ -91,6 +92,12 @@ namespace motioncam {
         // Create IO threads with maximum priority
         for(int i = 0; i < fds.size(); i++) {
             auto ioThread = std::unique_ptr<std::thread>(new std::thread(&RawBufferStreamer::doStream, this, fds[i], cameraMetadata, (int)fds.size()));
+
+            // Update priority
+            sched_param priority{};
+            priority.sched_priority = 99;
+
+            pthread_setschedparam(ioThread->native_handle(), SCHED_FIFO, &priority);
 
             mIoThreads.push_back(std::move(ioThread));
         }
@@ -112,6 +119,7 @@ namespace motioncam {
 
     void RawBufferStreamer::add(const std::shared_ptr<RawImageBuffer>& frame) {
         mUnprocessedBuffers.enqueue(frame);
+        mAcceptedFrames++;
     }
 
     void RawBufferStreamer::stop() {
@@ -1016,7 +1024,7 @@ namespace motioncam {
         auto now = std::chrono::steady_clock::now();
         float durationSecs = std::chrono::duration <float>(now - mStartTime).count();
         
-        return mWrittenFrames / (1e-5f + durationSecs);
+        return mAcceptedFrames / (1e-5f + durationSecs);
     }
 
     size_t RawBufferStreamer::writenOutputBytes() const {

@@ -9,7 +9,7 @@
 namespace motioncam {
     class RawContainer;
 
-    void ConvertVideoToDNG(std::vector<std::unique_ptr<RawContainer>>& containers,
+    void ConvertVideoToDNG(std::vector<std::unique_ptr<RawContainer> >& containers,
                            const DngProcessorProgress& progress,
                            const int numThreads,
                            const int mergeFrames);

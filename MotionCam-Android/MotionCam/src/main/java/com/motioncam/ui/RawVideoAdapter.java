@@ -168,11 +168,27 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         viewHolder.getDeleteVideoBtn().setOnClickListener((v) -> mListener.onDeleteClicked(item.entry));
 
         // Metadata
-        String numPartsText = item.entry.getVideoUris().size() + "/" + item.entry.getNumParts();
+        String numPartsText = "-";
+        String frameRateText = "-";
+        String numFramesText = "-";
 
-        viewHolder.getFrameRate().setText(String.valueOf(Math.round(item.entry.getFrameRate())));
-        viewHolder.getNumFrames().setText(String.valueOf(item.entry.getNumFrames()));
+        // Part
+        if(item.entry.getNumParts() > 0) {
+            numPartsText = item.entry.getVideoUris().size() + "/" + item.entry.getNumParts();
+        }
+
+        // FPS
+        if(item.entry.getFrameRate() > 0)
+            frameRateText = String.valueOf(Math.round(item.entry.getFrameRate()));
+
+        // Num frames
+        if(item.entry.getNumFrames() > 0) {
+            numFramesText = String.valueOf(item.entry.getNumFrames());
+        }
+
+        viewHolder.getFrameRate().setText(frameRateText);
         viewHolder.getNumParts().setText(numPartsText);
+        viewHolder.getNumFrames().setText(numFramesText);
 
         String statusText = "";
 
@@ -181,32 +197,39 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             statusText = mContext.getString(R.string.this_video_has_been_exported);
         }
 
-        // Set up buttons
+        // Set up state
+
+
+        // In the process of being exported?
         if(item.isQueued) {
             viewHolder.getQueueVideoBtn().setText(R.string.queued);
 
             viewHolder.getQueueVideoBtn().setEnabled(false);
             viewHolder.getDeleteVideoBtn().setEnabled(false);
         }
-        // Don't allow queuing if parts are missing
-        else if(item.entry.getVideoUris().size() != item.entry.getNumParts()) {
+        // Corrupted?
+        else if(item.entry.getFrameRate() < 0 || item.entry.getNumFrames() < 0) {
+            viewHolder.getFileNameView().setText(R.string.corrupted_video);
+            viewHolder.getQueueVideoBtn().setVisibility(View.INVISIBLE);
+
+            viewHolder.getDeleteVideoBtn().setEnabled(true);
+        }
+        // Parts missing?
+        else if(item.entry.getNumParts() > 0 && item.entry.getVideoUris().size() != item.entry.getNumParts()) {
             viewHolder.getQueueVideoBtn().setVisibility(View.INVISIBLE);
             viewHolder.getDeleteVideoBtn().setEnabled(true);
 
             statusText = mContext.getString(R.string.video_parts_missing);
         }
+        // Waiting for metadata?
+        else if(item.entry.getMetadata() == null) {
+            viewHolder.getQueueVideoBtn().setVisibility(View.INVISIBLE);
+            viewHolder.getDeleteVideoBtn().setEnabled(false);
+        }
+        // Good to go
         else {
+            viewHolder.getQueueVideoBtn().setVisibility(View.VISIBLE);
             viewHolder.getQueueVideoBtn().setText(R.string.convert_to_dng);
-
-            // Check for corrupted video
-            if(item.entry.getFrameRate() < 0 || item.entry.getNumFrames() < 0) {
-                viewHolder.getFileNameView().setText(R.string.corrupted_video);
-                viewHolder.getQueueVideoBtn().setVisibility(View.INVISIBLE);
-            }
-            else {
-                viewHolder.getQueueVideoBtn().setVisibility(View.VISIBLE);
-            }
-
             viewHolder.getDeleteVideoBtn().setEnabled(true);
         }
 
@@ -222,7 +245,7 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         // Get all metadata
         if(!item.queriedMetadata) {
             mNativeOps.getContainerMetadata(mContext, item.entry, this);
-            mNativeOps.generateVideoPreview(mContext, item.entry, 8, this);
+            mNativeOps.generateVideoPreview(mContext, item.entry, 6, this);
 
             item.queriedMetadata = true;
         }

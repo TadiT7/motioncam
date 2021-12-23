@@ -74,7 +74,7 @@ namespace motioncam {
             }
         }
         
-        std::sort(outOrderedFrames.begin(), outOrderedFrames.end(), [](auto& a, auto& b) {
+        std::sort(outOrderedFrames.begin(), outOrderedFrames.end(), [](ContainerFrame& a, ContainerFrame& b) {
             return a.timestamp < b.timestamp;
         });
     }
@@ -308,7 +308,11 @@ namespace motioncam {
                 containers.push_back( std::unique_ptr<RawContainer>( new RawContainer(fd) ) );
             }
             catch(std::exception& e) {
-                close(fd);
+                outFrameRate = - 1;
+                outNumFrames = -1;
+                outNumSegments = 0;
+
+                return;
             }
         }
         

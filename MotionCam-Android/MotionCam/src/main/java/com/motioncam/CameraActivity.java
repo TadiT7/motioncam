@@ -14,6 +14,8 @@ import android.graphics.Matrix;
 import android.graphics.PointF;
 import android.graphics.SurfaceTexture;
 import android.location.Location;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -34,6 +36,8 @@ import android.view.WindowManager;
 import android.view.animation.BounceInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -122,8 +126,12 @@ public class CameraActivity extends AppCompatActivity implements
     private static final CameraManualControl.SHUTTER_SPEED MAX_EXPOSURE_TIME =
             CameraManualControl.SHUTTER_SPEED.EXPOSURE_2__0;
 
-    private static final String[] REQUEST_PERMISSIONS = {
+    private static final String[] MINIMUM_PERMISSIONS = {
             Manifest.permission.CAMERA,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+    };
+
+    private static final String[] ADDITIONAL_PERMISSIONS = {
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.RECORD_AUDIO
     };
@@ -212,10 +220,10 @@ public class CameraActivity extends AppCompatActivity implements
             else if(seekBar == findViewById(R.id.manualControlSeekBar)) {
                 onManualControlSettingsChanged(progress, fromUser);
             }
-            else if(seekBar == mBinding.previewFrame.widthCropSeekBar) {
+            else if(seekBar == mBinding.cameraSettings.findViewById(R.id.widthCropSeekBar)) {
                 onWidthCropChanged(progress, fromUser);
             }
-            else if(seekBar == mBinding.previewFrame.heightCropSeekBar) {
+            else if(seekBar == mBinding.cameraSettings.findViewById(R.id.heightCropSeekBar)) {
                 onHeightCropChanged(progress, fromUser);
             }
             else if(seekBar == mBinding.cameraSettings.findViewById(R.id.contrastSeekBar)) {
@@ -244,13 +252,6 @@ public class CameraActivity extends AppCompatActivity implements
 
         @Override
         public void onStopTrackingTouch(SeekBar seekBar) {
-            if(seekBar == mBinding.previewFrame.widthCropSeekBar
-                || seekBar == mBinding.previewFrame.heightCropSeekBar) {
-                toggleVideoCrop();
-            }
-            else if(seekBar == findViewById(R.id.manualControlSeekBar)) {
-                hideManualControls();
-            }
         }
     };
 
@@ -498,12 +499,21 @@ public class CameraActivity extends AppCompatActivity implements
 
         ((SeekBar) findViewById(R.id.manualControlSeekBar)).setOnSeekBarChangeListener(mSeekBarChangeListener);
 
-        mBinding.previewFrame.videoCropToggle.setOnClickListener(v -> toggleVideoCrop());
-        mBinding.previewFrame.videoFrameRateBtn.setOnClickListener(v -> toggleFrameRate());
-        mBinding.previewFrame.videoBinBtn.setOnClickListener(v -> toggleVideoBin());
+        ((SwitchCompat) mBinding.cameraSettings.findViewById(R.id.pixelBinSwitch))
+                .setOnCheckedChangeListener((btn, isChecked) -> toggleVideoBin(isChecked));
 
-        mBinding.previewFrame.widthCropSeekBar.setOnSeekBarChangeListener(mSeekBarChangeListener);
-        mBinding.previewFrame.heightCropSeekBar.setOnSeekBarChangeListener(mSeekBarChangeListener);
+        // Set up frame rate buttons
+        ViewGroup fpsGroup = mBinding.cameraSettings.findViewById(R.id.fpsGroup);
+        for(int i = 0; i < fpsGroup.getChildCount(); i++) {
+            View fpsToggle = fpsGroup.getChildAt(i);
+            fpsToggle.setOnClickListener(v -> toggleFrameRate(v));
+        }
+
+        ((SeekBar) mBinding.cameraSettings.findViewById(R.id.widthCropSeekBar))
+                .setOnSeekBarChangeListener(mSeekBarChangeListener);
+
+        ((SeekBar) mBinding.cameraSettings.findViewById(R.id.heightCropSeekBar))
+                .setOnSeekBarChangeListener(mSeekBarChangeListener);
 
         mBinding.previewFrame.previewControls.setVisibility(View.VISIBLE);
 
@@ -631,6 +641,9 @@ public class CameraActivity extends AppCompatActivity implements
         // Hide camera settings
         toggleCameraSettings(false);
 
+        // Get audio inputs
+        enumerateAudioInputs();
+
         mBinding.focusLockPointFrame.setVisibility(View.GONE);
         mBinding.previewPager.registerOnPageChangeCallback(mCapturedPreviewPagerListener);
 
@@ -664,7 +677,7 @@ public class CameraActivity extends AppCompatActivity implements
         mSettings.save(sharedPrefs);
 
         // Camera specific settings
-        if(mCameraSettings != null && mSelectedCamera.cameraId != null) {
+        if(mCameraSettings != null && mSelectedCamera != null) {
             mCameraSettings.contrast = mPostProcessSettings.contrast;
             mCameraSettings.saturation = mPostProcessSettings.saturation;
             mCameraSettings.tintOffset = mTintOffset;
@@ -777,7 +790,7 @@ public class CameraActivity extends AppCompatActivity implements
         }
 
         int fd0 = createNewFile(mSettings.rawVideoRecordingTempUri, filename, mimeType);
-        if(fd0 < 0) {
+        if (fd0 < 0) {
             return fds;
         }
 
@@ -786,7 +799,7 @@ public class CameraActivity extends AppCompatActivity implements
         // Try to get second recording location
         if(mSettings.useSecondaryRawVideoStorage && mSettings.rawVideoRecordingTempUri2 != null) {
             int fd1 = createNewFile(mSettings.rawVideoRecordingTempUri2, CameraProfile.nextSegment(filename), mimeType);
-            if(fd1 >= 0) {
+            if (fd1 >= 0) {
                 fds.add(fd1);
             }
             else {
@@ -833,13 +846,13 @@ public class CameraActivity extends AppCompatActivity implements
             videoFds.add(fd);
         }
 
-        int videoFd0 = videoFds.get(0);
-        int videoFd1 = -1;
+        // Create list of all fds
+        int fds[] = videoFds
+                .stream()
+                .mapToInt(i->i)
+                .toArray();
 
-        if(videoFds.size() > 1)
-            videoFd1 = videoFds.get(1);
-
-        mNativeCamera.streamToFile(videoFd0, videoFd1, audioFd);
+        mNativeCamera.streamToFile(fds, audioFd);
         mImageCaptureInProgress.set(true);
 
         mBinding.switchCameraBtn.setEnabled(false);
@@ -988,19 +1001,7 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void updateVideoUi() {
-        String cropText = getText(R.string.crop).toString();
-        String fpsText = getText(R.string.fps).toString();
         String resText = getText(R.string.output).toString();
-        String binText = getText(R.string.bin).toString();
-
-        mBinding.previewFrame.videoCropToggle.setText(
-                String.format(Locale.US, "%d%% / %d%%\n%s", mSettings.widthVideoCrop, mSettings.heightVideoCrop, cropText));
-
-        mBinding.previewFrame.videoFrameRateBtn.setText(
-                String.format(Locale.US, "%d\n%s", mSettings.frameRate, fpsText));
-
-        mBinding.previewFrame.videoBinBtn.setText(
-                String.format(Locale.US, "%s\n%s", mSettings.videoBin ? "2x2" : "1x1", binText));
 
         if(mNativeCamera != null) {
             Size captureOutputSize = mNativeCamera.getRawConfigurationOutput(mSelectedCamera);
@@ -1045,11 +1046,43 @@ public class CameraActivity extends AppCompatActivity implements
 
         ((SwitchCompat) mBinding.cameraSettings.findViewById(R.id.saveDngBtn)).setChecked(mSettings.saveDng);
         ((SwitchCompat) mBinding.cameraSettings.findViewById(R.id.hdrBtn)).setChecked(mSettings.hdr);
+
+        // Video section
+        ((SeekBar) mBinding.cameraSettings.findViewById(R.id.widthCropSeekBar)).setProgress(mSettings.widthVideoCrop);
+        ((SeekBar) mBinding.cameraSettings.findViewById(R.id.heightCropSeekBar)).setProgress(mSettings.heightVideoCrop);
+        ((SwitchCompat) mBinding.cameraSettings.findViewById(R.id.pixelBinSwitch)).setChecked(mSettings.videoBin);
+
+        String widthCropAmount = mSettings.widthVideoCrop + "%";
+        String heightCropAmount = mSettings.heightVideoCrop + "%";
+
+        ((TextView) mBinding.cameraSettings.findViewById(R.id.widthCropAmount)).setText(widthCropAmount);
+        ((TextView) mBinding.cameraSettings.findViewById(R.id.heightCropAmount)).setText(heightCropAmount);
+
+        ViewGroup fpsGroup = mBinding.cameraSettings.findViewById(R.id.fpsGroup);
+        for(int i = 0; i < fpsGroup.getChildCount(); i++) {
+            View fpsToggle = fpsGroup.getChildAt(i);
+            String fpsTag = (String) fpsToggle.getTag();
+
+            fpsToggle.setBackground(null);
+            if(fpsTag != null) {
+                try {
+                    int fps = Integer.valueOf(fpsTag);
+                    if (mSettings.frameRate == fps) {
+                        fpsToggle.setBackgroundColor(getColor(R.color.colorAccent));
+                    }
+                }
+                catch(NumberFormatException e) {
+                    Log.e(TAG, "Invalid fps", e);
+                }
+            }
+        }
     }
 
     private void setupRawVideoCapture() {
         mBinding.previewFrame.videoRecordingBtns.setVisibility(View.VISIBLE);
         mBinding.previewFrame.settingsLayout.setVisibility(View.GONE);
+        mBinding.cameraSettings.findViewById(R.id.cameraVideoSettings).setVisibility(View.VISIBLE);
+        mBinding.cameraSettings.findViewById(R.id.cameraPhotoSettings).setVisibility(View.GONE);
 
         if(mNativeCamera != null) {
             mNativeCamera.setFrameRate(mSettings.frameRate);
@@ -1086,6 +1119,9 @@ public class CameraActivity extends AppCompatActivity implements
 
             mNativeCamera.enableRawPreview(this, mSettings.cameraPreviewQuality, false);
         }
+
+        mBinding.cameraSettings.findViewById(R.id.cameraVideoSettings).setVisibility(View.GONE);
+        mBinding.cameraSettings.findViewById(R.id.cameraPhotoSettings).setVisibility(View.VISIBLE);
 
         mBinding.previewFrame.settingsLayout.setVisibility(View.VISIBLE);
     }
@@ -1140,24 +1176,6 @@ public class CameraActivity extends AppCompatActivity implements
 
     private void setHdr(boolean hdr) {
         mSettings.hdr = hdr;
-    }
-
-    private void toggleVideoCrop() {
-        if(     mBinding.previewFrame.widthCrop.getVisibility() == View.VISIBLE
-            ||  mBinding.previewFrame.heightCrop.getVisibility() == View.VISIBLE)
-        {
-            mBinding.previewFrame.widthCrop.setVisibility(View.GONE);
-            mBinding.previewFrame.heightCrop.setVisibility(View.GONE);
-            mBinding.previewFrame.processVideoBtn.setVisibility(View.VISIBLE);
-        }
-        else {
-            mBinding.previewFrame.widthCropSeekBar.setProgress(mSettings.widthVideoCrop);
-            mBinding.previewFrame.widthCrop.setVisibility(View.VISIBLE);
-
-            mBinding.previewFrame.heightCropSeekBar.setProgress(mSettings.heightVideoCrop);
-            mBinding.previewFrame.heightCrop.setVisibility(View.VISIBLE);
-            mBinding.previewFrame.processVideoBtn.setVisibility(View.GONE);
-        }
     }
 
     private void hideManualControls() {
@@ -1401,47 +1419,54 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void onWidthCropChanged(int progress, boolean fromUser) {
+        if(!fromUser)
+            return;
+
         mSettings.widthVideoCrop = progress;
         if(mNativeCamera != null)
             mNativeCamera.setVideoCropPercentage(mSettings.widthVideoCrop, mSettings.heightVideoCrop);
+
+        String widthCropAmount = mSettings.widthVideoCrop + "%";
+        ((TextView) mBinding.cameraSettings.findViewById(R.id.widthCropAmount)).setText(widthCropAmount);
 
         updateVideoUi();
     }
 
     private void onHeightCropChanged(int progress, boolean fromUser) {
+        if(!fromUser)
+            return;
+
         mSettings.heightVideoCrop = progress;
         if(mNativeCamera != null)
             mNativeCamera.setVideoCropPercentage(mSettings.widthVideoCrop, mSettings.heightVideoCrop);
 
+        String heightCropAmount = mSettings.heightVideoCrop + "%";
+        ((TextView) mBinding.cameraSettings.findViewById(R.id.heightCropAmount)).setText(heightCropAmount);
+
         updateVideoUi();
     }
 
-    private void toggleFrameRate() {
-        int frameRate = mSettings.frameRate;
+    private void toggleFrameRate(View v) {
+        String fpsTag = (String) v.getTag();
+        if(fpsTag == null)
+            return;
 
-        if(frameRate == 30)
-            frameRate = 25;
-        else if(frameRate == 25)
-            frameRate = 24;
-        else if(frameRate == 24)
-            frameRate = 12;
-        else if(frameRate == 12)
-            frameRate = 5;
-        else if(frameRate == 5)
-            frameRate = 1;
-        else
-            frameRate = 30;
-
-        mSettings.frameRate = frameRate;
+        try {
+            mSettings.frameRate = Integer.valueOf(fpsTag);
+        }
+        catch(NumberFormatException e) {
+            Log.e(TAG, "Invalid FPS value", e);
+            return;
+        }
 
         if(mNativeCamera != null)
             mNativeCamera.setFrameRate(mSettings.frameRate);
 
-        updateVideoUi();
+        updateCameraSettingsUi();
     }
 
-    private void toggleVideoBin() {
-        mSettings.videoBin = !mSettings.videoBin;
+    private void toggleVideoBin(boolean enabled) {
+        mSettings.videoBin = enabled;
 
         if(mNativeCamera != null)
             mNativeCamera.setVideoBin(mSettings.videoBin);
@@ -1682,9 +1707,17 @@ public class CameraActivity extends AppCompatActivity implements
     private void requestPermissions() {
         ArrayList<String> needPermissions = new ArrayList<>();
 
-        for(String permission : REQUEST_PERMISSIONS) {
+        for(String permission : MINIMUM_PERMISSIONS) {
             if (ActivityCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
                 needPermissions.add(permission);
+            }
+        }
+
+        if(!needPermissions.isEmpty()) {
+            for(String permission : ADDITIONAL_PERMISSIONS) {
+                if (ActivityCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+                    needPermissions.add(permission);
+                }
             }
         }
 
@@ -1705,10 +1738,16 @@ public class CameraActivity extends AppCompatActivity implements
         }
 
         // Check if camera permission has been denied
+        List<String> minimumPermissions = Arrays.asList(MINIMUM_PERMISSIONS);
+
         for(int i = 0; i < permissions.length; i++) {
-            if(grantResults[i] == PackageManager.PERMISSION_DENIED && permissions[i].equals(Manifest.permission.CAMERA)) {
-                runOnUiThread(this::onPermissionsDenied);
-                return;
+            if(grantResults[i] == PackageManager.PERMISSION_DENIED) {
+
+                if(minimumPermissions.contains(permissions[i])) {
+                    runOnUiThread(this::onPermissionsDenied);
+                    return;
+                }
+
             }
         }
 
@@ -1724,7 +1763,14 @@ public class CameraActivity extends AppCompatActivity implements
 
     private void onPermissionsDenied() {
         mHavePermissions = false;
-        finish();
+
+        AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(this, R.style.BasicDialog)
+                .setCancelable(false)
+                .setTitle(R.string.error)
+                .setMessage(R.string.permissions_error)
+                .setPositiveButton(R.string.ok, (dialog, which) -> finish());
+
+        dialogBuilder.show();
     }
 
     private void createCamera() {
@@ -2143,36 +2189,6 @@ public class CameraActivity extends AppCompatActivity implements
 
         WorkManager.getInstance(this)
                 .enqueueUniqueWork(WORKER_IMAGE_PROCESSOR, ExistingWorkPolicy.APPEND_OR_REPLACE, request);
-
-//        WorkManager.getInstance(getApplicationContext())
-//                .getWorkInfoByIdLiveData(request.getId())
-//                .observe(this, workInfo -> {
-//                    if (workInfo == null) {
-//                        return;
-//                    }
-//
-//                    Data progress;
-//
-//                    if (workInfo.getState().isFinished()) {
-//                        progress = workInfo.getOutputData();
-//                    } else {
-//                        progress = workInfo.getProgress();
-//                    }
-//
-//                    int state = progress.getInt(State.PROGRESS_STATE_KEY, -1);
-//
-//                    if (state == State.STATE_PREVIEW_CREATED) {
-//                        onPreviewSaved(progress.getString(State.PROGRESS_PREVIEW_PATH));
-//                    }
-//                    else if (state == State.STATE_COMPLETED) {
-//                        String[] completedImages = progress.getStringArray(State.PROGRESS_IMAGE_PATH);
-//                        String[] completedUris   = progress.getStringArray(State.PROGRESS_URI_KEY);
-//
-//                        for(int i = 0; i < completedImages.length; i++) {
-//                            onProcessingCompleted(new File(completedImages[i]), Uri.parse(completedUris[i]));
-//                        }
-//                    }
-//                });
     }
 
 
@@ -2676,5 +2692,35 @@ public class CameraActivity extends AppCompatActivity implements
             mPostProcessSettings.gpsAltitude = mLastLocation.getAltitude();
             mPostProcessSettings.gpsTime = String.valueOf(mLastLocation.getTime());
         }
+    }
+
+    void enumerateAudioInputs() {
+//        AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+//        AudioDeviceInfo[] deviceInfoList = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS);
+//        RadioGroup audioInputsLayout = mBinding.cameraSettings.findViewById(R.id.audioInputGroup);
+//
+//        for(int i = 0; i < deviceInfoList.length; i++) {
+//            AudioDeviceInfo deviceInfo = deviceInfoList[i];
+//            String productName;
+//
+//            if(deviceInfo.getType() == AudioDeviceInfo.TYPE_BUILTIN_MIC)
+//                productName = getString(R.string.internal_mic);
+//            else
+//                continue;
+//
+//            RadioButton audioDeviceBtn = new RadioButton(this);
+//
+//            audioDeviceBtn.setText(productName);
+//            audioDeviceBtn.setTextColor(getColor(R.color.white));
+//            audioDeviceBtn.setTag(deviceInfo.getId());
+//
+//            if(i == 0)
+//                audioDeviceBtn.setChecked(true);
+//
+//            audioDeviceBtn.setLayoutParams(
+//                    new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+//
+//            audioInputsLayout.addView(audioDeviceBtn);
+//        }
     }
 }

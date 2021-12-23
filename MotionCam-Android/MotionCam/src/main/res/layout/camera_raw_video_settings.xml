@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
+        android:layout_marginTop="15dp"
+        android:text="Frame Rate"/>
+
+    <LinearLayout
+        android:id="@+id/fpsGroup"
+        android:layout_width="match_parent"
+        android:layout_height="30dp"
+        android:layout_marginTop="10dp"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:textAppearance="@style/MotionCam.TextAppearance.Small"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:tag="30"
+            android:text="30"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:textAppearance="@style/MotionCam.TextAppearance.Small"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:tag="25"
+            android:text="25"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:textAppearance="@style/MotionCam.TextAppearance.Small"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:tag="24"
+            android:text="24"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:textAppearance="@style/MotionCam.TextAppearance.Small"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:tag="12"
+            android:text="12"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:textAppearance="@style/MotionCam.TextAppearance.Small"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:tag="5"
+            android:text="5"/>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="15dp"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
+                android:text="Pixel Binning"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/MotionCam.TextAppearance.Small"
+                android:textColor="@color/silver"
+                android:text="Reduce output resolution by pixel binning"/>
+
+        </LinearLayout>
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/pixelBinSwitch"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"/>
+
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/white"
+        android:layout_marginTop="10dp"
+        android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
+        android:text="Crop Width"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <SeekBar
+            android:id="@+id/widthCropSeekBar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:progress="0"
+            android:max="60"
+            android:layout_weight="1"
+            android:padding="@dimen/seekBarPadding"
+            android:theme="@style/Widget.AppCompat.SeekBar.Discrete"/>
+
+        <TextView
+            android:id="@+id/widthCropAmount"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
+            android:text="100%"/>
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
+        android:textColor="@color/white"
+        android:text="Crop Height"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <SeekBar
+            android:id="@+id/heightCropSeekBar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:progress="0"
+            android:max="60"
+            android:layout_weight="1"
+            android:padding="@dimen/seekBarPadding"
+            android:theme="@style/Widget.AppCompat.SeekBar.Discrete"/>
+
+        <TextView
+            android:id="@+id/heightCropAmount"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
+            android:text="100%"/>
+    </LinearLayout>
+
+<!--    <TextView-->
+<!--        android:layout_width="wrap_content"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"-->
+<!--        android:layout_marginTop="10dp"-->
+<!--        android:text="Audio Input"/>-->
+
+<!--    <RadioGroup-->
+<!--        android:id="@+id/audioInputGroup"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="wrap_content">-->
+
+<!--    </RadioGroup>-->
+
+</LinearLayout>
