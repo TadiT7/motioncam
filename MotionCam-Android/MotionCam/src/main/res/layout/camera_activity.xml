@@ -372,11 +372,11 @@
         <LinearLayout
             android:id="@+id/recordingTimer"
             android:layout_width="85dp"
-            android:layout_height="35dp"
+            android:layout_height="30dp"
             android:orientation="horizontal"
             android:background="@drawable/recording_timer_background"
             android:layout_marginTop="40dp"
-            android:visibility="gone"
+            android:visibility="visible"
             app:layout_constraintTop_toTopOf="@+id/cameraFrame"
             app:layout_constraintLeft_toLeftOf="@+id/cameraFrame"
             app:layout_constraintRight_toRightOf="@+id/cameraFrame">
@@ -387,11 +387,8 @@
                 android:layout_height="match_parent"
                 android:gravity="center"
                 android:text="00:00:00"
-                android:shadowColor="#000000"
-                android:shadowDx="1.5"
-                android:shadowDy="1.5"
-                android:shadowRadius="1.0"
-                android:textAppearance="@style/MotionCam.TextAppearance.Medium"/>
+                android:textColor="@color/white"
+                android:textAppearance="@style/MotionCam.TextAppearance.Medium.Bold"/>
         </LinearLayout>
 
         <ImageView

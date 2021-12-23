@@ -281,6 +281,12 @@ public class CameraActivity extends AppCompatActivity implements
                 if(spaceLeft < 25) {
                     mBinding.previewFrame.freeSpaceProgress.getProgressDrawable()
                             .setTint(getColor(R.color.cancelAction));
+
+                    // Stop recording because there's no storage left
+                    if(spaceLeft < 5)  {
+                        finaliseRawVideo(true);
+                        return;
+                    }
                 }
                 else {
                     mBinding.previewFrame.freeSpaceProgress.getProgressDrawable()
@@ -309,8 +315,15 @@ public class CameraActivity extends AppCompatActivity implements
                     size = String.format(Locale.US, "%d MB", Math.round(sizeMb));
                 }
 
-                String outputFpsText = String.format(Locale.US, "%.2f\n%s", stats.fps, getString(R.string.output_fps));
                 String outputSizeText = String.format(Locale.US, "%s\n%s", size, getString(R.string.size));
+
+                // Wait for the frame rate to stabilise
+                String outputFpsText;
+
+                if(timeRecording > 1000)
+                    outputFpsText = String.format(Locale.US, "%d\n%s", Math.round(stats.fps), getString(R.string.output_fps));
+                else
+                    outputFpsText = String.format(Locale.US, "-\n%s", getString(R.string.output_fps));
 
                 mBinding.previewFrame.outputFps.setText(outputFpsText);
                 mBinding.previewFrame.outputSize.setText(outputSizeText);
