@@ -26,7 +26,7 @@ namespace motioncam {
         void add(const std::shared_ptr<RawImageBuffer>& frame);
         void stop();
         
-        void setCropAmount(int horizontal, int vertical);
+        void setCropAmount(int width, int height);
         void setBin(bool bin);
         bool isRunning() const;
         float estimateFps() const;
@@ -64,7 +64,7 @@ namespace motioncam {
         
         void doProcess();
         void doCompress();
-        void doStream(const int fd, const RawCameraMetadata& cameraMetadata);
+        void doStream(const int fd, const RawCameraMetadata& cameraMetadata, const int numContainers);
         
         void processBuffer(std::shared_ptr<RawImageBuffer> buffer);
         
@@ -76,12 +76,13 @@ namespace motioncam {
         std::vector<std::unique_ptr<std::thread>> mProcessThreads;
         std::vector<std::unique_ptr<std::thread>> mCompressThreads;
         
-        int mCropVertical;
-        int mCropHorizontal;
+        int mCropHeight;
+        int mCropWidth;
         bool mBin;
         
         std::atomic<bool> mRunning;
         std::atomic<uint32_t> mWrittenFrames;
+        std::atomic<uint32_t> mAcceptedFrames;
         std::atomic<size_t> mWrittenBytes;
         std::chrono::steady_clock::time_point mStartTime;
         

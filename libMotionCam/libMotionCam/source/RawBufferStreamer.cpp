@@ -53,8 +53,8 @@ namespace motioncam {
     RawBufferStreamer::RawBufferStreamer() :
         mRunning(false),
         mAudioFd(-1),
-        mCropVertical(0),
-        mCropHorizontal(0),
+        mCropHeight(0),
+        mCropWidth(0),
         mBin(false)
     {
     }
@@ -68,10 +68,16 @@ namespace motioncam {
                                   const std::shared_ptr<AudioInterface> audioInterface,
                                   const RawCameraMetadata& cameraMetadata) {
         stop();
-                
+        
+        if(fds.empty()) {
+            logger::log("No file descriptors found");
+            return;
+        }
+        
         mRunning = true;
         mWrittenFrames = 0;
         mWrittenBytes = 0;
+        mAcceptedFrames = 0;
         
         // Start audio interface
         if(audioInterface && audioFd >= 0) {
@@ -85,7 +91,13 @@ namespace motioncam {
         
         // Create IO threads with maximum priority
         for(int i = 0; i < fds.size(); i++) {
-            auto ioThread = std::unique_ptr<std::thread>(new std::thread(&RawBufferStreamer::doStream, this, fds[i], cameraMetadata));
+            auto ioThread = std::unique_ptr<std::thread>(new std::thread(&RawBufferStreamer::doStream, this, fds[i], cameraMetadata, (int)fds.size()));
+
+            // Update priority
+            sched_param priority{};
+            priority.sched_priority = 99;
+
+            pthread_setschedparam(ioThread->native_handle(), SCHED_FIFO, &priority);
 
             mIoThreads.push_back(std::move(ioThread));
         }
@@ -107,6 +119,7 @@ namespace motioncam {
 
     void RawBufferStreamer::add(const std::shared_ptr<RawImageBuffer>& frame) {
         mUnprocessedBuffers.enqueue(frame);
+        mAcceptedFrames++;
     }
 
     void RawBufferStreamer::stop() {
@@ -163,47 +176,17 @@ namespace motioncam {
         mIoThreads.clear();
     }
 
-    void RawBufferStreamer::setCropAmount(int horizontal, int vertical) {
+    void RawBufferStreamer::setCropAmount(int width, int height) {
         // Only allow cropping when not running
         if(!mRunning) {
-            mCropVertical = vertical;
-            mCropHorizontal = horizontal;
+            mCropHeight = height;
+            mCropWidth = width;
         }
     }
 
     void RawBufferStreamer::setBin(bool bin) {
         mBin = bin;
     }
-
-    //
-    // Reference:
-    //
-    //
-    //for(int16_t iy = y; iy < y + 2; iy++) {
-    //    for(int16_t ix = x; ix < x + 2; ix++) {
-    //        const uint16_t p0 = 1*RAW16(data, ix - 2,  iy - 2,  buffer.rowStride, buffer.width, buffer.height);
-    //        const uint16_t p1 = 2*RAW16(data, ix,      iy - 2,  buffer.rowStride, buffer.width, buffer.height);
-    //        const uint16_t p2 = 1*RAW16(data, ix + 2,  iy - 2,  buffer.rowStride, buffer.width, buffer.height);
-    //
-    //        const uint16_t p3 = 2*RAW16(data, ix - 2,  iy,      buffer.rowStride, buffer.width, buffer.height);
-    //        const uint16_t p4 = 4*RAW16(data, ix,      iy,      buffer.rowStride, buffer.width, buffer.height);
-    //        const uint16_t p5 = 2*RAW16(data, ix + 2,  iy,      buffer.rowStride, buffer.width, buffer.height);
-    //
-    //        const uint16_t p6 = 1*RAW16(data, ix - 2,  iy + 2,  buffer.rowStride, buffer.width, buffer.height);
-    //        const uint16_t p7 = 2*RAW16(data, ix,      iy + 2,  buffer.rowStride, buffer.width, buffer.height);
-    //        const uint16_t p8 = 1*RAW16(data, ix + 2,  iy + 2,  buffer.rowStride, buffer.width, buffer.height);
-    //
-    //        const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) / 16;
-    //
-    //        uint16_t X = (x / 2) + (ix - x);
-    //        uint16_t Y = (y / 2) + (iy - y);
-    //
-    //        if(Y % 2 == 0)
-    //            row0[X] = out;
-    //        else
-    //            row1[X] = out;
-    //    }
-    //}
 
     void RawBufferStreamer::cropAndBin_RAW10(RawImageBuffer& buffer,
                                              uint8_t* data,
@@ -729,10 +712,10 @@ namespace motioncam {
     void RawBufferStreamer::cropAndBin(RawImageBuffer& buffer) const {
 //        Measure m("cropAndBin");
         
-        const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropHorizontal/100.0f * buffer.width)) / 4));
+        const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropWidth/100.0f * buffer.width)) / 4));
 
         // Even vertical crop to match bayer pattern
-        const int verticalCrop   = static_cast<const int>(2 * (lround(0.5f * (mCropVertical/100.0f * buffer.height)) / 2));
+        const int verticalCrop   = static_cast<const int>(2 * (lround(0.5f * (mCropHeight/100.0f * buffer.height)) / 2));
 
         uint32_t croppedWidth  = static_cast<const int>(buffer.width - horizontalCrop*2);
         uint32_t croppedHeight = static_cast<const int>(buffer.height - verticalCrop*2);
@@ -779,17 +762,17 @@ namespace motioncam {
 
     void RawBufferStreamer::crop(RawImageBuffer& buffer) const {
         // Nothing to do
-        if(mCropHorizontal == 0 &&
-           mCropVertical == 0   &&
+        if(mCropWidth  == 0   &&
+           mCropHeight == 0   &&
            buffer.pixelFormat != PixelFormat::RAW16) // Always crop when RAW16 so we can pack to RAW10
         {
             return;
         }
         
-        const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropHorizontal/100.0f * buffer.width)) / 4));
+        const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropWidth/100.0f * buffer.width)) / 4));
 
         // Even vertical crop to match bayer pattern
-        const int verticalCrop   = static_cast<const int>(2 * (lround(0.5f * (mCropVertical/100.0f * buffer.height)) / 2));
+        const int verticalCrop   = static_cast<const int>(2 * (lround(0.5f * (mCropHeight/100.0f * buffer.height)) / 2));
 
         uint32_t croppedWidth  = static_cast<const int>(buffer.width - horizontalCrop*2);
         uint32_t croppedHeight = static_cast<const int>(buffer.height - verticalCrop*2);
@@ -826,19 +809,15 @@ namespace motioncam {
             }
         }
         else if(buffer.pixelFormat == PixelFormat::RAW16) {
-            croppedRowStride = 12*croppedWidth/8; // Pack into RAW12
+            // Pack into RAW12
+            croppedRowStride = 12*croppedWidth/8;
             uint32_t dstOffset = 0;
 
             for(int y = ystart; y < yend; y++) {
-
-                //
-                // Pack into RAW12
-                //
-                
                 for(int x = horizontalCrop; x < buffer.width - horizontalCrop; x+=2) {
                     const uint16_t p0 = RAW16(data, x,   y, buffer.rowStride);
                     const uint16_t p1 = RAW16(data, x+1, y, buffer.rowStride);
-                    
+
                     const uint8_t upper =
                         static_cast<uint8_t>( (p0 & 0x0F)) |
                         static_cast<uint8_t>( (p1 & 0x0F) << 4);
@@ -947,11 +926,11 @@ namespace motioncam {
         }
     }
 
-    void RawBufferStreamer::doStream(const int fd, const RawCameraMetadata& cameraMetadata) {
+    void RawBufferStreamer::doStream(const int fd, const RawCameraMetadata& cameraMetadata, const int numContainers) {
         util::CloseableFd fdContext(fd);
         
         std::shared_ptr<RawImageBuffer> buffer;
-        RawContainer container(cameraMetadata);
+        RawContainer container(cameraMetadata, numContainers);
         size_t start, end;
 
         if(!container.create(fd)) {
@@ -1045,7 +1024,7 @@ namespace motioncam {
         auto now = std::chrono::steady_clock::now();
         float durationSecs = std::chrono::duration <float>(now - mStartTime).count();
         
-        return mWrittenFrames / (1e-5f + durationSecs);
+        return mAcceptedFrames / (1e-5f + durationSecs);
     }
 
     size_t RawBufferStreamer::writenOutputBytes() const {

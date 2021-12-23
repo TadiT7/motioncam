@@ -162,8 +162,69 @@
                             android:textColor="@color/white" />
 
                     </HorizontalScrollView>
+
                 </LinearLayout>
 
+                <CheckBox
+                    android:id="@+id/splitStorageBtn"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/MotionCam.TextAppearance.Small"
+                    android:textColor="@color/white"
+                    android:visibility="gone"
+                    android:checked="@={viewModel.splitRawVideoStorage}"
+                    android:text="@string/split_storage_option">
+                </CheckBox>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="5dp"
+                    android:text="@string/split_storage_description"
+                    android:visibility="gone"
+                    android:textAppearance="@style/MotionCam.TextAppearance.Small"
+                    android:textColor="@color/silver" />
+
+                <LinearLayout
+                    android:id="@+id/splitStorageLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    android:layout_marginBottom="5dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/rawVideoStorageSelectBtn2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:backgroundTint="@color/acceptAction"
+                        android:text="@string/select"/>
+
+                    <Button
+                        android:id="@+id/rawVideoStorageClearBtn2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:backgroundTint="@color/cancelAction"
+                        android:text="Clear"/>
+
+                    <HorizontalScrollView
+                        android:layout_width="fill_parent"
+                        android:layout_height="fill_parent">
+
+                        <TextView
+                            android:id="@+id/rawVideoStorageFolder2"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:textAppearance="@style/MotionCam.TextAppearance.VerySmall"
+                            android:gravity="center_vertical"
+                            android:padding="5dp"
+                            android:scrollHorizontally="true"
+                            android:maxLines="1"
+                            android:textColor="@color/white" />
+
+                    </HorizontalScrollView>
+
+                </LinearLayout>
             </LinearLayout>
 
             <LinearLayout

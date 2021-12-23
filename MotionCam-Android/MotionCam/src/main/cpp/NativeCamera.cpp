@@ -140,6 +140,10 @@ jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_StartCaptur
     try {
         std::shared_ptr<ANativeWindow> window(ANativeWindow_fromSurface(env, previewSurface), ANativeWindow_release);
 
+        LOGD("Reseting buffer manager");
+        RawBufferManager::get().reset();
+
+        LOGD("Starting camera %s", cameraId.c_str());
         sessionManager->startCamera(cameraId, gCameraSessionListener, window, setupForRawPreview, preferRaw12, preferRaw16);
     }
     catch(const CameraSessionException& e) {
@@ -159,12 +163,15 @@ JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_S
     }
 
     try {
+        LOGD("Stopping camera");
         sessionManager->stopCamera();
     }
     catch(const CameraSessionException& e) {
         gLastError = e.what();
         return JNI_FALSE;
     }
+
+    LOGD("Stop capture compled");
 
     return JNI_TRUE;
 }
@@ -1033,7 +1040,7 @@ void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_PrepareHdrCaptu
 
 extern "C"
 JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_StartStreamToFile(
-        JNIEnv *env, jobject thiz, jlong handle, jint fd0, jint fd1, jint audioFd)
+        JNIEnv *env, jobject thiz, jlong handle, jintArray jfds, jint audioFd)
 {
     std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
     if(!sessionManager) {
@@ -1043,13 +1050,15 @@ JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_S
     auto cameraId = sessionManager->getSelectedCameraId();
     auto metadata = sessionManager->getCameraDescription(cameraId)->metadata;
 
+    jsize len = env->GetArrayLength(jfds);
+    jint* fdsArray = env->GetIntArrayElements(jfds, 0);
+
     std::vector<int> fds;
 
-    if(fd0 >= 0)
-        fds.push_back(fd0);
-
-    if(fd1 >= 0)
-        fds.push_back(fd1);
+    for(int i = 0; i < len; i++) {
+        if(fdsArray[i] >= 0)
+            fds.push_back(fdsArray[i]);
+    }
 
     if(fds.empty())
         return JNI_FALSE;

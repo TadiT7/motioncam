@@ -36,6 +36,12 @@ namespace motioncam {
         std::string error;
     };
 
+    struct ContainerFrame {
+        std::string frameName;
+        int64_t timestamp;
+        size_t containerIndex;
+    };
+
     moodycamel::BlockingConcurrentQueue<std::shared_ptr<Job>> JOB_QUEUE;
     std::atomic<bool> RUNNING;
 
@@ -57,18 +63,39 @@ namespace motioncam {
         }
     }
 
-    float ConvertVideoToDNG(RawContainer& container, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
+    void GetOrderedFrames(std::vector<std::unique_ptr<RawContainer>>& containers, std::vector<ContainerFrame>& outOrderedFrames) {
+        // Get a list of all frames, ordered by timestamp
+        for(size_t i = 0; i < containers.size(); i++) {
+            auto& container = containers[i];
+            
+            for(auto& frameName : container->getFrames()) {
+                auto frame = container->getFrame(frameName);
+                outOrderedFrames.push_back({ frameName, frame->metadata.timestampNs, i} );
+            }
+        }
+        
+        std::sort(outOrderedFrames.begin(), outOrderedFrames.end(), [](ContainerFrame& a, ContainerFrame& b) {
+            return a.timestamp < b.timestamp;
+        });
+    }
+
+    void ConvertVideoToDNG(std::vector<std::unique_ptr<RawContainer>>& containers,
+                           const DngProcessorProgress& progress,
+                           const int numThreads,
+                           const int mergeFrames)
+    {
+        
         if(RUNNING)
             throw std::runtime_error("Already running");
+        
+        if(numThreads <= 0)
+            return;
+
+        // Get a list of all frames, ordered by timestamp
+        std::vector<ContainerFrame> orderedFrames;
+        
+        GetOrderedFrames(containers, orderedFrames);
                 
-        auto frames = container.getFrames();
-        
-        
-        // Sort frames by timestamp
-        std::sort(frames.begin(), frames.end(), [&](std::string& a, std::string& b) {
-            return container.getFrame(a)->metadata.timestampNs < container.getFrame(b)->metadata.timestampNs;
-        });
-        
         // Create processing threads
         RUNNING = true;
         
@@ -81,25 +108,24 @@ namespace motioncam {
             threads.push_back(std::move(t));
         }
         
-        if(threads.empty())
-            return 0;
-        
-        RawCameraMetadata metadata = container.getCameraMetadata();
+        RawCameraMetadata metadata = containers[0]->getCameraMetadata();
 
         if(mergeFrames > 0) {
             metadata.blackLevel[0] = 0;
             metadata.blackLevel[1] = 0;
             metadata.blackLevel[2] = 0;
             metadata.blackLevel[3] = 0;
-            
+
             metadata.whiteLevel = EXPANDED_RANGE;
         }
         
         Halide::Runtime::Buffer<uint16_t> bayerBuffer;
         bool createdBuffer = false;
         
-        for(int i = 0; i < frames.size(); i++) {
-            auto frame = container.loadFrame(frames[i]);
+        for(int i = 0; i < orderedFrames.size(); i++) {
+            auto& container = containers[orderedFrames[i].containerIndex];
+            auto frame = container->loadFrame(orderedFrames[i].frameName);
+            
             if(!frame) {
                 continue;
             }
@@ -130,7 +156,11 @@ namespace motioncam {
                 // Get the nearest frames
                 while(true) {
                     if(i + leftOffset >= 0) {
-                        auto left = container.loadFrame(frames[i + leftOffset]);
+                        int leftIndex = i + leftOffset;
+                        
+                        auto& container = containers[orderedFrames[leftIndex].containerIndex];
+                        auto left = container->loadFrame(orderedFrames[leftIndex].frameName);
+
                         if(!left) {
                             left = nullptr;
                         }
@@ -143,8 +173,12 @@ namespace motioncam {
                             break;
                     }
 
-                    if(i + rightOffset < frames.size()) {
-                        auto right = container.loadFrame(frames[i + rightOffset]);
+                    if(i + rightOffset < orderedFrames.size()) {
+                        int rightIndex = i + rightOffset;
+                        
+                        auto& container = containers[orderedFrames[rightIndex].containerIndex];
+                        auto right = container->loadFrame(orderedFrames[rightIndex].frameName);
+
                         if(!right)
                             right = nullptr;
                         
@@ -156,14 +190,14 @@ namespace motioncam {
                         rightOffset++;
                     }
                     
-                    if(i + leftOffset < 0 && i + rightOffset >= frames.size())
+                    if(i + leftOffset < 0 && i + rightOffset >= orderedFrames.size())
                         break;
                 }
                 
-                auto denoiseBuffer = ImageProcessor::denoise(frame, nearestBuffers, container.getCameraMetadata());
+                auto denoiseBuffer = ImageProcessor::denoise(frame, nearestBuffers, container->getCameraMetadata());
                 
-                auto blackLevel = container.getCameraMetadata().blackLevel;
-                auto whiteLevel = container.getCameraMetadata().whiteLevel;
+                auto blackLevel = container->getCameraMetadata().blackLevel;
+                auto whiteLevel = container->getCameraMetadata().whiteLevel;
                 
                 // Convert from RAW10/16 -> bayer image
                 if(!createdBuffer) {
@@ -196,8 +230,11 @@ namespace motioncam {
 
             // Release previous frames
             int m = i - mergeFrames;
+            
             while(m >= 0) {
-                auto prevFrame = container.getFrame(frames[m]);
+                auto& container = containers[orderedFrames[m].containerIndex];
+                auto prevFrame = container->getFrame(orderedFrames[m].frameName);
+                
                 prevFrame->data->release();
                 
                 --m;
@@ -223,7 +260,7 @@ namespace motioncam {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             
-            progress.onProgressUpdate((i*100)/frames.size());
+            progress.onProgressUpdate( (i*100) /orderedFrames.size());
         }
         
         // Flush buffers
@@ -251,14 +288,6 @@ namespace motioncam {
         }
 
         progress.onCompleted();
-
-        double startTime = container.getFrame(frames[0])->metadata.timestampNs / 1e-9f;
-        double endTime = container.getFrame(frames[frames.size() - 1])->metadata.timestampNs / 1e-9;
-        
-        if(endTime - startTime <= 0)
-            return 0;
-        
-        return frames.size() / (endTime - startTime);
     }
 
     void ProcessImage(const std::string& containerPath, const std::string& outputFilePath, const ImageProcessorProgress& progressListener) {
@@ -269,46 +298,68 @@ namespace motioncam {
         ImageProcessor::process(rawContainer, outputFilePath, progressListener);
     }
 
-    void GetMetadata(const int fd, float& outFrameRate, int& outNumFrames) {
-        RawContainer container(fd);
-        
-        auto frames = container.getFrames();
-        
-        // Sort frames by timestamp
-        std::sort(frames.begin(), frames.end(), [&](std::string& a, std::string& b) {
-            return container.getFrame(a)->metadata.timestampNs < container.getFrame(b)->metadata.timestampNs;
-        });
-               
-        float timestampOffset = 0;
-        float time = 0;
+    void GetMetadata(const std::vector<int>& fds, float& outFrameRate, int& outNumFrames, int& outNumSegments) {
+        std::vector<std::unique_ptr<RawContainer>> containers;
+        std::vector<ContainerFrame> orderedFrames;
 
-        for(int i = 0; i < frames.size(); i++) {
-            auto frame = container.getFrame(frames[i]);
-            
-            if(timestampOffset <= 0) {
-                timestampOffset = frame->metadata.timestampNs;
+        // Try to get metadata from all segments
+        for(const int fd : fds) {
+            try {
+                containers.push_back( std::unique_ptr<RawContainer>( new RawContainer(fd) ) );
             }
-            
-            time = (frame->metadata.timestampNs - timestampOffset) / (1000.0f*1000.0f*1000.0f);
+            catch(std::exception& e) {
+                outFrameRate = - 1;
+                outNumFrames = -1;
+                outNumSegments = 0;
+
+                return;
+            }
         }
         
-        outNumFrames = (int) frames.size();
+        GetOrderedFrames(containers, orderedFrames);
                 
-        if(time == 0)
+        if(orderedFrames.empty()) {
+            outNumFrames = 0;
+            outFrameRate = 0;
+            outNumSegments = 0;
+            
+            return;
+        }
+               
+        double startTime = orderedFrames[0].timestamp / 1e9f;
+        double endTime = orderedFrames[orderedFrames.size() - 1].timestamp / 1e9;
+        
+        if(endTime - startTime <= 0)
             outFrameRate = 0;
         else
-            outFrameRate  = frames.size() / time;
+            outFrameRate = orderedFrames.size() / (endTime - startTime);
+
+        outNumFrames = (int) orderedFrames.size();
+        
+        // Set number of segments
+        outNumSegments = 0;
+        for(auto& container : containers) {
+            outNumSegments = std::max(outNumSegments, container->getNumSegments());
+        }
     }
 
-    float ConvertVideoToDNG(const std::string& inputPath, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
-        RawContainer container(inputPath);
+    void ConvertVideoToDNG(const std::vector<std::string>& inputPaths, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
+        std::vector<std::unique_ptr<RawContainer>> c;
         
-        return ConvertVideoToDNG(container, progress, numThreads, mergeFrames);
+        for(auto& inputPath : inputPaths) {
+            c.push_back( std::unique_ptr<RawContainer>( new RawContainer(inputPath) ) );
+        }
+
+        ConvertVideoToDNG(c, progress, numThreads, mergeFrames);
     }
 
-    float ConvertVideoToDNG(const int fd, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
-        RawContainer container(fd);
+    void ConvertVideoToDNG(std::vector<int>& fds, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
+        std::vector<std::unique_ptr<RawContainer>> c;
         
-        return ConvertVideoToDNG(container, progress, numThreads, mergeFrames);
+        for(auto fd : fds) {
+            c.push_back( std::unique_ptr<RawContainer>( new RawContainer(fd) ) );
+        }
+        
+        ConvertVideoToDNG(c, progress, numThreads, mergeFrames);
     }
 }

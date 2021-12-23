@@ -2,7 +2,6 @@ package com.motioncam.ui;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.net.Uri;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -40,19 +39,15 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
 
     static class Item {
         VideoEntry entry;
-        int numFrames;
-        float frameRate;
-        boolean haveMetadata;
         int progress;
         boolean isQueued;
+        boolean queriedMetadata;
         List<Bitmap> previewImages;
 
         Item(VideoEntry entry) {
             this.entry = entry;
-            this.numFrames = 0;
-            this.frameRate = 0;
-            this.haveMetadata = false;
             this.progress = -1;
+            this.queriedMetadata = false;
         }
     }
 
@@ -66,11 +61,12 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         private final TextView captureTime;
         private final TextView frameRate;
         private final TextView totalFrames;
+        private final TextView numParts;
         private final Button queueVideoBtn;
         private final ImageView deleteVideoBtn;
         private final ProgressBar progressBar;
         private final ViewGroup previewList;
-        private final View isExportedText;
+        private final TextView statusText;
 
         public ViewHolder(View view) {
             super(view);
@@ -82,9 +78,10 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             captureTime = view.findViewById(R.id.captureTime);
             frameRate = view.findViewById(R.id.frameRate);
             totalFrames = view.findViewById(R.id.numFrames);
+            numParts = view.findViewById(R.id.numParts);
             progressBar = view.findViewById(R.id.progressBar);
             previewList = view.findViewById(R.id.previewList);
-            isExportedText = view.findViewById(R.id.videoExportedText);
+            statusText = view.findViewById(R.id.videoStatusText);
         }
 
         public View getBackground() {
@@ -115,6 +112,10 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             return totalFrames;
         }
 
+        public TextView getNumParts() {
+            return numParts;
+        }
+
         public ProgressBar getProgressBar() {
             return progressBar;
         }
@@ -123,8 +124,8 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             return previewList;
         }
 
-        public View getIsExportedText() {
-            return isExportedText;
+        public TextView getStatusText() {
+            return statusText;
         }
     }
 
@@ -167,28 +168,68 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         viewHolder.getDeleteVideoBtn().setOnClickListener((v) -> mListener.onDeleteClicked(item.entry));
 
         // Metadata
-        viewHolder.getFrameRate().setText(String.valueOf(Math.round(item.frameRate)));
-        viewHolder.getNumFrames().setText(String.valueOf(item.numFrames));
+        String numPartsText = "-";
+        String frameRateText = "-";
+        String numFramesText = "-";
 
-        // Set up buttons
+        // Part
+        if(item.entry.getNumParts() > 0) {
+            numPartsText = item.entry.getVideoUris().size() + "/" + item.entry.getNumParts();
+        }
+
+        // FPS
+        if(item.entry.getFrameRate() > 0)
+            frameRateText = String.valueOf(Math.round(item.entry.getFrameRate()));
+
+        // Num frames
+        if(item.entry.getNumFrames() > 0) {
+            numFramesText = String.valueOf(item.entry.getNumFrames());
+        }
+
+        viewHolder.getFrameRate().setText(frameRateText);
+        viewHolder.getNumParts().setText(numPartsText);
+        viewHolder.getNumFrames().setText(numFramesText);
+
+        String statusText = "";
+
+        // Exported text first
+        if(item.entry.isAlreadyExported()) {
+            statusText = mContext.getString(R.string.this_video_has_been_exported);
+        }
+
+        // Set up state
+
+
+        // In the process of being exported?
         if(item.isQueued) {
             viewHolder.getQueueVideoBtn().setText(R.string.queued);
 
             viewHolder.getQueueVideoBtn().setEnabled(false);
             viewHolder.getDeleteVideoBtn().setEnabled(false);
         }
+        // Corrupted?
+        else if(item.entry.getFrameRate() < 0 || item.entry.getNumFrames() < 0) {
+            viewHolder.getFileNameView().setText(R.string.corrupted_video);
+            viewHolder.getQueueVideoBtn().setVisibility(View.INVISIBLE);
+
+            viewHolder.getDeleteVideoBtn().setEnabled(true);
+        }
+        // Parts missing?
+        else if(item.entry.getNumParts() > 0 && item.entry.getVideoUris().size() != item.entry.getNumParts()) {
+            viewHolder.getQueueVideoBtn().setVisibility(View.INVISIBLE);
+            viewHolder.getDeleteVideoBtn().setEnabled(true);
+
+            statusText = mContext.getString(R.string.video_parts_missing);
+        }
+        // Waiting for metadata?
+        else if(item.entry.getMetadata() == null) {
+            viewHolder.getQueueVideoBtn().setVisibility(View.INVISIBLE);
+            viewHolder.getDeleteVideoBtn().setEnabled(false);
+        }
+        // Good to go
         else {
+            viewHolder.getQueueVideoBtn().setVisibility(View.VISIBLE);
             viewHolder.getQueueVideoBtn().setText(R.string.convert_to_dng);
-
-            // Check for corrupted video
-            if(item.frameRate < 0 || item.numFrames < 0) {
-                viewHolder.getFileNameView().setText(R.string.corrupted_video);
-                viewHolder.getQueueVideoBtn().setEnabled(false);
-            }
-            else {
-                viewHolder.getQueueVideoBtn().setEnabled(true);
-            }
-
             viewHolder.getDeleteVideoBtn().setEnabled(true);
         }
 
@@ -201,17 +242,18 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             viewHolder.getProgressBar().setVisibility(View.GONE);
         }
 
-        if(!item.haveMetadata) {
-            mNativeOps.getContainerMetadata(mContext, item.entry.getVideoUri(), this);
+        // Get all metadata
+        if(!item.queriedMetadata) {
+            mNativeOps.getContainerMetadata(mContext, item.entry, this);
+            mNativeOps.generateVideoPreview(mContext, item.entry, 6, this);
+
+            item.queriedMetadata = true;
         }
 
         ViewGroup previewList = viewHolder.getPreviewList();
         previewList.removeAllViews();
 
-        if(item.previewImages == null) {
-            mNativeOps.generateVideoPreview(mContext, item.entry.getVideoUri(), 8, this);
-        }
-        else {
+        if(item.previewImages != null) {
             int pixels = (int) TypedValue.applyDimension(
                     TypedValue.COMPLEX_UNIT_DIP, 60, mContext.getResources().getDisplayMetrics() );
 
@@ -224,12 +266,10 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
 
                 previewList.addView(imageView);
             }
+
         }
 
-        if(item.entry.isAlreadyExported())
-            viewHolder.getIsExportedText().setVisibility(View.VISIBLE);
-        else
-            viewHolder.getIsExportedText().setVisibility(View.INVISIBLE);
+        viewHolder.getStatusText().setText(statusText);
     }
 
     @Override
@@ -242,11 +282,11 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         return mItems.get(position).entry.getName().hashCode();
     }
 
-    public int remove(VideoEntry entry) {
+    public int remove(String name) {
         for(int i = 0; i < mItems.size(); i++) {
             Item item = mItems.get(i);
 
-            if (item.entry.getVideoUri().equals(entry.getVideoUri())) {
+            if (item.entry.getName().equals(name)) {
                 mItems.remove(i);
                 notifyItemRemoved(i);
                 break;
@@ -256,29 +296,23 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         return mItems.size();
     }
 
-    public void update(Uri videoUri, boolean isQueued, boolean isExported, int progress) {
+    public void update(String name, Boolean optionalIsQueued, Boolean optionalIsExported, int progress) {
+        if(name == null)
+            return;
+
         for(int i = 0; i < mItems.size(); i++) {
             Item item = mItems.get(i);
 
-            if(item.entry.getVideoUri().equals(videoUri)) {
-                item.isQueued = isQueued;
+            boolean match = item.entry.getName().equals(name);
+
+            if(match) {
+                if(optionalIsQueued != null)
+                    item.isQueued = optionalIsQueued;
+
+                if(optionalIsExported != null)
+                    item.entry.setAlreadyExported(optionalIsExported);
+
                 item.progress = progress;
-                item.entry.setAlreadyExported(isExported);
-                notifyItemChanged(i);
-                break;
-            }
-        }
-    }
-
-    @Override
-    public void onContainerMetadataAvailable(Uri inputUri, ContainerMetadata metadata) {
-        for(int i = 0; i < mItems.size(); i++) {
-            Item item = mItems.get(i);
-
-            if(item.entry.getVideoUri().equals(inputUri)) {
-                item.frameRate = metadata.frameRate;
-                item.numFrames = metadata.numFrames;
-                item.haveMetadata = true;
 
                 notifyItemChanged(i);
                 break;
@@ -287,11 +321,24 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
     }
 
     @Override
-    public void onContainerGeneratedPreviews(Uri inputUri, List<Bitmap> previewImages) {
+    public void onContainerMetadataAvailable(String name, ContainerMetadata metadata) {
         for(int i = 0; i < mItems.size(); i++) {
             Item item = mItems.get(i);
 
-            if(item.entry.getVideoUri().equals(inputUri)) {
+            if(item.entry.getName().equals(name)) {
+                item.entry.setMetadata(metadata);
+                notifyItemChanged(i);
+                break;
+            }
+        }
+    }
+
+    @Override
+    public void onContainerGeneratedPreviews(String name, List<Bitmap> previewImages) {
+        for(int i = 0; i < mItems.size(); i++) {
+            Item item = mItems.get(i);
+
+            if(item.entry.getName().equals(name)) {
                 item.previewImages = previewImages;
                 notifyItemChanged(i);
                 break;

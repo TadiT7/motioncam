@@ -6,10 +6,8 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.UriPermission;
 import android.net.Uri;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -21,18 +19,17 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
-import com.motioncam.CameraActivity;
 import com.motioncam.R;
 import com.motioncam.databinding.SettingsFragmentBinding;
 import com.motioncam.model.SettingsViewModel;
 
-import java.util.List;
 import java.util.Locale;
 
 public class SettingsFragment extends Fragment {
     private SettingsViewModel mViewModel;
     private ActivityResultLauncher<Intent> mSelectDocumentLauncher;
     private SettingsFragmentBinding mDataBinding;
+    private int mStorageSelector;
 
     public static SettingsFragment newInstance() {
         return new SettingsFragment();
@@ -88,8 +85,19 @@ public class SettingsFragment extends Fragment {
         mViewModel.raw16.observe(getViewLifecycleOwner(), (value) -> mViewModel.save(requireContext()));
         mViewModel.rawVideoToDng.observe(getViewLifecycleOwner(), (value) -> mViewModel.save(requireContext()));
 
+        mViewModel.splitRawVideoStorage.observe(getViewLifecycleOwner(), (value) -> {
+            dataBinding.splitStorageLayout.setVisibility(value == true ? View.VISIBLE : View.GONE);
+
+            mViewModel.save(requireContext());
+        });
+
         mViewModel.rawVideoTempStorageFolder.observe(getViewLifecycleOwner(), (value) -> {
             mDataBinding.rawVideoStorageFolder.setText(value);
+            mViewModel.save(requireContext());
+        });
+
+        mViewModel.rawVideoTempStorageFolder2.observe(getViewLifecycleOwner(), (value) -> {
+            mDataBinding.rawVideoStorageFolder2.setText(value);
             mViewModel.save(requireContext());
         });
     }
@@ -116,38 +124,19 @@ public class SettingsFragment extends Fragment {
                             return;
                         }
 
-                        final int takeFlags =
-                                Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
-
+                        final int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
                         Uri uri = data.getData();
 
                         // Save location
                         ContentResolver contentResolver = requireContext().getContentResolver();
 
-                        // Release previous permission if set
-                        String prevUri = mViewModel.rawVideoTempStorageFolder.getValue();
-                        if(prevUri != null && !prevUri.isEmpty()) {
-                            List<UriPermission> persistedUriPermissions =
-                                    contentResolver.getPersistedUriPermissions();
-
-                            for(UriPermission permission : persistedUriPermissions) {
-                               if(permission.getUri().equals(prevUri)) {
-                                   try {
-                                       Log.i(CameraActivity.TAG, "Releasing permissions for " + prevUri);
-                                       contentResolver.releasePersistableUriPermission(Uri.parse(prevUri), takeFlags);
-                                   }
-                                   catch(SecurityException e) {
-                                       e.printStackTrace();
-                                   }
-
-                                   break;
-                               }
-                            }
-                        }
-
                         contentResolver.takePersistableUriPermission(uri, takeFlags);
 
-                        mViewModel.rawVideoTempStorageFolder.setValue(uri.toString());
+                        // Set location based on index
+                        if(mStorageSelector == 0)
+                            mViewModel.rawVideoTempStorageFolder.setValue(uri.toString());
+                        else
+                            mViewModel.rawVideoTempStorageFolder2.setValue(uri.toString());
                     }
                 });
     }
@@ -178,11 +167,24 @@ public class SettingsFragment extends Fragment {
 
         mDataBinding.rawVideoStorageSelectBtn.setOnClickListener((v) -> {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+            mStorageSelector = 0;
+            mSelectDocumentLauncher.launch(intent);
+        });
+
+        mDataBinding.rawVideoStorageSelectBtn2.setOnClickListener((v) -> {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+            mStorageSelector = 1;
             mSelectDocumentLauncher.launch(intent);
         });
 
         mDataBinding.rawVideoStorageClearBtn.setOnClickListener((v) -> {
             mViewModel.rawVideoTempStorageFolder.setValue(null);
+            mViewModel.rawVideoTempStorageFolder2.setValue(null);
+            mViewModel.splitRawVideoStorage.setValue(false);
+        });
+
+        mDataBinding.rawVideoStorageClearBtn2.setOnClickListener((v) -> {
+            mViewModel.rawVideoTempStorageFolder2.setValue(null);
         });
 
         SharedPreferences sharedPrefs =
@@ -191,7 +193,14 @@ public class SettingsFragment extends Fragment {
         String rawVideoStorageLocation =
                 sharedPrefs.getString(SettingsViewModel.PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI, null);
 
-        mDataBinding.rawVideoStorageFolder.setText(rawVideoStorageLocation);
+        if(rawVideoStorageLocation != null)
+            mDataBinding.rawVideoStorageFolder.setText(rawVideoStorageLocation);
+
+        String rawVideoStorageLocation2 =
+                sharedPrefs.getString(SettingsViewModel.PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI_2, null);
+
+        if(rawVideoStorageLocation2 != null)
+            mDataBinding.rawVideoStorageFolder2.setText(rawVideoStorageLocation2);
 
         // Set up observers
         setupObservers(mDataBinding);

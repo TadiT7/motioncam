@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <vector>
 
 #include <motioncam/MotionCam.h>
 
@@ -65,10 +66,10 @@ private:
 };
 
 void printHelp() {
-    std::cout << "Usage: convert [-t] [-I] file.zip /output/path" << std::endl << std::endl;
+    std::cout << "Usage: convert [-t] [-I] -i file.0.container -i file.1.container -i ... /output/path" << std::endl << std::endl;
     std::cout << "-t\tNumber of threads" << std::endl;
     std::cout << "-n\tNumber of frames to merge" << std::endl;
-    std::cout << "-I\tProcess as image" << std::endl;
+    std::cout << "-p\tProcess as image" << std::endl;
 }
 
 int main(int argc, const char* argv[]) {    
@@ -76,12 +77,14 @@ int main(int argc, const char* argv[]) {
         printHelp();
         return 1;
     }
-    
+
+    std::vector<std::string> inputs;
     int numThreads = 4;
     bool processAsImage = false;
     int numFramesToMerge = 0;
     
     int i = 1;
+    std::string outputPath;
     
     for(; i < argc; i++) {
         if(std::string(argv[i]) == "-t") {
@@ -102,21 +105,31 @@ int main(int argc, const char* argv[]) {
             numFramesToMerge = std::stoi(argv[i+1]);
             ++i;
         }
-        else if(std::string(argv[i]) == "-I") {
+        else if(std::string(argv[i]) == "-i") {
+            if(i + 1 >= argc) {
+                printHelp();
+                exit(1);
+            }
+
+            inputs.push_back(argv[i+1]);
+            ++i;
+        }
+
+        else if(std::string(argv[i]) == "-p") {
             processAsImage = true;
         }
-        else {
+        else if(i == argc - 1) {
+            outputPath = argv[i];
             break;
         }
     }
     
-    if(i + 1 > argc) {
+    if(outputPath.empty()) {
+        std::cerr << "No output path" << std::endl;
         printHelp();
         exit(1);
     }
-    
-    std::string inputFile = argv[i];
-    std::string outputPath = argv[i+1];
+
     
     if(outputPath[outputPath.size() - 1] == '/' ||
        outputPath[outputPath.size() - 1] == '\\' )
@@ -124,21 +137,29 @@ int main(int argc, const char* argv[]) {
         outputPath.resize(outputPath.size() - 1);
     }
     
+    if(inputs.size() == 0) {
+        std::cerr << "No inputs" << std::endl;
+        printHelp();
+        exit(1);
+    }
+    
     try {
-        std::cout << "Opening " << inputFile << std::endl;
-
         if(processAsImage) {
-            ProgressListener progressListener;
+            for(size_t i = 0; i < inputs.size(); i++) {
+                std::cout << "Opening " << inputs[i] << std::endl;
+
+                ProgressListener progressListener;
             
-            motioncam::ProcessImage(inputFile, outputPath, progressListener);
+                motioncam::ProcessImage(inputs[i], outputPath, progressListener);
+            }
         }
         else {
             DngOutputListener listener(outputPath);
 
             std::cout << "Using " << numThreads << " threads" << std::endl;
             std::cout << "Merging " << numFramesToMerge << " frames" << std::endl;
-
-            motioncam::ConvertVideoToDNG(inputFile, listener, numThreads, numFramesToMerge);
+            
+            motioncam::ConvertVideoToDNG(inputs, listener, numThreads, numFramesToMerge);
         }
     }
     catch(std::runtime_error& e) {

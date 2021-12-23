@@ -1,6 +1,12 @@
 package com.motioncam.processor;
 
+import java.util.Objects;
+
 public class NativeProcessor {
+    static public void closeFd(int fd) {
+        CloseFd(fd);
+    }
+
     public boolean processInMemory(String outputPath, NativeProcessorProgressListener listener) {
         return ProcessInMemory(outputPath, listener);
     }
@@ -9,23 +15,30 @@ public class NativeProcessor {
         ProcessFile(inputPath, outputPath, listener);
     }
 
-    public void processVideo(int fd, int numFramesToMerge, NativeDngConverterListener listener) {
-        ProcessVideo(fd, numFramesToMerge, listener);
+    public void processRawVideo(int fds[], int numFramesToMerge, NativeDngConverterListener listener) {
+        Objects.requireNonNull(fds);
+
+        ProcessRawVideo(fds, numFramesToMerge, listener);
     }
 
-    public ContainerMetadata getMetadata(int fd) {
-        return GetMetadata(fd);
+    public ContainerMetadata getRawVideoMetadata(int fds[]) {
+        Objects.requireNonNull(fds);
+
+        return GetRawVideoMetadata(fds);
     }
 
-    public boolean generateVideoPreview(int fd, int numPreviews, NativeRawVideoPreviewListener listener) {
-        return GenerateVideoPreview(fd, numPreviews, listener);
+    public boolean generateRawVideoPreview(final int fd, int numPreviews, NativeRawVideoPreviewListener listener) {
+        return GenerateRawVideoPreview(fd, numPreviews, listener);
     }
 
     native boolean ProcessInMemory(String outputPath, NativeProcessorProgressListener progressListener);
     native boolean ProcessFile(String inputPath, String outputPath, NativeProcessorProgressListener progressListener);
-    native boolean ProcessVideo(int fd, int numFramesToMerge, NativeDngConverterListener progressListener);
-    native ContainerMetadata GetMetadata(int fd);
-    native boolean GenerateVideoPreview(int fd, int numPreviews, NativeRawVideoPreviewListener listener);
+
+    native boolean ProcessRawVideo(int fds[], int numFramesToMerge, NativeDngConverterListener progressListener);
+    native ContainerMetadata GetRawVideoMetadata(int fds[]);
+    native boolean GenerateRawVideoPreview(int fd, int numPreviews, NativeRawVideoPreviewListener listener);
+
+    static native void CloseFd(int fd);
 
     native String GetLastError();
 }

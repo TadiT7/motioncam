@@ -66,7 +66,6 @@ namespace motioncam {
 
     RawImageConsumer::~RawImageConsumer() {
         stop();
-        RawBufferManager::get().reset();
     }
 
     void RawImageConsumer::start() {
@@ -100,15 +99,21 @@ namespace motioncam {
 
         mBufferCondition.notify_one();
 
+        LOGD("Stopping buffers thread");
+
         if(mSetupBuffersThread)
             mSetupBuffersThread->join();
         mSetupBuffersThread = nullptr;
+
+        LOGD("Stopping consumer threads thread");
 
         for(auto& mConsumerThread : mConsumerThreads) {
             mConsumerThread->join();
         }
 
         mConsumerThreads.clear();
+
+        LOGD("Raw image consumer has stopped");
     }
 
     void RawImageConsumer::grow(size_t memoryLimitBytes) {
@@ -745,6 +750,10 @@ namespace motioncam {
 
                     case AIMAGE_FORMAT_YUV_420_888:
                         dst->pixelFormat = PixelFormat::YUV_420_888;
+                        break;
+
+                    case AIMAGE_FORMAT_RAW_PRIVATE:
+                        dst->pixelFormat = PixelFormat::RAW10;
                         break;
                 }
 

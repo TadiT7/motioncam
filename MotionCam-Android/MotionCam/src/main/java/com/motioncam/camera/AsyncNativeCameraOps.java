@@ -7,17 +7,21 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
+import android.util.Log;
 import android.util.Pair;
 import android.util.Size;
 
+import com.motioncam.CameraActivity;
 import com.motioncam.processor.ContainerMetadata;
 import com.motioncam.processor.NativeProcessor;
+import com.motioncam.ui.VideoEntry;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -45,8 +49,8 @@ public class AsyncNativeCameraOps implements Closeable {
     }
 
     public interface ContainerListener {
-        void onContainerMetadataAvailable(Uri containerUri, ContainerMetadata metadata);
-        void onContainerGeneratedPreviews(Uri containerUri, List<Bitmap> previewImages);
+        void onContainerMetadataAvailable(String name, ContainerMetadata metadata);
+        void onContainerGeneratedPreviews(String name, List<Bitmap> previewImages);
     }
 
     public interface PostProcessSettingsListener {
@@ -195,38 +199,65 @@ public class AsyncNativeCameraOps implements Closeable {
         });
     }
 
-    public void getContainerMetadata(Context context, Uri uri, ContainerListener listener) {
+    public void getContainerMetadata(Context context, VideoEntry entry, ContainerListener listener) {
+        Objects.requireNonNull(context);
+        Objects.requireNonNull(entry);
+        Objects.requireNonNull(listener);
+
         final ContentResolver resolver = context.getContentResolver();
+
+        VideoEntry entryClone = entry.clone();
 
         mBackgroundProcessor.submit(() -> {
             NativeProcessor processor = new NativeProcessor();
 
-            int fd = -1;
+            List<Integer> fds = new ArrayList<>();
 
-            try(ParcelFileDescriptor pfd = resolver.openFileDescriptor(uri, "r", null)) {
-                if (pfd != null)
-                    fd = pfd.detachFd();
+            for(Uri uri : entryClone.getVideoUris()) {
+                int fd = -1;
+
+                try(ParcelFileDescriptor pfd = resolver.openFileDescriptor(uri, "r", null)) {
+                    if (pfd != null)
+                        fd = pfd.detachFd();
+                }
+                catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                if(fd < 0) {
+                    Log.e(CameraActivity.TAG, "Failed to open " + uri);
+                }
+                else {
+                    fds.add(fd);
+                }
             }
-            catch (IOException e) {
-                e.printStackTrace();
-            }
 
-            if(fd < 0)
-                return;
+            final int[] finalFds = fds.stream().mapToInt(i -> i).toArray();
 
-            final int finalFd = fd;
-
-            mMainHandler.post(() -> listener.onContainerMetadataAvailable(uri, processor.getMetadata(finalFd)));
+            mMainHandler.post(() -> listener.onContainerMetadataAvailable(entry.getName(), processor.getRawVideoMetadata(finalFds)));
         });
     }
 
-    public void generateVideoPreview(Context context, Uri uri, int numPreviews, ContainerListener listener) {
+    public void generateVideoPreview(Context context, VideoEntry entry, int numPreviews, ContainerListener listener) {
+        Objects.requireNonNull(context);
+        Objects.requireNonNull(entry);
+        Objects.requireNonNull(listener);
+
         final ContentResolver resolver = context.getContentResolver();
+        VideoEntry entryClone = entry.clone();
 
         mBackgroundProcessor.submit(() -> {
+            if(entryClone.getVideoUris().isEmpty()) {
+                listener.onContainerGeneratedPreviews(entryClone.getName(), new ArrayList<>());
+                return;
+            }
+
             NativeProcessor processor = new NativeProcessor();
 
             int fd = -1;
+
+            // Take first video
+            final Uri uri = entryClone.getVideoUris().iterator().next();
 
             try(ParcelFileDescriptor pfd = resolver.openFileDescriptor(uri, "r", null)) {
                 if (pfd != null)
@@ -243,14 +274,14 @@ public class AsyncNativeCameraOps implements Closeable {
 
             List<Bitmap> bitmaps = new ArrayList<>();
 
-            processor.generateVideoPreview(finalFd, numPreviews, (width, height) -> {
+            processor.generateRawVideoPreview(finalFd, numPreviews, (width, height) -> {
                 Bitmap preview = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
                 bitmaps.add(preview);
 
                 return preview;
             });
 
-            mMainHandler.post(() -> listener.onContainerGeneratedPreviews(uri, bitmaps));
+            mMainHandler.post(() -> listener.onContainerGeneratedPreviews(entry.getName(), bitmaps));
         });
     }
 }

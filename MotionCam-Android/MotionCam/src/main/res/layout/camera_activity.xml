@@ -152,6 +152,27 @@
             app:layout_constraintTop_toTopOf="@+id/cameraFrame"
             app:layout_constraintBottom_toBottomOf="@+id/cameraFrame"/>
 
+        <FrameLayout
+            android:id="@+id/cameraSettings"
+            android:visibility="gone"
+            android:layout_width="match_parent"
+            android:layout_height="250dp"
+            android:background="@drawable/camera_settings_background"
+            android:layout_marginTop="10dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="@+id/cameraFrame"
+            app:layout_constraintTop_toTopOf="@+id/cameraFrame">
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+                <include layout="@layout/camera_settings" />
+            </ScrollView>
+
+        </FrameLayout>
+
         <LinearLayout
             android:id="@+id/manualControlsFrame"
             android:layout_width="0dp"
@@ -350,11 +371,11 @@
 
         <LinearLayout
             android:id="@+id/recordingTimer"
-            android:layout_width="80dp"
-            android:layout_height="20dp"
+            android:layout_width="85dp"
+            android:layout_height="30dp"
             android:orientation="horizontal"
-            android:background="@color/black"
-            android:layout_marginTop="80dp"
+            android:background="@drawable/recording_timer_background"
+            android:layout_marginTop="40dp"
             android:visibility="gone"
             app:layout_constraintTop_toTopOf="@+id/cameraFrame"
             app:layout_constraintLeft_toLeftOf="@+id/cameraFrame"
@@ -366,8 +387,19 @@
                 android:layout_height="match_parent"
                 android:gravity="center"
                 android:text="00:00:00"
-                android:textAppearance="@style/MotionCam.TextAppearance.Small"/>
+                android:textColor="@color/white"
+                android:textAppearance="@style/MotionCam.TextAppearance.Medium.Bold"/>
         </LinearLayout>
+
+        <ImageView
+            android:id="@+id/cameraSettingsBtn"
+            android:layout_width="35dp"
+            android:layout_height="35dp"
+            android:src="@drawable/chevron_down"
+            android:padding="10dp"
+            app:layout_constraintBottom_toBottomOf="@+id/preview_frame"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

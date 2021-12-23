@@ -2,27 +2,16 @@ package com.motioncam;
 
 public class DenoiseSettings {
     public int numMergeImages;
-    public float sharpen0;
-    public float sharpen1;
-
-    double log2(double v) {
-        return Math.log(v) / Math.log(2);
-    }
 
     @Override
     public String toString() {
         return "DenoiseSettings{" +
                 "numMergeImages=" + numMergeImages +
-                ", sharpen0=" + sharpen0 +
-                ", sharpen1=" + sharpen1 +
                 '}';
     }
 
     private void estimateFromExposure(float ev, float shadows) {
         int mergeImages;
-
-        sharpen0 = 2.0f;
-        sharpen1 = 1.5f;
 
         if(ev > 7.99) {
             mergeImages             = 4;
@@ -35,13 +24,9 @@ public class DenoiseSettings {
         }
         else if(ev > 0) {
             mergeImages             = 12;
-            sharpen0                = 2.0f;
-            sharpen1                = 3.5f;
         }
         else {
             mergeImages             = 12;
-            sharpen0                = 2.0f;
-            sharpen1                = 3.0f;
         }
 
         if(shadows > 7.99) {

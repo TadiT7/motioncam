@@ -249,6 +249,7 @@ add_library( # Sets the name of the library.
         ${thirdparty-libs}/miniz/miniz_zip.c
         ${thirdparty-libs}/miniz/miniz_tinfl.c
         ${thirdparty-libs}/miniz/miniz_tdef.c
+        ${thirdparty-libs}/tinywav/tinywav.c
         ${libmotioncam-src}/source/CameraProfile.cpp
         ${libmotioncam-src}/source/Color.cpp
         ${libmotioncam-src}/source/ImageOps.cpp
@@ -269,6 +270,7 @@ target_include_directories(motioncam-static PRIVATE
         ${libmotioncam-src}/halide/host
         ${thirdparty-libs}/json11
         ${thirdparty-libs}/miniz
+        ${thirdparty-libs}/tinywav
         ${thirdparty-libs}/halide/include
         ${thirdparty-libs}/queue
         ${thirdparty-libs}/atomic_queue

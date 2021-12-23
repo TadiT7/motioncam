@@ -199,7 +199,7 @@ namespace motioncam {
             }
         }
 
-        ZipReader::ZipReader(const string& filename) : mZip{ 0 } {
+        ZipReader::ZipReader(const string& filename) : mFile(nullptr), mZip{ 0 } {
             if(!mz_zip_reader_init_file(&mZip, filename.c_str(), 0)) {
                 throw IOException("Can't read " + filename);
             }
@@ -558,7 +558,7 @@ namespace motioncam {
             negative->SetDefaultScale(dng_urational(1,1), dng_urational(1,1));
             
             negative->SetDefaultCropSize(width, height);
-            negative->SetNoiseReductionApplied(dng_urational(1,1));
+            negative->SetNoiseReductionApplied(dng_urational(0,0));
             negative->SetCameraNeutral(dng_vector_3(imageMetadata.asShot[0], imageMetadata.asShot[1], imageMetadata.asShot[2]));
 
             dng_orientation orientation;
