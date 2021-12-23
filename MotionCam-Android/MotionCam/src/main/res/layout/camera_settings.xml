@@ -41,7 +41,7 @@
 
     <include
         android:id="@+id/cameraPhotoSettings"
-        android:visibility="gone"
+        android:visibility="visible"
         layout="@layout/camera_photo_settings"/>
 
     <include
