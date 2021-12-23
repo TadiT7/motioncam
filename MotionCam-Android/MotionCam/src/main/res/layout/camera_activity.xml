@@ -376,7 +376,7 @@
             android:orientation="horizontal"
             android:background="@drawable/recording_timer_background"
             android:layout_marginTop="40dp"
-            android:visibility="visible"
+            android:visibility="gone"
             app:layout_constraintTop_toTopOf="@+id/cameraFrame"
             app:layout_constraintLeft_toLeftOf="@+id/cameraFrame"
             app:layout_constraintRight_toRightOf="@+id/cameraFrame">
