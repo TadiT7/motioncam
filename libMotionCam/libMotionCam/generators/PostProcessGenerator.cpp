@@ -3835,7 +3835,7 @@ public:
     Output<Buffer<uint8_t>> output{"output", 3};
 
     void generate();
-    void schedule_for_cpu();
+    void apply_auto_schedule(::Halide::Pipeline pipeline, ::Halide::Target target);
 };
 
 void StatsGenerator::generate() {
@@ -3899,16 +3899,46 @@ void StatsGenerator::generate() {
     output.set_estimates({{0, 250}, {0, 150}, {0, 3} } );
 
     if(!get_auto_schedule()) {
-        schedule_for_cpu();
+        apply_auto_schedule(get_pipeline(), get_target());
     }
- }
-
-void StatsGenerator::schedule_for_cpu() {
-    output.compute_root()
-        .vectorize(v_x, 16)
-        .parallel(v_y);
 }
 
+void StatsGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::Halide::Target target) {
+    using ::Halide::Func;
+    using ::Halide::MemoryType;
+    using ::Halide::RVar;
+    using ::Halide::TailStrategy;
+    using ::Halide::Var;
+    Var x_vi("x_vi");
+    Var x_vo("x_vo");
+    Var y_vi("y_vi");
+    Var y_vo("y_vo");
+
+    Func output = pipeline.get_func(12);
+    Func peak = pipeline.get_func(11);
+
+    {
+        Var x = output.args()[0];
+        Var y = output.args()[1];
+        Var c = output.args()[2];
+        output
+            .compute_root()
+            .reorder(y, x, c)
+            .split(y, y_vo, y_vi, 32)
+            .vectorize(y_vi)
+            .parallel(c)
+            .parallel(x);
+    }
+    {
+        Var x = peak.args()[0];
+        Var y = peak.args()[1];
+        peak
+            .compute_root()
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi)
+            .parallel(y);
+    }
+}
 
 HALIDE_REGISTER_GENERATOR(StatsGenerator, stats_generator)
 HALIDE_REGISTER_GENERATOR(GenerateEdgesGenerator, generate_edges_generator)

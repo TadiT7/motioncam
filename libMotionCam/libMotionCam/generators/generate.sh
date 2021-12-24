@@ -52,7 +52,7 @@ function build_postprocess() {
 	FLAGS="no_runtime"
 
 	echo "[$ARCH] Building stats_generator"
-	./tmp/postprocess_generator -g stats_generator -f generate_stats -e static_library,h,schedule -o ../halide/${ARCH} target=${TARGET}-${FLAGS} -p ${HALIDE_PATH}/lib/libautoschedule_mullapudi2016.so -s Mullapudi2016 auto_schedule=true;
+	./tmp/postprocess_generator -g stats_generator -f generate_stats -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS}
 
 	echo "[$ARCH] Building measure_noise_generator"
 	./tmp/postprocess_generator -g measure_noise_generator -f measure_noise -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS}
