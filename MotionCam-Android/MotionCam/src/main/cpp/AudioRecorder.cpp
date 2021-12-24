@@ -1,8 +1,9 @@
 #include "AudioRecorder.h"
 #include "camera/Logger.h"
 
-AudioRecorder::AudioRecorder() :
+AudioRecorder::AudioRecorder(int audioDeviceId) :
     mRunning(false),
+    mAudioDeviceId(audioDeviceId),
     mAudioDataOffset(0),
     mSampleRate(0),
     mChannelCount(0)
@@ -19,6 +20,8 @@ bool AudioRecorder::start(const int sampleRateHz, const int channels) {
 
     oboe::AudioStreamBuilder builder;
 
+    int deviceId = mAudioDeviceId < 0 ? oboe::kUnspecified : mAudioDeviceId;
+
     oboe::Result result = builder
         .setSharingMode(oboe::SharingMode::Shared)
         ->setPerformanceMode(oboe::PerformanceMode::PowerSaving)
@@ -29,6 +32,7 @@ bool AudioRecorder::start(const int sampleRateHz, const int channels) {
         ->setSampleRate(sampleRateHz)
         ->setInputPreset(oboe::InputPreset::Camcorder)
         ->setDataCallback(this)
+        ->setDeviceId(deviceId)
         ->openStream(mActiveAudioStream);
 
     if(result != oboe::Result::OK) {

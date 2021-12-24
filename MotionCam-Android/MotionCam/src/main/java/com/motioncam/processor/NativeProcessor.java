@@ -27,7 +27,7 @@ public class NativeProcessor {
         return GetRawVideoMetadata(fds);
     }
 
-    public boolean generateRawVideoPreview(final int fd, int numPreviews, NativeRawVideoPreviewListener listener) {
+    public boolean generateRawVideoPreview(final int fd, int numPreviews, NativeBitmapListener listener) {
         return GenerateRawVideoPreview(fd, numPreviews, listener);
     }
 
@@ -36,7 +36,7 @@ public class NativeProcessor {
 
     native boolean ProcessRawVideo(int fds[], int numFramesToMerge, NativeDngConverterListener progressListener);
     native ContainerMetadata GetRawVideoMetadata(int fds[]);
-    native boolean GenerateRawVideoPreview(int fd, int numPreviews, NativeRawVideoPreviewListener listener);
+    native boolean GenerateRawVideoPreview(int fd, int numPreviews, NativeBitmapListener listener);
 
     static native void CloseFd(int fd);
 

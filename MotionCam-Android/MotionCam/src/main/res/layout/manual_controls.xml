@@ -172,34 +172,57 @@
     </LinearLayout>
 
     <LinearLayout
-        android:id="@+id/manualControl"
+        android:id="@+id/manualControlExposure"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="40dp"
         android:visibility="gone"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/manual_controls_frame_background"
         android:orientation="horizontal">
 
         <TextView
-            android:id="@+id/manualControlMinText"
-            android:layout_width="wrap_content"
+            android:id="@+id/manualControlMinusBtn"
+            android:layout_width="40dp"
             android:layout_height="match_parent"
             android:gravity="center"
+            android:layout_marginStart="5dp"
+            android:drawableStart="@drawable/minus_circle_outline"
+            android:layout_weight="1"
             android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold" />
+
+        <TextView
+            android:id="@+id/manualControlPlusBtn"
+            android:layout_width="40dp"
+            android:layout_height="match_parent"
+            android:drawableEnd="@drawable/plus_circle_outline"
+            android:layout_marginEnd="5dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/manualControlFocus"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:visibility="gone"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/manual_controls_frame_background"
+        android:orientation="horizontal">
 
         <SeekBar
             android:id="@+id/manualControlSeekBar"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:tickMark="@drawable/seekbar_tick_mark"
-            android:paddingTop="@dimen/seekBarPadding"
-            android:paddingBottom="@dimen/seekBarPadding"/>
+            android:layout_weight="1"/>
 
-        <TextView
-            android:id="@+id/manualControlMaxText"
-            android:layout_width="wrap_content"
+        <ImageView
+            android:id="@+id/manualControlInfBtn"
+            android:layout_width="40dp"
             android:layout_height="match_parent"
-            android:gravity="center"
-            android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold" />
+            android:padding="10dp"
+            android:src="@drawable/all_inclusive" />
+
     </LinearLayout>
 
 </LinearLayout>

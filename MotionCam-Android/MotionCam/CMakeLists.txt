@@ -133,6 +133,10 @@ set_target_properties(zstd PROPERTIES IMPORTED_LOCATION
 # Halide libraries
 #
 
+add_library(generate_stats STATIC IMPORTED)
+set_target_properties(generate_stats PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/generate_stats.a)
+
 add_library(build_bayer STATIC IMPORTED)
 set_target_properties(build_bayer PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/build_bayer.a)
@@ -544,6 +548,7 @@ set(native-camera-libs
         libexpat
 
         # Halide libraries
+        generate_stats
         build_bayer
         build_bayer2
         measure_noise

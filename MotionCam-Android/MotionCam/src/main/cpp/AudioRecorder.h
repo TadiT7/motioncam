@@ -8,7 +8,7 @@
 
 class AudioRecorder : public motioncam::AudioInterface, public oboe::AudioStreamDataCallback {
 public:
-    AudioRecorder();
+    AudioRecorder(int audioDeviceId);
     ~AudioRecorder();
 
     bool start(const int sampleRateHz, const int channels);
@@ -30,6 +30,7 @@ private:
     size_t mAudioDataOffset;
     int mSampleRate;
     int mChannelCount;
+    int mAudioDeviceId;
 };
 
 #endif

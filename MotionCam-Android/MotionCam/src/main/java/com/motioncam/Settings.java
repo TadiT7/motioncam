@@ -71,6 +71,7 @@ public class Settings {
     }
 
     boolean useDualExposure;
+    boolean exposureOverlay;
     boolean rawVideoToDng;
     boolean saveDng;
     boolean autoNightMode;
@@ -93,6 +94,7 @@ public class Settings {
     void load(SharedPreferences prefs) {
         this.jpegQuality = prefs.getInt(SettingsViewModel.PREFS_KEY_JPEG_QUALITY, CameraProfile.DEFAULT_JPEG_QUALITY);
         this.saveDng = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_SAVE_RAW, false);
+        this.exposureOverlay = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_EXPOSURE_OVERLAY, false);
         this.autoNightMode = prefs.getBoolean(SettingsViewModel.PREFS_KEY_AUTO_NIGHT_MODE, true);
         this.hdr = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_HDR, true);
         this.widthVideoCrop = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_WIDTH_VIDEO_CROP, 0);
@@ -148,6 +150,7 @@ public class Settings {
     void save(SharedPreferences prefs) {
         prefs.edit()
                 .putBoolean(SettingsViewModel.PREFS_KEY_UI_SAVE_RAW, this.saveDng)
+                .putBoolean(SettingsViewModel.PREFS_KEY_UI_EXPOSURE_OVERLAY, this.exposureOverlay)
                 .putBoolean(SettingsViewModel.PREFS_KEY_UI_HDR, this.hdr)
                 .putString(SettingsViewModel.PREFS_KEY_UI_CAPTURE_MODE, this.captureMode.name())
                 .putInt(SettingsViewModel.PREFS_KEY_UI_WIDTH_VIDEO_CROP, this.widthVideoCrop)
@@ -161,6 +164,7 @@ public class Settings {
     public String toString() {
         return "Settings{" +
                 "useDualExposure=" + useDualExposure +
+                ", exposureOverlay=" + exposureOverlay +
                 ", rawVideoToDng=" + rawVideoToDng +
                 ", saveDng=" + saveDng +
                 ", autoNightMode=" + autoNightMode +

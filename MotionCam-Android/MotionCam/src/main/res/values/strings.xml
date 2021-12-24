@@ -134,5 +134,8 @@
     <string name="split_storage_option">Split RAW video recording across two storage locations</string>
     <string name="split_storage_description">Splitting RAW storage across internal and external storage improves performance.</string>
     <string name="permissions_error">The app needs the camera permission to function.</string>
+    <string name="exposure_clipping_overlay">Sensor Clipping Overlay</string>
+    <string name="exposure_clipping_desc">Overlay areas where the sensor is clipping.</string>
+    <string name="internal_mic_tag">_internal_mic</string>
     <string name="internal_mic">Internal Mic</string>
 </resources>

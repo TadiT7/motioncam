@@ -1040,7 +1040,7 @@ void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_PrepareHdrCaptu
 
 extern "C"
 JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_StartStreamToFile(
-        JNIEnv *env, jobject thiz, jlong handle, jintArray jfds, jint audioFd)
+        JNIEnv *env, jobject thiz, jlong handle, jintArray jfds, jint audioFd, jint audioDeviceId)
 {
     std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
     if(!sessionManager) {
@@ -1066,7 +1066,7 @@ JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_S
     if(gAudioRecorder)
         return JNI_FALSE;
 
-    gAudioRecorder = std::make_shared<AudioRecorder>();
+    gAudioRecorder = std::make_shared<AudioRecorder>(audioDeviceId);
 
     RawBufferManager::get().enableStreaming(fds, audioFd, gAudioRecorder, metadata);
 
@@ -1201,4 +1201,87 @@ JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_SetVi
     }
 
     RawBufferManager::get().setVideoBin(bin);
+}
+
+extern "C"
+JNIEXPORT jobject JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GenerateStats(
+        JNIEnv *env, jobject thiz, jlong handle, jobject listener) {
+
+    jobject listenerClass = env->GetObjectClass(listener);
+    if(!listenerClass)
+        return nullptr;
+
+    jmethodID callbackMethod = env->GetMethodID(
+            reinterpret_cast<jclass>(listenerClass), "createBitmap", "(II)Landroid/graphics/Bitmap;");
+
+    if(!callbackMethod)
+        return nullptr;
+
+    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
+    if(!sessionManager) {
+        return nullptr;
+    }
+
+    auto lockedBuffer = RawBufferManager::get().consumeLatestBuffer();
+    if(!lockedBuffer || lockedBuffer->getBuffers().empty())
+        return nullptr;
+
+    auto imageBuffer = lockedBuffer->getBuffers().front();
+    auto cameraId = sessionManager->getSelectedCameraId();
+    auto metadata = sessionManager->getCameraDescription(cameraId)->metadata;
+
+    auto output = ImageProcessor::generateStats(*imageBuffer, 8, 8, metadata);
+
+    jobject dst = env->CallObjectMethod(listener, callbackMethod, output.width(), output.height());
+    if(!dst)
+        return nullptr;
+
+    // Get bitmap info
+    AndroidBitmapInfo bitmapInfo;
+
+    int result = AndroidBitmap_getInfo(env, dst, &bitmapInfo);
+
+    if(result != ANDROID_BITMAP_RESULT_SUCCESS) {
+        LOGE("AndroidBitmap_getInfo() failed, error=%d", result);
+        return nullptr;
+    }
+
+    if( bitmapInfo.format != ANDROID_BITMAP_FORMAT_RGBA_8888    ||
+        bitmapInfo.stride != output.width() * 4                 ||
+        bitmapInfo.width  != output.width()                     ||
+        bitmapInfo.height != output.height())
+    {
+        LOGE("Invalid bitmap format format=%d, stride=%d, width=%d, height=%d, output.width=%d, output.height=%d",
+             bitmapInfo.format, bitmapInfo.stride, bitmapInfo.width, bitmapInfo.height, output.width(), output.height());
+
+        return nullptr;
+    }
+
+    // Copy pixels
+    size_t size = bitmapInfo.width * bitmapInfo.height * 4;
+    if(output.size_in_bytes() != size) {
+        LOGE("buffer sizes do not match, buffer0=%ld, buffer1=%ld", output.size_in_bytes(), size);
+        return nullptr;
+    }
+
+    // Copy pixels to bitmap
+    void* pixels = nullptr;
+
+    // Lock
+    result = AndroidBitmap_lockPixels(env, dst, &pixels);
+    if(result != ANDROID_BITMAP_RESULT_SUCCESS) {
+        LOGE("AndroidBitmap_lockPixels() failed, error=%d", result);
+        return JNI_FALSE;
+    }
+
+    std::copy(output.data(), output.data() + size, (uint8_t*) pixels);
+
+    // Unlock
+    result = AndroidBitmap_unlockPixels(env, dst);
+    if(result != ANDROID_BITMAP_RESULT_SUCCESS) {
+        LOGE("AndroidBitmap_unlockPixels() failed, error=%d", result);
+        return nullptr;
+    }
+
+    return dst;
 }

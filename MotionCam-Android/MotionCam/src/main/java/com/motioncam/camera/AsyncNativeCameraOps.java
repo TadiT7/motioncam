@@ -65,6 +65,10 @@ public class AsyncNativeCameraOps implements Closeable {
         void onSharpnessMeasured(List<Pair<NativeCameraBuffer, Double>> sharpnessList);
     }
 
+    public interface StatsListener {
+        void onExposureMap(Bitmap bitmap);
+    }
+
     public AsyncNativeCameraOps(NativeCameraSessionBridge cameraSessionBridge) {
         mCameraSessionBridge = cameraSessionBridge;
         mMainHandler = new Handler(Looper.getMainLooper());
@@ -235,6 +239,23 @@ public class AsyncNativeCameraOps implements Closeable {
             final int[] finalFds = fds.stream().mapToInt(i -> i).toArray();
 
             mMainHandler.post(() -> listener.onContainerMetadataAvailable(entry.getName(), processor.getRawVideoMetadata(finalFds)));
+        });
+    }
+
+    public void generateStats(StatsListener statsListener, Bitmap bitmap) {
+        mBackgroundProcessor.submit(() -> {
+            Bitmap result;
+
+            result = mCameraSessionBridge.generateStats((width, height) -> {
+                if(bitmap != null && bitmap.getWidth() == width && bitmap.getHeight() == height)
+                    return bitmap;
+
+                return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            });
+
+            if(result != null) {
+                mMainHandler.post(() -> statsListener.onExposureMap(result));
+            }
         });
     }
 

@@ -5,6 +5,7 @@ import android.graphics.PointF;
 import android.util.Size;
 import android.view.Surface;
 
+import com.motioncam.processor.NativeBitmapListener;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.Moshi;
 
@@ -414,10 +415,10 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         SetAutoFocus(mNativeCameraHandle);
     }
 
-    public void streamToFile(int[] fds, int audioFd) {
+    public void streamToFile(int[] fds, int audioFd, int audioDeviceId) {
         ensureValidHandle();
 
-        StartStreamToFile(mNativeCameraHandle, fds, audioFd);
+        StartStreamToFile(mNativeCameraHandle, fds, audioFd, audioDeviceId);
     }
 
     public void adjustMemory(long maxMemoryBytes) {
@@ -454,6 +455,12 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         ensureValidHandle();
 
         return GetVideoRecordingStats(mNativeCameraHandle);
+    }
+
+    public Bitmap generateStats(NativeBitmapListener listener) {
+        ensureValidHandle();
+
+        return GenerateStats(mNativeCameraHandle, listener);
     }
 
     @Override
@@ -569,7 +576,7 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native Size GetRawOutputSize(long handle, String cameraId);
     private native Size GetPreviewOutputSize(long handle, String cameraId, Size captureSize, Size displaySize);
 
-    private native boolean StartStreamToFile(long handle, int videoFds[], int audioFd);
+    private native boolean StartStreamToFile(long handle, int[] videoFds, int audioFd, int audioDeviceId);
     private native void EndStream(long handle);
 
     private native void PrepareHdrCapture(long handle, int iso, long exposure);
@@ -593,4 +600,6 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native void SetVideoBin(long handle, boolean bin);
 
     private native void AdjustMemoryUse(long handle, long maxUseBytes);
+
+    private native Bitmap GenerateStats(long handle, NativeBitmapListener listener);
 }

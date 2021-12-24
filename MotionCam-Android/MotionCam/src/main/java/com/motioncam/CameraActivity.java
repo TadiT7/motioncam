@@ -120,6 +120,8 @@ public class CameraActivity extends AppCompatActivity implements
     private static final int MANUAL_CONTROL_MODE_SHUTTER_SPEED = 1;
     private static final int MANUAL_CONTROL_MODE_FOCUS = 2;
 
+    private static final int OVERLAY_UPDATE_FREQUENCY_MS = 250;
+
     public static final String WORKER_IMAGE_PROCESSOR = "ImageProcessor";
     public static final String WORKER_VIDEO_PROCESSOR = "VideoProcessor";
 
@@ -159,6 +161,7 @@ public class CameraActivity extends AppCompatActivity implements
     private FusedLocationProviderClient mFusedLocationClient;
     private Location mLastLocation;
     private long mRecordStartTime;
+    private int mAudioInputId;
 
     private CameraCapturePreviewAdapter mCameraCapturePreviewAdapter;
 
@@ -188,6 +191,7 @@ public class CameraActivity extends AppCompatActivity implements
     private float mShadowOffset;
     private long mFocusRequestedTimestampMs;
     private Timer mRecordingTimer;
+    private Timer mOverlayTimer;
 
     private AtomicBoolean mImageCaptureInProgress = new AtomicBoolean(false);
 
@@ -254,6 +258,23 @@ public class CameraActivity extends AppCompatActivity implements
         public void onStopTrackingTouch(SeekBar seekBar) {
         }
     };
+
+    private class OverlayTimer extends TimerTask {
+        private Bitmap mBitmap = null;
+
+        @Override
+        public void run() {
+            AsyncNativeCameraOps ops = new AsyncNativeCameraOps(mNativeCamera);
+
+            ops.generateStats(bitmap ->
+            {
+                if(bitmap != null)
+                    mBinding.cameraOverlay.setImageBitmap(bitmap);
+
+                mBitmap = bitmap;
+            }, mBitmap);
+        }
+    }
 
     private class RecordingTimerTask extends TimerTask {
         @Override
@@ -497,6 +518,9 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.cameraSettings.findViewById(R.id.saveDngBtn)
                 .setOnClickListener(v -> setSaveRaw(!mPostProcessSettings.dng));
 
+        mBinding.cameraSettings.findViewById(R.id.exposureOverlayBtn)
+                .setOnClickListener(v -> setExposureOverlay(!mSettings.exposureOverlay));
+
         mBinding.cameraSettings.findViewById(R.id.hdrBtn)
                 .setOnClickListener(v -> setHdr(!mSettings.hdr));
 
@@ -505,10 +529,13 @@ public class CameraActivity extends AppCompatActivity implements
 
         findViewById(R.id.aeLockBtn).setOnClickListener(v -> setAeLock(!mAeLock));
         findViewById(R.id.awbLockBtn).setOnClickListener(v -> setAwbLock(!mAwbLock));
+        findViewById(R.id.afLockBtn).setOnClickListener(v -> setAfLock(!mAfLock, false));
+
         findViewById(R.id.isoBtn).setOnClickListener(v -> toggleIso());
         findViewById(R.id.focusBtn).setOnClickListener(v -> toggleFocus());
-        findViewById(R.id.afLockBtn).setOnClickListener(v -> setAfLock(!mAfLock, false));
         findViewById(R.id.shutterSpeedBtn).setOnClickListener(v -> toggleShutterSpeed());
+        findViewById(R.id.manualControlPlusBtn).setOnClickListener(v -> onManualControlPlus());
+        findViewById(R.id.manualControlMinusBtn).setOnClickListener(v -> onManualControlMinus());
 
         ((SeekBar) findViewById(R.id.manualControlSeekBar)).setOnSeekBarChangeListener(mSeekBarChangeListener);
 
@@ -532,6 +559,7 @@ public class CameraActivity extends AppCompatActivity implements
 
         mSensorEventManager = new SensorEventManager(this, this);
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        mAudioInputId = -1;
 
         WorkManager.getInstance(this)
                 .getWorkInfosForUniqueWorkLiveData(WORKER_IMAGE_PROCESSOR)
@@ -711,6 +739,11 @@ public class CameraActivity extends AppCompatActivity implements
 
         saveSettings();
 
+        if(mOverlayTimer != null) {
+            mOverlayTimer.cancel();
+            mOverlayTimer = null;
+        }
+
         if(mNativeCamera != null) {
             if(mImageCaptureInProgress.getAndSet(false) && mCaptureMode == CaptureMode.RAW_VIDEO) {
                 finaliseRawVideo(false);
@@ -865,7 +898,7 @@ public class CameraActivity extends AppCompatActivity implements
                 .mapToInt(i->i)
                 .toArray();
 
-        mNativeCamera.streamToFile(fds, audioFd);
+        mNativeCamera.streamToFile(fds, audioFd, mAudioInputId);
         mImageCaptureInProgress.set(true);
 
         mBinding.switchCameraBtn.setEnabled(false);
@@ -1057,6 +1090,7 @@ public class CameraActivity extends AppCompatActivity implements
         ((SeekBar) mBinding.cameraSettings.findViewById(R.id.sharpnessSeekBar)).setProgress(sharpnessValue);
         ((SeekBar) mBinding.cameraSettings.findViewById(R.id.detailSeekBar)).setProgress(detailValue);
 
+        ((SwitchCompat) mBinding.cameraSettings.findViewById(R.id.exposureOverlayBtn)).setChecked(mSettings.exposureOverlay);
         ((SwitchCompat) mBinding.cameraSettings.findViewById(R.id.saveDngBtn)).setChecked(mSettings.saveDng);
         ((SwitchCompat) mBinding.cameraSettings.findViewById(R.id.hdrBtn)).setChecked(mSettings.hdr);
 
@@ -1191,37 +1225,42 @@ public class CameraActivity extends AppCompatActivity implements
         mSettings.hdr = hdr;
     }
 
-    private void hideManualControls() {
+    private void hideExposureControls() {
         ((ImageView) findViewById(R.id.isoBtnIcon))
-                .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_down));
-
-        ((ImageView) findViewById(R.id.focusBtnIcon))
                 .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_down));
 
         ((ImageView) findViewById(R.id.shutterSpeedIcon))
                 .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_down));
 
-        findViewById(R.id.manualControl).setVisibility(View.GONE);
+        findViewById(R.id.manualControlExposure).setVisibility(View.GONE);
+
+        updateManualControlView(mSensorEventManager.getOrientation());
+    }
+
+    private void hideFocusControls() {
+
+        ((ImageView) findViewById(R.id.focusBtnIcon))
+                .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_down));
+
+        findViewById(R.id.manualControlFocus).setVisibility(View.GONE);
+
         updateManualControlView(mSensorEventManager.getOrientation());
     }
 
     private void onManualControlSettingsChanged(int progress, boolean fromUser) {
         if(mNativeCamera != null && fromUser) {
-            int selectionMode = (int) findViewById(R.id.manualControl).getTag(R.id.manual_control_tag);
+            int selectionMode = (int) findViewById(R.id.manualControlFocus).getTag(R.id.manual_control_tag);
 
-            if(selectionMode == MANUAL_CONTROL_MODE_ISO) {
-                mUserIso = mIsoValues.get(progress).getIso();
-                mNativeCamera.setManualExposureValues(mUserIso, mUserExposureTime);
-            }
-            else if(selectionMode == MANUAL_CONTROL_MODE_SHUTTER_SPEED) {
-                mUserExposureTime = mExposureValues.get(progress).getExposureTime();
-                mNativeCamera.setManualExposureValues(mUserIso, mUserExposureTime);
-            }
-            else if(selectionMode == MANUAL_CONTROL_MODE_FOCUS) {
-                double in = (100.0f - progress) / 100.0f;
-                double p =
-                    Math.exp(in * (Math.log(mCameraMetadata.minFocusDistance) - Math.log(mCameraMetadata.hyperFocalDistance)) +
-                            Math.log(mCameraMetadata.hyperFocalDistance));
+            if(selectionMode == MANUAL_CONTROL_MODE_FOCUS) {
+                double p;
+
+                if(progress < 100) {
+                    double in = (100.0f - progress) / 100.0f;
+                    p = Math.exp(in * (Math.log(mCameraMetadata.minFocusDistance) - Math.log(mCameraMetadata.hyperFocalDistance)) + Math.log(mCameraMetadata.hyperFocalDistance));
+                }
+                else {
+                    p = 0.0;
+                }
 
                 mFocusDistance = (float) p;
                 mNativeCamera.setManualFocus(mFocusDistance);
@@ -1233,28 +1272,16 @@ public class CameraActivity extends AppCompatActivity implements
 
     private void toggleFocus() {
         // Hide if shown
-        if(findViewById(R.id.manualControl).getVisibility() == View.VISIBLE) {
-            int selectionMode = (int) findViewById(R.id.manualControl).getTag(R.id.manual_control_tag);
+        if(findViewById(R.id.manualControlFocus).getVisibility() == View.VISIBLE) {
+            int selectionMode = (int) findViewById(R.id.manualControlFocus).getTag(R.id.manual_control_tag);
 
             if(selectionMode == MANUAL_CONTROL_MODE_FOCUS) {
-                hideManualControls();
+                hideFocusControls();
                 return;
             }
         }
 
         setAfLock(true, false);
-
-        String minFocus = "-";
-        String maxFocus = "-";
-
-        if(mCameraMetadata.minFocusDistance > 0)
-            minFocus = String.format(Locale.US, "%.2f", 1.0f / mCameraMetadata.minFocusDistance);
-
-        if(mCameraMetadata.hyperFocalDistance > 0)
-            maxFocus = String.format(Locale.US, "%.2f", 1.0f / mCameraMetadata.hyperFocalDistance);
-
-        ((TextView) findViewById(R.id.manualControlMinText)).setText(minFocus);
-        ((TextView) findViewById(R.id.manualControlMaxText)).setText(maxFocus);
 
         double progress = 100.0 * (
             (Math.log(mFocusDistance) - Math.log(mCameraMetadata.hyperFocalDistance)) /
@@ -1264,8 +1291,8 @@ public class CameraActivity extends AppCompatActivity implements
         ((SeekBar) findViewById(R.id.manualControlSeekBar)).setProgress((int)Math.round(100 - progress));
         ((SeekBar) findViewById(R.id.manualControlSeekBar)).setTickMark(null);
 
-        findViewById(R.id.manualControl).setTag(R.id.manual_control_tag, MANUAL_CONTROL_MODE_FOCUS);
-        findViewById(R.id.manualControl).setVisibility(View.VISIBLE);
+        findViewById(R.id.manualControlFocus).setTag(R.id.manual_control_tag, MANUAL_CONTROL_MODE_FOCUS);
+        findViewById(R.id.manualControlFocus).setVisibility(View.VISIBLE);
 
         ((ImageView) findViewById(R.id.focusBtnIcon))
                 .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_up));
@@ -1275,11 +1302,11 @@ public class CameraActivity extends AppCompatActivity implements
 
     private void toggleIso() {
         // Hide if shown
-        if(findViewById(R.id.manualControl).getVisibility() == View.VISIBLE) {
-            int selectionMode = (int) findViewById(R.id.manualControl).getTag(R.id.manual_control_tag);
+        if(findViewById(R.id.manualControlExposure).getVisibility() == View.VISIBLE) {
+            int selectionMode = (int) findViewById(R.id.manualControlExposure).getTag(R.id.manual_control_tag);
 
             if(selectionMode == MANUAL_CONTROL_MODE_ISO) {
-                hideManualControls();
+                hideExposureControls();
                 return;
             }
         }
@@ -1292,19 +1319,17 @@ public class CameraActivity extends AppCompatActivity implements
             setAeLock(true);
         }
 
-        ((TextView) findViewById(R.id.manualControlMinText)).setText(mIsoValues.get(0).toString());
-        ((TextView) findViewById(R.id.manualControlMaxText)).setText(mIsoValues.get(mIsoValues.size() - 1).toString());
+        CameraManualControl.ISO iso = CameraManualControl.GetClosestIso(mIsoValues, mUserIso);
+        CameraManualControl.ISO[] isoValues = CameraManualControl.ISO.values();
 
-        ((SeekBar) findViewById(R.id.manualControlSeekBar)).setMax(mIsoValues.size() - 1);
-        ((SeekBar) findViewById(R.id.manualControlSeekBar)).setTickMark(
-                AppCompatResources.getDrawable(this, R.drawable.seekbar_tick_mark));
+        int nextIdx = Math.min(isoValues.length - 1, iso.ordinal() + 1);
+        int prevIdx = Math.max(0, iso.ordinal() - 1);
 
-        int isoIdx = CameraManualControl.GetClosestIso(mIsoValues, mUserIso).ordinal();
+        ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(isoValues[prevIdx]));
+        ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(isoValues[nextIdx]));
 
-        ((SeekBar) findViewById(R.id.manualControlSeekBar)).setProgress(isoIdx);
-
-        findViewById(R.id.manualControl).setTag(R.id.manual_control_tag, MANUAL_CONTROL_MODE_ISO);
-        findViewById(R.id.manualControl).setVisibility(View.VISIBLE);
+        findViewById(R.id.manualControlExposure).setTag(R.id.manual_control_tag, MANUAL_CONTROL_MODE_ISO);
+        findViewById(R.id.manualControlExposure).setVisibility(View.VISIBLE);
 
         ((ImageView) findViewById(R.id.isoBtnIcon))
                 .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_up));
@@ -1312,13 +1337,83 @@ public class CameraActivity extends AppCompatActivity implements
         updateManualControlView(mSensorEventManager.getOrientation());
     }
 
+    private void onManualControlPlus() {
+        if(mNativeCamera == null)
+            return;
+
+        int selectionMode = (int) findViewById(R.id.manualControlExposure).getTag(R.id.manual_control_tag);
+
+        if(selectionMode == MANUAL_CONTROL_MODE_ISO) {
+            CameraManualControl.ISO iso = CameraManualControl.GetClosestIso(mIsoValues, mUserIso);
+            CameraManualControl.ISO[] isoValues = CameraManualControl.ISO.values();
+
+            int nextIdx = Math.min(isoValues.length - 1, iso.ordinal() + 1);
+            int nextNextIdx = Math.min(isoValues.length - 1, iso.ordinal() + 2);
+
+            int prevIdx = Math.max(0, iso.ordinal() - 1);
+
+            ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(isoValues[prevIdx]));
+            ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(isoValues[nextNextIdx]));
+
+            mUserIso = isoValues[nextIdx].getIso();
+        }
+        else if(selectionMode == MANUAL_CONTROL_MODE_SHUTTER_SPEED) {
+            CameraManualControl.SHUTTER_SPEED shutterSpeed = CameraManualControl.GetClosestShutterSpeed(mUserExposureTime);
+            CameraManualControl.SHUTTER_SPEED[] shutterSpeedValues = CameraManualControl.SHUTTER_SPEED.values();
+
+            int nextIdx = Math.min(shutterSpeedValues.length - 1, shutterSpeed.ordinal() + 1);
+            int nextNextIdx = Math.min(shutterSpeedValues.length - 1, shutterSpeed.ordinal() + 2);
+
+            ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(shutterSpeedValues[nextNextIdx]));
+
+            mUserExposureTime = shutterSpeedValues[nextIdx].getExposureTime();
+        }
+
+        mNativeCamera.setManualExposureValues(mUserIso, mUserExposureTime);
+    }
+
+    private void onManualControlMinus() {
+        int selectionMode = (int) findViewById(R.id.manualControlExposure).getTag(R.id.manual_control_tag);
+
+        if(selectionMode == MANUAL_CONTROL_MODE_ISO) {
+            CameraManualControl.ISO iso = CameraManualControl.GetClosestIso(mIsoValues, mUserIso);
+            CameraManualControl.ISO[] isoValues = CameraManualControl.ISO.values();
+
+            int prevIdx = Math.max(0, iso.ordinal() - 1);
+            int prevPrevIdx = Math.max(0, iso.ordinal() - 2);
+
+            int nextIdx = Math.min(isoValues.length - 1, iso.ordinal() + 1);
+
+            ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(isoValues[nextIdx]));
+            ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(isoValues[prevPrevIdx]));
+
+            mUserIso = isoValues[prevIdx].getIso();
+        }
+        else if(selectionMode == MANUAL_CONTROL_MODE_SHUTTER_SPEED) {
+            CameraManualControl.SHUTTER_SPEED shutterSpeed = CameraManualControl.GetClosestShutterSpeed(mUserExposureTime);
+            CameraManualControl.SHUTTER_SPEED[] shutterSpeedValues = CameraManualControl.SHUTTER_SPEED.values();
+
+            int prevIdx = Math.max(0, shutterSpeed.ordinal() - 1);
+            int prevPrevIdx = Math.max(0, shutterSpeed.ordinal() - 2);
+
+            int nextIdx = Math.min(shutterSpeedValues.length - 1, shutterSpeed.ordinal() + 1);
+
+            ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(shutterSpeedValues[nextIdx]));
+            ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(shutterSpeedValues[prevPrevIdx]));
+
+            mUserExposureTime = shutterSpeedValues[prevIdx].getExposureTime();
+        }
+
+        mNativeCamera.setManualExposureValues(mUserIso, mUserExposureTime);
+    }
+
     private void toggleShutterSpeed() {
         // Hide if shown
-        if(findViewById(R.id.manualControl).getVisibility() == View.VISIBLE) {
-            int selectionMode = (int) findViewById(R.id.manualControl).getTag(R.id.manual_control_tag);
+        if(findViewById(R.id.manualControlExposure).getVisibility() == View.VISIBLE) {
+            int selectionMode = (int) findViewById(R.id.manualControlExposure).getTag(R.id.manual_control_tag);
 
             if(selectionMode == MANUAL_CONTROL_MODE_SHUTTER_SPEED) {
-                hideManualControls();
+                hideExposureControls();
                 return;
             }
         }
@@ -1331,18 +1426,17 @@ public class CameraActivity extends AppCompatActivity implements
             setAeLock(true);
         }
 
-        ((TextView) findViewById(R.id.manualControlMinText)).setText(mExposureValues.get(0).toString());
-        ((TextView) findViewById(R.id.manualControlMaxText)).setText(mExposureValues.get(mExposureValues.size() - 1).toString());
+        findViewById(R.id.manualControlExposure).setTag(R.id.manual_control_tag, MANUAL_CONTROL_MODE_SHUTTER_SPEED);
+        findViewById(R.id.manualControlExposure).setVisibility(View.VISIBLE);
 
-        ((SeekBar) findViewById(R.id.manualControlSeekBar)).setMax(mExposureValues.size() - 1);
-        ((SeekBar) findViewById(R.id.manualControlSeekBar)).setTickMark(AppCompatResources.getDrawable(this, R.drawable.seekbar_tick_mark));
+        CameraManualControl.SHUTTER_SPEED shutterSpeed = CameraManualControl.GetClosestShutterSpeed(mUserExposureTime);
+        CameraManualControl.SHUTTER_SPEED[] shutterSpeedValues = CameraManualControl.SHUTTER_SPEED.values();
 
-        int shutterIso = CameraManualControl.GetClosestShutterSpeed(mUserExposureTime).ordinal();
+        int prevIdx = Math.max(0, shutterSpeed.ordinal() - 1);
+        int nextIdx = Math.min(shutterSpeedValues.length - 1, shutterSpeed.ordinal() + 1);
 
-        ((SeekBar) findViewById(R.id.manualControlSeekBar)).setProgress(shutterIso);
-
-        findViewById(R.id.manualControl).setTag(R.id.manual_control_tag, MANUAL_CONTROL_MODE_SHUTTER_SPEED);
-        findViewById(R.id.manualControl).setVisibility(View.VISIBLE);
+        ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(shutterSpeedValues[prevIdx]));
+        ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(shutterSpeedValues[nextIdx]));
 
         ((ImageView) findViewById(R.id.shutterSpeedIcon))
                 .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_up));
@@ -1361,13 +1455,13 @@ public class CameraActivity extends AppCompatActivity implements
         ((TextView) findViewById(R.id.afLockBtnText)).setTextColor(getColor(color));
 
         if(!uiOnly && mNativeCamera != null) {
-            mNativeCamera.setManualFocus(lock ? mFocusDistance : 0);
+            mNativeCamera.setManualFocus(lock ? mFocusDistance : -1);
         }
 
         mAfLock = lock;
 
         if(!mAfLock) {
-            hideManualControls();
+            hideFocusControls();
         }
 
         mBinding.focusLockPointFrame.setVisibility(View.GONE);
@@ -1416,7 +1510,7 @@ public class CameraActivity extends AppCompatActivity implements
         mAeLock = lock;
 
         if(!mAeLock) {
-            hideManualControls();
+            hideExposureControls();
         }
     }
 
@@ -1485,6 +1579,24 @@ public class CameraActivity extends AppCompatActivity implements
             mNativeCamera.setVideoBin(mSettings.videoBin);
 
         updateVideoUi();
+    }
+
+    private void setExposureOverlay(boolean enable) {
+        mSettings.exposureOverlay = enable;
+
+        if(mOverlayTimer != null) {
+            mOverlayTimer.cancel();
+            mOverlayTimer = null;
+        }
+
+        if(mSettings.exposureOverlay) {
+            mOverlayTimer = new Timer();
+            mOverlayTimer.scheduleAtFixedRate(new OverlayTimer(), OVERLAY_UPDATE_FREQUENCY_MS, OVERLAY_UPDATE_FREQUENCY_MS);
+            mBinding.cameraOverlay.setVisibility(View.VISIBLE);
+        }
+        else {
+            mBinding.cameraOverlay.setVisibility(View.GONE);
+        }
     }
 
     private void setSaveRaw(boolean saveRaw) {
@@ -2091,6 +2203,9 @@ public class CameraActivity extends AppCompatActivity implements
 
         mBinding.cameraFrame.setAlpha(1.0f);
 
+        // Start overlay if configured
+        setExposureOverlay(mSettings.exposureOverlay);
+
         configureTransform(width, height, previewOutputSize);
     }
 
@@ -2468,9 +2583,17 @@ public class CameraActivity extends AppCompatActivity implements
             }
         }
 
-        float focusDistanceMeters = 1.0f / focusDistance;
+        String focusDistanceMetersText;
 
-        ((TextView) findViewById(R.id.focusBtn)).setText(String.format(Locale.US, "%.2f M", focusDistanceMeters));
+        if(focusDistance > 0) {
+            float focusDistanceMeters = 1.0f / focusDistance;
+            focusDistanceMetersText = String.format(Locale.US, "%.2f M", focusDistanceMeters);
+        }
+        else {
+            focusDistanceMetersText = "-";
+        }
+
+        ((TextView) findViewById(R.id.focusBtn)).setText(focusDistanceMetersText);
 
         mFocusDistance = focusDistance;
     }
@@ -2708,32 +2831,56 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     void enumerateAudioInputs() {
-//        AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-//        AudioDeviceInfo[] deviceInfoList = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS);
-//        RadioGroup audioInputsLayout = mBinding.cameraSettings.findViewById(R.id.audioInputGroup);
-//
-//        for(int i = 0; i < deviceInfoList.length; i++) {
-//            AudioDeviceInfo deviceInfo = deviceInfoList[i];
-//            String productName;
-//
-//            if(deviceInfo.getType() == AudioDeviceInfo.TYPE_BUILTIN_MIC)
-//                productName = getString(R.string.internal_mic);
-//            else
-//                continue;
-//
-//            RadioButton audioDeviceBtn = new RadioButton(this);
-//
-//            audioDeviceBtn.setText(productName);
-//            audioDeviceBtn.setTextColor(getColor(R.color.white));
-//            audioDeviceBtn.setTag(deviceInfo.getId());
-//
-//            if(i == 0)
-//                audioDeviceBtn.setChecked(true);
-//
-//            audioDeviceBtn.setLayoutParams(
-//                    new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-//
-//            audioInputsLayout.addView(audioDeviceBtn);
-//        }
+        AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        AudioDeviceInfo[] deviceInfoList = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS);
+        RadioGroup audioInputsLayout = mBinding.cameraSettings.findViewById(R.id.audioInputGroup);
+
+        audioInputsLayout.removeAllViews();
+
+        // Add default device
+        RadioButton internalMicBtn = new RadioButton(this);
+
+        internalMicBtn.setId(View.generateViewId());
+        internalMicBtn.setText(getString(R.string.internal_mic));
+        internalMicBtn.setTextColor(getColor(R.color.white));
+        internalMicBtn.setTag(-1);
+        internalMicBtn.setChecked(true);
+        internalMicBtn.setOnClickListener(v -> onAudioInputChanged(v));
+
+        internalMicBtn.setLayoutParams(
+                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        audioInputsLayout.addView(internalMicBtn);
+
+        for(int i = 0; i < deviceInfoList.length; i++) {
+            AudioDeviceInfo deviceInfo = deviceInfoList[i];
+
+            // Pick a few types that'll probably work
+            if( deviceInfo.getType() == AudioDeviceInfo.TYPE_USB_HEADSET    ||
+                deviceInfo.getType() == AudioDeviceInfo.TYPE_WIRED_HEADSET  ||
+                deviceInfo.getType() == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                deviceInfo.getType() == AudioDeviceInfo.TYPE_USB_ACCESSORY)
+            {
+                RadioButton audioDeviceBtn = new RadioButton(this);
+
+                audioDeviceBtn.setId(View.generateViewId());
+                audioDeviceBtn.setText(deviceInfo.getProductName());
+                audioDeviceBtn.setTextColor(getColor(R.color.white));
+                audioDeviceBtn.setTag(deviceInfo.getId());
+                audioDeviceBtn.setOnClickListener(v -> onAudioInputChanged(v));
+
+                audioDeviceBtn.setLayoutParams(
+                        new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+                audioInputsLayout.addView(audioDeviceBtn);
+            }
+        }
+    }
+
+    private void onAudioInputChanged(View v) {
+        Object deviceId = v.getTag();
+        if(deviceId != null && deviceId instanceof Integer) {
+            mAudioInputId = (Integer) deviceId;
+        }
     }
 }

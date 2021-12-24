@@ -442,7 +442,11 @@ namespace motioncam {
         uint8_t aeTrigger = ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
 
         // Adjust focus if manual focus is set
-        if(mFocusDistance > 0) {
+        if(mFocusDistance >= 0) {
+            // For sufficiently small enough values, assume infinity
+            if(mFocusDistance <= 1e-5f)
+                mFocusDistance = 0.0f;
+
             ACaptureRequest_setEntry_float(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_LENS_FOCUS_DISTANCE, 1, &mFocusDistance);
             afMode = ACAMERA_CONTROL_AF_MODE_OFF;
         }

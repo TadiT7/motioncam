@@ -58,6 +58,11 @@ namespace motioncam {
                                                                   const int sy,
                                                                   const RawCameraMetadata& cameraMetadata);
 
+        static Halide::Runtime::Buffer<uint8_t> generateStats(const RawImageBuffer& rawBuffer,
+                                                              const int sx,
+                                                              const int sy,
+                                                              const RawCameraMetadata& cameraMetadata);
+
         static cv::Mat calcHistogram(const RawCameraMetadata& cameraMetadata,
                                      const RawImageBuffer& reference,
                                      const bool cumulative,

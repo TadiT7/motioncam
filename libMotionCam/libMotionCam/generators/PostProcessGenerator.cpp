@@ -3811,6 +3811,106 @@ void MeasureNoiseGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::H
     }
 }
 
+///////////////
+
+class StatsGenerator : public Halide::Generator<StatsGenerator>, public PostProcessBase {
+public:
+    Input<Buffer<uint8_t>> input{"input", 1};
+
+    Input<int> stride{"stride"};
+    Input<int> pixelFormat{"pixelFormat"};
+    Input<int> sensorArrangement{"sensorArrangement"};
+    
+    Input<int> width{"width"};
+    Input<int> height{"height"};
+
+    Input<int> sx{"sx"};
+    Input<int> sy{"sy"};
+
+    Input<int>    whiteLevel{"whiteLevel"};
+    Input<int[4]> blackLevel{"blackLevel"};
+
+    Input<float> weight{"weight"};
+
+    Output<Buffer<uint8_t>> output{"output", 3};
+
+    void generate();
+    void schedule_for_cpu();
+};
+
+void StatsGenerator::generate() {
+    Func bayer{"bayer"};
+    Func linear{"linear"};
+    Func peak{"peak"};
+    Func clamped{"clamped"};
+    Func toLinear{"toLinear"};
+    Func bl{"bl"};
+
+    // Deinterleave
+    clamped = BoundaryConditions::repeat_edge(input);
+
+    deinterleave(bayer, clamped, stride, pixelFormat);
+
+    toLinear(v_c) = select(
+        v_c == 0, 1.0f / cast<float>(whiteLevel - blackLevel[0]),
+        v_c == 1, 1.0f / cast<float>(whiteLevel - blackLevel[1]),
+        v_c == 2, 1.0f / cast<float>(whiteLevel - blackLevel[2]),
+                  1.0f / cast<float>(whiteLevel - blackLevel[3])
+    );
+
+    bl(v_c) = mux(v_c, {
+        blackLevel[0],
+        blackLevel[1],
+        blackLevel[2],
+        blackLevel[3]
+    });
+
+    linear(v_x, v_y, v_c) = (bayer(v_x * sx, v_y * sy, v_c) - bl(v_c)) * toLinear(v_c);
+    peak(v_x, v_y) = max(linear(v_x, v_y, 0), linear(v_x, v_y, 1), linear(v_x, v_y, 2), linear(v_x, v_y, 3)) - 1.0f;
+    
+    // Return in portrait
+    Expr X = v_y;
+    Expr Y = height - v_x;
+
+    output(v_x, v_y, v_c) =
+        select( v_c == 0, cast<uint8_t>(0),
+                v_c == 1, cast<uint8_t>(0),
+                v_c == 2, cast<uint8_t>(0),
+                saturating_cast<uint8_t>(255.0f * exp(-weight * (peak(X, Y)*peak(X, Y)))));
+
+    output
+        .dim(0).set_stride(4)
+        .dim(2).set_stride(1);
+
+    input.set_estimates({ {0, 18000000} });
+    width.set_estimate(4000);
+    height.set_estimate(3000);
+    blackLevel.set_estimate(0, 64);
+    blackLevel.set_estimate(1, 64);
+    blackLevel.set_estimate(2, 64);
+    blackLevel.set_estimate(3, 64);
+    whiteLevel.set_estimate(1023);
+    sx.set_estimate(2);
+    sy.set_estimate(2);
+    stride.set_estimate(4000);
+    sensorArrangement.set_estimate(0);
+    pixelFormat.set_estimate(0);
+
+    output.set_estimates({{0, 250}, {0, 150}, {0, 3} } );
+
+    if(!get_auto_schedule()) {
+        schedule_for_cpu();
+    }
+ }
+
+void StatsGenerator::schedule_for_cpu() {
+    output.compute_root()
+        .vectorize(v_x, 16)
+        .parallel(v_y);
+}
+
+
+HALIDE_REGISTER_GENERATOR(StatsGenerator, stats_generator)
 HALIDE_REGISTER_GENERATOR(GenerateEdgesGenerator, generate_edges_generator)
 HALIDE_REGISTER_GENERATOR(MeasureImageGenerator, measure_image_generator)
 HALIDE_REGISTER_GENERATOR(MeasureNoiseGenerator, measure_noise_generator)

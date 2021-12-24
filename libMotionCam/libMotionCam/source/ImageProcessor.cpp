@@ -13,6 +13,7 @@
 #include "motioncam/RawBufferStreamer.h"
 
 // Halide
+#include "generate_stats.h"
 #include "generate_edges.h"
 #include "measure_image.h"
 #include "deinterleave_raw.h"
@@ -52,7 +53,6 @@
 #include <fcntl.h>
 #include <exiv2/exiv2.hpp>
 #include <opencv2/core/ocl.hpp>
-#include <opencv2/core/hal/intrin.hpp>
 
 using std::ios;
 using std::string;
@@ -592,6 +592,45 @@ namespace motioncam {
 
         cameraToPcs.copyTo(outCameraToPcs);
         pcsToSrgb.copyTo(outPcsToSrgb);
+    }
+
+    Halide::Runtime::Buffer<uint8_t> ImageProcessor::generateStats(const RawImageBuffer& rawBuffer,
+                                                                   const int sx,
+                                                                   const int sy,
+                                                                   const RawCameraMetadata& cameraMetadata)
+    {
+        //Measure measure("generateStats()");
+        
+        NativeBufferContext inputBufferContext(*rawBuffer.data, false);
+
+        // Set up rotation based on orientation of image
+        int width = rawBuffer.width / 2 / sx; // Divide by 2 because we are not demosaicing the RAW data
+        int height = rawBuffer.height / 2 / sy;
+        
+        Halide::Runtime::Buffer<uint8_t> outputBuffer =
+            Halide::Runtime::Buffer<uint8_t>::make_interleaved(height, width, 4);
+
+        generate_stats(
+            inputBufferContext.getHalideBuffer(),
+            rawBuffer.rowStride,
+            static_cast<int>(rawBuffer.pixelFormat),
+            static_cast<int>(cameraMetadata.sensorArrangment),
+            width,
+            height,
+            sx,
+            sy,
+            static_cast<uint16_t>(cameraMetadata.whiteLevel),
+            cameraMetadata.blackLevel[0],
+            cameraMetadata.blackLevel[1],
+            cameraMetadata.blackLevel[2],
+            cameraMetadata.blackLevel[3],
+            16.0f,
+            outputBuffer);
+
+        outputBuffer.device_sync();
+        outputBuffer.copy_to_host();
+        
+        return outputBuffer;
     }
 
     Halide::Runtime::Buffer<uint8_t> ImageProcessor::createFastPreview(const RawImageBuffer& rawBuffer,

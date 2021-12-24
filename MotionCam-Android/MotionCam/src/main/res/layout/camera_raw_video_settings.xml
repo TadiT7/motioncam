@@ -162,18 +162,18 @@
             android:text="100%"/>
     </LinearLayout>
 
-<!--    <TextView-->
-<!--        android:layout_width="wrap_content"-->
-<!--        android:layout_height="wrap_content"-->
-<!--        android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"-->
-<!--        android:layout_marginTop="10dp"-->
-<!--        android:text="Audio Input"/>-->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold"
+        android:layout_marginTop="10dp"
+        android:text="Audio Input"/>
 
-<!--    <RadioGroup-->
-<!--        android:id="@+id/audioInputGroup"-->
-<!--        android:layout_width="match_parent"-->
-<!--        android:layout_height="wrap_content">-->
+    <RadioGroup
+        android:id="@+id/audioInputGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
 
-<!--    </RadioGroup>-->
+    </RadioGroup>
 
 </LinearLayout>

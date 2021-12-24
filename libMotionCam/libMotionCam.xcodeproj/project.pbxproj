@@ -56,6 +56,8 @@
 		4521E0452732E69900DEBD25 /* preview_reverse_landscape8.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFFF2732E69700DEBD25 /* preview_reverse_landscape8.h */; };
 		4521E0462732E69900DEBD25 /* preview_reverse_portrait2.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521E0002732E69700DEBD25 /* preview_reverse_portrait2.h */; };
 		4521E0482732E69900DEBD25 /* preview_reverse_landscape4.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521E0022732E69700DEBD25 /* preview_reverse_landscape4.a */; };
+		455C31342775E70D006F41A7 /* generate_stats.h in Headers */ = {isa = PBXBuildFile; fileRef = 455C31322775E70D006F41A7 /* generate_stats.h */; };
+		455C31352775E70D006F41A7 /* generate_stats.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 455C31332775E70D006F41A7 /* generate_stats.a */; };
 		45684CB52720AC24004E7A12 /* CameraPreview.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45A340A1260B887700405A85 /* CameraPreview.cpp */; };
 		45684CB62720AC24004E7A12 /* CameraProfile.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45FA2E6D1FF8118A00BE34C3 /* CameraProfile.cpp */; };
 		45684CB72720AC24004E7A12 /* Color.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45FA2E771FF8333000BE34C3 /* Color.cpp */; };
@@ -272,6 +274,8 @@
 		45565E2E246592590021A442 /* RawContainer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RawContainer.cpp; sourceTree = "<group>"; };
 		45565E2F246592590021A442 /* RawContainer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RawContainer.h; sourceTree = "<group>"; };
 		45565E312465F94D0021A442 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
+		455C31322775E70D006F41A7 /* generate_stats.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = generate_stats.h; sourceTree = "<group>"; };
+		455C31332775E70D006F41A7 /* generate_stats.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = generate_stats.a; sourceTree = "<group>"; };
 		455EE73D20556B550090DFAC /* ImageOps.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ImageOps.cpp; sourceTree = "<group>"; };
 		45684C2F271ED63F004E7A12 /* RawBufferStreamer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RawBufferStreamer.cpp; sourceTree = "<group>"; };
 		45684C32271ED699004E7A12 /* RawBufferStreamer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RawBufferStreamer.h; sourceTree = "<group>"; };
@@ -584,6 +588,7 @@
 				45DFA098276FE7A80068AFA6 /* camera_video_preview3_raw12.a in Frameworks */,
 				45DFA095276FE7A80068AFA6 /* camera_video_preview3_raw10.a in Frameworks */,
 				45DFA097276FE7A80068AFA6 /* camera_video_preview3_raw16.a in Frameworks */,
+				455C31352775E70D006F41A7 /* generate_stats.a in Frameworks */,
 				4521E0402732E69900DEBD25 /* forward_transform.a in Frameworks */,
 				4521E0082732E69800DEBD25 /* generate_edges.a in Frameworks */,
 				4521E03E2732E69900DEBD25 /* preview_reverse_portrait4.a in Frameworks */,
@@ -920,6 +925,8 @@
 				4521DFFE2732E69600DEBD25 /* fuse_image.h */,
 				4521DFC22732E68800DEBD25 /* generate_edges.a */,
 				4521DFD22732E68F00DEBD25 /* generate_edges.h */,
+				455C31332775E70D006F41A7 /* generate_stats.a */,
+				455C31322775E70D006F41A7 /* generate_stats.h */,
 				4521DFDF2732E69100DEBD25 /* halide_runtime_host.a */,
 				4521DFC12732E68800DEBD25 /* halide_runtime_opencl.a */,
 				4576A64D273EB24800657DFC /* hdr_mask.a */,
@@ -1145,6 +1152,7 @@
 				45C6A3E3276B438200042058 /* tinywav.h in Headers */,
 				4521E0452732E69900DEBD25 /* preview_reverse_landscape8.h in Headers */,
 				4521E00B2732E69800DEBD25 /* preview_reverse_portrait4.h in Headers */,
+				455C31342775E70D006F41A7 /* generate_stats.h in Headers */,
 				4521E0272732E69900DEBD25 /* postprocess.h in Headers */,
 				45DFA08C276FE7A80068AFA6 /* camera_preview4_raw10.h in Headers */,
 				45DFA07A276FE7A80068AFA6 /* camera_video_preview4_raw10.h in Headers */,
