@@ -2182,7 +2182,7 @@ public class CameraActivity extends AppCompatActivity implements
         if(orientation != null)
             onOrientationChanged(orientation);
 
-        if(mSettings.useDualExposure) {
+        if(mSettings.useDualExposure && mCaptureMode != CaptureMode.RAW_VIDEO) {
             mBinding.rawCameraPreview.setVisibility(View.VISIBLE);
             mBinding.shadowsLayout.setVisibility(View.VISIBLE);
 
