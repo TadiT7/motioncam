@@ -411,14 +411,14 @@ namespace motioncam {
 
         std::map<int32_t, std::vector<OutputConfiguration>>::iterator rawIt;
 
-        // Try RAW16 -> RAW12 -> RAW10
+        // Try RAW16 -> RAW10 -> RAW12
         if(preferRaw16) {
             rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW16);
 
             if (rawIt == outputConfigs.end()) {
-                rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW12);
+                rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW10);
                 if (rawIt == outputConfigs.end()) {
-                    rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW10);
+                    rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW12);
                 }
             }
         }
@@ -433,14 +433,14 @@ namespace motioncam {
                 }
             }
         }
-        // Try RAW12 -> RAW10 -> RAW16
+        // Try RAW10 -> RAW16 -> RAW12
         else {
-            rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW12);
+            rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW10);
 
             if (rawIt == outputConfigs.end()) {
-                rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW10);
+                rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW16);
                 if (rawIt == outputConfigs.end()) {
-                    rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW16);
+                    rawIt = outputConfigs.find(AIMAGE_FORMAT_RAW12);
                 }
             }
         }
