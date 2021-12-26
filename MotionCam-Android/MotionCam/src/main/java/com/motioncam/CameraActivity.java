@@ -120,7 +120,7 @@ public class CameraActivity extends AppCompatActivity implements
     private static final int MANUAL_CONTROL_MODE_SHUTTER_SPEED = 1;
     private static final int MANUAL_CONTROL_MODE_FOCUS = 2;
 
-    private static final int OVERLAY_UPDATE_FREQUENCY_MS = 250;
+    private static final int OVERLAY_UPDATE_FREQUENCY_MS = 100;
 
     public static final String WORKER_IMAGE_PROCESSOR = "ImageProcessor";
     public static final String WORKER_VIDEO_PROCESSOR = "VideoProcessor";

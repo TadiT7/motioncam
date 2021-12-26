@@ -72,7 +72,7 @@ namespace motioncam {
         mAwbLock(false),
         mAeLock(false),
         mOis(true),
-        mFocusDistance(0),
+        mFocusDistance(-1),
         mFocusForVideo(false)
     {
     }
@@ -109,7 +109,7 @@ namespace motioncam {
     void CameraStateManager::requestMode(CameraMode mode) {
         mCameraMode = mode;
         mAeLock = false;
-        mFocusDistance = 0;
+        mFocusDistance = -1;
 
         setAutoFocus();
     }
@@ -117,7 +117,7 @@ namespace motioncam {
     void CameraStateManager::requestPause() {
         LOGD("requestPause()");
 
-        mFocusDistance = 0;
+        mFocusDistance = -1;
         mAeLock = false;
 
         setState(State::PAUSED);
@@ -136,7 +136,7 @@ namespace motioncam {
     void CameraStateManager::requestUserFocus(float x, float y) {
         mRequestedFocusX = x;
         mRequestedFocusY = y;
-        mFocusDistance = 0;
+        mFocusDistance = -1;
 
         LOGD("requestUserFocus(%.2f, %.2f)", x, y);
 
@@ -162,7 +162,7 @@ namespace motioncam {
     void CameraStateManager::requestAutoFocus() {
         mRequestedFocusX = 0.5f;
         mRequestedFocusY = 0.5f;
-        mFocusDistance = 0;
+        mFocusDistance = -1;
 
         LOGD("requestAutoFocus()");
 
