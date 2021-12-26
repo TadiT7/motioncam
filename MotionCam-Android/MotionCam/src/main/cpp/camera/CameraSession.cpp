@@ -210,6 +210,7 @@ namespace motioncam {
 
     void CameraSession::openCamera(
         const OutputConfiguration& rawOutputConfig,
+        const OutputConfiguration& previewOutputConfig,
         std::shared_ptr<ACameraManager> cameraManager,
         std::shared_ptr<ANativeWindow> previewOutputWindow,
         bool setupForRawPreview)
@@ -223,6 +224,8 @@ namespace motioncam {
         mSessionContext = std::make_shared<CameraCaptureSessionContext>();
 
         mSessionContext->outputConfig = rawOutputConfig;
+        mSessionContext->previewOutputConfig = previewOutputConfig;
+
         mSessionContext->cameraManager = std::move(cameraManager);
         mSessionContext->nativeWindow = std::move(previewOutputWindow);
 
@@ -509,8 +512,8 @@ namespace motioncam {
 
         media_status_t result =
                 AImageReader_new(
-                        640,
-                        480,
+                        mSessionContext->previewOutputConfig.outputSize.width(),
+                        mSessionContext->previewOutputConfig.outputSize.height(),
                         AIMAGE_FORMAT_YUV_420_888,
                         2,
                         &imageReader);
@@ -576,7 +579,7 @@ namespace motioncam {
         mSessionContext->captureSessionContainer = std::shared_ptr<ACaptureSessionOutputContainer>(container, ACaptureSessionOutputContainer_free);
 
         // Create capture request
-        mSessionContext->repeatCaptureRequest = std::make_shared<CaptureRequest>(createCaptureRequest(TEMPLATE_ZERO_SHUTTER_LAG), true);
+        mSessionContext->repeatCaptureRequest = std::make_shared<CaptureRequest>(createCaptureRequest(TEMPLATE_PREVIEW), true);
 
         // Create HDR requests
         mSessionContext->hdrCaptureRequests[0] = std::make_shared<CaptureRequest>(createCaptureRequest(TEMPLATE_STILL_CAPTURE), false);
@@ -584,7 +587,7 @@ namespace motioncam {
 
         // Set up a JPEG output that we don't use. For some reason without it the camera auto
         // focus does not work properly
-        //setupJpegCaptureOutput(*mSessionContext);
+        setupJpegCaptureOutput(*mSessionContext);
 
         // Set up output for preview
         setupPreviewCaptureOutput(*mSessionContext, setupForRawPreview);

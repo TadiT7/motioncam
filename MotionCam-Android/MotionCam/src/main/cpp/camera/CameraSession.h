@@ -41,6 +41,7 @@ namespace motioncam {
 
         void openCamera(
             const OutputConfiguration& rawOutputConfig,
+            const OutputConfiguration& previewOutputConfig,
             std::shared_ptr<ACameraManager> cameraManager,
             std::shared_ptr<ANativeWindow> previewOutputWindow,
             bool setupForRawPreview);

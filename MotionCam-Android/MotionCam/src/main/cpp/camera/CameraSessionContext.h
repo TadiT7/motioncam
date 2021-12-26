@@ -38,6 +38,7 @@ namespace motioncam {
     struct CameraCaptureSessionContext {
         // Setup
         OutputConfiguration outputConfig;
+        OutputConfiguration previewOutputConfig;
         std::shared_ptr<ACameraManager> cameraManager;
         std::shared_ptr<ANativeWindow> nativeWindow;
 

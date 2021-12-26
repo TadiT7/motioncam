@@ -465,11 +465,11 @@ namespace motioncam {
     {
         auto outputConfigs = cameraDesc.outputConfigs;
 
-        OutputConfiguration closestConfig = { AIMAGE_FORMAT_PRIVATE, DisplayDimension() };
+        OutputConfiguration closestConfig = { AIMAGE_FORMAT_YUV_420_888, DisplayDimension() };
         bool foundConfig = false;
 
         // Find the closest preview configuration to our display resolution
-        auto yuvIt = outputConfigs.find(AIMAGE_FORMAT_PRIVATE);
+        auto yuvIt = outputConfigs.find(AIMAGE_FORMAT_YUV_420_888);
 
         if (yuvIt != outputConfigs.end()) {
             auto configurations = (*yuvIt).second;
@@ -528,7 +528,7 @@ namespace motioncam {
             bool preferRaw12,
             bool preferRaw16)
     {
-        OutputConfiguration outputConfig;
+        OutputConfiguration outputConfig, previewOutputConfig;
 
         if(mCameraSession != nullptr) {
             throw CameraSessionException("Camera session is already open");
@@ -542,6 +542,16 @@ namespace motioncam {
             throw CameraSessionException("Failed to get output configuration");
         }
 
+        LOGD("RAW output %dx%d format: %d",
+             outputConfig.outputSize.width(), outputConfig.outputSize.height(), outputConfig.format);
+
+        if(!getPreviewConfiguration(*cameraDesc, outputConfig.outputSize, outputConfig.outputSize, previewOutputConfig)) {
+            throw CameraSessionException("Failed to get preview configuration");
+        }
+
+        LOGD("Preview output %dx%d format: %d",
+             previewOutputConfig.outputSize.width(), previewOutputConfig.outputSize.height(), outputConfig.format);
+
         // Create image consumer if we have not done so
         if(!mImageConsumer || cameraId != mSelectedCameraId)
             mImageConsumer = std::make_shared<RawImageConsumer>(cameraDesc, listener, mMaxMemoryUsageBytes);
@@ -552,7 +562,8 @@ namespace motioncam {
         LOGI("Opening camera %s", cameraId.c_str());
 
         mCameraSession = std::make_shared<CameraSession>(listener, cameraDesc, mImageConsumer);
-        mCameraSession->openCamera(outputConfig, mCameraManager, std::move(previewOutputWindow), setupForRawPreview);
+        mCameraSession->openCamera(
+                outputConfig, previewOutputConfig, mCameraManager, std::move(previewOutputWindow), setupForRawPreview);
     }
 
     void CaptureSessionManager::stopCamera() {
