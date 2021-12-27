@@ -27,7 +27,7 @@ namespace motioncam {
     void ProcessImage(RawContainer& rawContainer, const std::string& outputFilePath, const ImageProcessorProgress& progressListener);
     void ProcessImage(const std::string& containerPath, const std::string& outputFilePath, const ImageProcessorProgress& progressListener);
 
-    void GetMetadata(const std::string filename, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
+    void GetMetadata(const std::string& filename, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
     void GetMetadata(const std::vector<int>& fds, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
     void GetMetadata(
         const std::vector<std::unique_ptr<RawContainer>>& containers,
