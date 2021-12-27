@@ -79,6 +79,26 @@ namespace motioncam {
         });
     }
 
+    void ConvertVideoToDNG(const std::vector<std::string>& inputPaths, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
+        std::vector<std::unique_ptr<RawContainer>> c;
+        
+        for(auto& inputPath : inputPaths) {
+            c.push_back( std::unique_ptr<RawContainer>( new RawContainer(inputPath) ) );
+        }
+
+        ConvertVideoToDNG(c, progress, numThreads, mergeFrames);
+    }
+
+    void ConvertVideoToDNG(std::vector<int>& fds, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
+        std::vector<std::unique_ptr<RawContainer>> c;
+        
+        for(auto fd : fds) {
+            c.push_back( std::unique_ptr<RawContainer>( new RawContainer(fd) ) );
+        }
+        
+        ConvertVideoToDNG(c, progress, numThreads, mergeFrames);
+    }
+
     void ConvertVideoToDNG(std::vector<std::unique_ptr<RawContainer>>& containers,
                            const DngProcessorProgress& progress,
                            const int numThreads,
@@ -338,7 +358,7 @@ namespace motioncam {
     }
 
     void GetMetadata(
-        const std::vector<std::unique_ptr<RawContainer>> containers,
+        const std::vector<std::unique_ptr<RawContainer>>& containers,
         float& outDurationMs,
         float& outFrameRate,
         int& outNumFrames,
@@ -374,25 +394,5 @@ namespace motioncam {
         }
         
         outDurationMs = endTime - startTime;
-    }
-
-    void ConvertVideoToDNG(const std::vector<std::string>& inputPaths, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
-        std::vector<std::unique_ptr<RawContainer>> c;
-        
-        for(auto& inputPath : inputPaths) {
-            c.push_back( std::unique_ptr<RawContainer>( new RawContainer(inputPath) ) );
-        }
-
-        ConvertVideoToDNG(c, progress, numThreads, mergeFrames);
-    }
-
-    void ConvertVideoToDNG(std::vector<int>& fds, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
-        std::vector<std::unique_ptr<RawContainer>> c;
-        
-        for(auto fd : fds) {
-            c.push_back( std::unique_ptr<RawContainer>( new RawContainer(fd) ) );
-        }
-        
-        ConvertVideoToDNG(c, progress, numThreads, mergeFrames);
     }
 }

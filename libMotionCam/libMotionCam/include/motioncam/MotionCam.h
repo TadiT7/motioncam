@@ -30,7 +30,7 @@ namespace motioncam {
     void GetMetadata(const std::string filename, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
     void GetMetadata(const std::vector<int>& fds, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
     void GetMetadata(
-        const std::vector<std::unique_ptr<RawContainer>> containers,
+        const std::vector<std::unique_ptr<RawContainer>>& containers,
         float& outDurationMs,
         float& outFrameRate,
         int& outNumFrames,
