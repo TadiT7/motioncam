@@ -116,6 +116,12 @@ namespace motioncam {
                                      cv::Mat& outCameraToPcs,
                                      cv::Mat& outPcsToSrgb);
 
+        static std::vector<Halide::Runtime::Buffer<uint16_t>> denoise(
+            std::shared_ptr<RawImageBuffer> referenceRawBuffer,
+            std::vector<std::shared_ptr<RawImageBuffer>> buffers,
+            const std::vector<float>& denoiseWeights,
+            const RawCameraMetadata& cameraMetadata);
+
         static Halide::Runtime::Buffer<float> denoise(
             std::shared_ptr<RawImageBuffer> referenceRawBuffer,
             std::vector<std::shared_ptr<RawImageBuffer>> buffers,

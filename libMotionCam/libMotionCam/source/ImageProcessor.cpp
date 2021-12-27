@@ -1473,6 +1473,138 @@ namespace motioncam {
         return m[0];
     }
 
+    std::vector<Halide::Runtime::Buffer<uint16_t>> ImageProcessor::denoise(
+        std::shared_ptr<RawImageBuffer> referenceRawBuffer,
+        std::vector<std::shared_ptr<RawImageBuffer>> buffers,
+        const std::vector<float>& denoiseWeights,
+        const RawCameraMetadata& cameraMetadata)
+    {
+        const int patchSize = 16;
+        std::vector<float> noise, signal;
+
+        // Measure noise in reference
+        measureNoise(*referenceRawBuffer, noise, signal, patchSize);
+
+        auto reference = loadRawImage(*referenceRawBuffer, cameraMetadata, true);
+                
+        cv::Mat referenceFlowImage(reference->previewBuffer.height(), reference->previewBuffer.width(), CV_8U, reference->previewBuffer.data());
+        
+        Halide::Runtime::Buffer<float> fuseOutput(reference->rawBuffer.width(), reference->rawBuffer.height(), 4);
+        Halide::Runtime::Buffer<float> thresholdBuffer(&noise[0], 4);
+        
+        fuseOutput.fill(0);
+        
+        float w = 1.0f / (2.0f*sqrt(2.0f));
+
+        for(int i = 0; i < buffers.size(); i++) {
+            auto current = loadRawImage(*buffers[i], cameraMetadata, true);
+            
+            cv::Mat flow;
+            cv::Mat currentFlowImage(current->previewBuffer.height(),
+                                     current->previewBuffer.width(),
+                                     CV_8U,
+                                     current->previewBuffer.data());
+            
+            cv::Ptr<cv::DISOpticalFlow> opticalFlow =
+                cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_ULTRAFAST);
+                                
+            opticalFlow->setPatchSize(patchSize);
+            opticalFlow->setPatchStride(patchSize/2);
+            opticalFlow->setGradientDescentIterations(16);
+            opticalFlow->setUseMeanNormalization(true);
+            opticalFlow->setUseSpatialPropagation(true);
+            
+            opticalFlow->calc(referenceFlowImage, currentFlowImage, flow);
+            
+            Halide::Runtime::Buffer<float> flowBuffer =
+                Halide::Runtime::Buffer<float>::make_interleaved((float*) flow.data, flow.cols, flow.rows, 2);
+            
+            auto flowMean = cv::mean(flow);
+            
+            fuse_denoise_7x7(
+                reference->rawBuffer,
+                current->rawBuffer,
+                fuseOutput,
+                flowBuffer,
+                thresholdBuffer,
+                reference->rawBuffer.width(),
+                reference->rawBuffer.height(),
+                w,
+                4.0f,
+                flowMean[0],
+                flowMean[1],
+                fuseOutput);
+        }
+        
+        const int width = reference->rawBuffer.width();
+        const int height = reference->rawBuffer.height();
+
+        Halide::Runtime::Buffer<uint16_t> denoiseInput(width, height, 4);
+        
+        if(buffers.empty())
+            denoiseInput.for_each_element([&](int x, int y, int c) {
+                float p = reference->rawBuffer(x, y, c) - cameraMetadata.blackLevel[c];
+                float s = EXPANDED_RANGE / (float) (cameraMetadata.whiteLevel-cameraMetadata.blackLevel[c]);
+                
+                denoiseInput(x, y, c) = static_cast<uint16_t>( std::max(0.0f, std::min(p * s + 0.5f, (float) EXPANDED_RANGE) )) ;
+            });
+        else {
+            const float n = static_cast<float>(buffers.size());
+
+            denoiseInput.for_each_element([&](int x, int y, int c) {
+                float p = fuseOutput(x, y, c) / n - cameraMetadata.blackLevel[c];
+                float s = EXPANDED_RANGE / (float) (cameraMetadata.whiteLevel-cameraMetadata.blackLevel[c]);
+                
+                denoiseInput(x, y, c) = static_cast<uint16_t>( std::max(0.0f, std::min(p * s + 0.5f, (float) EXPANDED_RANGE) ) ) ;
+            });
+        }
+        
+        // Don't need this anymore
+        reference->rawBuffer = Halide::Runtime::Buffer<uint16_t>();
+
+        //
+        // Spatial denoising
+        //
+
+        std::vector<Halide::Runtime::Buffer<uint16_t>> denoiseOutput;
+        std::vector<float> weights = denoiseWeights;
+        
+        auto wavelet = createWaveletBuffers(denoiseInput.width(), denoiseInput.height());
+        auto weightsBuffer = Halide::Runtime::Buffer<float>(&weights[0], 4);
+
+        for(int c = 0; c < 4; c++) {
+            forward_transform(denoiseInput,
+                              denoiseInput.width(),
+                              denoiseInput.height(),
+                              c,
+                              wavelet[0],
+                              wavelet[1],
+                              wavelet[2],
+                              wavelet[3]);
+
+            int offset = wavelet[0].stride(2);
+
+            cv::Mat hh(wavelet[0].height(), wavelet[0].width(), CV_32F, wavelet[0].data() + offset*7);
+            
+            float noiseSigma = estimateNoise(hh);
+            
+            Halide::Runtime::Buffer<uint16_t> outputBuffer(width, height);
+
+            inverse_transform(wavelet[0],
+                              wavelet[1],
+                              wavelet[2],
+                              wavelet[3],
+                              noiseSigma,
+                              false,
+                              weightsBuffer,
+                              outputBuffer);
+
+            denoiseOutput.push_back(outputBuffer);
+        }
+        
+        return denoiseOutput;
+    }
+
     Halide::Runtime::Buffer<float> ImageProcessor::denoise(
         std::shared_ptr<RawImageBuffer> referenceRawBuffer,
         std::vector<std::shared_ptr<RawImageBuffer>> buffers,
