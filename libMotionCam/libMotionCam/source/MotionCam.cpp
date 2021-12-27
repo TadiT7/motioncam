@@ -63,7 +63,7 @@ namespace motioncam {
         }
     }
 
-    void GetOrderedFrames(std::vector<std::unique_ptr<RawContainer>>& containers, std::vector<ContainerFrame>& outOrderedFrames) {
+    void GetOrderedFrames(const std::vector<std::unique_ptr<RawContainer>>& containers, std::vector<ContainerFrame>& outOrderedFrames) {
         // Get a list of all frames, ordered by timestamp
         for(size_t i = 0; i < containers.size(); i++) {
             auto& container = containers[i];
@@ -298,11 +298,28 @@ namespace motioncam {
         ImageProcessor::process(rawContainer, outputFilePath, progressListener);
     }
 
-    void GetMetadata(const std::vector<int>& fds, float& outFrameRate, int& outNumFrames, int& outNumSegments) {
+    void GetMetadata(const std::string& filename, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments) {
         std::vector<std::unique_ptr<RawContainer>> containers;
-        std::vector<ContainerFrame> orderedFrames;
+        
+        try {
+            containers.push_back( std::unique_ptr<RawContainer>( new RawContainer(filename) ) );
+        }
+        catch(std::exception& e) {
+            outFrameRate = - 1;
+            outNumFrames = -1;
+            outDurationMs = -1;
+            outNumSegments = 0;
 
+            return;
+        }
+        
+        GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments);
+    }
+
+    void GetMetadata(const std::vector<int>& fds, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments) {
         // Try to get metadata from all segments
+        std::vector<std::unique_ptr<RawContainer>> containers;
+        
         for(const int fd : fds) {
             try {
                 containers.push_back( std::unique_ptr<RawContainer>( new RawContainer(fd) ) );
@@ -310,17 +327,31 @@ namespace motioncam {
             catch(std::exception& e) {
                 outFrameRate = - 1;
                 outNumFrames = -1;
+                outDurationMs = -1;
                 outNumSegments = 0;
 
                 return;
             }
         }
         
+        GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments);
+    }
+
+    void GetMetadata(
+        const std::vector<std::unique_ptr<RawContainer>> containers,
+        float& outDurationMs,
+        float& outFrameRate,
+        int& outNumFrames,
+        int& outNumSegments)
+    {
+        std::vector<ContainerFrame> orderedFrames;
+        
         GetOrderedFrames(containers, orderedFrames);
                 
         if(orderedFrames.empty()) {
             outNumFrames = 0;
             outFrameRate = 0;
+            outDurationMs = -1;
             outNumSegments = 0;
             
             return;
@@ -341,6 +372,8 @@ namespace motioncam {
         for(auto& container : containers) {
             outNumSegments = std::max(outNumSegments, container->getNumSegments());
         }
+        
+        outDurationMs = endTime - startTime;
     }
 
     void ConvertVideoToDNG(const std::vector<std::string>& inputPaths, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
