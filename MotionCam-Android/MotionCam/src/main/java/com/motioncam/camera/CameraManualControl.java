@@ -66,6 +66,7 @@ public class CameraManualControl {
         EXPOSURE_1_80(12500000, "1/80"),
         EXPOSURE_1_60(16666667, "1/60"),
         EXPOSURE_1_50(20000000, "1/50"),
+        EXPOSURE_1_48(21000000, "1/48"),
         EXPOSURE_1_40(25000000, "1/40"),
         EXPOSURE_1_30(33333333, "1/30"),
         EXPOSURE_1_25(40000000, "1/25"),
