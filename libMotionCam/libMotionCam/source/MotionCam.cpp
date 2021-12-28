@@ -297,9 +297,6 @@ namespace motioncam {
         for(int i = 0; i < threads.size(); i++)
             threads[i]->join();
         
-        for(int i = 0; i < fds.size(); i++)
-            progress.onCompleted(i);
-
         // Clear the queue if there are items in there
         std::shared_ptr<Job> job;
         

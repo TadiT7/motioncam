@@ -45,9 +45,6 @@ public:
         return open(outputDngPath.c_str(), O_WRONLY|O_CREAT|O_TRUNC, S_IWUSR|S_IWGRP|S_IRUSR|S_IRGRP);
     }
     
-    void onCompleted(int fd) {
-    }
-    
     bool onProgressUpdate(int progress) {
         std::cout << progress << "%" << std::endl;
         return true;
