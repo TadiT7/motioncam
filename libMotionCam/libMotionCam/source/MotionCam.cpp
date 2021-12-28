@@ -79,7 +79,7 @@ namespace motioncam {
         });
     }
 
-    void ConvertVideoToDNG(const std::vector<std::string>& inputPaths, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
+    void ConvertVideoToDNG(const std::vector<std::string>& inputPaths, DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
         std::vector<std::unique_ptr<RawContainer>> c;
         
         for(auto& inputPath : inputPaths) {
@@ -89,7 +89,7 @@ namespace motioncam {
         ConvertVideoToDNG(c, progress, numThreads, mergeFrames);
     }
 
-    void ConvertVideoToDNG(std::vector<int>& fds, const DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
+    void ConvertVideoToDNG(std::vector<int>& fds, DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
         std::vector<std::unique_ptr<RawContainer>> c;
         
         for(auto fd : fds) {
@@ -100,7 +100,7 @@ namespace motioncam {
     }
 
     void ConvertVideoToDNG(std::vector<std::unique_ptr<RawContainer>>& containers,
-                           const DngProcessorProgress& progress,
+                           DngProcessorProgress& progress,
                            const int numThreads,
                            const int mergeFrames)
     {
