@@ -333,6 +333,25 @@ namespace motioncam {
         GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments);
     }
 
+    void GetMetadata(const std::vector<std::string>& paths, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments) {
+        std::vector<std::unique_ptr<RawContainer>> containers;
+
+        try {
+            for(size_t i = 0; i < paths.size(); i++)
+                containers.push_back( std::unique_ptr<RawContainer>( new RawContainer(paths[i]) ) );
+        }
+        catch(std::exception& e) {
+            outFrameRate = - 1;
+            outNumFrames = -1;
+            outDurationMs = -1;
+            outNumSegments = 0;
+
+            return;
+        }
+
+        GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments);
+    }
+
     void GetMetadata(const std::vector<int>& fds, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments) {
         // Try to get metadata from all segments
         std::vector<std::unique_ptr<RawContainer>> containers;
@@ -390,6 +409,6 @@ namespace motioncam {
             outNumSegments = std::max(outNumSegments, container->getNumSegments());
         }
         
-        outDurationMs = endTime - startTime;
+        outDurationMs = (endTime - startTime) * 1000.0f;
     }
 }
