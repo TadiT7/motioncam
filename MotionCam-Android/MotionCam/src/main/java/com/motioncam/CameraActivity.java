@@ -26,6 +26,7 @@ import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
 import android.view.Display;
+import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.Surface;
@@ -36,6 +37,7 @@ import android.view.WindowManager;
 import android.view.animation.BounceInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.SeekBar;
@@ -89,6 +91,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -541,13 +544,6 @@ public class CameraActivity extends AppCompatActivity implements
 
         ((SwitchCompat) mBinding.cameraSettings.findViewById(R.id.pixelBinSwitch))
                 .setOnCheckedChangeListener((btn, isChecked) -> toggleVideoBin(isChecked));
-
-        // Set up frame rate buttons
-        ViewGroup fpsGroup = mBinding.cameraSettings.findViewById(R.id.fpsGroup);
-        for(int i = 0; i < fpsGroup.getChildCount(); i++) {
-            View fpsToggle = fpsGroup.getChildAt(i);
-            fpsToggle.setOnClickListener(v -> toggleFrameRate(v));
-        }
 
         ((SeekBar) mBinding.cameraSettings.findViewById(R.id.widthCropSeekBar))
                 .setOnSeekBarChangeListener(mSeekBarChangeListener);
@@ -2057,8 +2053,32 @@ public class CameraActivity extends AppCompatActivity implements
 
         mBinding.exposureSeekBar.setMax(numEvSteps);
         mBinding.exposureSeekBar.setProgress(numEvSteps / 2);
-
         mBinding.shadowsSeekBar.setProgress(50);
+
+        // Set up available FPS ranges
+        ViewGroup fpsGroup = mBinding.cameraSettings.findViewById(R.id.fpsGroup);
+        fpsGroup.removeAllViews();
+
+        List<Integer> fpsRange = Arrays.stream( mSelectedCamera.fpsRange )
+                .boxed()
+                .sorted(Collections.reverseOrder())
+                .collect(Collectors.toList());
+
+        for(Integer fps : fpsRange) {
+            String fpsValue = String.valueOf(fps);
+            TextView fpsToggle = new TextView(this);
+
+            fpsToggle.setTextAppearance(R.style.MotionCam_TextAppearance_Small);
+            fpsToggle.setGravity(Gravity.CENTER);
+            fpsToggle.setText(fpsValue);
+            fpsToggle.setTag(fpsValue);
+            fpsToggle.setTextColor(getColor(R.color.white));
+            fpsToggle.setOnClickListener(v -> toggleFrameRate(v));
+
+            fpsGroup.addView(
+                    fpsToggle,
+                    new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT, 1));
+        }
 
         // Create texture view for camera preview
         mTextureView = new TextureView(this);

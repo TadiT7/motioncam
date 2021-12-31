@@ -177,6 +177,17 @@ namespace motioncam {
             cameraDescription.exposureCompensationRange[1] = entry.data.i32[1];
         }
 
+        // ACAMERA_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES
+        if(ACameraMetadata_getConstEntry(cameraChars.get(), ACAMERA_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES, &entry) == ACAMERA_OK) {
+            // We are only interested in ranges that are equal, for video recording
+            for(int i = 0; i < entry.count; i+=2) {
+                LOGD("Available FPS range [%d - %d]", entry.data.i32[i], entry.data.i32[i + 1]);
+
+                if(entry.data.i32[i] == entry.data.i32[i + 1])
+                    cameraDescription.availableFpsRange.push_back(entry.data.i32[i]);
+            }
+        }
+
         // ACAMERA_CONTROL_AE_COMPENSATION_STEP
         if(ACameraMetadata_getConstEntry(cameraChars.get(), ACAMERA_CONTROL_AE_COMPENSATION_STEP, &entry) == ACAMERA_OK) {
             cameraDescription.exposureCompensationStepFraction[0] = entry.data.r[0].numerator;

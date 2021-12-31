@@ -102,7 +102,7 @@
     <string name="size">SIZE</string>
     <string name="dropped_frames">DROPPED FRAMES</string>
     <string name="raw_video_storage_folder">RAW Video Storage Folder</string>
-    <string name="raw_video_storage_folder_description">Where to store RAW videos during recording.\nNOTE: Choosing a different folder on the device\'s internal storage can significantly reduce performance.</string>
+    <string name="raw_video_storage_folder_description">Where to store RAW videos during recording.</string>
     <string name="select">Select</string>
     <string name="video_memory_use_error" >Recording has stopped because the memory limit has been reached.</string>
     <string name="invalid_raw_video_folder">The selected output folder is not available. Using internal storage.</string>

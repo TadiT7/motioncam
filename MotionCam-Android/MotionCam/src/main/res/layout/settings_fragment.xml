@@ -171,7 +171,6 @@
                     android:layout_height="wrap_content"
                     android:textAppearance="@style/MotionCam.TextAppearance.Small"
                     android:textColor="@color/white"
-                    android:visibility="gone"
                     android:checked="@={viewModel.splitRawVideoStorage}"
                     android:text="@string/split_storage_option">
                 </CheckBox>

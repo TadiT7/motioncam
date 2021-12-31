@@ -12,7 +12,7 @@
 #include <tinywav.h>
 #include <memory>
 
-#ifdef __APPLE__ || __ANDROID__ || __linux__
+#if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
     #include <unistd.h>
 #endif
 
