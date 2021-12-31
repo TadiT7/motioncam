@@ -2,6 +2,8 @@
 #define MotionCam_hpp
 
 #include <string>
+#include <vector>
+#include <memory>
 
 #include "motioncam/ImageProcessorProgress.h"
 #include "motioncam/DngProcessorProgress.h"

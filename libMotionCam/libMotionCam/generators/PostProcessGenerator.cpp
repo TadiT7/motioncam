@@ -3656,25 +3656,22 @@ public:
 };
 
 void BuildBayerGenerator3::generate() {
-    Func linear{"linear"};
+    // Func linear{"linear"};
 
-    linear(v_x, v_y, v_c) = cast<uint16_t>(0.5f +
-            select( v_c == 0, (expandedRange / (whiteLevel - blackLevel[0])) * (input(v_x, v_y, 0) - blackLevel[0]),
-                    v_c == 1, (expandedRange / (whiteLevel - blackLevel[1])) * (input(v_x, v_y, 1) - blackLevel[1]),
-                    v_c == 2, (expandedRange / (whiteLevel - blackLevel[2])) * (input(v_x, v_y, 2) - blackLevel[2]),
-                              (expandedRange / (whiteLevel - blackLevel[3])) * (input(v_x, v_y, 3) - blackLevel[3]) ) );        
+    // linear(v_x, v_y, v_c) = cast<uint16_t>(0.5f +
+    //         select( v_c == 0, (expandedRange / (whiteLevel - blackLevel[0])) * (input(v_x, v_y, 0) - blackLevel[0]),
+    //                 v_c == 1, (expandedRange / (whiteLevel - blackLevel[1])) * (input(v_x, v_y, 1) - blackLevel[1]),
+    //                 v_c == 2, (expandedRange / (whiteLevel - blackLevel[2])) * (input(v_x, v_y, 2) - blackLevel[2]),
+    //                           (expandedRange / (whiteLevel - blackLevel[3])) * (input(v_x, v_y, 3) - blackLevel[3]) ) );        
 
-    output(v_x, v_y) =
-        select(v_y % 2 == 0,
-               select(v_x % 2 == 0, linear(v_x/2, v_y/2, 0), linear(v_x/2, v_y/2, 1)),
-               select(v_x % 2 == 0, linear(v_x/2, v_y/2, 2), linear(v_x/2, v_y/2, 3)));
+    // output(v_x, v_y) =
+    //     select(v_y % 2 == 0,
+    //            select(v_x % 2 == 0, linear(v_x/2, v_y/2, 0), linear(v_x/2, v_y/2, 1)),
+    //            select(v_x % 2 == 0, linear(v_x/2, v_y/2, 2), linear(v_x/2, v_y/2, 3)));
 
-    input.set_estimates({{0, 2000}, {0, 1500}, {0, 4} });
-    output.set_estimates({{0, 4000}, {0, 3000} });
-
-    output.compute_root()
-        .parallel(v_y)
-        .vectorize(v_x, 8);
+    // output.compute_root()
+    //     .parallel(v_y)
+    //     .vectorize(v_x, 8);
 }
 
 ///////////////

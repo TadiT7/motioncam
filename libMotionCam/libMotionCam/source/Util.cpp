@@ -3,8 +3,11 @@
 #include "motioncam/RawImageMetadata.h"
 
 #include <fstream>
-#include <unistd.h>
 #include <zstd.h>
+
+#if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
+    #include <unistd.h>
+#endif
 
 #include <dng/dng_host.h>
 #include <dng/dng_negative.h>
@@ -19,6 +22,8 @@ using std::string;
 using std::vector;
 using std::ios;
 using std::set;
+
+#if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
 
 class dng_fd_stream : public dng_stream {
 public:
@@ -74,14 +79,18 @@ private:
     int fFd;
 };
 
+#endif
+
 namespace motioncam {
     namespace util {
         CloseableFd::CloseableFd(const int fd) : mFd(fd) {
         }
     
         CloseableFd::~CloseableFd() {
-            if(mFd >= 0)
-                close(mFd);
+            #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
+                if(mFd >= 0)
+                    close(mFd);
+            #endif
         }
     
         //
@@ -730,11 +739,13 @@ namespace motioncam {
                       const RawImageMetadata& imageMetadata,
                       const int fd)
         {
-            dng_fd_stream stream(fd, true);
+            #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
+                dng_fd_stream stream(fd, true);
 
-            WriteDng(rawImage, cameraMetadata, imageMetadata, stream);
+                WriteDng(rawImage, cameraMetadata, imageMetadata, stream);
 
-            stream.Flush();
+                stream.Flush();
+            #endif
         }
 
         void WriteDng(cv::Mat rawImage,
