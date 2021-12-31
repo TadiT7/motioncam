@@ -18,6 +18,12 @@ using std::vector;
 using std::shared_ptr;
 using json11::Json;
 
+#if defined(_WIN32)
+    #define FSEEK _fseeki64
+#else
+    #define FSEEK fseek
+#endif
+
 namespace motioncam {
     static const char* METATDATA_FILENAME = "metadata";
 
@@ -323,7 +329,7 @@ namespace motioncam {
         }
         
         // Load metadata
-        if(fseek(mFile, -sizeof(EndChunk), SEEK_END) != 0) {
+        if(FSEEK(mFile, -sizeof(EndChunk), SEEK_END) != 0) {
             throw IOException("Failed to get end chunk");
         }
         
@@ -337,7 +343,7 @@ namespace motioncam {
         
         endChunk.metadataMinusOffset = ntohl(endChunk.metadataMinusOffset) + sizeof(EndChunk);
         
-        if(fseek(mFile, -(int)endChunk.metadataMinusOffset, SEEK_CUR) != 0)
+        if(FSEEK(mFile, -(int)endChunk.metadataMinusOffset, SEEK_CUR) != 0)
             throw IOException("Failed to get metadata");
         
         std::vector<uint8_t> metadataBytes(endChunk.metadataMinusOffset - sizeof(EndChunk));
@@ -599,9 +605,11 @@ namespace motioncam {
             mZipReader->read(frame, data);
         }
         else if(mFile) {
-            if(fseek(mFile, buffer->second->offset, SEEK_SET) != 0)
+            int result = FSEEK(mFile, buffer->second->offset, SEEK_SET);
+
+            if(result != 0)
                 throw IOException("Cannot read " + frame + " in container");
-         
+
             FrameChunk frameChunk;
             
             if(fread(&frameChunk, sizeof(frameChunk), 1, mFile) != 1) {
