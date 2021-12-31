@@ -14,18 +14,19 @@
 
 #include <chrono>
 #include <thread>
-#include <unistd.h>
 
 namespace motioncam {
     struct Job {
         Job(cv::Mat bayerImage,
             const RawCameraMetadata& cameraMetadata,
             const RawImageMetadata& frameMetadata,
-            const int fd) :
+            const int fd,
+            const std::string& outputPath) :
         bayerImage(bayerImage.clone()),
         cameraMetadata(cameraMetadata),
         frameMetadata(frameMetadata),
-        fd(fd)
+        fd(fd),
+        outputPath(outputPath)
         {
         }
         
@@ -33,6 +34,7 @@ namespace motioncam {
         const RawCameraMetadata& cameraMetadata;
         const RawImageMetadata& frameMetadata;
         const int fd;
+        const std::string outputPath;
         std::string error;
     };
 
@@ -54,7 +56,11 @@ namespace motioncam {
                 continue;
             
             try {
+#if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
                 util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, job->fd);
+#elif defined(_WIN32)
+                util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, job->outputPath);
+#endif
             }
             catch(std::runtime_error& e) {
                 job->error = e.what();
@@ -262,13 +268,19 @@ namespace motioncam {
                                 
             cv::Mat bayerImage(bayerBuffer.height(), bayerBuffer.width(), CV_16U, bayerBuffer.data());
             
-            int fd = progress.onNeedFd(i);
+            int fd = -1;
+            std::string outputPath;
+
+#if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
+            fd = progress.onNeedFd(i);
             if(fd < 0) {
                 progress.onError("Did not get valid fd");
                 break;
             }
-
-            while(!JOB_QUEUE.try_enqueue(std::make_shared<Job>(bayerImage, metadata, frame->metadata, fd))) {
+#elif defined(_WIN32)
+            outputPath = progress.onNeedFd(i);
+#endif
+            while(!JOB_QUEUE.try_enqueue(std::make_shared<Job>(bayerImage, metadata, frame->metadata, fd, outputPath))) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             

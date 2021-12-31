@@ -10,9 +10,11 @@
 #include <zstd.h>
 #include <zstd_errors.h>
 #include <tinywav.h>
-
 #include <memory>
-#include <unistd.h>
+
+#ifdef __APPLE__ || __ANDROID__ || __linux__
+    #include <unistd.h>
+#endif
 
 namespace motioncam {
     const int NumCompressThreads = 1;
@@ -21,7 +23,9 @@ namespace motioncam {
     const int SoundSampleRateHz       = 48000;
     const int SoundChannelCount       = 1;
 
+#if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
     static inline __attribute__((always_inline))
+#endif
     uint16_t RAW10(uint8_t* data, int16_t x, int16_t y, const uint16_t stride) {
         const uint16_t X = (x >> 2) << 2;
         const uint32_t xoffset = (y * stride) + ((10*X) >> 3);
@@ -32,7 +36,9 @@ namespace motioncam {
         return (((uint16_t) data[xoffset + p]) << 2) | ((((uint16_t) data[xoffset + 4]) >> shift) & 0x03);
     }
 
+#if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
     static inline __attribute__((always_inline))
+#endif
     uint16_t RAW12(uint8_t* data, int16_t x, int16_t y, const uint16_t stride) {
         const uint16_t X = (x >> 1) << 1;
         const uint32_t xoffset = (y * stride) + ((12*X) >> 3);
@@ -43,7 +49,9 @@ namespace motioncam {
         return (((uint16_t) data[xoffset + p]) << 4) | ((((uint16_t) data[xoffset + 2]) >> shift) & 0x0F);
     }
 
+#if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
     static inline __attribute__((always_inline))
+#endif
     uint16_t RAW16(uint8_t* data, int16_t x, int16_t y, const uint16_t stride) {
         const uint32_t offset = (y*stride) + (x*2);
         
@@ -93,11 +101,13 @@ namespace motioncam {
         for(int i = 0; i < fds.size(); i++) {
             auto ioThread = std::unique_ptr<std::thread>(new std::thread(&RawBufferStreamer::doStream, this, fds[i], cameraMetadata, (int)fds.size()));
 
+        #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
             // Update priority
             sched_param priority{};
             priority.sched_priority = 99;
 
             pthread_setschedparam(ioThread->native_handle(), SCHED_FIFO, &priority);
+        #endif
 
             mIoThreads.push_back(std::move(ioThread));
         }
@@ -150,7 +160,9 @@ namespace motioncam {
                 tinywav_close_write(&tw);
             }
             else {
-                close(mAudioFd);
+                #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
+                    close(mAudioFd);
+                #endif
             }
         }
         

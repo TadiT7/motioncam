@@ -61,7 +61,7 @@ namespace motioncam {
         }
 
         {
-            Lock lock(mMutex, __PRETTY_FUNCTION__);
+            Lock lock(mMutex, "reset()");
             mReadyBuffers.clear();
         }
         
@@ -82,7 +82,7 @@ namespace motioncam {
         }
         
         {
-            Lock lock(mMutex, __PRETTY_FUNCTION__);
+            Lock lock(mMutex, "dequeueUnusedBuffer()");
 
             if(mMemoryUseBytes <= mMemoryTargetBytes) {
                 if(!mReadyBuffers.empty()) {
@@ -122,7 +122,7 @@ namespace motioncam {
     }
 
     void RawBufferManager::enqueueReadyBuffer(const std::shared_ptr<RawImageBuffer>& buffer) {
-        Lock lock(mMutex, __PRETTY_FUNCTION__);
+        Lock lock(mMutex, "enqueueReadyBuffer()");
 
         if(mStreamer->isRunning()) {
             mStreamer->add(buffer);
@@ -132,7 +132,7 @@ namespace motioncam {
     }
 
     int RawBufferManager::numHdrBuffers() {
-        Lock lock(mMutex, __PRETTY_FUNCTION__);
+        Lock lock(mMutex, "numHdrBuffers()");
         
         int hdrBuffers = 0;
         
@@ -154,7 +154,7 @@ namespace motioncam {
     }
 
     void RawBufferManager::returnBuffers(const std::vector<std::shared_ptr<RawImageBuffer>>& buffers) {
-        Lock lock(mMutex, __PRETTY_FUNCTION__);
+        Lock lock(mMutex, "returnBuffers()");
 
         std::move(buffers.begin(), buffers.end(), std::back_inserter(mReadyBuffers));
     }
@@ -168,7 +168,7 @@ namespace motioncam {
         std::vector<std::shared_ptr<RawImageBuffer>> buffers;
 
         {
-            Lock lock(mMutex, __PRETTY_FUNCTION__);
+            Lock lock(mMutex, "saveHdr()");
 
             if (mReadyBuffers.empty() || numSaveBuffers < 1)
                 return;
@@ -274,7 +274,7 @@ namespace motioncam {
             return;
 
         {
-            Lock lock(mMutex, __PRETTY_FUNCTION__);
+            Lock lock(mMutex, "save()");
 
             if(mReadyBuffers.empty())
                 return;
@@ -350,7 +350,7 @@ namespace motioncam {
 
         // Return buffers
         {
-            Lock lock(mMutex, __PRETTY_FUNCTION__);
+            Lock lock(mMutex, "save()");
             mReadyBuffers.insert(mReadyBuffers.end(), buffers.begin(), buffers.end());
         }
 
@@ -371,7 +371,7 @@ namespace motioncam {
     }
 
     std::unique_ptr<RawBufferManager::LockedBuffers> RawBufferManager::consumeLatestBuffer() {
-        Lock lock(mMutex, __PRETTY_FUNCTION__);
+        Lock lock(mMutex, "consumeLatestBuffer()");
 
         if(mReadyBuffers.empty()) {
             return std::unique_ptr<LockedBuffers>(new LockedBuffers());
@@ -386,7 +386,7 @@ namespace motioncam {
     }
 
     std::unique_ptr<RawBufferManager::LockedBuffers> RawBufferManager::consumeBuffer(int64_t timestampNs) {
-        Lock lock(mMutex, __PRETTY_FUNCTION__);
+        Lock lock(mMutex, "consumeBuffer()");
 
         auto it = std::find_if(
             mReadyBuffers.begin(), mReadyBuffers.end(),
@@ -404,7 +404,7 @@ namespace motioncam {
     }
 
     std::unique_ptr<RawBufferManager::LockedBuffers> RawBufferManager::consumeAllBuffers() {
-        Lock lock(mMutex, __PRETTY_FUNCTION__);
+        Lock lock(mMutex, "consumeAllBuffers()");
 
         auto lockedBuffers = std::unique_ptr<LockedBuffers>(new LockedBuffers(mReadyBuffers));
         mReadyBuffers.clear();
@@ -413,7 +413,7 @@ namespace motioncam {
     }
 
     int64_t RawBufferManager::latestTimeStamp() {
-        Lock lock(mMutex, __PRETTY_FUNCTION__);
+        Lock lock(mMutex, "latestTimeStamp()");
         
         if(mReadyBuffers.empty())
             return -1;
@@ -444,7 +444,7 @@ namespace motioncam {
     }
 
     float RawBufferManager::bufferSpaceUse() {
-        Lock lock(mMutex, __PRETTY_FUNCTION__);
+        Lock lock(mMutex, "bufferSpaceUse()");
 
         float bufferUseAmount = (mNumBuffers - (mReadyBuffers.size() + mUnusedBuffers.size_approx())) / (float) mNumBuffers;
 

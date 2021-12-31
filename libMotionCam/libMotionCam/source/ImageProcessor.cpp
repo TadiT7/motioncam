@@ -362,7 +362,7 @@ namespace motioncam {
                     settings.pop,
                     128.0f,
                     7.0f,
-                    std::min(0.015f, std::max(0.005f, noiseEstimate / 2.0f)),
+                    (std::min)(0.015f, (std::max)(0.005f, noiseEstimate / 2.0f)),
                     outputBuffer);
 
         outputBuffer.device_sync();
@@ -454,7 +454,7 @@ namespace motioncam {
         
         avgLuminance = exp(avgLuminance / (totalPixels + 1e-5f));
         
-        return std::max(1.0f, std::min(keyValue / avgLuminance, 32.0f));
+        return (std::max)(1.0f, (std::min)(keyValue / avgLuminance, 32.0f));
     }
 
     void ImageProcessor::estimateHdr(const cv::Mat& histogram, float& outLows, float& outHighs) {
@@ -574,7 +574,7 @@ namespace motioncam {
         Temperature temperature;
 
         cv::Vec3f asShotVector = asShot;
-        float max = math::max(asShotVector);
+        float max = (math::max)(asShotVector);
         
         if(max > 0) {
             asShotVector[0] = asShotVector[0] * (1.0f / max);
@@ -1546,7 +1546,7 @@ namespace motioncam {
                 float p = reference->rawBuffer(x, y, c) - cameraMetadata.blackLevel[c];
                 float s = EXPANDED_RANGE / (float) (cameraMetadata.whiteLevel-cameraMetadata.blackLevel[c]);
                 
-                denoiseInput(x, y, c) = static_cast<uint16_t>( std::max(0.0f, std::min(p * s + 0.5f, (float) EXPANDED_RANGE) )) ;
+                denoiseInput(x, y, c) = static_cast<uint16_t>( (std::max)(0.0f, (std::min)(p * s + 0.5f, (float) EXPANDED_RANGE) )) ;
             });
         else {
             const float n = static_cast<float>(buffers.size());
@@ -1555,7 +1555,7 @@ namespace motioncam {
                 float p = fuseOutput(x, y, c) / n - cameraMetadata.blackLevel[c];
                 float s = EXPANDED_RANGE / (float) (cameraMetadata.whiteLevel-cameraMetadata.blackLevel[c]);
                 
-                denoiseInput(x, y, c) = static_cast<uint16_t>( std::max(0.0f, std::min(p * s + 0.5f, (float) EXPANDED_RANGE) ) ) ;
+                denoiseInput(x, y, c) = static_cast<uint16_t>( (std::max)(0.0f, (std::min)(p * s + 0.5f, (float) EXPANDED_RANGE) ) ) ;
             });
         }
         
@@ -1789,7 +1789,7 @@ namespace motioncam {
                 float p = reference->rawBuffer(x, y, c) - rawContainer.getCameraMetadata().blackLevel[c];
                 float s = EXPANDED_RANGE / (float) (rawContainer.getCameraMetadata().whiteLevel-rawContainer.getCameraMetadata().blackLevel[c]);
                 
-                denoiseInput(x, y, c) = static_cast<uint16_t>( std::max(0.0f, std::min(p * s + 0.5f, (float) EXPANDED_RANGE) )) ;
+                denoiseInput(x, y, c) = static_cast<uint16_t>( (std::max)(0.0f, (std::min)(p * s + 0.5f, (float) EXPANDED_RANGE) )) ;
             });
         else {
             const float n = (float) processFrames.size() - 1;
@@ -1798,7 +1798,7 @@ namespace motioncam {
                 float p = fuseOutput(x, y, c) / n - rawContainer.getCameraMetadata().blackLevel[c];
                 float s = EXPANDED_RANGE / (float) (rawContainer.getCameraMetadata().whiteLevel-rawContainer.getCameraMetadata().blackLevel[c]);
                 
-                denoiseInput(x, y, c) = static_cast<uint16_t>( std::max(0.0f, std::min(p * s + 0.5f, (float) EXPANDED_RANGE) ) ) ;
+                denoiseInput(x, y, c) = static_cast<uint16_t>( (std::max)(0.0f, (std::min)(p * s + 0.5f, (float) EXPANDED_RANGE) ) ) ;
             });
         }
         
@@ -1828,8 +1828,8 @@ namespace motioncam {
         else {
             int i = rawContainer.getPostProcessSettings().spatialDenoiseLevel;
             
-            i = std::min(i, (int) (WEIGHTS.size() - 1));
-            i = std::max(i, 0);
+            i = (std::min)(i, (int) (WEIGHTS.size() - 1));
+            i = (std::max)(i, 0);
             
             // Weights are in reverse order
             weights = WEIGHTS[WEIGHTS.size() - i];
@@ -2042,7 +2042,7 @@ namespace motioncam {
         hdrMetadata->exposureScale  = exposureScale;
         hdrMetadata->hdrInput       = outputBuffer;
         hdrMetadata->error          = 0;
-        hdrMetadata->gain           = 1024.0f / std::max(p[2], std::max(p[0], p[1]));
+        hdrMetadata->gain           = 1024.0f / (std::max)(p[2], (std::max)(p[0], p[1]));
         
         return hdrMetadata;
     }

@@ -17,8 +17,8 @@ namespace motioncam {
 
     class RawImage;
     class RawContainer;
-    class PostProcessSettings;
     class Temperature;
+    struct PostProcessSettings;
     struct RawData;
     struct HdrMetadata;
     struct PreviewMetadata;

@@ -5,13 +5,24 @@
 #include <zstd.h>
 #include <utility>
 #include <vector>
-#include <unistd.h>
-#include <arpa/inet.h>
+
+#if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
+    #include <unistd.h>
+    #include <arpa/inet.h>
+#else
+    #include <WinSock2.h>
+#endif
 
 using std::string;
 using std::vector;
 using std::shared_ptr;
 using json11::Json;
+
+#if defined(_WIN32)
+    #define FSEEK _fseeki64
+#else
+    #define FSEEK fseek
+#endif
 
 namespace motioncam {
     static const char* METATDATA_FILENAME = "metadata";
@@ -318,7 +329,7 @@ namespace motioncam {
         }
         
         // Load metadata
-        if(fseek(mFile, -sizeof(EndChunk), SEEK_END) != 0) {
+        if(FSEEK(mFile, -sizeof(EndChunk), SEEK_END) != 0) {
             throw IOException("Failed to get end chunk");
         }
         
@@ -332,7 +343,7 @@ namespace motioncam {
         
         endChunk.metadataMinusOffset = ntohl(endChunk.metadataMinusOffset) + sizeof(EndChunk);
         
-        if(fseek(mFile, -(int)endChunk.metadataMinusOffset, SEEK_CUR) != 0)
+        if(FSEEK(mFile, -(int)endChunk.metadataMinusOffset, SEEK_CUR) != 0)
             throw IOException("Failed to get metadata");
         
         std::vector<uint8_t> metadataBytes(endChunk.metadataMinusOffset - sizeof(EndChunk));
@@ -457,7 +468,7 @@ namespace motioncam {
             mPostProcessSettings = PostProcessSettings(metadata["postProcessingSettings"]);
         }
         
-        mReferenceTimestamp = stol(getOptionalStringSetting(metadata, "referenceTimestamp", "0"));
+        mReferenceTimestamp = stoll(getOptionalStringSetting(metadata, "referenceTimestamp", "0"));
         mIsHdr = getOptionalSetting(metadata, "isHdr", false);
         mNumSegments = getOptionalSetting(metadata, "numSegments", 1);
 
@@ -594,9 +605,11 @@ namespace motioncam {
             mZipReader->read(frame, data);
         }
         else if(mFile) {
-            if(fseek(mFile, buffer->second->offset, SEEK_SET) != 0)
+            int result = FSEEK(mFile, buffer->second->offset, SEEK_SET);
+
+            if(result != 0)
                 throw IOException("Cannot read " + frame + " in container");
-         
+
             FrameChunk frameChunk;
             
             if(fread(&frameChunk, sizeof(frameChunk), 1, mFile) != 1) {
@@ -673,7 +686,7 @@ namespace motioncam {
         buffer->isCompressed = getOptionalSetting(obj, "isCompressed", false);
         
         std::string offset   = getOptionalStringSetting(obj, "offset", "0");
-        buffer->offset       = stol(offset);
+        buffer->offset       = stoll(offset);
         
         string pixelFormat = getOptionalStringSetting(obj, "pixelFormat", "raw10");
 
@@ -700,7 +713,7 @@ namespace motioncam {
         buffer->metadata.asShot             = toVec3f((obj)["asShotNeutral"].array_items());
         
         string timestamp                    = getRequiredSettingAsString(obj, "timestamp");
-        buffer->metadata.timestampNs        = stol(timestamp);
+        buffer->metadata.timestampNs        = stoll(timestamp);
 
         if(obj.object_items().find("colorMatrix1") != obj.object_items().end()) {
             buffer->metadata.colorMatrix1 = toMat3x3((obj)["colorMatrix1"].array_items());
@@ -902,73 +915,84 @@ namespace motioncam {
     }
 
     bool RawContainer::create(const int fd) {
-        Header h;
+        #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
+            Header h;
         
-        if(write(fd, &h, sizeof(Header)) < 0)
+            if(write(fd, &h, sizeof(Header)) < 0)
+                return false;
+        
+            return true;
+        #else
             return false;
-        
-        return true;
+        #endif
     }
 
     bool RawContainer::append(const int fd, const RawImageBuffer& frame) {
-        // Write to file
-        size_t start, end;
-        
-        start = end = 0;
-        frame.data->getValidRange(start, end);
+        #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
+            // Write to file
+            size_t start, end;
 
-        auto stubBuffer = std::make_shared<RawImageBuffer>();
-        
-        stubBuffer->shallowCopy(frame);
-        stubBuffer->offset = lseek(fd, 0, SEEK_CUR);
+            start = end = 0;
+            frame.data->getValidRange(start, end);
 
-        FrameChunk frameChunk;
-        
-        // Write header and frame
-        frameChunk.frameSize = static_cast<uint32_t>(end - start);
+            auto stubBuffer = std::make_shared<RawImageBuffer>();
 
-        if(write(fd, &frameChunk, sizeof(FrameChunk)) < 0)
-            return false;
+            stubBuffer->shallowCopy(frame);
+            stubBuffer->offset = lseek(fd, 0, SEEK_CUR);
 
-        auto data = frame.data->lock(false);
+            FrameChunk frameChunk;
 
-        if(write(fd, data + start, end - start) < 0) {
+            // Write header and frame
+            frameChunk.frameSize = static_cast<uint32_t>(end - start);
+
+            if(write(fd, &frameChunk, sizeof(FrameChunk)) < 0)
+                return false;
+
+            auto data = frame.data->lock(false);
+
+            if(write(fd, data + start, end - start) < 0) {
+                frame.data->unlock();
+                return false;
+            }
+
             frame.data->unlock();
-            return false;
-        }
-        
-        frame.data->unlock();
-        
-        // Add stub
-        std::string filename = std::string("frame") + std::to_string(mFrames.size()) + std::string(".raw");
-        mFrames.push_back(filename);
-                
-        mFrameBuffers[filename] = stubBuffer;
-        
-        return true;
 
+            // Add stub
+            std::string filename = std::string("frame") + std::to_string(mFrames.size()) + std::string(".raw");
+            mFrames.push_back(filename);
+
+            mFrameBuffers[filename] = stubBuffer;
+
+            return true;
+        #else
+            return false;
+        #endif
     }
 
     bool RawContainer::commit(const int fd) {
+    #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
         json11::Json::object metadata;
-        
+
         generateContainerMetadata(metadata);
 
         string jsonOutput = json11::Json(metadata).dump();
-        
+
         // Write metadata
         if(write(fd, jsonOutput.data(), jsonOutput.size()) < 0)
             return false;
-        
+
         // Write final chunk
         EndChunk endChunk;
 
         endChunk.metadataMinusOffset = htonl(static_cast<uint32_t>(jsonOutput.size()));
-        
+
         if(write(fd, &endChunk, sizeof(EndChunk)) < 0)
             return false;
-        
+
         return true;
+#else
+        return false;
+#endif
     }
 
     int RawContainer::getNumSegments() const {
