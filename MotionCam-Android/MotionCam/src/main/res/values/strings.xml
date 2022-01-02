@@ -138,4 +138,15 @@
     <string name="exposure_clipping_desc">Overlay areas where the sensor is clipping.</string>
     <string name="internal_mic_tag">_internal_mic</string>
     <string name="internal_mic">Internal Mic</string>
+    <string name="supported_frame_rate">Supported Frame Rates</string>
+    <string name="supported_frame_rate_desc">The following frame rates are reported to be available by your camera device.</string>
+    <string name="unsupported_frame_rate">Unsupported Frame Rates</string>
+    <string name="unsupported_frame_rate_desc">The following frame rates are not reported to be available by your camera device but may still work.</string>
+    <string name="pixel_binning">Pixel Binning</string>
+    <string name="pixel_binning_desc">Reduce output resolution by pixel binning</string>
+    <string name="crop_width">Crop Width</string>
+    <string name="crop_height">Crop Height</string>
+    <string name="audio_input">Audio Input</string>
+    <string name="support_page_text">Please visit https://github.com/mirsadm/motioncam for updates and support.</string>
+    <string name="convert_page_support">Please visit https://github.com/mirsadm/motioncam for tools that can convert the container files on your PC.</string>
 </resources>

@@ -42,7 +42,8 @@ namespace motioncam {
     enum class CompressionType : int {
         UNCOMPRESSED,
         ZSTD,
-        V8NZENC
+        V8NZENC,
+        P4NZENC
     };
 
     struct RawImageMetadata

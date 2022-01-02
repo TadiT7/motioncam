@@ -6,6 +6,7 @@
 #include <utility>
 #include <vector>
 #include <vint.h>
+#include <vp4.h>
 
 #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
     #include <unistd.h>
@@ -652,15 +653,21 @@ namespace motioncam {
                 
                 buffer->second->data->copyHostData(tmp);
             }
-            else if(buffer->second->compressionType == CompressionType::V8NZENC) {
+            else if(buffer->second->compressionType == CompressionType::V8NZENC ||
+                    buffer->second->compressionType == CompressionType::P4NZENC)
+            {
                 std::vector<uint16_t> row(buffer->second->width);
                 std::vector<uint8_t> uncompressedBuffer(2*buffer->second->width*buffer->second->height);
                 
                 size_t offset = 0;
                 size_t p = 0;
+            
+                auto decodeFunc = &v8nzdec128v16;
+                if(buffer->second->compressionType == CompressionType::P4NZENC)
+                    decodeFunc = &p4nzdec128v16;
                 
                 while(offset < data.size()) {
-                    offset += v8nzdec128v16(data.data() + offset, buffer->second->width, row.data());
+                    offset += decodeFunc(data.data() + offset, buffer->second->width, row.data());
                     
                     // Reshuffle the row
                     for(size_t i = 0; i < row.size()/2; i++) {

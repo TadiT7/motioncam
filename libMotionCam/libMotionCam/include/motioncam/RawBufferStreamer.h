@@ -1,6 +1,8 @@
 #ifndef RawBufferStreamer_hpp
 #define RawBufferStreamer_hpp
 
+#include "motioncam/RawImageMetadata.h"
+
 #include <string>
 #include <memory>
 #include <vector>
@@ -38,7 +40,8 @@ namespace motioncam {
                                 const int16_t yend,
                                 const int16_t xstart,
                                 const int16_t xend,
-                                const int16_t binnedWidth) const;
+                                const int16_t binnedWidth,
+                                const CompressionType compressionType) const;
 
         size_t cropAndBin_RAW12(RawImageBuffer& buffer,
                                 uint8_t* data,
@@ -46,7 +49,8 @@ namespace motioncam {
                                 const int16_t yend,
                                 const int16_t xstart,
                                 const int16_t xend,
-                                const int16_t binnedWidth) const;
+                                const int16_t binnedWidth,
+                                const CompressionType compressionType) const;
 
         size_t cropAndBin_RAW16(RawImageBuffer& buffer,
                                 uint8_t* data,
@@ -54,7 +58,8 @@ namespace motioncam {
                                 const int16_t yend,
                                 const int16_t xstart,
                                 const int16_t xend,
-                                const int16_t binnedWidth) const;
+                                const int16_t binnedWidth,
+                                const CompressionType compressionType) const;
 
         void cropAndBin(RawImageBuffer& buffer) const;
         void crop(RawImageBuffer& buffer) const;

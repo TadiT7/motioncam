@@ -11,7 +11,7 @@ public class SettingsViewModel extends ViewModel {
     public static final String CAMERA_SHARED_PREFS          = "camera_prefs";
 
     public static final int MINIMUM_MEMORY_USE_MB           = 512;
-    public static final int MAXIMUM_MEMORY_USE_MB           = 3072;
+    public static final int MAXIMUM_MEMORY_USE_MB           = 4096;
 
     public static final String PREFS_KEY_MEMORY_USE_MBYTES          = "memory_use_megabytes";
     public static final String PREFS_KEY_RAW_VIDEO_MEMORY_USE_MBYTES = "raw_video_memory_use_megabytes";

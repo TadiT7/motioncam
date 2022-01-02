@@ -1,6 +1,5 @@
 #include "motioncam/RawBufferStreamer.h"
 #include "motioncam/RawContainer.h"
-#include "motioncam/RawImageMetadata.h"
 #include "motioncam/RawBufferManager.h"
 #include "motioncam/Logger.h"
 #include "motioncam/Util.h"
@@ -12,7 +11,7 @@
 #include <tinywav.h>
 #include <memory>
 #include <vint.h>
-
+#include <vp4.h>
 
 #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
     #include <unistd.h>
@@ -197,11 +196,16 @@ namespace motioncam {
                                                const int16_t yend,
                                                const int16_t xstart,
                                                const int16_t xend,
-                                               const int16_t binnedWidth) const
+                                               const int16_t binnedWidth,
+                                               const CompressionType compressionType) const
     {
         std::vector<uint16_t> row0(binnedWidth);
         std::vector<uint16_t> row1(binnedWidth);
         size_t offset = 0;
+
+        auto* encodeFunc = &p4nzenc128v16;        
+        if(compressionType == CompressionType::V8NZENC)
+            encodeFunc = &v8nzenc128v16;
 
         for(int16_t y = ystart; y < yend; y+=4) {
             for(int16_t x = xstart; x < xend; x+=4) {
@@ -232,8 +236,7 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
                     
-                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
+                    const uint16_t X = ((x - xstart) >> 2);
                     row0[X] = out;
                 }
 
@@ -260,8 +263,7 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
+                    const uint16_t X = ((x - xstart) >> 2) + (binnedWidth >> 1);
                     row0[X] = out;
                 }
 
@@ -291,8 +293,7 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
+                    const uint16_t X = ((x - xstart) >> 2);
                     row1[X] = out;
                 }
                 
@@ -319,14 +320,16 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
+                    const uint16_t X = ((x - xstart) >> 2) + (binnedWidth >> 1);
                     row1[X] = out;
                 }
             }
             
-            offset += v8nzenc128v16(row0.data(), row0.size(), data+offset);
-            offset += v8nzenc128v16(row1.data(), row1.size(), data+offset);
+            size_t writtenBytes = encodeFunc(row0.data(), row0.size(), data+offset);
+            offset += writtenBytes;
+            
+            writtenBytes = encodeFunc(row1.data(), row1.size(), data+offset);
+            offset += writtenBytes;
         }
         
         return offset;
@@ -338,11 +341,16 @@ namespace motioncam {
                                                const int16_t yend,
                                                const int16_t xstart,
                                                const int16_t xend,
-                                               const int16_t binnedWidth) const
+                                               const int16_t binnedWidth,
+                                               const CompressionType compressionType) const
     {
         std::vector<uint16_t> row0(binnedWidth);
         std::vector<uint16_t> row1(binnedWidth);
         uint32_t offset = 0;
+
+        auto* encodeFunc = &p4nzenc128v16;
+        if(compressionType == CompressionType::V8NZENC)
+            encodeFunc = &v8nzenc128v16;
 
         for(int16_t y = ystart; y < yend; y+=4) {
             for(int16_t x = xstart; x < xend; x+=4) {
@@ -373,8 +381,7 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
                     
-                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
+                    const uint16_t X = ((x - xstart) >> 2);
                     row0[X] = out;
                 }
 
@@ -401,8 +408,7 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
+                    const uint16_t X = ((x - xstart) >> 2) + (binnedWidth >> 1);
                     row0[X] = out;
                 }
 
@@ -432,8 +438,7 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
+                    const uint16_t X = ((x - xstart) >> 2);
                     row1[X] = out;
                 }
                 
@@ -460,14 +465,16 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
+                    const uint16_t X = ((x - xstart) >> 2) + (binnedWidth >> 1);
                     row1[X] = out;
                 }
             }
 
-            offset += v8nzenc128v16(row0.data(), row0.size(), data+offset);
-            offset += v8nzenc128v16(row1.data(), row1.size(), data+offset);
+            size_t writtenBytes = encodeFunc(row0.data(), row0.size(), data+offset);
+            offset += writtenBytes;
+            
+            writtenBytes = encodeFunc(row1.data(), row1.size(), data+offset);
+            offset += writtenBytes;
         }
         
         return offset;
@@ -479,11 +486,16 @@ namespace motioncam {
                                                const int16_t yend,
                                                const int16_t xstart,
                                                const int16_t xend,
-                                               const int16_t binnedWidth) const
+                                               const int16_t binnedWidth,
+                                               const CompressionType compressionType) const
     {
         std::vector<uint16_t> row0(binnedWidth);
         std::vector<uint16_t> row1(binnedWidth);
         uint32_t offset = 0;
+
+        auto* encodeFunc = &p4nzenc128v16;
+        if(compressionType == CompressionType::V8NZENC)
+            encodeFunc = &v8nzenc128v16;
 
         for(int16_t y = ystart; y < yend; y+=4) {
             for(int16_t x = xstart; x < xend; x+=4) {
@@ -513,8 +525,7 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
                     
-                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
+                    const uint16_t X = ((x - xstart) >> 2);
                     row0[X] = out;
                 }
 
@@ -541,8 +552,7 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
+                    const uint16_t X = ((x - xstart) >> 2) + (binnedWidth >> 1);
                     row0[X] = out;
                 }
 
@@ -572,8 +582,7 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
+                    const uint16_t X = ((x - xstart) >> 2);
                     row1[X] = out;
                 }
                 
@@ -600,17 +609,19 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                    const uint16_t X = ((x - xstart) >> 1) + (ix - x);
-
+                    const uint16_t X = ((x - xstart) >> 2) + (binnedWidth >> 1);
                     row1[X] = out;
                 }
             }
 
-            offset += v8nzenc128v16(row0.data(), row0.size(), data+offset);
-            offset += v8nzenc128v16(row1.data(), row1.size(), data+offset);
+            size_t writtenBytes = encodeFunc(row0.data(), row0.size(), data+offset);
+            offset += writtenBytes;
+            
+            writtenBytes = encodeFunc(row1.data(), row1.size(), data+offset);
+            offset += writtenBytes;
         }
         
-        return offset;;
+        return offset;
     }
 
     void RawBufferStreamer::cropAndBin(RawImageBuffer& buffer) const {
@@ -636,14 +647,20 @@ namespace motioncam {
         auto data = buffer.data->lock(true);
         size_t end = 0;
         
+        auto compressionType = CompressionType::P4NZENC;
+
+        if(mReadyBuffers.size_approx() < 2) {
+            compressionType = CompressionType::V8NZENC;
+        }
+
         if(buffer.pixelFormat == PixelFormat::RAW10) {
-            end = cropAndBin_RAW10(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2);
+            end = cropAndBin_RAW10(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2, compressionType);
         }
         else if(buffer.pixelFormat == PixelFormat::RAW12) {
-            end = cropAndBin_RAW12(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2);
+            end = cropAndBin_RAW12(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2, compressionType);
         }
         else if(buffer.pixelFormat == PixelFormat::RAW16) {
-            end = cropAndBin_RAW16(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2);
+            end = cropAndBin_RAW16(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2, compressionType);
         }
         else {
             // Not supported
@@ -665,7 +682,7 @@ namespace motioncam {
     }
 
     void RawBufferStreamer::crop(RawImageBuffer& buffer) const {
-        Measure m("crop");
+        //Measure m("crop");
 
         const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropWidth/100.0f * buffer.width)) / 4));
 
@@ -678,7 +695,7 @@ namespace motioncam {
         auto data = buffer.data->lock(true);
 
         const int xstart = horizontalCrop;
-        const int xend = buffer.width - horizontalCrop;
+        const int xend = buffer.width - xstart;
 
         const int ystart = verticalCrop;
         const int yend = buffer.height - ystart;
@@ -687,20 +704,28 @@ namespace motioncam {
 
         std::vector<uint16_t> row(croppedWidth);
         size_t offset = 0;
+        
+        auto* encodeFunc = &p4nzenc128v16;
+        auto compressionType = CompressionType::P4NZENC;
 
+        if(mReadyBuffers.size_approx() < 2) {
+            encodeFunc = &v8nzenc128v16;
+            compressionType = CompressionType::V8NZENC;
+        }
+                
         if(buffer.pixelFormat == PixelFormat::RAW10) {
             for(int y = ystart; y < yend; y++) {
                 for(int x = xstart; x < xend; x+=2) {
                     const uint16_t p0 = RAW10(data, x,   y, buffer.rowStride);
                     const uint16_t p1 = RAW10(data, x+1, y, buffer.rowStride);
-
-                    row[x>>1]                    = p0;
-                    row[croppedWidth_2 + (x>>1)] = p1;
+                    
+                    int X = (x - xstart) >> 1;
+                    
+                    row[X]                  = p0;
+                    row[croppedWidth_2 + X] = p1;
                 }
                 
-                // Keep track of output per row
-                size_t writtenBytes = v8nzenc128v16(row.data(), row.size(), data+offset);
-
+                size_t writtenBytes = encodeFunc(row.data(), row.size(), data+offset);
                 offset += writtenBytes;
             }
         }
@@ -710,11 +735,14 @@ namespace motioncam {
                     const uint16_t p0 = RAW12(data, x,   y, buffer.rowStride);
                     const uint16_t p1 = RAW12(data, x+1, y, buffer.rowStride);
                     
-                    row[x>>1]                    = p0;
-                    row[croppedWidth_2 + (x>>1)] = p1;
+                    int X = (x - xstart) >> 1;
+                    
+                    row[X]                  = p0;
+                    row[croppedWidth_2 + X] = p1;
                 }
 
-                offset += v8nzenc128v16(row.data(), row.size(), data+offset);
+                size_t writtenBytes = encodeFunc(row.data(), row.size(), data+offset);
+                offset += writtenBytes;
             }
         }
         else if(buffer.pixelFormat == PixelFormat::RAW16) {
@@ -723,11 +751,14 @@ namespace motioncam {
                     const uint16_t p0 = RAW16(data, x,   y, buffer.rowStride);
                     const uint16_t p1 = RAW16(data, x+1, y, buffer.rowStride);
                     
-                    row[x>>1]                    = p0;
-                    row[croppedWidth_2 + (x>>1)] = p1;
+                    int X = (x - xstart) >> 1;
+                    
+                    row[X]                  = p0;
+                    row[croppedWidth_2 + X] = p1;
                 }
 
-                offset += v8nzenc128v16(row.data(), row.size(), data+offset);
+                size_t writtenBytes = encodeFunc(row.data(), row.size(), data+offset);
+                offset += writtenBytes;
             }
         }
         else {
@@ -744,8 +775,8 @@ namespace motioncam {
         buffer.width = croppedWidth;
         buffer.height = croppedHeight;
         buffer.isCompressed = true;
-        buffer.compressionType = CompressionType::V8NZENC;
-
+        buffer.compressionType = compressionType;
+        
         buffer.data->setValidRange(0, offset);
     }
 

@@ -125,6 +125,8 @@ public class CameraActivity extends AppCompatActivity implements
 
     private static final int OVERLAY_UPDATE_FREQUENCY_MS = 100;
 
+    private static final int[] ALL_FRAME_RATE_OPTIONS = new int[] { 120, 60, 30, 25, 24, 15, 10, 5, 1};
+
     public static final String WORKER_IMAGE_PROCESSOR = "ImageProcessor";
     public static final String WORKER_VIDEO_PROCESSOR = "VideoProcessor";
 
@@ -1069,6 +1071,28 @@ public class CameraActivity extends AppCompatActivity implements
             mBinding.gridLayout.setCropMode(false, 0, 0);
     }
 
+    private boolean updateFpsToggle(ViewGroup fpsGroup) {
+        for(int i = 0; i < fpsGroup.getChildCount(); i++) {
+            View fpsToggle = fpsGroup.getChildAt(i);
+            String fpsTag = (String) fpsToggle.getTag();
+
+            if(fpsTag != null) {
+                try {
+                    int fps = Integer.valueOf(fpsTag);
+                    if (mSettings.frameRate == fps) {
+                        fpsToggle.setBackgroundColor(getColor(R.color.colorAccent));
+                        return true;
+                    }
+                }
+                catch(NumberFormatException e) {
+                    Log.e(TAG, "Invalid fps", e);
+                }
+            }
+        }
+
+        return false;
+    }
+
     private void updateCameraSettingsUi() {
         final int seekBarMax = 100;
 
@@ -1102,22 +1126,18 @@ public class CameraActivity extends AppCompatActivity implements
         ((TextView) mBinding.cameraSettings.findViewById(R.id.heightCropAmount)).setText(heightCropAmount);
 
         ViewGroup fpsGroup = mBinding.cameraSettings.findViewById(R.id.fpsGroup);
-        for(int i = 0; i < fpsGroup.getChildCount(); i++) {
-            View fpsToggle = fpsGroup.getChildAt(i);
-            String fpsTag = (String) fpsToggle.getTag();
+        ViewGroup unsupportedFpsGroup = mBinding.cameraSettings.findViewById(R.id.unsupportedFpsGroup);
 
-            fpsToggle.setBackground(null);
-            if(fpsTag != null) {
-                try {
-                    int fps = Integer.valueOf(fpsTag);
-                    if (mSettings.frameRate == fps) {
-                        fpsToggle.setBackgroundColor(getColor(R.color.colorAccent));
-                    }
-                }
-                catch(NumberFormatException e) {
-                    Log.e(TAG, "Invalid fps", e);
-                }
-            }
+        for(int i = 0; i < fpsGroup.getChildCount(); i++) {
+            fpsGroup.getChildAt(i).setBackground(null);
+        }
+
+        for(int i = 0; i < unsupportedFpsGroup.getChildCount(); i++) {
+            unsupportedFpsGroup.getChildAt(i).setBackground(null);
+        }
+
+        if(!updateFpsToggle(fpsGroup)) {
+            updateFpsToggle(unsupportedFpsGroup);
         }
     }
 
@@ -2005,8 +2025,22 @@ public class CameraActivity extends AppCompatActivity implements
         }
     }
 
+    private View createFpsToggle(int fps) {
+        String fpsValue = String.valueOf(fps);
+        TextView fpsToggle = new TextView(this);
+
+        fpsToggle.setTextAppearance(R.style.MotionCam_TextAppearance_Small);
+        fpsToggle.setGravity(Gravity.CENTER);
+        fpsToggle.setText(fpsValue);
+        fpsToggle.setTag(fpsValue);
+        fpsToggle.setTextColor(getColor(R.color.white));
+        fpsToggle.setOnClickListener(v -> toggleFrameRate(v));
+
+        return fpsToggle;
+    }
+
     private void setupFpsSelection() {
-        // Set up available FPS ranges
+        // Supported frame rates
         ViewGroup fpsGroup = mBinding.cameraSettings.findViewById(R.id.fpsGroup);
         fpsGroup.removeAllViews();
 
@@ -2016,19 +2050,24 @@ public class CameraActivity extends AppCompatActivity implements
                 .collect(Collectors.toList());
 
         for(Integer fps : fpsRange) {
-            String fpsValue = String.valueOf(fps);
-            TextView fpsToggle = new TextView(this);
-
-            fpsToggle.setTextAppearance(R.style.MotionCam_TextAppearance_Small);
-            fpsToggle.setGravity(Gravity.CENTER);
-            fpsToggle.setText(fpsValue);
-            fpsToggle.setTag(fpsValue);
-            fpsToggle.setTextColor(getColor(R.color.white));
-            fpsToggle.setOnClickListener(v -> toggleFrameRate(v));
-
+            View fpsToggle = createFpsToggle(fps);
             fpsGroup.addView(
                     fpsToggle,
-                    new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT, 1));
+                    new LinearLayout.LayoutParams(
+                            Math.round(getResources().getDimension(R.dimen.fps_toggle)),
+                            ViewGroup.LayoutParams.MATCH_PARENT));
+        }
+
+        // Create unsupported frame rate group
+        ViewGroup unsupportedFpsGroup = mBinding.cameraSettings.findViewById(R.id.unsupportedFpsGroup);
+        unsupportedFpsGroup.removeAllViews();
+        for(int fps : ALL_FRAME_RATE_OPTIONS) {
+            View fpsToggle = createFpsToggle(fps);
+            unsupportedFpsGroup.addView(
+                    fpsToggle,
+                    new LinearLayout.LayoutParams(
+                            Math.round(getResources().getDimension(R.dimen.fps_toggle)),
+                            ViewGroup.LayoutParams.MATCH_PARENT));
         }
     }
 

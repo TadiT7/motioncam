@@ -19,7 +19,7 @@
 #include <camera/NdkCameraMetadata.h>
 
 namespace motioncam {
-    const static uint32_t MAX_BUFFERED_RAW_IMAGES = 4;
+    const static uint32_t MAX_BUFFERED_RAW_IMAGES = 12;
 
     enum class EventAction : int {
         ACTION_OPEN_CAMERA = 0,

@@ -1118,7 +1118,8 @@ namespace motioncam {
         return histogram;
     }
 
-    void ImageProcessor::process(RawContainer& rawContainer, const std::string& outputPath, const ImageProcessorProgress& progressListener) {
+    void ImageProcessor::process(RawContainer& rawContainer, const std::string& outputPath, const ImageProcessorProgress& progressListener)
+    {
         cv::ocl::setUseOpenCL(false);
                 
         // If this is a HDR capture then find the underexposed images.
