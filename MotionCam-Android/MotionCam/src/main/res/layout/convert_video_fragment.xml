@@ -100,6 +100,13 @@
 
             </LinearLayout>
 
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="10dp"
+                android:autoLink="web"
+                android:text="Please visit https://github.com/mirsadm/motioncam for tools that can convert the container files to DNG on your PC."/>
+
         </LinearLayout>
     </LinearLayout>
 

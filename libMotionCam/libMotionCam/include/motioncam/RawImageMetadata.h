@@ -39,6 +39,12 @@ namespace motioncam {
         HDR
     };
 
+    enum class CompressionType : int {
+        UNCOMPRESSED,
+        ZSTD,
+        V8NZENC
+    };
+
     struct RawImageMetadata
     {
         RawImageMetadata() :
@@ -232,6 +238,7 @@ namespace motioncam {
             height(0),
             rowStride(0),
             isCompressed(false),
+            compressionType(CompressionType::UNCOMPRESSED),
             offset(0)
         {
         }
@@ -243,6 +250,7 @@ namespace motioncam {
             height(0),
             rowStride(0),
             isCompressed(false),
+            compressionType(CompressionType::UNCOMPRESSED),
             offset(0)
         {
         }
@@ -254,6 +262,7 @@ namespace motioncam {
             height(other.height),
             rowStride(other.rowStride),
             isCompressed(other.isCompressed),
+            compressionType(other.compressionType),
             offset(other.offset)
         {
             data = other.data->clone();
@@ -267,6 +276,7 @@ namespace motioncam {
                 height(other.height),
                 rowStride(other.rowStride),
                 isCompressed(other.isCompressed),
+                compressionType(other.compressionType),
                 offset(other.offset)
         {
         }
@@ -279,6 +289,7 @@ namespace motioncam {
             height = obj.height;
             rowStride = obj.rowStride;
             isCompressed = obj.isCompressed;
+            compressionType = obj.compressionType;
             offset = obj.offset;
             
             return *this;
@@ -291,6 +302,7 @@ namespace motioncam {
             height = obj.height;
             rowStride = obj.rowStride;
             isCompressed = obj.isCompressed;
+            compressionType = obj.compressionType;
             offset = obj.offset;
         }
 
@@ -301,6 +313,7 @@ namespace motioncam {
         int32_t height;
         int32_t rowStride;
         bool isCompressed;
+        CompressionType compressionType;
         uint64_t offset;
     };
 

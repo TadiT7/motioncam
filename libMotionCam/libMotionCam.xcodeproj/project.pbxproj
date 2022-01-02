@@ -139,10 +139,10 @@
 		45684D4F2720AC3B004E7A12 /* dng_xmp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 457B8F132218401F004E4E7A /* dng_xmp.cpp */; };
 		45684D512720AC3B004E7A12 /* dng_xy_coord.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 457B8F252218401F004E4E7A /* dng_xy_coord.cpp */; };
 		45684D912720B4F4004E7A12 /* json11.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45086D932001694E0034293E /* json11.cpp */; };
-		45684DCC2720B92F004E7A12 /* miniz.c in Sources */ = {isa = PBXBuildFile; fileRef = 458976AB2449DACF008F348E /* miniz.c */; };
-		45684DCD2720B93B004E7A12 /* miniz_zip.c in Sources */ = {isa = PBXBuildFile; fileRef = 458976AF2449DACF008F348E /* miniz_zip.c */; };
-		45684DCE2720B93D004E7A12 /* miniz_tinfl.c in Sources */ = {isa = PBXBuildFile; fileRef = 458976B02449DACF008F348E /* miniz_tinfl.c */; };
-		45684DCF2720B93F004E7A12 /* miniz_tdef.c in Sources */ = {isa = PBXBuildFile; fileRef = 458976AD2449DACF008F348E /* miniz_tdef.c */; };
+		45684DCC2720B92F004E7A12 /* miniz.c in Sources */ = {isa = PBXBuildFile; fileRef = 458976AB2449DACF008F348E /* miniz.c */; settings = {COMPILER_FLAGS = "-w"; }; };
+		45684DCD2720B93B004E7A12 /* miniz_zip.c in Sources */ = {isa = PBXBuildFile; fileRef = 458976AF2449DACF008F348E /* miniz_zip.c */; settings = {COMPILER_FLAGS = "-w"; }; };
+		45684DCE2720B93D004E7A12 /* miniz_tinfl.c in Sources */ = {isa = PBXBuildFile; fileRef = 458976B02449DACF008F348E /* miniz_tinfl.c */; settings = {COMPILER_FLAGS = "-w"; }; };
+		45684DCF2720B93F004E7A12 /* miniz_tdef.c in Sources */ = {isa = PBXBuildFile; fileRef = 458976AD2449DACF008F348E /* miniz_tdef.c */; settings = {COMPILER_FLAGS = "-w"; }; };
 		45684DD22720B9C7004E7A12 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 45684DD12720B9C7004E7A12 /* CoreServices.framework */; };
 		4576A647273E910400657DFC /* fuse_denoise_5x5.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4576A641273E910300657DFC /* fuse_denoise_5x5.a */; };
 		4576A648273E910400657DFC /* fuse_denoise_3x3.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4576A642273E910300657DFC /* fuse_denoise_3x3.a */; };
@@ -154,6 +154,8 @@
 		4576A6542740582300657DFC /* fuse_denoise_7x7.h in Headers */ = {isa = PBXBuildFile; fileRef = 4576A6522740582300657DFC /* fuse_denoise_7x7.h */; };
 		458A354A275BC3F300E57813 /* build_bayer2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 458A3548275BC3F300E57813 /* build_bayer2.a */; };
 		458A354B275BC3F300E57813 /* build_bayer2.h in Headers */ = {isa = PBXBuildFile; fileRef = 458A3549275BC3F300E57813 /* build_bayer2.h */; };
+		45A2A50F2781059E00D5D6F0 /* vint.h in Headers */ = {isa = PBXBuildFile; fileRef = 45A2A50E2781059E00D5D6F0 /* vint.h */; };
+		45A2A511278105A400D5D6F0 /* libic.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45A2A510278105A400D5D6F0 /* libic.a */; };
 		45C6A3DE276B3B6300042058 /* AudioInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = 45C6A3DD276B3B6300042058 /* AudioInterface.h */; };
 		45C6A3E2276B438200042058 /* tinywav.c in Sources */ = {isa = PBXBuildFile; fileRef = 45C6A3E0276B438200042058 /* tinywav.c */; };
 		45C6A3E3276B438200042058 /* tinywav.h in Headers */ = {isa = PBXBuildFile; fileRef = 45C6A3E1276B438200042058 /* tinywav.h */; };
@@ -462,6 +464,8 @@
 		45936A2B23BA979C00CC85D4 /* Settings.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Settings.cpp; sourceTree = "<group>"; };
 		4594FE0424D02125006FED24 /* libopencv_dnn_superres.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libopencv_dnn_superres.dylib; path = ../../../../../usr/local/lib/libopencv_dnn_superres.dylib; sourceTree = "<group>"; };
 		45A241082023AA2B007A436E /* Accelerate.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accelerate.framework; path = System/Library/Frameworks/Accelerate.framework; sourceTree = SDKROOT; };
+		45A2A50E2781059E00D5D6F0 /* vint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vint.h; path = pfor/host/include/vint.h; sourceTree = "<group>"; };
+		45A2A510278105A400D5D6F0 /* libic.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libic.a; path = pfor/host/lib/libic.a; sourceTree = "<group>"; };
 		45A340A1260B887700405A85 /* CameraPreview.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CameraPreview.cpp; sourceTree = "<group>"; };
 		45A340A2260B887700405A85 /* CameraPreview.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CameraPreview.h; sourceTree = "<group>"; };
 		45AD8088230DCFA800D6AA04 /* ImageProcessor.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ImageProcessor.cpp; sourceTree = "<group>"; };
@@ -592,6 +596,7 @@
 				4521E0402732E69900DEBD25 /* forward_transform.a in Frameworks */,
 				4521E0082732E69800DEBD25 /* generate_edges.a in Frameworks */,
 				4521E03E2732E69900DEBD25 /* preview_reverse_portrait4.a in Frameworks */,
+				45A2A511278105A400D5D6F0 /* libic.a in Frameworks */,
 				45DFA079276FE7A80068AFA6 /* camera_video_preview4_raw10.a in Frameworks */,
 				4521E03B2732E69900DEBD25 /* preview_reverse_landscape8.a in Frameworks */,
 				4521E0482732E69900DEBD25 /* preview_reverse_landscape4.a in Frameworks */,
@@ -839,6 +844,15 @@
 			path = thirdparty/miniz;
 			sourceTree = SOURCE_ROOT;
 		};
+		45A2A50D2781058F00D5D6F0 /* pfor */ = {
+			isa = PBXGroup;
+			children = (
+				45A2A50E2781059E00D5D6F0 /* vint.h */,
+				45A2A510278105A400D5D6F0 /* libic.a */,
+			);
+			name = pfor;
+			sourceTree = "<group>";
+		};
 		45C3BBF32314206100EAABB8 /* queue */ = {
 			isa = PBXGroup;
 			children = (
@@ -1021,6 +1035,7 @@
 		45FA2E611FF7DFC400BE34C3 /* thirdparty */ = {
 			isa = PBXGroup;
 			children = (
+				45A2A50D2781058F00D5D6F0 /* pfor */,
 				45C6A3DF276B438200042058 /* tinywav */,
 				457B8EB32218401F004E4E7A /* dng */,
 				45FA2E621FF7DFC400BE34C3 /* json11 */,
@@ -1144,6 +1159,7 @@
 				4576A64A273E910400657DFC /* fuse_denoise_3x3.h in Headers */,
 				4521E0172732E69800DEBD25 /* preview_portrait2.h in Headers */,
 				45DFA085276FE7A80068AFA6 /* camera_preview3_raw16.h in Headers */,
+				45A2A50F2781059E00D5D6F0 /* vint.h in Headers */,
 				4521E0292732E69900DEBD25 /* preview_reverse_landscape2.h in Headers */,
 				45DFA088276FE7A80068AFA6 /* camera_video_preview2_raw16.h in Headers */,
 				45C6A3DE276B3B6300042058 /* AudioInterface.h in Headers */,
@@ -1342,6 +1358,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DRIVERKIT_DEPLOYMENT_TARGET = 20.4;
 				EXECUTABLE_PREFIX = lib;
+				GCC_PREPROCESSOR_DEFINITIONS = "DEBUG=1";
 				HEADER_SEARCH_PATHS = (
 					/usr/local/include/opencv4,
 					/usr/local/include,
@@ -1354,6 +1371,7 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/libMotionCam/halide/host",
+					"$(PROJECT_DIR)/thirdparty/pfor/host/lib",
 				);
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -1377,6 +1395,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DRIVERKIT_DEPLOYMENT_TARGET = 20.4;
 				EXECUTABLE_PREFIX = lib;
+				GCC_PREPROCESSOR_DEFINITIONS = "";
 				HEADER_SEARCH_PATHS = (
 					/usr/local/include/opencv4,
 					/usr/local/include,
@@ -1389,6 +1408,7 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/libMotionCam/halide/host",
+					"$(PROJECT_DIR)/thirdparty/pfor/host/lib",
 				);
 				MTL_FAST_MATH = YES;
 				OTHER_LDFLAGS = "";

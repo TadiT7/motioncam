@@ -20,6 +20,7 @@ LIBEXIV2_VERSION="0.27.4"
 ZSTD_VERSION="v1.5.0"
 DLIB_VERSION="19.22"
 HALIDE_BRANCH=https://github.com/mirsadm/Halide
+PFOR_BRANCH=https://github.com/mirsadm/TurboPFor-Integer-Compression
 
 mkdir -p tmp
 pushd tmp
@@ -238,6 +239,54 @@ halide_generate() {
 	popd
 }
 
+build_fpor() {
+	if [ ! -d "pfor-src" ]; then
+		git clone ${PFOR_BRANCH} pfor-src
+	fi
+
+	pushd pfor-src
+	git pull
+
+	INSTALL_DIR="../../libMotionCam/thirdparty/pfor"
+
+	#
+	# Build for host
+	#
+
+	make clean
+	make -j${NUM_CORES}
+
+	mkdir -p ${INSTALL_DIR}/host/lib
+	mkdir -p ${INSTALL_DIR}/host/include
+
+	cp libic.a ${INSTALL_DIR}/host/lib
+	cp vint.h ${INSTALL_DIR}/host/include
+
+	#
+	# Build for Android
+	#
+
+	mkdir -p ${INSTALL_DIR}/${ANDROID_ABI}/lib
+	mkdir -p ${INSTALL_DIR}/${ANDROID_ABI}/include
+
+	if [[ "$OSTYPE" == "darwin"* ]]; then
+		TOOLCHAIN_HOST=darwin-x86_64
+	elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+		TOOLCHAIN_HOST=linux-x86_64
+	fi
+
+	export AR=${ANDROID_NDK}/toolchains/llvm/prebuilt/${TOOLCHAIN_HOST}/bin/aarch64-linux-android-ar
+	export CL=${ANDROID_NDK}/toolchains/llvm/prebuilt/${TOOLCHAIN_HOST}/bin/aarch64-linux-android24-clang
+	export CC=${ANDROID_NDK}/toolchains/llvm/prebuilt/${TOOLCHAIN_HOST}/bin/aarch64-linux-android24-clang
+	export CXX=${ANDROID_NDK}/toolchains/llvm/prebuilt/${TOOLCHAIN_HOST}/bin/aarch64-linux-android24-clang++
+
+	make clean
+	make -j${NUM_CORES}
+
+	cp libic.a ${INSTALL_DIR}/${ANDROID_ABI}/lib
+	cp vint.h ${INSTALL_DIR}/${ANDROID_ABI}/include
+}
+
 # Build dependencies
 if [ ! -f ".opencv-${OPENCV_VERSION}" ]; then
     build_opencv
@@ -261,6 +310,10 @@ fi
 
 if [ ! -f ".halide" ]; then
 	build_halide
+fi
+
+if [ ! -f ".pfor" ]; then
+	build_fpor
 fi
 
 # Generate halide libraries

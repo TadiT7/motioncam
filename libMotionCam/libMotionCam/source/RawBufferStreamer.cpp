@@ -11,13 +11,17 @@
 #include <zstd_errors.h>
 #include <tinywav.h>
 #include <memory>
+#include <vint.h>
+
 
 #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
     #include <unistd.h>
+    #include <arpa/inet.h>
+#elif defined(_WIN32)
+    #include <WinSock2.h>
 #endif
 
 namespace motioncam {
-    const int NumCompressThreads = 1;
     const int NumProcessThreads  = 2;
 
     const int SoundSampleRateHz       = 48000;
@@ -118,13 +122,6 @@ namespace motioncam {
             
             mProcessThreads.push_back(std::move(t));
         }
-
-        // Create compression threads
-        for(int i = 0; i < NumCompressThreads; i++) {
-            auto t = std::unique_ptr<std::thread>(new std::thread(&RawBufferStreamer::doCompress, this));
-            
-            mCompressThreads.push_back(std::move(t));
-        }
     }
 
     void RawBufferStreamer::add(const std::shared_ptr<RawImageBuffer>& frame) {
@@ -169,12 +166,6 @@ namespace motioncam {
         mAudioInterface = nullptr;
         mAudioFd = -1;
 
-        for(auto& thread : mCompressThreads) {
-            thread->join();
-        }
-        
-        mCompressThreads.clear();
-
         for(auto& thread : mProcessThreads) {
             thread->join();
         }
@@ -200,17 +191,17 @@ namespace motioncam {
         mBin = bin;
     }
 
-    void RawBufferStreamer::cropAndBin_RAW10(RawImageBuffer& buffer,
-                                             uint8_t* data,
-                                             const int16_t ystart,
-                                             const int16_t yend,
-                                             const int16_t xstart,
-                                             const int16_t xend,
-                                             const int16_t binnedWidth) const
+    size_t RawBufferStreamer::cropAndBin_RAW10(RawImageBuffer& buffer,
+                                               uint8_t* data,
+                                               const int16_t ystart,
+                                               const int16_t yend,
+                                               const int16_t xstart,
+                                               const int16_t xend,
+                                               const int16_t binnedWidth) const
     {
         std::vector<uint16_t> row0(binnedWidth);
         std::vector<uint16_t> row1(binnedWidth);
-        uint32_t dstOffset = 0;
+        size_t offset = 0;
 
         for(int16_t y = ystart; y < yend; y+=4) {
             for(int16_t x = xstart; x < xend; x+=4) {
@@ -334,65 +325,24 @@ namespace motioncam {
                 }
             }
             
-            //
-            // Pack into RAW10
-            //
-            
-            for(uint16_t i = 0; i < row0.size(); i+=4) {
-                const uint8_t p0 = static_cast<uint8_t>( row0[i    ] >> 2 );
-                const uint8_t p1 = static_cast<uint8_t>( row0[i + 1] >> 2 );
-                const uint8_t p2 = static_cast<uint8_t>( row0[i + 2] >> 2 );
-                const uint8_t p3 = static_cast<uint8_t>( row0[i + 3] >> 2 );
-                
-                const uint8_t upper =
-                    static_cast<uint8_t>( (row0[i]     & 0x03))         |
-                    static_cast<uint8_t>( (row0[i + 1] & 0x03) << 2)    |
-                    static_cast<uint8_t>( (row0[i + 2] & 0x03) << 4)    |
-                    static_cast<uint8_t>( (row0[i + 3] & 0x03) << 6);
-                
-                data[dstOffset    ] = p0;
-                data[dstOffset + 1] = p1;
-                data[dstOffset + 2] = p2;
-                data[dstOffset + 3] = p3;
-                data[dstOffset + 4] = upper;
-                
-                dstOffset += 5;
-            }
-
-            for(uint16_t i = 0; i < row1.size(); i+=4) {
-                const uint8_t p0 = static_cast<uint8_t>( row1[i    ] >> 2 );
-                const uint8_t p1 = static_cast<uint8_t>( row1[i + 1] >> 2 );
-                const uint8_t p2 = static_cast<uint8_t>( row1[i + 2] >> 2 );
-                const uint8_t p3 = static_cast<uint8_t>( row1[i + 3] >> 2 );
-                
-                const uint8_t upper =
-                    static_cast<uint8_t>( (row1[i]     & 0x03))         |
-                    static_cast<uint8_t>( (row1[i + 1] & 0x03) << 2)    |
-                    static_cast<uint8_t>( (row1[i + 2] & 0x03) << 4)    |
-                    static_cast<uint8_t>( (row1[i + 3] & 0x03) << 6);
-                
-                data[dstOffset    ] = p0;
-                data[dstOffset + 1] = p1;
-                data[dstOffset + 2] = p2;
-                data[dstOffset + 3] = p3;
-                data[dstOffset + 4] = upper;
-                
-                dstOffset += 5;
-            }
+            offset += v8nzenc128v16(row0.data(), row0.size(), data+offset);
+            offset += v8nzenc128v16(row1.data(), row1.size(), data+offset);
         }
+        
+        return offset;
     }
 
-    void RawBufferStreamer::cropAndBin_RAW12(RawImageBuffer& buffer,
-                                             uint8_t* data,
-                                             const int16_t ystart,
-                                             const int16_t yend,
-                                             const int16_t xstart,
-                                             const int16_t xend,
-                                             const int16_t binnedWidth) const
+    size_t RawBufferStreamer::cropAndBin_RAW12(RawImageBuffer& buffer,
+                                               uint8_t* data,
+                                               const int16_t ystart,
+                                               const int16_t yend,
+                                               const int16_t xstart,
+                                               const int16_t xend,
+                                               const int16_t binnedWidth) const
     {
         std::vector<uint16_t> row0(binnedWidth);
         std::vector<uint16_t> row1(binnedWidth);
-        uint32_t dstOffset = 0;
+        uint32_t offset = 0;
 
         for(int16_t y = ystart; y < yend; y+=4) {
             for(int16_t x = xstart; x < xend; x+=4) {
@@ -515,54 +465,25 @@ namespace motioncam {
                     row1[X] = out;
                 }
             }
-            
-            //
-            // Pack into RAW12
-            //
-            
-            for(uint16_t i = 0; i < row0.size(); i+=2) {
-                const uint8_t p0 = static_cast<uint8_t>( row0[i    ] >> 4 );
-                const uint8_t p1 = static_cast<uint8_t>( row0[i + 1] >> 4 );
-                
-                const uint8_t upper =
-                    static_cast<uint8_t>( (p0 & 0x0F)) |
-                    static_cast<uint8_t>( (p1 & 0x0F) << 4);
 
-                data[dstOffset    ] = p0;
-                data[dstOffset + 1] = p1;
-                data[dstOffset + 2] = upper;
-                
-                dstOffset += 3;
-            }
-
-            for(uint16_t i = 0; i < row1.size(); i+=2) {
-                const uint8_t p0 = static_cast<uint8_t>( row1[i    ] >> 4 );
-                const uint8_t p1 = static_cast<uint8_t>( row1[i + 1] >> 4 );
-                
-                const uint8_t upper =
-                    static_cast<uint8_t>( (p0 & 0x0F)) |
-                    static_cast<uint8_t>( (p1 & 0x0F) << 4);
-
-                data[dstOffset    ] = p0;
-                data[dstOffset + 1] = p1;
-                data[dstOffset + 2] = upper;
-                
-                dstOffset += 3;
-            }
+            offset += v8nzenc128v16(row0.data(), row0.size(), data+offset);
+            offset += v8nzenc128v16(row1.data(), row1.size(), data+offset);
         }
+        
+        return offset;
     }
 
-    void RawBufferStreamer::cropAndBin_RAW16(RawImageBuffer& buffer,
-                                             uint8_t* data,
-                                             const int16_t ystart,
-                                             const int16_t yend,
-                                             const int16_t xstart,
-                                             const int16_t xend,
-                                             const int16_t binnedWidth) const
+    size_t RawBufferStreamer::cropAndBin_RAW16(RawImageBuffer& buffer,
+                                               uint8_t* data,
+                                               const int16_t ystart,
+                                               const int16_t yend,
+                                               const int16_t xstart,
+                                               const int16_t xend,
+                                               const int16_t binnedWidth) const
     {
         std::vector<uint16_t> row0(binnedWidth);
         std::vector<uint16_t> row1(binnedWidth);
-        uint32_t dstOffset = 0;
+        uint32_t offset = 0;
 
         for(int16_t y = ystart; y < yend; y+=4) {
             for(int16_t x = xstart; x < xend; x+=4) {
@@ -684,41 +605,12 @@ namespace motioncam {
                     row1[X] = out;
                 }
             }
-            
-            //
-            // Pack into RAW12
-            //
-            
-            for(uint16_t i = 0; i < row0.size(); i+=2) {
-                const uint8_t p0 = static_cast<uint8_t>( row0[i    ] >> 4 );
-                const uint8_t p1 = static_cast<uint8_t>( row0[i + 1] >> 4 );
-                
-                const uint8_t upper =
-                    static_cast<uint8_t>( (p0 & 0x0F)) |
-                    static_cast<uint8_t>( (p1 & 0x0F) << 4);
 
-                data[dstOffset    ] = p0;
-                data[dstOffset + 1] = p1;
-                data[dstOffset + 2] = upper;
-                
-                dstOffset += 3;
-            }
-
-            for(uint16_t i = 0; i < row1.size(); i+=2) {
-                const uint8_t p0 = static_cast<uint8_t>( row1[i    ] >> 4 );
-                const uint8_t p1 = static_cast<uint8_t>( row1[i + 1] >> 4 );
-                
-                const uint8_t upper =
-                    static_cast<uint8_t>( (p0 & 0x0F)) |
-                    static_cast<uint8_t>( (p1 & 0x0F) << 4);
-
-                data[dstOffset    ] = p0;
-                data[dstOffset + 1] = p1;
-                data[dstOffset + 2] = upper;
-                
-                dstOffset += 3;
-            }
+            offset += v8nzenc128v16(row0.data(), row0.size(), data+offset);
+            offset += v8nzenc128v16(row1.data(), row1.size(), data+offset);
         }
+        
+        return offset;;
     }
 
     void RawBufferStreamer::cropAndBin(RawImageBuffer& buffer) const {
@@ -742,18 +634,16 @@ namespace motioncam {
         std::vector<uint16_t> row1(croppedWidth / 2);
 
         auto data = buffer.data->lock(true);
+        size_t end = 0;
         
         if(buffer.pixelFormat == PixelFormat::RAW10) {
-            cropAndBin_RAW10(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2);
+            end = cropAndBin_RAW10(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2);
         }
         else if(buffer.pixelFormat == PixelFormat::RAW12) {
-            cropAndBin_RAW12(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2);
+            end = cropAndBin_RAW12(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2);
         }
         else if(buffer.pixelFormat == PixelFormat::RAW16) {
-            cropAndBin_RAW16(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2);
-            
-            // RAW16 -> RAW12
-            buffer.pixelFormat = PixelFormat::RAW12;
+            end = cropAndBin_RAW16(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2);
         }
         else {
             // Not supported
@@ -765,22 +655,18 @@ namespace motioncam {
 
         buffer.width = croppedWidth / 2;
         buffer.height = croppedHeight / 2;
-        buffer.rowStride = buffer.pixelFormat == PixelFormat::RAW10 ? 10*buffer.width/8 : 12*buffer.width/8;
-                
+        buffer.rowStride = 2 * buffer.width;
+        buffer.pixelFormat = PixelFormat::RAW16;
+        buffer.isCompressed = true;
+        buffer.compressionType = CompressionType::V8NZENC;
+        
         // Update valid range
-        size_t end = buffer.height*buffer.rowStride;
         buffer.data->setValidRange(0, end);
     }
 
     void RawBufferStreamer::crop(RawImageBuffer& buffer) const {
-        // Nothing to do
-        if(mCropWidth  == 0   &&
-           mCropHeight == 0   &&
-           buffer.pixelFormat != PixelFormat::RAW16) // Always crop when RAW16 so we can pack to RAW10
-        {
-            return;
-        }
-        
+        Measure m("crop");
+
         const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropWidth/100.0f * buffer.width)) / 4));
 
         // Even vertical crop to match bayer pattern
@@ -791,58 +677,58 @@ namespace motioncam {
         
         auto data = buffer.data->lock(true);
 
+        const int xstart = horizontalCrop;
+        const int xend = buffer.width - horizontalCrop;
+
         const int ystart = verticalCrop;
         const int yend = buffer.height - ystart;
 
-        uint32_t croppedRowStride;
+        const uint16_t croppedWidth_2 = croppedWidth>>1;
+
+        std::vector<uint16_t> row(croppedWidth);
+        size_t offset = 0;
 
         if(buffer.pixelFormat == PixelFormat::RAW10) {
-            croppedRowStride = 10*croppedWidth/8;
-            
             for(int y = ystart; y < yend; y++) {
-                const int srcOffset = buffer.rowStride * y;
-                const int dstOffset = croppedRowStride * (y - ystart);
+                for(int x = xstart; x < xend; x+=2) {
+                    const uint16_t p0 = RAW10(data, x,   y, buffer.rowStride);
+                    const uint16_t p1 = RAW10(data, x+1, y, buffer.rowStride);
 
-                const int xstart = 10*horizontalCrop/8;
+                    row[x>>1]                    = p0;
+                    row[croppedWidth_2 + (x>>1)] = p1;
+                }
+                
+                // Keep track of output per row
+                size_t writtenBytes = v8nzenc128v16(row.data(), row.size(), data+offset);
 
-                std::memmove(data+dstOffset, data+srcOffset+xstart, croppedRowStride);
+                offset += writtenBytes;
             }
         }
         else if(buffer.pixelFormat == PixelFormat::RAW12) {
-            croppedRowStride = 12*croppedWidth/8;
-            
             for(int y = ystart; y < yend; y++) {
-                const int srcOffset = buffer.rowStride * y;
-                const int dstOffset = croppedRowStride * (y - ystart);
+                for(int x = xstart; x < xend; x+=2) {
+                    const uint16_t p0 = RAW12(data, x,   y, buffer.rowStride);
+                    const uint16_t p1 = RAW12(data, x+1, y, buffer.rowStride);
+                    
+                    row[x>>1]                    = p0;
+                    row[croppedWidth_2 + (x>>1)] = p1;
+                }
 
-                const int xstart = 10*horizontalCrop/8;
-
-                std::memmove(data+dstOffset, data+srcOffset+xstart, croppedRowStride);
+                offset += v8nzenc128v16(row.data(), row.size(), data+offset);
             }
         }
         else if(buffer.pixelFormat == PixelFormat::RAW16) {
-            // Pack into RAW12
-            croppedRowStride = 12*croppedWidth/8;
-            uint32_t dstOffset = 0;
-
             for(int y = ystart; y < yend; y++) {
-                for(int x = horizontalCrop; x < buffer.width - horizontalCrop; x+=2) {
+                for(int x = xstart; x < xend; x+=2) {
                     const uint16_t p0 = RAW16(data, x,   y, buffer.rowStride);
                     const uint16_t p1 = RAW16(data, x+1, y, buffer.rowStride);
-
-                    const uint8_t upper =
-                        static_cast<uint8_t>( (p0 & 0x0F)) |
-                        static_cast<uint8_t>( (p1 & 0x0F) << 4);
-
-                    data[dstOffset    ] = static_cast<uint8_t>(p0 >> 4);
-                    data[dstOffset + 1] = static_cast<uint8_t>(p1 >> 4);
-                    data[dstOffset + 2] = upper;
-
-                    dstOffset += 3;
+                    
+                    row[x>>1]                    = p0;
+                    row[croppedWidth_2 + (x>>1)] = p1;
                 }
+
+                offset += v8nzenc128v16(row.data(), row.size(), data+offset);
             }
-            
-            buffer.pixelFormat = PixelFormat::RAW12;
         }
         else {
             // Not supported
@@ -853,47 +739,14 @@ namespace motioncam {
         buffer.data->unlock();
 
         // Update buffer
-        buffer.rowStride = croppedRowStride;
+        buffer.pixelFormat = PixelFormat::RAW16;
+        buffer.rowStride = croppedWidth*2;
         buffer.width = croppedWidth;
         buffer.height = croppedHeight;
+        buffer.isCompressed = true;
+        buffer.compressionType = CompressionType::V8NZENC;
 
-        buffer.data->setValidRange(0, buffer.rowStride * buffer.height);
-    }
-
-    size_t RawBufferStreamer::zcompress(RawImageBuffer& inputBuffer, std::vector<uint8_t>& tmpBuffer) const {
-        size_t start, end, size;
-
-        inputBuffer.data->getValidRange(start, end);
-
-        size = end - start;
-
-        size_t outputBounds = ZSTD_compressBound(size);
-        tmpBuffer.resize(outputBounds);
-
-        auto data = inputBuffer.data->lock(true);
-        
-        size_t outputSize = ZSTD_compress(
-            tmpBuffer.data(), tmpBuffer.size(), data + start, size, ZSTD_fast);
-        
-        if(ZSTD_isError(outputSize)) {
-            inputBuffer.data->unlock();
-            return inputBuffer.data->len();
-        }
-
-        // This should hopefully always be true
-        if(outputSize < inputBuffer.data->len()) {
-            std::memcpy(data, tmpBuffer.data(), outputSize);
-            
-            inputBuffer.data->setValidRange(0, outputSize);
-            inputBuffer.isCompressed = true;
-            
-            inputBuffer.data->unlock();
-            
-            return outputSize;
-        }
-        
-        inputBuffer.data->unlock();
-        return inputBuffer.data->len();
+        buffer.data->setValidRange(0, offset);
     }
 
     void RawBufferStreamer::processBuffer(std::shared_ptr<RawImageBuffer> buffer) {
@@ -919,25 +772,6 @@ namespace motioncam {
 
     }
 
-    void RawBufferStreamer::doCompress() {
-        std::shared_ptr<RawImageBuffer> buffer;
-        std::vector<uint8_t> tmpBuffer;
-
-        std::vector<std::shared_ptr<RawImageBuffer>> buffers;
-        
-        while(mRunning) {
-            // Pull buffers out of the ready queue and compress them
-            if(!mReadyBuffers.wait_dequeue_timed(buffer, std::chrono::milliseconds(67))) {
-                continue;
-            }
-
-            zcompress(*buffer, tmpBuffer);
-            
-            // Add to compressed queue so we don't compress again
-            mCompressedBuffers.enqueue(buffer);
-        }
-    }
-
     void RawBufferStreamer::doStream(const int fd, const RawCameraMetadata& cameraMetadata, const int numContainers) {
         util::CloseableFd fdContext(fd);
         
@@ -952,10 +786,8 @@ namespace motioncam {
         }
 
         while(mRunning) {
-            if(!mCompressedBuffers.try_dequeue(buffer)) {
-                if(!mReadyBuffers.wait_dequeue_timed(buffer, std::chrono::milliseconds(100))) {
-                    continue;
-                }
+            if(!mReadyBuffers.wait_dequeue_timed(buffer, std::chrono::milliseconds(100))) {
+                continue;
             }
 
             if(!container.append(fd, *buffer)) {
@@ -977,21 +809,6 @@ namespace motioncam {
         //
         // Flush buffers
         //
-
-        // Compressed first
-        while(mCompressedBuffers.try_dequeue(buffer)) {
-            if(!container.append(fd, *buffer)) {
-                logger::log("Failed to flush compressed buffer");
-                RawBufferManager::get().discardBuffer(buffer);
-                return;
-            }
-            
-            buffer->data->getValidRange(start, end);
-            mWrittenBytes += (end - start);
-            mWrittenFrames++;
-
-            RawBufferManager::get().discardBuffer(buffer);
-        }
 
         // Ready buffers
         while(mReadyBuffers.try_dequeue(buffer)) {

@@ -429,6 +429,12 @@ set_target_properties(opencv-core PROPERTIES IMPORTED_LOCATION
         ${thirdparty-libs}/opencv/libs/${ANDROID_ABI}/libopencv_core.a)
 
 #
+
+add_library(pfor STATIC IMPORTED)
+set_target_properties(pfor PROPERTIES IMPORTED_LOCATION
+        ${thirdparty-libs}/pfor/${ANDROID_ABI}/lib/libic.a)
+
+#
 # Processing library
 #
 
@@ -476,7 +482,8 @@ target_include_directories(motion-cam PUBLIC
         ${thirdparty-libs}/zstd/include
         ${thirdparty-libs}/dng_sdk
         ${thirdparty-libs}/opencv/include
-        ${thirdparty-libs}/opencv/thirdparty/include)
+        ${thirdparty-libs}/opencv/thirdparty/include
+        ${thirdparty-libs}/pfor/${ANDROID_ABI}/include)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDNG_SUPPORT -DqAndroid -DqDNGThreadSafe")
 
@@ -590,6 +597,7 @@ set(native-camera-libs
         opencv-photo
         opencv-objdetect
         opencv-core
+        pfor
         ittnotify
         tegra-hal
         tbb

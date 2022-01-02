@@ -2005,6 +2005,33 @@ public class CameraActivity extends AppCompatActivity implements
         }
     }
 
+    private void setupFpsSelection() {
+        // Set up available FPS ranges
+        ViewGroup fpsGroup = mBinding.cameraSettings.findViewById(R.id.fpsGroup);
+        fpsGroup.removeAllViews();
+
+        List<Integer> fpsRange = Arrays.stream( mSelectedCamera.fpsRange )
+                .boxed()
+                .sorted(Collections.reverseOrder())
+                .collect(Collectors.toList());
+
+        for(Integer fps : fpsRange) {
+            String fpsValue = String.valueOf(fps);
+            TextView fpsToggle = new TextView(this);
+
+            fpsToggle.setTextAppearance(R.style.MotionCam_TextAppearance_Small);
+            fpsToggle.setGravity(Gravity.CENTER);
+            fpsToggle.setText(fpsValue);
+            fpsToggle.setTag(fpsValue);
+            fpsToggle.setTextColor(getColor(R.color.white));
+            fpsToggle.setOnClickListener(v -> toggleFrameRate(v));
+
+            fpsGroup.addView(
+                    fpsToggle,
+                    new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT, 1));
+        }
+    }
+
     private void initCamera() {
         if (mNativeCamera == null) {
             createCamera();
@@ -2055,30 +2082,7 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.exposureSeekBar.setProgress(numEvSteps / 2);
         mBinding.shadowsSeekBar.setProgress(50);
 
-        // Set up available FPS ranges
-        ViewGroup fpsGroup = mBinding.cameraSettings.findViewById(R.id.fpsGroup);
-        fpsGroup.removeAllViews();
-
-        List<Integer> fpsRange = Arrays.stream( mSelectedCamera.fpsRange )
-                .boxed()
-                .sorted(Collections.reverseOrder())
-                .collect(Collectors.toList());
-
-        for(Integer fps : fpsRange) {
-            String fpsValue = String.valueOf(fps);
-            TextView fpsToggle = new TextView(this);
-
-            fpsToggle.setTextAppearance(R.style.MotionCam_TextAppearance_Small);
-            fpsToggle.setGravity(Gravity.CENTER);
-            fpsToggle.setText(fpsValue);
-            fpsToggle.setTag(fpsValue);
-            fpsToggle.setTextColor(getColor(R.color.white));
-            fpsToggle.setOnClickListener(v -> toggleFrameRate(v));
-
-            fpsGroup.addView(
-                    fpsToggle,
-                    new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT, 1));
-        }
+        setupFpsSelection();
 
         // Create texture view for camera preview
         mTextureView = new TextureView(this);
@@ -2098,6 +2102,7 @@ public class CameraActivity extends AppCompatActivity implements
         }
 
         updateVideoUi();
+        updateCameraSettingsUi();
     }
 
     /**

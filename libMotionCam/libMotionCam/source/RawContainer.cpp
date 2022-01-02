@@ -5,6 +5,7 @@
 #include <zstd.h>
 #include <utility>
 #include <vector>
+#include <vint.h>
 
 #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
     #include <unistd.h>
@@ -631,24 +632,54 @@ namespace motioncam {
         }
         
         if(buffer->second->isCompressed) {
-            vector<uint8_t> tmp;
-            
-            size_t outputSize = ZSTD_getFrameContentSize(static_cast<void*>(&data[0]), data.size());
-            if( outputSize == ZSTD_CONTENTSIZE_UNKNOWN ||
-                outputSize == ZSTD_CONTENTSIZE_ERROR )
-            {
-                // Invalid data
+            if(buffer->second->compressionType == CompressionType::ZSTD) {
+                vector<uint8_t> tmp;
+                
+                size_t outputSize = ZSTD_getFrameContentSize(static_cast<void*>(&data[0]), data.size());
+                if( outputSize == ZSTD_CONTENTSIZE_UNKNOWN ||
+                    outputSize == ZSTD_CONTENTSIZE_ERROR )
+                {
+                    // Invalid data
+                    return nullptr;
+                }
+
+                tmp.resize(outputSize);
+                
+                long readBytes =
+                    ZSTD_decompress(static_cast<void*>(&tmp[0]), tmp.size(), &data[0], data.size());
+                
+                tmp.resize(readBytes);
+                
+                buffer->second->data->copyHostData(tmp);
+            }
+            else if(buffer->second->compressionType == CompressionType::V8NZENC) {
+                std::vector<uint16_t> row(buffer->second->width);
+                std::vector<uint8_t> uncompressedBuffer(2*buffer->second->width*buffer->second->height);
+                
+                size_t offset = 0;
+                size_t p = 0;
+                
+                while(offset < data.size()) {
+                    offset += v8nzdec128v16(data.data() + offset, buffer->second->width, row.data());
+                    
+                    // Reshuffle the row
+                    for(size_t i = 0; i < row.size()/2; i++) {
+                        uncompressedBuffer[p]   = row[i];
+                        uncompressedBuffer[p+1] = row[i] >> 8;
+
+                        uncompressedBuffer[p+2] = row[i+row.size()/2];
+                        uncompressedBuffer[p+3] = row[i+row.size()/2] >> 8;
+
+                        p+=4;
+                    }
+                }
+                
+                buffer->second->data->copyHostData(uncompressedBuffer);
+            }
+            else {
+                // Unknown compression type
                 return nullptr;
             }
-
-            tmp.resize(outputSize);
-            
-            long readBytes =
-                ZSTD_decompress(static_cast<void*>(&tmp[0]), tmp.size(), &data[0], data.size());
-            
-            tmp.resize(readBytes);
-            
-            buffer->second->data->copyHostData(tmp);
         }
         else {
             buffer->second->data->copyHostData(data);
@@ -680,10 +711,16 @@ namespace motioncam {
     shared_ptr<RawImageBuffer> RawContainer::loadFrameMetadata(const json11::Json& obj) {
         shared_ptr<RawImageBuffer> buffer = std::make_shared<RawImageBuffer>();
         
-        buffer->width        = getRequiredSettingAsInt(obj, "width");
-        buffer->height       = getRequiredSettingAsInt(obj, "height");
-        buffer->rowStride    = getRequiredSettingAsInt(obj, "rowStride");
-        buffer->isCompressed = getOptionalSetting(obj, "isCompressed", false);
+        buffer->width               = getRequiredSettingAsInt(obj, "width");
+        buffer->height              = getRequiredSettingAsInt(obj, "height");
+        buffer->rowStride           = getRequiredSettingAsInt(obj, "rowStride");
+        buffer->isCompressed        = getOptionalSetting(obj, "isCompressed", false);
+        buffer->compressionType     = static_cast<CompressionType>(getOptionalSetting(obj, "compressionType", 0));
+        
+        // Default to ZSTD if no compression type specified
+        if(buffer->isCompressed && buffer->compressionType == CompressionType::UNCOMPRESSED) {
+            buffer->compressionType = CompressionType::ZSTD;
+        }
         
         std::string offset   = getOptionalStringSetting(obj, "offset", "0");
         buffer->offset       = stoll(offset);
@@ -863,6 +900,7 @@ namespace motioncam {
         metadata["exposureTime"]           = (double) frame.metadata.exposureTime;
         metadata["orientation"]            = static_cast<int>(frame.metadata.screenOrientation);
         metadata["isCompressed"]           = frame.isCompressed;
+        metadata["compressionType"]        = static_cast<int>(frame.compressionType);
 
         if(!frame.metadata.calibrationMatrix1.empty()) {
             metadata["calibrationMatrix1"]  = toJsonArray(frame.metadata.calibrationMatrix1);

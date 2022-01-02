@@ -32,38 +32,35 @@ namespace motioncam {
         float estimateFps() const;
         size_t writenOutputBytes() const;
 
-        void cropAndBin_RAW10(RawImageBuffer& buffer,
-                              uint8_t* data,
-                              const int16_t ystart,
-                              const int16_t yend,
-                              const int16_t xstart,
-                              const int16_t xend,
-                              const int16_t binnedWidth) const;
+        size_t cropAndBin_RAW10(RawImageBuffer& buffer,
+                                uint8_t* data,
+                                const int16_t ystart,
+                                const int16_t yend,
+                                const int16_t xstart,
+                                const int16_t xend,
+                                const int16_t binnedWidth) const;
 
-        void cropAndBin_RAW12(RawImageBuffer& buffer,
-                              uint8_t* data,
-                              const int16_t ystart,
-                              const int16_t yend,
-                              const int16_t xstart,
-                              const int16_t xend,
-                              const int16_t binnedWidth) const;
+        size_t cropAndBin_RAW12(RawImageBuffer& buffer,
+                                uint8_t* data,
+                                const int16_t ystart,
+                                const int16_t yend,
+                                const int16_t xstart,
+                                const int16_t xend,
+                                const int16_t binnedWidth) const;
 
-        void cropAndBin_RAW16(RawImageBuffer& buffer,
-                              uint8_t* data,
-                              const int16_t ystart,
-                              const int16_t yend,
-                              const int16_t xstart,
-                              const int16_t xend,
-                              const int16_t binnedWidth) const;
+        size_t cropAndBin_RAW16(RawImageBuffer& buffer,
+                                uint8_t* data,
+                                const int16_t ystart,
+                                const int16_t yend,
+                                const int16_t xstart,
+                                const int16_t xend,
+                                const int16_t binnedWidth) const;
 
         void cropAndBin(RawImageBuffer& buffer) const;
+        void crop(RawImageBuffer& buffer) const;
 
     private:
-        void crop(RawImageBuffer& buffer) const;
-        size_t zcompress(RawImageBuffer& inputBuffer, std::vector<uint8_t>& tmpBuffer) const;
-        
         void doProcess();
-        void doCompress();
         void doStream(const int fd, const RawCameraMetadata& cameraMetadata, const int numContainers);
         
         void processBuffer(std::shared_ptr<RawImageBuffer> buffer);
@@ -88,7 +85,6 @@ namespace motioncam {
         
         moodycamel::BlockingConcurrentQueue<std::shared_ptr<RawImageBuffer>> mUnprocessedBuffers;
         moodycamel::BlockingConcurrentQueue<std::shared_ptr<RawImageBuffer>> mReadyBuffers;
-        moodycamel::BlockingConcurrentQueue<std::shared_ptr<RawImageBuffer>> mCompressedBuffers;
     };
 
 }
