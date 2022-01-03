@@ -157,6 +157,7 @@
 		45A2A50F2781059E00D5D6F0 /* vint.h in Headers */ = {isa = PBXBuildFile; fileRef = 45A2A50E2781059E00D5D6F0 /* vint.h */; };
 		45A2A511278105A400D5D6F0 /* libic.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45A2A510278105A400D5D6F0 /* libic.a */; };
 		45A2A569278254EA00D5D6F0 /* vp4.h in Headers */ = {isa = PBXBuildFile; fileRef = 45A2A568278254EA00D5D6F0 /* vp4.h */; };
+		45A2A56F2783366B00D5D6F0 /* bitpack.h in Headers */ = {isa = PBXBuildFile; fileRef = 45A2A56E2783366B00D5D6F0 /* bitpack.h */; };
 		45C6A3DE276B3B6300042058 /* AudioInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = 45C6A3DD276B3B6300042058 /* AudioInterface.h */; };
 		45C6A3E2276B438200042058 /* tinywav.c in Sources */ = {isa = PBXBuildFile; fileRef = 45C6A3E0276B438200042058 /* tinywav.c */; };
 		45C6A3E3276B438200042058 /* tinywav.h in Headers */ = {isa = PBXBuildFile; fileRef = 45C6A3E1276B438200042058 /* tinywav.h */; };
@@ -468,6 +469,7 @@
 		45A2A50E2781059E00D5D6F0 /* vint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vint.h; path = pfor/host/include/vint.h; sourceTree = "<group>"; };
 		45A2A510278105A400D5D6F0 /* libic.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libic.a; path = pfor/host/lib/libic.a; sourceTree = "<group>"; };
 		45A2A568278254EA00D5D6F0 /* vp4.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vp4.h; path = pfor/host/include/vp4.h; sourceTree = "<group>"; };
+		45A2A56E2783366B00D5D6F0 /* bitpack.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = bitpack.h; path = pfor/host/include/bitpack.h; sourceTree = "<group>"; };
 		45A340A1260B887700405A85 /* CameraPreview.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CameraPreview.cpp; sourceTree = "<group>"; };
 		45A340A2260B887700405A85 /* CameraPreview.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CameraPreview.h; sourceTree = "<group>"; };
 		45AD8088230DCFA800D6AA04 /* ImageProcessor.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ImageProcessor.cpp; sourceTree = "<group>"; };
@@ -851,6 +853,7 @@
 			children = (
 				45A2A50E2781059E00D5D6F0 /* vint.h */,
 				45A2A568278254EA00D5D6F0 /* vp4.h */,
+				45A2A56E2783366B00D5D6F0 /* bitpack.h */,
 				45A2A510278105A400D5D6F0 /* libic.a */,
 			);
 			name = pfor;
@@ -1169,6 +1172,7 @@
 				4521E0332732E69900DEBD25 /* preview_landscape4.h in Headers */,
 				4521E03C2732E69900DEBD25 /* linear_image.h in Headers */,
 				45C6A3E3276B438200042058 /* tinywav.h in Headers */,
+				45A2A56F2783366B00D5D6F0 /* bitpack.h in Headers */,
 				4521E0452732E69900DEBD25 /* preview_reverse_landscape8.h in Headers */,
 				4521E00B2732E69800DEBD25 /* preview_reverse_portrait4.h in Headers */,
 				455C31342775E70D006F41A7 /* generate_stats.h in Headers */,
