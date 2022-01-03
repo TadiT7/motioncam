@@ -19,7 +19,7 @@
 #include <camera/NdkCameraMetadata.h>
 
 namespace motioncam {
-    const static uint32_t MAX_BUFFERED_RAW_IMAGES = 12;
+    const static uint32_t MAX_BUFFERED_RAW_IMAGES = 4;
 
     enum class EventAction : int {
         ACTION_OPEN_CAMERA = 0,
@@ -401,7 +401,7 @@ namespace motioncam {
 
         const uint8_t tonemapMode           = ACAMERA_TONEMAP_MODE_FAST;
         const uint8_t shadingMode           = ACAMERA_SHADING_MODE_FAST;
-        const uint8_t colorCorrectionMode   = ACAMERA_COLOR_CORRECTION_MODE_FAST;
+        const uint8_t colorCorrectionMode   = ACAMERA_COLOR_CORRECTION_MODE_HIGH_QUALITY;
         const uint8_t lensShadingMapStats   = ACAMERA_STATISTICS_LENS_SHADING_MAP_MODE_ON;
         const uint8_t lensShadingMapApplied = ACAMERA_SENSOR_INFO_LENS_SHADING_APPLIED_FALSE;
         const uint8_t antiBandingMode       = ACAMERA_CONTROL_AE_ANTIBANDING_MODE_AUTO;
