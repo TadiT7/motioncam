@@ -92,6 +92,8 @@ public class Settings {
     Uri rawVideoRecordingTempUri2;
 
     void load(SharedPreferences prefs) {
+        this.frameRate = 30; // Don't save the frame rate
+
         this.jpegQuality = prefs.getInt(SettingsViewModel.PREFS_KEY_JPEG_QUALITY, CameraProfile.DEFAULT_JPEG_QUALITY);
         this.saveDng = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_SAVE_RAW, false);
         this.exposureOverlay = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_EXPOSURE_OVERLAY, false);
@@ -99,7 +101,6 @@ public class Settings {
         this.hdr = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_HDR, true);
         this.widthVideoCrop = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_WIDTH_VIDEO_CROP, 0);
         this.heightVideoCrop = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_HEIGHT_VIDEO_CROP, 0);
-        this.frameRate = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_FRAME_RATE, 30);
         this.videoBin = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_VIDEO_BIN, false);
 
         long nativeCameraMemoryUseMb = prefs.getInt(SettingsViewModel.PREFS_KEY_MEMORY_USE_MBYTES, SettingsViewModel.MINIMUM_MEMORY_USE_MB);
@@ -155,7 +156,6 @@ public class Settings {
                 .putString(SettingsViewModel.PREFS_KEY_UI_CAPTURE_MODE, this.captureMode.name())
                 .putInt(SettingsViewModel.PREFS_KEY_UI_WIDTH_VIDEO_CROP, this.widthVideoCrop)
                 .putInt(SettingsViewModel.PREFS_KEY_UI_HEIGHT_VIDEO_CROP, this.heightVideoCrop)
-                .putInt(SettingsViewModel.PREFS_KEY_UI_FRAME_RATE, this.frameRate)
                 .putBoolean(SettingsViewModel.PREFS_KEY_UI_VIDEO_BIN, this.videoBin)
                 .apply();
     }
