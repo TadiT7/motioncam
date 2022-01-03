@@ -43,7 +43,8 @@ namespace motioncam {
         UNCOMPRESSED,
         ZSTD,
         V8NZENC,
-        P4NZENC
+        P4NZENC,
+        BITNZPACK
     };
 
     struct RawImageMetadata

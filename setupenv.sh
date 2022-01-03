@@ -262,6 +262,7 @@ build_fpor() {
 	cp libic.a ${INSTALL_DIR}/host/lib
 	cp vint.h ${INSTALL_DIR}/host/include
 	cp vp4.h ${INSTALL_DIR}/host/include
+	cp bitpack.h ${INSTALL_DIR}/host/include
 
 	#
 	# Build for Android
@@ -287,6 +288,7 @@ build_fpor() {
 	cp libic.a ${INSTALL_DIR}/${ANDROID_ABI}/lib
 	cp vint.h ${INSTALL_DIR}/${ANDROID_ABI}/include
 	cp vp4.h ${INSTALL_DIR}/${ANDROID_ABI}/include
+	cp bitpack.h ${INSTALL_DIR}/${ANDROID_ABI}/include
 }
 
 # Build dependencies

@@ -12,6 +12,7 @@
 #include <memory>
 #include <vint.h>
 #include <vp4.h>
+#include <bitpack.h>
 
 #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
     #include <unistd.h>
@@ -196,16 +197,13 @@ namespace motioncam {
                                                const int16_t yend,
                                                const int16_t xstart,
                                                const int16_t xend,
-                                               const int16_t binnedWidth,
-                                               const CompressionType compressionType) const
+                                               const int16_t binnedWidth) const
     {
         std::vector<uint16_t> row0(binnedWidth);
         std::vector<uint16_t> row1(binnedWidth);
         size_t offset = 0;
 
-        auto* encodeFunc = &p4nzenc128v16;        
-        if(compressionType == CompressionType::V8NZENC)
-            encodeFunc = &v8nzenc128v16;
+        auto* encodeFunc = &bitnzpack128v16;
 
         for(int16_t y = ystart; y < yend; y+=4) {
             for(int16_t x = xstart; x < xend; x+=4) {
@@ -341,16 +339,12 @@ namespace motioncam {
                                                const int16_t yend,
                                                const int16_t xstart,
                                                const int16_t xend,
-                                               const int16_t binnedWidth,
-                                               const CompressionType compressionType) const
+                                               const int16_t binnedWidth) const
     {
         std::vector<uint16_t> row0(binnedWidth);
         std::vector<uint16_t> row1(binnedWidth);
         uint32_t offset = 0;
-
-        auto* encodeFunc = &p4nzenc128v16;
-        if(compressionType == CompressionType::V8NZENC)
-            encodeFunc = &v8nzenc128v16;
+        auto* encodeFunc = &bitnzpack128v16;
 
         for(int16_t y = ystart; y < yend; y+=4) {
             for(int16_t x = xstart; x < xend; x+=4) {
@@ -486,16 +480,12 @@ namespace motioncam {
                                                const int16_t yend,
                                                const int16_t xstart,
                                                const int16_t xend,
-                                               const int16_t binnedWidth,
-                                               const CompressionType compressionType) const
+                                               const int16_t binnedWidth) const
     {
         std::vector<uint16_t> row0(binnedWidth);
         std::vector<uint16_t> row1(binnedWidth);
         uint32_t offset = 0;
-
-        auto* encodeFunc = &p4nzenc128v16;
-        if(compressionType == CompressionType::V8NZENC)
-            encodeFunc = &v8nzenc128v16;
+        auto* encodeFunc = &bitnzpack128v16;
 
         for(int16_t y = ystart; y < yend; y+=4) {
             for(int16_t x = xstart; x < xend; x+=4) {
@@ -646,21 +636,15 @@ namespace motioncam {
 
         auto data = buffer.data->lock(true);
         size_t end = 0;
-        
-        auto compressionType = CompressionType::P4NZENC;
-
-        if(mReadyBuffers.size_approx() < 2) {
-            compressionType = CompressionType::V8NZENC;
-        }
 
         if(buffer.pixelFormat == PixelFormat::RAW10) {
-            end = cropAndBin_RAW10(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2, compressionType);
+            end = cropAndBin_RAW10(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2);
         }
         else if(buffer.pixelFormat == PixelFormat::RAW12) {
-            end = cropAndBin_RAW12(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2, compressionType);
+            end = cropAndBin_RAW12(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2);
         }
         else if(buffer.pixelFormat == PixelFormat::RAW16) {
-            end = cropAndBin_RAW16(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2, compressionType);
+            end = cropAndBin_RAW16(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2);
         }
         else {
             // Not supported
@@ -675,14 +659,14 @@ namespace motioncam {
         buffer.rowStride = 2 * buffer.width;
         buffer.pixelFormat = PixelFormat::RAW16;
         buffer.isCompressed = true;
-        buffer.compressionType = CompressionType::V8NZENC;
+        buffer.compressionType = CompressionType::BITNZPACK;
         
         // Update valid range
         buffer.data->setValidRange(0, end);
     }
 
     void RawBufferStreamer::crop(RawImageBuffer& buffer) const {
-        //Measure m("crop");
+        Measure m("crop");
 
         const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropWidth/100.0f * buffer.width)) / 4));
 
@@ -705,22 +689,19 @@ namespace motioncam {
         std::vector<uint16_t> row(croppedWidth);
         size_t offset = 0;
         
-        auto* encodeFunc = &p4nzenc128v16;
-        auto compressionType = CompressionType::P4NZENC;
+        auto* encodeFunc = &bitnzpack128v16;
+        auto compressionType = CompressionType::BITNZPACK;
 
-        if(mReadyBuffers.size_approx() < 2) {
-            encodeFunc = &v8nzenc128v16;
-            compressionType = CompressionType::V8NZENC;
-        }
-                
+        // TODO: Unsafely assuming here that the compressed size is always smaller than the input.
+
         if(buffer.pixelFormat == PixelFormat::RAW10) {
             for(int y = ystart; y < yend; y++) {
                 for(int x = xstart; x < xend; x+=2) {
                     const uint16_t p0 = RAW10(data, x,   y, buffer.rowStride);
                     const uint16_t p1 = RAW10(data, x+1, y, buffer.rowStride);
-                    
+
                     int X = (x - xstart) >> 1;
-                    
+
                     row[X]                  = p0;
                     row[croppedWidth_2 + X] = p1;
                 }
@@ -776,7 +757,7 @@ namespace motioncam {
         buffer.height = croppedHeight;
         buffer.isCompressed = true;
         buffer.compressionType = compressionType;
-        
+
         buffer.data->setValidRange(0, offset);
     }
 
