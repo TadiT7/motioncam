@@ -149,7 +149,7 @@ public class Settings {
         if (exportUriString != null && !exportUriString.isEmpty())
             this.rawVideoExportUri = Uri.parse(exportUriString);
 
-        this.enableRawVideoCompression = prefs.getBoolean(SettingsViewModel.PREFS_KEY_RAW_VIDEO_COMPRESSION, false);
+        this.enableRawVideoCompression = prefs.getBoolean(SettingsViewModel.PREFS_KEY_RAW_VIDEO_COMPRESSION, true);
         this.numRawVideoCompressionThreads = prefs.getInt(SettingsViewModel.PREFS_KEY_RAW_VIDEO_COMPRESSION_THREADS, 2);
     }
 

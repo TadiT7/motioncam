@@ -81,7 +81,7 @@ public class SettingsViewModel extends ViewModel {
         rawVideoTempStorageFolder.setValue(prefs.getString(PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI, null));
         rawVideoTempStorageFolder2.setValue(prefs.getString(PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI_2, null));
         splitRawVideoStorage.setValue(prefs.getBoolean(PREFS_KEY_SPLIT_RAW_VIDEO_WRITES, false));
-        rawVideoCompression.setValue(prefs.getBoolean(PREFS_KEY_RAW_VIDEO_COMPRESSION, false));
+        rawVideoCompression.setValue(prefs.getBoolean(PREFS_KEY_RAW_VIDEO_COMPRESSION, true));
         compressionThreads.setValue(prefs.getInt(PREFS_KEY_RAW_VIDEO_COMPRESSION_THREADS, 2) - 1);
 
         // Capture mode
