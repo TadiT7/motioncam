@@ -216,10 +216,10 @@ namespace motioncam {
                 {
                     const int16_t ix = x;
                     
-                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_m2 = (std::max)(0, ix - 2);
                     const int16_t ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_m2 = (std::max)(0, iy - 2);
                     const int16_t iy_p2 = (iy + 2) % buffer.height;
                     
                     const uint16_t p0 = RAW10(data, ix_m2, iy_m2,  buffer.rowStride);
@@ -243,10 +243,10 @@ namespace motioncam {
                 {
                     const uint16_t ix = x + 1;
 
-                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_m2 = (std::max)(0, ix - 2);
                     const int16_t ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_m2 = (std::max)(0, iy - 2);
                     const int16_t iy_p2 = (iy + 2) % buffer.height;
 
                     const uint16_t p0 = RAW10(data, ix_m2, iy_m2,  buffer.rowStride);
@@ -273,10 +273,10 @@ namespace motioncam {
                 {
                     const uint16_t ix = x;
                     
-                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_m2 = (std::max)(0, ix - 2);
                     const int16_t ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_m2 = (std::max)(0, iy - 2);
                     const int16_t iy_p2 = (iy + 2) % buffer.height;
 
                     const uint16_t p0 = RAW10(data, ix_m2, iy_m2,  buffer.rowStride);
@@ -300,10 +300,10 @@ namespace motioncam {
                 {
                     const uint16_t ix = x + 1;
                     
-                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_m2 = (std::max)(0, ix - 2);
                     const int16_t ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_m2 = (std::max)(0, iy - 2);
                     const int16_t iy_p2 = (iy + 2) % buffer.height;
 
                     const uint16_t p0 = RAW10(data, ix_m2, iy_m2,  buffer.rowStride);
@@ -361,10 +361,10 @@ namespace motioncam {
                 {
                     const int16_t ix = x;
                     
-                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_m2 = (std::max)(0, ix - 2);
                     const int16_t ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_m2 = (std::max)(0, iy - 2);
                     const int16_t iy_p2 = (iy + 2) % buffer.height;
                     
                     const uint16_t p0 = RAW12(data, ix_m2, iy_m2,  buffer.rowStride);
@@ -388,10 +388,10 @@ namespace motioncam {
                 {
                     const uint16_t ix = x + 1;
 
-                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_m2 = (std::max)(0, ix - 2);
                     const int16_t ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_m2 = (std::max)(0, iy - 2);
                     const int16_t iy_p2 = (iy + 2) % buffer.height;
 
                     const uint16_t p0 = RAW12(data, ix_m2, iy_m2,  buffer.rowStride);
@@ -418,10 +418,10 @@ namespace motioncam {
                 {
                     const uint16_t ix = x;
                     
-                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_m2 = (std::max)(0, ix - 2);
                     const int16_t ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_m2 = (std::max)(0, iy - 2);
                     const int16_t iy_p2 = (iy + 2) % buffer.height;
 
                     const uint16_t p0 = RAW12(data, ix_m2, iy_m2,  buffer.rowStride);
@@ -445,10 +445,10 @@ namespace motioncam {
                 {
                     const uint16_t ix = x + 1;
                     
-                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_m2 = (std::max)(0, ix - 2);
                     const int16_t ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_m2 = (std::max)(0, iy - 2);
                     const int16_t iy_p2 = (iy + 2) % buffer.height;
 
                     const uint16_t p0 = RAW12(data, ix_m2, iy_m2,  buffer.rowStride);
@@ -505,10 +505,10 @@ namespace motioncam {
                 {
                     const int16_t ix = x;
                     
-                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_m2 = (std::max)(0, ix - 2);
                     const int16_t ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_m2 = (std::max)(0, iy - 2);
                     const int16_t iy_p2 = (iy + 2) % buffer.height;
                     
                     const uint16_t p0 = RAW16(data, ix_m2, iy_m2,  buffer.rowStride);
@@ -532,10 +532,10 @@ namespace motioncam {
                 {
                     const uint16_t ix = x + 1;
 
-                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_m2 = (std::max)(0, ix - 2);
                     const int16_t ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_m2 = (std::max)(0, iy - 2);
                     const int16_t iy_p2 = (iy + 2) % buffer.height;
 
                     const uint16_t p0 = RAW16(data, ix_m2, iy_m2,  buffer.rowStride);
@@ -562,10 +562,10 @@ namespace motioncam {
                 {
                     const uint16_t ix = x;
                     
-                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_m2 = (std::max)(0, ix - 2);
                     const int16_t ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_m2 = (std::max)(0, iy - 2);
                     const int16_t iy_p2 = (iy + 2) % buffer.height;
 
                     const uint16_t p0 = RAW16(data, ix_m2, iy_m2,  buffer.rowStride);
@@ -589,10 +589,10 @@ namespace motioncam {
                 {
                     const uint16_t ix = x + 1;
                     
-                    const int16_t ix_m2 = std::max(0, ix - 2);
+                    const int16_t ix_m2 = (std::max)(0, ix - 2);
                     const int16_t ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = std::max(0, iy - 2);
+                    const int16_t iy_m2 = (std::max)(0, iy - 2);
                     const int16_t iy_p2 = (iy + 2) % buffer.height;
 
                     const uint16_t p0 = RAW16(data, ix_m2, iy_m2,  buffer.rowStride);
