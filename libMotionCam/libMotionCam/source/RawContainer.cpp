@@ -623,6 +623,7 @@ namespace motioncam {
                 throw IOException("Invalid frame chunk id");
             }
             
+            data.reserve(frameChunk.frameSize + (buffer->second->rowStride * 4)); // Reserve extra space at the end
             data.resize(frameChunk.frameSize);
             
             if(fread(data.data(), frameChunk.frameSize, 1, mFile) != 1) {
@@ -658,11 +659,10 @@ namespace motioncam {
                     buffer->second->compressionType == CompressionType::P4NZENC ||
                     buffer->second->compressionType == CompressionType::BITNZPACK )
             {
-                std::vector<uint16_t> row(2*buffer->second->width);
+                std::vector<uint16_t> rowOutput(2*buffer->second->width);
                 std::vector<uint8_t> uncompressedBuffer(2*buffer->second->width*buffer->second->height);
                 
-                size_t offset = 0;
-                size_t p = 0;
+                const uint16_t rowSize = buffer->second->width;
             
                 auto decodeFunc = &v8nzdec128v16;
                 
@@ -675,18 +675,23 @@ namespace motioncam {
                 else
                     return nullptr;
                 
-                const uint16_t rowSize = buffer->second->width;
+                size_t offset = 0;
+                size_t p = 0;
+
+                // Allocate extra padding on the input
+                data.resize(data.size() + buffer->second->rowStride * 4);
                 
-                while(offset < data.size()) {
-                    size_t readBytes = decodeFunc(data.data() + offset, rowSize, row.data());
+                // Read the image
+                for(int y = 0; y < buffer->second->height; y++) {
+                    size_t readBytes = decodeFunc(data.data() + offset, rowSize, rowOutput.data());
                     
                     // Reshuffle the row
                     for(size_t i = 0; i < rowSize/2; i++) {
-                        uncompressedBuffer[p]   = row[i];
-                        uncompressedBuffer[p+1] = row[i] >> 8;
+                        uncompressedBuffer[p]   = rowOutput[i];
+                        uncompressedBuffer[p+1] = rowOutput[i] >> 8;
 
-                        uncompressedBuffer[p+2] = row[i+rowSize/2];
-                        uncompressedBuffer[p+3] = row[i+rowSize/2] >> 8;
+                        uncompressedBuffer[p+2] = rowOutput[i+rowSize/2];
+                        uncompressedBuffer[p+3] = rowOutput[i+rowSize/2] >> 8;
 
                         p+=4;
                     }

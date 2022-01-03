@@ -22,8 +22,6 @@
 #endif
 
 namespace motioncam {
-    const int NumProcessThreads  = 2;
-
     const int SoundSampleRateHz       = 48000;
     const int SoundChannelCount       = 1;
 
@@ -78,6 +76,8 @@ namespace motioncam {
     void RawBufferStreamer::start(const std::vector<int>& fds,
                                   const int& audioFd,
                                   const std::shared_ptr<AudioInterface> audioInterface,
+                                  const bool enableCompression,
+                                  const int numThreads,
                                   const RawCameraMetadata& cameraMetadata) {
         stop();
         
@@ -87,6 +87,7 @@ namespace motioncam {
         }
         
         mRunning = true;
+        mEnableCompression = enableCompression;
         mWrittenFrames = 0;
         mWrittenBytes = 0;
         mAcceptedFrames = 0;
@@ -117,7 +118,9 @@ namespace motioncam {
         }
                 
         // Create process threads
-        for(int i = 0; i < NumProcessThreads; i++) {
+        int processThreads = std::max(numThreads, 1);
+
+        for(int i = 0; i < processThreads; i++) {
             auto t = std::unique_ptr<std::thread>(new std::thread(&RawBufferStreamer::doProcess, this));
             
             mProcessThreads.push_back(std::move(t));
@@ -140,7 +143,7 @@ namespace motioncam {
             auto& buffer = mAudioInterface->getAudioData(numFrames);
 
             FILE* audioFile = fdopen(mAudioFd, "w");
-            if(audioFile != NULL) {
+            if(audioFile != nullptr) {
                 TinyWav tw = {0};
 
                 if(tinywav_open_write_f(
@@ -197,7 +200,8 @@ namespace motioncam {
                                                const int16_t yend,
                                                const int16_t xstart,
                                                const int16_t xend,
-                                               const int16_t binnedWidth) const
+                                               const int16_t binnedWidth,
+                                               const bool doCompress) const
     {
         std::vector<uint16_t> row0(binnedWidth);
         std::vector<uint16_t> row1(binnedWidth);
@@ -322,12 +326,61 @@ namespace motioncam {
                     row1[X] = out;
                 }
             }
+
+            // Compress row?
+            if(doCompress) {
+                size_t writtenBytes = encodeFunc(row0.data(), row0.size(), data+offset);
+                offset += writtenBytes;
             
-            size_t writtenBytes = encodeFunc(row0.data(), row0.size(), data+offset);
-            offset += writtenBytes;
-            
-            writtenBytes = encodeFunc(row1.data(), row1.size(), data+offset);
-            offset += writtenBytes;
+                writtenBytes = encodeFunc(row1.data(), row1.size(), data+offset);
+                offset += writtenBytes;
+            }
+            else {
+                // Pack into RAW10
+                const uint16_t rowSize_2 = row0.size()/2;
+                
+                for(uint16_t i = 0; i < rowSize_2; i+=2) {
+                    const uint8_t p0 = static_cast<uint8_t>( row0[i                 ] >> 2 );
+                    const uint8_t p1 = static_cast<uint8_t>( row0[i+rowSize_2       ] >> 2 );
+                    const uint8_t p2 = static_cast<uint8_t>( row0[i             + 1 ] >> 2 );
+                    const uint8_t p3 = static_cast<uint8_t>( row0[i+rowSize_2   + 1 ] >> 2 );
+                    
+                    const uint8_t upper =
+                        static_cast<uint8_t>( (row0[i]     & 0x03))         |
+                        static_cast<uint8_t>( (row0[i + 1] & 0x03) << 2)    |
+                        static_cast<uint8_t>( (row0[i + 2] & 0x03) << 4)    |
+                        static_cast<uint8_t>( (row0[i + 3] & 0x03) << 6);
+                    
+                    data[offset    ] = p0;
+                    data[offset + 1] = p1;
+                    data[offset + 2] = p2;
+                    data[offset + 3] = p3;
+                    data[offset + 4] = upper;
+                    
+                    offset += 5;
+                }
+
+                for(uint16_t i = 0; i < rowSize_2; i+=2) {
+                    const uint8_t p0 = static_cast<uint8_t>( row1[i                 ] >> 2 );
+                    const uint8_t p1 = static_cast<uint8_t>( row1[i+rowSize_2       ] >> 2 );
+                    const uint8_t p2 = static_cast<uint8_t>( row1[i             + 1 ] >> 2 );
+                    const uint8_t p3 = static_cast<uint8_t>( row1[i+rowSize_2   + 1 ] >> 2 );
+
+                    const uint8_t upper =
+                        static_cast<uint8_t>( (row1[i]     & 0x03))         |
+                        static_cast<uint8_t>( (row1[i + 1] & 0x03) << 2)    |
+                        static_cast<uint8_t>( (row1[i + 2] & 0x03) << 4)    |
+                        static_cast<uint8_t>( (row1[i + 3] & 0x03) << 6);
+                    
+                    data[offset    ] = p0;
+                    data[offset + 1] = p1;
+                    data[offset + 2] = p2;
+                    data[offset + 3] = p3;
+                    data[offset + 4] = upper;
+                    
+                    offset += 5;
+                }
+            }
         }
         
         return offset;
@@ -339,7 +392,8 @@ namespace motioncam {
                                                const int16_t yend,
                                                const int16_t xstart,
                                                const int16_t xend,
-                                               const int16_t binnedWidth) const
+                                               const int16_t binnedWidth,
+                                               const bool doCompress) const
     {
         std::vector<uint16_t> row0(binnedWidth);
         std::vector<uint16_t> row1(binnedWidth);
@@ -464,11 +518,47 @@ namespace motioncam {
                 }
             }
 
-            size_t writtenBytes = encodeFunc(row0.data(), row0.size(), data+offset);
-            offset += writtenBytes;
-            
-            writtenBytes = encodeFunc(row1.data(), row1.size(), data+offset);
-            offset += writtenBytes;
+            if(doCompress) {
+                size_t writtenBytes = encodeFunc(row0.data(), row0.size(), data+offset);
+                offset += writtenBytes;
+                
+                writtenBytes = encodeFunc(row1.data(), row1.size(), data+offset);
+                offset += writtenBytes;
+            }
+            else {
+                // Pack into RAW12
+                const uint16_t rowSize_2 = row0.size()/2;
+                
+                for(uint16_t i = 0; i < rowSize_2; i++) {
+                    const uint8_t p0 = static_cast<uint8_t>( row0[i             ] >> 4 );
+                    const uint8_t p1 = static_cast<uint8_t>( row0[i + rowSize_2 ] >> 4 );
+                    
+                    const uint8_t upper =
+                        static_cast<uint8_t>( (p0 & 0x0F)) |
+                        static_cast<uint8_t>( (p1 & 0x0F) << 4);
+
+                    data[offset    ] = p0;
+                    data[offset + 1] = p1;
+                    data[offset + 2] = upper;
+                    
+                    offset += 3;
+                }
+
+                for(uint16_t i = 0; i < rowSize_2; i++) {
+                    const uint8_t p0 = static_cast<uint8_t>( row0[i             ] >> 4 );
+                    const uint8_t p1 = static_cast<uint8_t>( row1[i + rowSize_2 ] >> 4 );
+
+                    const uint8_t upper =
+                        static_cast<uint8_t>( (p0 & 0x0F)) |
+                        static_cast<uint8_t>( (p1 & 0x0F) << 4);
+
+                    data[offset    ] = p0;
+                    data[offset + 1] = p1;
+                    data[offset + 2] = upper;
+                    
+                    offset += 3;
+                }
+            }
         }
         
         return offset;
@@ -480,7 +570,8 @@ namespace motioncam {
                                                const int16_t yend,
                                                const int16_t xstart,
                                                const int16_t xend,
-                                               const int16_t binnedWidth) const
+                                               const int16_t binnedWidth,
+                                               const bool doCompress) const
     {
         std::vector<uint16_t> row0(binnedWidth);
         std::vector<uint16_t> row1(binnedWidth);
@@ -604,11 +695,47 @@ namespace motioncam {
                 }
             }
 
-            size_t writtenBytes = encodeFunc(row0.data(), row0.size(), data+offset);
-            offset += writtenBytes;
-            
-            writtenBytes = encodeFunc(row1.data(), row1.size(), data+offset);
-            offset += writtenBytes;
+            if(doCompress) {
+                size_t writtenBytes = encodeFunc(row0.data(), row0.size(), data+offset);
+                offset += writtenBytes;
+                
+                writtenBytes = encodeFunc(row1.data(), row1.size(), data+offset);
+                offset += writtenBytes;
+            }
+            else {
+                // Pack into RAW12
+                const uint16_t rowSize_2 = row0.size()/2;
+                
+                for(uint16_t i = 0; i < rowSize_2; i++) {
+                    const uint8_t p0 = static_cast<uint8_t>( row0[i             ] >> 4 );
+                    const uint8_t p1 = static_cast<uint8_t>( row0[i + rowSize_2 ] >> 4 );
+                    
+                    const uint8_t upper =
+                        static_cast<uint8_t>( (p0 & 0x0F)) |
+                        static_cast<uint8_t>( (p1 & 0x0F) << 4);
+
+                    data[offset    ] = p0;
+                    data[offset + 1] = p1;
+                    data[offset + 2] = upper;
+                    
+                    offset += 3;
+                }
+
+                for(uint16_t i = 0; i < rowSize_2; i++) {
+                    const uint8_t p0 = static_cast<uint8_t>( row1[i             ] >> 4 );
+                    const uint8_t p1 = static_cast<uint8_t>( row1[i + rowSize_2 ] >> 4 );
+                    
+                    const uint8_t upper =
+                        static_cast<uint8_t>( (p0 & 0x0F)) |
+                        static_cast<uint8_t>( (p1 & 0x0F) << 4);
+
+                    data[offset    ] = p0;
+                    data[offset + 1] = p1;
+                    data[offset + 2] = upper;
+                    
+                    offset += 3;
+                }
+            }
         }
         
         return offset;
@@ -638,13 +765,13 @@ namespace motioncam {
         size_t end = 0;
 
         if(buffer.pixelFormat == PixelFormat::RAW10) {
-            end = cropAndBin_RAW10(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2);
+            end = cropAndBin_RAW10(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2, mEnableCompression);
         }
         else if(buffer.pixelFormat == PixelFormat::RAW12) {
-            end = cropAndBin_RAW12(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2);
+            end = cropAndBin_RAW12(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2, mEnableCompression);
         }
         else if(buffer.pixelFormat == PixelFormat::RAW16) {
-            end = cropAndBin_RAW16(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2);
+            end = cropAndBin_RAW16(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2, mEnableCompression);
         }
         else {
             // Not supported
@@ -656,16 +783,28 @@ namespace motioncam {
 
         buffer.width = croppedWidth / 2;
         buffer.height = croppedHeight / 2;
-        buffer.rowStride = 2 * buffer.width;
-        buffer.pixelFormat = PixelFormat::RAW16;
-        buffer.isCompressed = true;
-        buffer.compressionType = CompressionType::BITNZPACK;
+        
+        if(mEnableCompression) {
+            buffer.pixelFormat = PixelFormat::RAW16;
+            buffer.isCompressed = true;
+            buffer.compressionType = CompressionType::BITNZPACK;
+            buffer.rowStride = 2 * buffer.width;
+        }
+        else {
+            buffer.rowStride = buffer.pixelFormat == PixelFormat::RAW10 ? 10*buffer.width/8 : 12*buffer.width/8;
+            buffer.isCompressed = false;
+            buffer.compressionType = CompressionType::UNCOMPRESSED;
+            
+            // Repacked from RAW16 -> RAW12
+            if(buffer.pixelFormat == PixelFormat::RAW16)
+                buffer.pixelFormat = PixelFormat::RAW12;
+        }
         
         // Update valid range
         buffer.data->setValidRange(0, end);
     }
 
-    void RawBufferStreamer::crop(RawImageBuffer& buffer) const {
+    void RawBufferStreamer::cropAndCompress(RawImageBuffer& buffer) const {
         //Measure m("crop");
 
         const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropWidth/100.0f * buffer.width)) / 4));
@@ -761,11 +900,105 @@ namespace motioncam {
         buffer.data->setValidRange(0, offset);
     }
 
+    void RawBufferStreamer::crop(RawImageBuffer& buffer) const {
+        // Nothing to do
+        if(mCropWidth  == 0   &&
+           mCropHeight == 0   &&
+           buffer.pixelFormat != PixelFormat::RAW16) // Always crop when RAW16 so we can pack to RAW10
+        {
+            return;
+        }
+        
+        const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropWidth/100.0f * buffer.width)) / 4));
+
+        // Even vertical crop to match bayer pattern
+        const int verticalCrop   = static_cast<const int>(2 * (lround(0.5f * (mCropHeight/100.0f * buffer.height)) / 2));
+
+        uint32_t croppedWidth  = static_cast<const int>(buffer.width - horizontalCrop*2);
+        uint32_t croppedHeight = static_cast<const int>(buffer.height - verticalCrop*2);
+        
+        auto data = buffer.data->lock(true);
+
+        const int ystart = verticalCrop;
+        const int yend = buffer.height - ystart;
+
+        uint32_t croppedRowStride;
+
+        if(buffer.pixelFormat == PixelFormat::RAW10) {
+            croppedRowStride = 10*croppedWidth/8;
+            
+            for(int y = ystart; y < yend; y++) {
+                const int srcOffset = buffer.rowStride * y;
+                const int dstOffset = croppedRowStride * (y - ystart);
+
+                const int xstart = 10*horizontalCrop/8;
+
+                std::memmove(data+dstOffset, data+srcOffset+xstart, croppedRowStride);
+            }
+        }
+        else if(buffer.pixelFormat == PixelFormat::RAW12) {
+            croppedRowStride = 12*croppedWidth/8;
+            
+            for(int y = ystart; y < yend; y++) {
+                const int srcOffset = buffer.rowStride * y;
+                const int dstOffset = croppedRowStride * (y - ystart);
+
+                const int xstart = 10*horizontalCrop/8;
+
+                std::memmove(data+dstOffset, data+srcOffset+xstart, croppedRowStride);
+            }
+        }
+        else if(buffer.pixelFormat == PixelFormat::RAW16) {
+            // Pack into RAW12
+            croppedRowStride = 12*croppedWidth/8;
+            uint32_t dstOffset = 0;
+
+            for(int y = ystart; y < yend; y++) {
+                for(int x = horizontalCrop; x < buffer.width - horizontalCrop; x+=2) {
+                    const uint16_t p0 = RAW16(data, x,   y, buffer.rowStride);
+                    const uint16_t p1 = RAW16(data, x+1, y, buffer.rowStride);
+
+                    const uint8_t upper =
+                        static_cast<uint8_t>( (p0 & 0x0F)) |
+                        static_cast<uint8_t>( (p1 & 0x0F) << 4);
+
+                    data[dstOffset    ] = static_cast<uint8_t>(p0 >> 4);
+                    data[dstOffset + 1] = static_cast<uint8_t>(p1 >> 4);
+                    data[dstOffset + 2] = upper;
+
+                    dstOffset += 3;
+                }
+            }
+            
+            buffer.pixelFormat = PixelFormat::RAW12;
+        }
+        else {
+            // Not supported
+            buffer.data->unlock();
+            return;
+        }
+
+        buffer.data->unlock();
+
+        // Update buffer
+        buffer.rowStride = croppedRowStride;
+        buffer.width = croppedWidth;
+        buffer.height = croppedHeight;
+        buffer.isCompressed = false;
+        buffer.compressionType = CompressionType::UNCOMPRESSED;
+
+        buffer.data->setValidRange(0, buffer.rowStride * buffer.height);
+    }
+
     void RawBufferStreamer::processBuffer(std::shared_ptr<RawImageBuffer> buffer) {
         if(mBin)
             cropAndBin(*buffer);
-        else
-            crop(*buffer);
+        else {
+            if(mEnableCompression)
+                cropAndCompress(*buffer);
+            else
+                crop(*buffer);
+        }
     }
 
     void RawBufferStreamer::doProcess() {

@@ -718,8 +718,8 @@ namespace motioncam {
 
             // Write DNG file to disk
             AutoPtr<dng_image_writer> dngWriter(new dng_image_writer());
-            
-            dngWriter->WriteDNG(host, dngStream, *negative.Get(), nullptr, false);
+
+            dngWriter->WriteDNG(host, dngStream, *negative.Get(), nullptr, dngVersion_SaveDefault, false);
         }
 
         void WriteDng(cv::Mat rawImage,

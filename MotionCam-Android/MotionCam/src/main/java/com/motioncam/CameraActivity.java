@@ -874,6 +874,8 @@ public class CameraActivity extends AppCompatActivity implements
         if(audioFd < 0) {
             String error = getString(R.string.recording_failed);
             Toast.makeText(CameraActivity.this, error, Toast.LENGTH_LONG).show();
+
+            Log.e(TAG, "Failed to start recording audioFd < 0");
             return;
         }
 
@@ -884,6 +886,8 @@ public class CameraActivity extends AppCompatActivity implements
             if(fd < 0) {
                 String error = getString(R.string.recording_failed);
                 Toast.makeText(CameraActivity.this, error, Toast.LENGTH_LONG).show();
+
+                Log.e(TAG, "Failed to start recording videoFds < 0");
                 return;
             }
 
@@ -896,7 +900,11 @@ public class CameraActivity extends AppCompatActivity implements
                 .mapToInt(i->i)
                 .toArray();
 
-        mNativeCamera.streamToFile(fds, audioFd, mAudioInputId);
+        int numThreads = mSettings.enableRawVideoCompression ? mSettings.numRawVideoCompressionThreads : 2;
+
+        Log.d(TAG, "streamToFile(enableRawCompression=" + mSettings.enableRawVideoCompression + ", numThreads=" + numThreads + ")");
+
+        mNativeCamera.streamToFile(fds, audioFd, mAudioInputId, mSettings.enableRawVideoCompression, numThreads);
         mImageCaptureInProgress.set(true);
 
         mBinding.switchCameraBtn.setEnabled(false);

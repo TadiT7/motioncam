@@ -1046,7 +1046,8 @@ void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_PrepareHdrCaptu
 
 extern "C"
 JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_StartStreamToFile(
-        JNIEnv *env, jobject thiz, jlong handle, jintArray jfds, jint audioFd, jint audioDeviceId)
+        JNIEnv *env, jobject thiz,
+        jlong handle, jintArray jfds, jint audioFd, jint audioDeviceId, jboolean enableCompression, jint numThreads)
 {
     std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
     if(!sessionManager) {
@@ -1074,7 +1075,8 @@ JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_S
 
     gAudioRecorder = std::make_shared<AudioRecorder>(audioDeviceId);
 
-    RawBufferManager::get().enableStreaming(fds, audioFd, gAudioRecorder, metadata);
+    RawBufferManager::get().enableStreaming(
+            fds, audioFd, gAudioRecorder, enableCompression, numThreads, metadata);
 
     return JNI_TRUE;
 }

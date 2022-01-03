@@ -425,6 +425,8 @@ namespace motioncam {
     void RawBufferManager::enableStreaming(const std::vector<int>& fds,
                                            const int audioFd,
                                            std::shared_ptr<AudioInterface> audioInterface,
+                                           const bool enableCompression,
+                                           const int numThreads,
                                            const RawCameraMetadata& metadata)
     {
         // Clear out buffers before streaming
@@ -432,7 +434,7 @@ namespace motioncam {
             consumeAllBuffers();
         }
         
-        mStreamer->start(fds, audioFd, audioInterface, metadata);
+        mStreamer->start(fds, audioFd, audioInterface, enableCompression, numThreads, metadata);
     }
 
     void RawBufferManager::setCropAmount(int horizontal, int vertical) {

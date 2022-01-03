@@ -90,6 +90,8 @@ public class Settings {
     boolean useSecondaryRawVideoStorage;
     Uri rawVideoRecordingTempUri;
     Uri rawVideoRecordingTempUri2;
+    boolean enableRawVideoCompression;
+    int numRawVideoCompressionThreads;
 
     void load(SharedPreferences prefs) {
         this.frameRate = 30; // Don't save the frame rate
@@ -146,6 +148,9 @@ public class Settings {
         String exportUriString = prefs.getString(SettingsViewModel.PREFS_KEY_RAW_VIDEO_EXPORT_URI, null);
         if (exportUriString != null && !exportUriString.isEmpty())
             this.rawVideoExportUri = Uri.parse(exportUriString);
+
+        this.enableRawVideoCompression = prefs.getBoolean(SettingsViewModel.PREFS_KEY_RAW_VIDEO_COMPRESSION, false);
+        this.numRawVideoCompressionThreads = prefs.getInt(SettingsViewModel.PREFS_KEY_RAW_VIDEO_COMPRESSION_THREADS, 2);
     }
 
     void save(SharedPreferences prefs) {
@@ -179,9 +184,12 @@ public class Settings {
                 ", heightVideoCrop=" + heightVideoCrop +
                 ", frameRate=" + frameRate +
                 ", videoBin=" + videoBin +
+                ", rawVideoExportUri=" + rawVideoExportUri +
+                ", useSecondaryRawVideoStorage=" + useSecondaryRawVideoStorage +
                 ", rawVideoRecordingTempUri=" + rawVideoRecordingTempUri +
                 ", rawVideoRecordingTempUri2=" + rawVideoRecordingTempUri2 +
-                ", rawVideoExportUri=" + rawVideoExportUri +
+                ", enableRawVideoCompression=" + enableRawVideoCompression +
+                ", numRawVideoCompressionThreads=" + numRawVideoCompressionThreads +
                 '}';
     }
 }

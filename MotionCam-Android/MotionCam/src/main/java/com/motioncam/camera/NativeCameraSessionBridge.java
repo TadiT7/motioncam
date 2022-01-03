@@ -415,10 +415,10 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         SetAutoFocus(mNativeCameraHandle);
     }
 
-    public void streamToFile(int[] fds, int audioFd, int audioDeviceId) {
+    public void streamToFile(int[] fds, int audioFd, int audioDeviceId, boolean enableCompression, int numThreads) {
         ensureValidHandle();
 
-        StartStreamToFile(mNativeCameraHandle, fds, audioFd, audioDeviceId);
+        StartStreamToFile(mNativeCameraHandle, fds, audioFd, audioDeviceId, enableCompression, numThreads);
     }
 
     public void adjustMemory(long maxMemoryBytes) {
@@ -576,7 +576,7 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native Size GetRawOutputSize(long handle, String cameraId);
     private native Size GetPreviewOutputSize(long handle, String cameraId, Size captureSize, Size displaySize);
 
-    private native boolean StartStreamToFile(long handle, int[] videoFds, int audioFd, int audioDeviceId);
+    private native boolean StartStreamToFile(long handle, int[] videoFds, int audioFd, int audioDeviceId, boolean enableCompression, int numThreads);
     private native void EndStream(long handle);
 
     private native void PrepareHdrCapture(long handle, int iso, long exposure);

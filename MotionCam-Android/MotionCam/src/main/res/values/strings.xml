@@ -149,4 +149,9 @@
     <string name="audio_input">Audio Input</string>
     <string name="support_page_text">Please visit https://github.com/mirsadm/motioncam for updates and support.</string>
     <string name="convert_page_support">Please visit https://github.com/mirsadm/motioncam for tools that can convert the container files on your PC.</string>
+    <string name="raw_video_compression">RAW Video Compression</string>
+    <string name="enable_raw_video_compression">Enable RAW video compression</string>
+    <string name="raw_video_compression_desc">Compression can improve the output frame rate at the cost of extra CPU usage.</string>
+    <string name="number_of_compression_threads">Number of Compression Threads</string>
+    <string name="clear">Clear</string>
 </resources>

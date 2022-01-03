@@ -86,7 +86,19 @@ public class SettingsFragment extends Fragment {
         mViewModel.rawVideoToDng.observe(getViewLifecycleOwner(), (value) -> mViewModel.save(requireContext()));
 
         mViewModel.splitRawVideoStorage.observe(getViewLifecycleOwner(), (value) -> {
-            dataBinding.splitStorageLayout.setVisibility(value == true ? View.VISIBLE : View.GONE);
+            dataBinding.splitStorageLayout.setVisibility(value ? View.VISIBLE : View.GONE);
+
+            mViewModel.save(requireContext());
+        });
+
+        mViewModel.rawVideoCompression.observe(getViewLifecycleOwner(), (value) -> {
+            dataBinding.rawVideoCompressionLayout.setVisibility(value ? View.VISIBLE : View.GONE);
+            mViewModel.save(requireContext());
+        });
+
+        mViewModel.compressionThreads.observe(getViewLifecycleOwner(), (value) -> {
+            value = 1 + value;
+            dataBinding.compressionThreadsText.setText(String.valueOf(value));
 
             mViewModel.save(requireContext());
         });
