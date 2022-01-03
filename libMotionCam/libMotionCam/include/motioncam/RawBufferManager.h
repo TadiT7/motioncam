@@ -40,7 +40,7 @@ namespace motioncam {
         };
         
         void addBuffer(std::shared_ptr<RawImageBuffer>& buffer);
-        void recordingStats(size_t& outMemoryUseBytes, float& outFps, size_t& outOutputSizeBytes) const;
+        void recordingStats(size_t& outMemoryUseBytes, float& outFps, size_t& outOutputSizeBytes);
         size_t memoryUseBytes() const;
         int numBuffers() const;
         void reset();
@@ -88,9 +88,12 @@ namespace motioncam {
     private:
         RawBufferManager();
 
+        int mHorizontalCrop;
+        int mVerticalCrop;
+        bool mBin;
+
         std::atomic<size_t> mMemoryUseBytes;
         std::atomic<size_t> mMemoryTargetBytes;
-        
         std::atomic<int> mNumBuffers;
                 
         std::recursive_mutex mMutex;
@@ -100,7 +103,7 @@ namespace motioncam {
         moodycamel::ConcurrentQueue<std::shared_ptr<RawImageBuffer>> mUnusedBuffers;
         moodycamel::ConcurrentQueue<std::shared_ptr<RawContainer>> mPendingContainers;
         
-        std::unique_ptr<RawBufferStreamer> mStreamer;
+        std::shared_ptr<RawBufferStreamer> mStreamer;
     };
 
 } // namespace motioncam

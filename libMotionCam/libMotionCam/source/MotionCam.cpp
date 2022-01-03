@@ -405,7 +405,7 @@ namespace motioncam {
             return;
         }
                
-        double startTime = orderedFrames[0].timestamp / 1e9f;
+        double startTime = orderedFrames[0].timestamp / 1e9;
         double endTime = orderedFrames[orderedFrames.size() - 1].timestamp / 1e9;
         
         if(endTime - startTime <= 0)

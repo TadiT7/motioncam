@@ -13,10 +13,12 @@ namespace motioncam {
     static const int NumContainersToKeepInMemory = 2;
 
     RawBufferManager::RawBufferManager() :
+        mHorizontalCrop(0),
+        mVerticalCrop(0),
+        mBin(false),
         mMemoryUseBytes(0),
         mMemoryTargetBytes(0),
-        mNumBuffers(0),
-        mStreamer(new RawBufferStreamer())
+        mNumBuffers(0)
     {
     }
 
@@ -45,10 +47,12 @@ namespace motioncam {
         return mNumBuffers;
     }
 
-    void RawBufferManager::recordingStats(size_t& outMemoryUseBytes, float& outFps, size_t& outOutputSizeBytes) const {
+    void RawBufferManager::recordingStats(size_t& outMemoryUseBytes, float& outFps, size_t& outOutputSizeBytes) {
+        Lock lock(mMutex, "recordingStats()");
+        
         outMemoryUseBytes = mMemoryUseBytes;
-        outFps = mStreamer->estimateFps();
-        outOutputSizeBytes = mStreamer->writenOutputBytes();
+        outFps = mStreamer ? mStreamer->estimateFps() : 0;
+        outOutputSizeBytes = mStreamer ? mStreamer->writenOutputBytes() : 0;
     }
 
     size_t RawBufferManager::memoryUseBytes() const {
@@ -124,7 +128,7 @@ namespace motioncam {
     void RawBufferManager::enqueueReadyBuffer(const std::shared_ptr<RawImageBuffer>& buffer) {
         Lock lock(mMutex, "enqueueReadyBuffer()");
 
-        if(mStreamer->isRunning()) {
+        if(mStreamer && mStreamer->isRunning()) {
             mStreamer->add(buffer);
         }
         else
@@ -434,15 +438,31 @@ namespace motioncam {
             consumeAllBuffers();
         }
         
+        Lock lock(mMutex, "enableStreaming()");
+        
+        if(mStreamer) {
+            logger::log("Failed to start streaming, already in progress");
+            return;
+        }
+        
+        mStreamer = std::make_shared<RawBufferStreamer>();
+        
+        mStreamer->setBin(mBin);
+        mStreamer->setCropAmount(mHorizontalCrop, mVerticalCrop);
         mStreamer->start(fds, audioFd, audioInterface, enableCompression, numThreads, metadata);
     }
 
     void RawBufferManager::setCropAmount(int horizontal, int vertical) {
-        mStreamer->setCropAmount(horizontal, vertical);
+        Lock lock(mMutex, "setCropAmount()");
+        
+        mHorizontalCrop = horizontal;
+        mVerticalCrop = vertical;
     }
 
     void RawBufferManager::setVideoBin(bool bin) {
-        mStreamer->setBin(bin);
+        Lock lock(mMutex, "setVideoBin()");
+        
+        mBin = bin;
     }
 
     float RawBufferManager::bufferSpaceUse() {
@@ -457,6 +477,11 @@ namespace motioncam {
     }
 
     void RawBufferManager::endStreaming() {
-        mStreamer->stop();
+        Lock lock(mMutex, "endStreaming()");
+        
+        if(mStreamer)
+            mStreamer->stop();
+        
+        mStreamer = nullptr;
     }
 }

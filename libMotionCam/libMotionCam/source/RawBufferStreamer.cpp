@@ -530,30 +530,30 @@ namespace motioncam {
                 const uint16_t rowSize_2 = row0.size()/2;
                 
                 for(uint16_t i = 0; i < rowSize_2; i++) {
-                    const uint8_t p0 = static_cast<uint8_t>( row0[i             ] >> 4 );
-                    const uint8_t p1 = static_cast<uint8_t>( row0[i + rowSize_2 ] >> 4 );
+                    const uint16_t p0 = row0[i             ];
+                    const uint16_t p1 = row0[i + rowSize_2 ];
                     
                     const uint8_t upper =
                         static_cast<uint8_t>( (p0 & 0x0F)) |
                         static_cast<uint8_t>( (p1 & 0x0F) << 4);
 
-                    data[offset    ] = p0;
-                    data[offset + 1] = p1;
+                    data[offset    ] = static_cast<uint8_t>(p0 >> 4);
+                    data[offset + 1] = static_cast<uint8_t>(p1 >> 4);
                     data[offset + 2] = upper;
                     
                     offset += 3;
                 }
 
                 for(uint16_t i = 0; i < rowSize_2; i++) {
-                    const uint8_t p0 = static_cast<uint8_t>( row0[i             ] >> 4 );
-                    const uint8_t p1 = static_cast<uint8_t>( row1[i + rowSize_2 ] >> 4 );
+                    const uint16_t p0 = row1[i             ];
+                    const uint16_t p1 = row1[i + rowSize_2 ];
 
                     const uint8_t upper =
                         static_cast<uint8_t>( (p0 & 0x0F)) |
                         static_cast<uint8_t>( (p1 & 0x0F) << 4);
 
-                    data[offset    ] = p0;
-                    data[offset + 1] = p1;
+                    data[offset    ] = static_cast<uint8_t>(p0 >> 4);
+                    data[offset + 1] = static_cast<uint8_t>(p1 >> 4);
                     data[offset + 2] = upper;
                     
                     offset += 3;
@@ -705,32 +705,32 @@ namespace motioncam {
             else {
                 // Pack into RAW12
                 const uint16_t rowSize_2 = row0.size()/2;
-                
+                                
                 for(uint16_t i = 0; i < rowSize_2; i++) {
-                    const uint8_t p0 = static_cast<uint8_t>( row0[i             ] >> 4 );
-                    const uint8_t p1 = static_cast<uint8_t>( row0[i + rowSize_2 ] >> 4 );
+                    const uint16_t p0 = row0[i             ];
+                    const uint16_t p1 = row0[i + rowSize_2 ];
                     
                     const uint8_t upper =
                         static_cast<uint8_t>( (p0 & 0x0F)) |
                         static_cast<uint8_t>( (p1 & 0x0F) << 4);
 
-                    data[offset    ] = p0;
-                    data[offset + 1] = p1;
+                    data[offset    ] = static_cast<uint8_t>(p0 >> 4);
+                    data[offset + 1] = static_cast<uint8_t>(p1 >> 4);
                     data[offset + 2] = upper;
                     
                     offset += 3;
                 }
 
                 for(uint16_t i = 0; i < rowSize_2; i++) {
-                    const uint8_t p0 = static_cast<uint8_t>( row1[i             ] >> 4 );
-                    const uint8_t p1 = static_cast<uint8_t>( row1[i + rowSize_2 ] >> 4 );
-                    
+                    const uint16_t p0 = row1[i             ];
+                    const uint16_t p1 = row1[i + rowSize_2 ];
+
                     const uint8_t upper =
                         static_cast<uint8_t>( (p0 & 0x0F)) |
                         static_cast<uint8_t>( (p1 & 0x0F) << 4);
 
-                    data[offset    ] = p0;
-                    data[offset + 1] = p1;
+                    data[offset    ] = static_cast<uint8_t>(p0 >> 4);
+                    data[offset + 1] = static_cast<uint8_t>(p1 >> 4);
                     data[offset + 2] = upper;
                     
                     offset += 3;
