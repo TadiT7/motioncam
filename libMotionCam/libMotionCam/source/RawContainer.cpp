@@ -665,15 +665,20 @@ namespace motioncam {
                 size_t p = 0;
             
                 auto decodeFunc = &v8nzdec128v16;
+                
                 if(buffer->second->compressionType == CompressionType::P4NZENC)
                     decodeFunc = &p4nzdec128v16;
                 else if(buffer->second->compressionType == CompressionType::BITNZPACK)
                     decodeFunc = &bitnzunpack128v16;
+                else if(buffer->second->compressionType == CompressionType::V8NZENC)
+                    decodeFunc = &v8nzdec128v16;
+                else
+                    return nullptr;
                 
                 const uint16_t rowSize = buffer->second->width;
                 
                 while(offset < data.size()) {
-                    offset += decodeFunc(data.data() + offset, buffer->second->width, row.data());
+                    size_t readBytes = decodeFunc(data.data() + offset, rowSize, row.data());
                     
                     // Reshuffle the row
                     for(size_t i = 0; i < rowSize/2; i++) {
@@ -685,6 +690,8 @@ namespace motioncam {
 
                         p+=4;
                     }
+                    
+                    offset += readBytes;
                 }
                 
                 buffer->second->data->copyHostData(uncompressedBuffer);
