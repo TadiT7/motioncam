@@ -59,7 +59,7 @@ namespace motioncam {
         float hyperFocalDistance;
 
         std::vector<float> focalLength;
-        std::vector<int32_t> availableFpsRange;
+        std::vector<std::pair<int32_t, int32_t>> availableFpsRange;
 
         Size sensorSize;
         int maxAfRegions;

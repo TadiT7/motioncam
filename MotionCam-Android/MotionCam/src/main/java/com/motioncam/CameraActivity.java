@@ -1178,7 +1178,7 @@ public class CameraActivity extends AppCompatActivity implements
             return;
         }
 
-        mNativeCamera.setFrameRate(30);
+        mNativeCamera.setFrameRate(-1);
         mNativeCamera.adjustMemory(mSettings.memoryUseBytes);
 
         if(mSettings.useDualExposure) {

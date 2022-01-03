@@ -735,9 +735,24 @@ JNIEXPORT jobjectArray JNICALL Java_com_motioncam_camera_NativeCameraSessionBrid
 
         jstring jcameraId = env->NewStringUTF(supportedCameras[i].c_str());
 
-        jintArray fpsRanges = env->NewIntArray(desc->availableFpsRange.size());
+        // Find supported fixed frame rates
+        auto it = desc->availableFpsRange.begin();
+        std::vector<int> fixedFpsRange;
+
+        while(it != desc->availableFpsRange.end()) {
+            if(it->first == it->second) {
+                fixedFpsRange.push_back(it->first);
+            }
+            ++it;
+        }
+
+        // Make sure there's at least one entry
+        if(fixedFpsRange.empty())
+            fixedFpsRange.push_back(30);
+
+        jintArray fpsRanges = env->NewIntArray(fixedFpsRange.size());
         if(fpsRanges != nullptr) {
-            env->SetIntArrayRegion(fpsRanges, 0, desc->availableFpsRange.size(), desc->availableFpsRange.data());
+            env->SetIntArrayRegion(fpsRanges, 0, fixedFpsRange.size(), fixedFpsRange.data());
         }
 
         jobject obj =

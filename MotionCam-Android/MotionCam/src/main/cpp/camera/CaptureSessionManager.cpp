@@ -183,8 +183,10 @@ namespace motioncam {
             for(int i = 0; i < entry.count; i+=2) {
                 LOGD("Available FPS range [%d - %d]", entry.data.i32[i], entry.data.i32[i + 1]);
 
-                if(entry.data.i32[i] == entry.data.i32[i + 1])
-                    cameraDescription.availableFpsRange.push_back(entry.data.i32[i]);
+                auto minFps = entry.data.i32[i];
+                auto maxFps = entry.data.i32[i+1];
+
+                cameraDescription.availableFpsRange.push_back(std::make_pair(minFps, maxFps));
             }
         }
 

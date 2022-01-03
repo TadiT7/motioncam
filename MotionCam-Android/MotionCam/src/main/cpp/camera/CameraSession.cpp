@@ -399,13 +399,13 @@ namespace motioncam {
         if(ACameraDevice_createCaptureRequest(mSessionContext->activeCamera.get(), requestTemplate, &captureRequest) != ACAMERA_OK)
             throw CameraSessionException("Failed to create capture request");
 
-        const uint8_t tonemapMode           = ACAMERA_TONEMAP_MODE_FAST;
-        const uint8_t shadingMode           = ACAMERA_SHADING_MODE_FAST;
+        const uint8_t tonemapMode           = ACAMERA_TONEMAP_MODE_HIGH_QUALITY;
+        const uint8_t shadingMode           = ACAMERA_SHADING_MODE_HIGH_QUALITY;
         const uint8_t colorCorrectionMode   = ACAMERA_COLOR_CORRECTION_MODE_HIGH_QUALITY;
         const uint8_t lensShadingMapStats   = ACAMERA_STATISTICS_LENS_SHADING_MAP_MODE_ON;
         const uint8_t lensShadingMapApplied = ACAMERA_SENSOR_INFO_LENS_SHADING_APPLIED_FALSE;
         const uint8_t antiBandingMode       = ACAMERA_CONTROL_AE_ANTIBANDING_MODE_AUTO;
-        const uint8_t noiseReduction        = ACAMERA_NOISE_REDUCTION_MODE_FAST;
+        const uint8_t noiseReduction        = ACAMERA_NOISE_REDUCTION_MODE_HIGH_QUALITY;
 
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_SHADING_MODE, 1, &shadingMode);
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_STATISTICS_LENS_SHADING_MAP_MODE, 1, &lensShadingMapStats);
