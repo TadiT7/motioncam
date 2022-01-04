@@ -1,5 +1,7 @@
 package com.motioncam.camera;
 
+import java.util.Arrays;
+
 public class NativeCameraMetadata {
     public final int sensorOrientation;
     public final int isoMin;
@@ -36,8 +38,26 @@ public class NativeCameraMetadata {
         this.maxAeRegions = maxAeRegions;
         this.cameraApertures = cameraApertures;
         this.focalLength = focalLength;
-        this.minFocusDistance = minFocusDistance;
-        this.hyperFocalDistance = hyperFocalDistance;
+        this.minFocusDistance = minFocusDistance*8;
+        this.hyperFocalDistance = hyperFocalDistance/8;
         this.oisSupport = oisSupport;
+    }
+
+    @Override
+    public String toString() {
+        return "NativeCameraMetadata{" +
+                "sensorOrientation=" + sensorOrientation +
+                ", isoMin=" + isoMin +
+                ", isoMax=" + isoMax +
+                ", exposureTimeMin=" + exposureTimeMin +
+                ", exposureTimeMax=" + exposureTimeMax +
+                ", maxAfRegions=" + maxAfRegions +
+                ", maxAeRegions=" + maxAeRegions +
+                ", cameraApertures=" + Arrays.toString(cameraApertures) +
+                ", focalLength=" + Arrays.toString(focalLength) +
+                ", minFocusDistance=" + minFocusDistance +
+                ", hyperFocalDistance=" + hyperFocalDistance +
+                ", oisSupport=" + oisSupport +
+                '}';
     }
 }

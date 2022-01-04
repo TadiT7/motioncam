@@ -100,11 +100,11 @@ oboe::DataCallbackResult AudioRecorder::onAudioReady(oboe::AudioStream* audioStr
         mAudioData.resize(mAudioData.size() + bufferFrames);
     }
 
-    uint32_t numBytes = numFrames*2;
+    uint32_t numBytes = numFrames * audioStream->getBytesPerFrame();
 
     if(numBytes > 0) {
         std::memcpy(mAudioData.data() + mAudioDataOffset, audioData, numBytes);
-        mAudioDataOffset += numFrames;
+        mAudioDataOffset += numBytes / audioStream->getBytesPerSample();
     }
 
     return mRunning ? oboe::DataCallbackResult::Continue : oboe::DataCallbackResult::Stop;

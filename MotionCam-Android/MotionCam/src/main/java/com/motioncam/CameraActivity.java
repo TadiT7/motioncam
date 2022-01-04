@@ -1976,6 +1976,7 @@ public class CameraActivity extends AppCompatActivity implements
 
             NativeCameraMetadata metadata = mNativeCamera.getMetadata(cameraInfo);
             float focalLength = 0.0f;
+
             if(metadata.focalLength != null && metadata.focalLength.length > 0) {
                 focalLength = metadata.focalLength[0];
             }
@@ -2104,6 +2105,7 @@ public class CameraActivity extends AppCompatActivity implements
 
         // Set up camera manual controls
         mCameraMetadata = mNativeCamera.getMetadata(mSelectedCamera);
+        Log.d(TAG, "Selected camera metadata: " + mCameraMetadata.toString());
 
         // Keep range of valid ISO/shutter speeds
         mIsoValues = CameraManualControl.GetIsoValuesInRange(mCameraMetadata.isoMin, mCameraMetadata.isoMax);

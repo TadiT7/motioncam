@@ -23,7 +23,7 @@
 
 namespace motioncam {
     const int SoundSampleRateHz       = 48000;
-    const int SoundChannelCount       = 1;
+    const int SoundChannelCount       = 2;
 
 #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
     static inline __attribute__((always_inline))
