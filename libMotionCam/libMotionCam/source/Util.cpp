@@ -17,6 +17,7 @@
 #include <dng/dng_image_writer.h>
 #include <dng/dng_render.h>
 #include <dng/dng_gain_map.h>
+#include <dng/dng_exif.h>
 
 using std::string;
 using std::vector;
@@ -555,7 +556,7 @@ namespace motioncam {
             
             negative->SetBayerMosaic(phase);
             negative->SetColorChannels(3);
-            
+                        
             negative->SetQuadBlacks(cameraMetadata.blackLevel[0],
                                     cameraMetadata.blackLevel[1],
                                     cameraMetadata.blackLevel[2],
@@ -570,6 +571,15 @@ namespace motioncam {
             negative->SetNoiseReductionApplied(dng_urational(0,0));
             negative->SetCameraNeutral(dng_vector_3(imageMetadata.asShot[0], imageMetadata.asShot[1], imageMetadata.asShot[2]));
 
+            // Set metadata
+            auto exif = negative->Metadata().GetExif();
+
+            exif->SetExposureTime(imageMetadata.exposureTime / 1.0e9);
+            exif->fISOSpeedRatings[0] = imageMetadata.iso;
+            exif->fISOSpeedRatings[1] = imageMetadata.iso;
+            exif->fISOSpeedRatings[2] = imageMetadata.iso;
+            exif->SetApertureValue(cameraMetadata.apertures[0]);
+                        
             dng_orientation orientation;
             
             switch(imageMetadata.screenOrientation)
