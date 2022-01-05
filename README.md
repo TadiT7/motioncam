@@ -17,13 +17,13 @@ For bug reports, discussions and feature requests/ideas join us on Slack:
 
 ### Convert to DNG on your PC
 
-Download tools to convert to recorded video to DNG on your PC:
+Download tools to convert the recorded videos to DNG on your PC:
 
 ![Windows](https://github.com/mirsadm/motioncam/releases/download/8.0.6-beta4/motioncam-tools-0.0.4-windows.zip)
 
 ![Mac](https://github.com/mirsadm/motioncam/releases/download/8.0.6-beta4/motioncam-tools-mac-0.0.3.dmg)
 
-### Test phones
+### Tested phones
 
 The following phones have been tested to work for RAW video recording:
 
