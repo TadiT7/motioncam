@@ -967,8 +967,10 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void activateCamera(String cameraId) {
-        if(cameraId.equals(mSelectedCamera.cameraId))
+        if(cameraId == null || cameraId.equals(mSelectedCamera.cameraId))
             return;
+
+        Log.d(TAG, "Activating camera " + cameraId);
 
         // Save settings for current camera
         saveSettings();
@@ -1553,9 +1555,6 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void onWidthCropChanged(int progress, boolean fromUser) {
-        if(!fromUser)
-            return;
-
         mSettings.widthVideoCrop = progress;
         if(mNativeCamera != null)
             mNativeCamera.setVideoCropPercentage(mSettings.widthVideoCrop, mSettings.heightVideoCrop);
@@ -1567,9 +1566,6 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void onHeightCropChanged(int progress, boolean fromUser) {
-        if(!fromUser)
-            return;
-
         mSettings.heightVideoCrop = progress;
         if(mNativeCamera != null)
             mNativeCamera.setVideoCropPercentage(mSettings.widthVideoCrop, mSettings.heightVideoCrop);
@@ -2051,6 +2047,32 @@ public class CameraActivity extends AppCompatActivity implements
         return fpsToggle;
     }
 
+    private void onVideoPresetSelected(View v) {
+        if(mNativeCamera == null || mSelectedCamera == null)
+            return;
+
+        Size captureOutputSize = mNativeCamera.getRawConfigurationOutput(mSelectedCamera);
+
+        // Only doing 4K
+        int cropWidth = Math.round(100 * (1.0f - (3840.0f / captureOutputSize.getWidth())));
+        int cropHeight = Math.round(100 * (1.0f - (2160.0f / captureOutputSize.getHeight())));
+
+        if(cropWidth < 0 || cropHeight < 0)
+            return;
+
+        ((SeekBar)mBinding.cameraSettings.findViewById(R.id.widthCropSeekBar)).setProgress(cropWidth, true);
+        ((SeekBar)mBinding.cameraSettings.findViewById(R.id.heightCropSeekBar)).setProgress(cropHeight, true);
+
+        if(v == findViewById(R.id.preset1080P)) {
+            ((SwitchCompat) mBinding.cameraSettings.findViewById(R.id.pixelBinSwitch)).setChecked(true);
+        }
+        else if(v == findViewById(R.id.preset4K)) {
+            ((SwitchCompat) mBinding.cameraSettings.findViewById(R.id.pixelBinSwitch)).setChecked(false);
+        }
+
+        updateVideoUi();
+    }
+
     private void setupFpsSelection() {
         // Supported frame rates
         ViewGroup fpsGroup = mBinding.cameraSettings.findViewById(R.id.fpsGroup);
@@ -2135,6 +2157,10 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.shadowsSeekBar.setProgress(50);
 
         setupFpsSelection();
+
+        // Setup preset toggles
+        findViewById(R.id.preset4K).setOnClickListener(v -> onVideoPresetSelected(v));
+        findViewById(R.id.preset1080P).setOnClickListener(v -> onVideoPresetSelected(v));
 
         // Create texture view for camera preview
         mTextureView = new TextureView(this);
