@@ -38,8 +38,8 @@ public class NativeCameraMetadata {
         this.maxAeRegions = maxAeRegions;
         this.cameraApertures = cameraApertures;
         this.focalLength = focalLength;
-        this.minFocusDistance = minFocusDistance*8;
-        this.hyperFocalDistance = hyperFocalDistance/8;
+        this.minFocusDistance = minFocusDistance;
+        this.hyperFocalDistance = hyperFocalDistance;
         this.oisSupport = oisSupport;
     }
 

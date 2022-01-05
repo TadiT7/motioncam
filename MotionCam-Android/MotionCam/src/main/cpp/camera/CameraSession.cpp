@@ -399,13 +399,14 @@ namespace motioncam {
         if(ACameraDevice_createCaptureRequest(mSessionContext->activeCamera.get(), requestTemplate, &captureRequest) != ACAMERA_OK)
             throw CameraSessionException("Failed to create capture request");
 
-        const uint8_t tonemapMode           = ACAMERA_TONEMAP_MODE_HIGH_QUALITY;
-        const uint8_t shadingMode           = ACAMERA_SHADING_MODE_HIGH_QUALITY;
-        const uint8_t colorCorrectionMode   = ACAMERA_COLOR_CORRECTION_MODE_HIGH_QUALITY;
+        const uint8_t tonemapMode           = ACAMERA_TONEMAP_MODE_FAST;
+        const uint8_t shadingMode           = ACAMERA_SHADING_MODE_FAST;
+        const uint8_t colorCorrectionMode   = ACAMERA_COLOR_CORRECTION_MODE_FAST;
         const uint8_t lensShadingMapStats   = ACAMERA_STATISTICS_LENS_SHADING_MAP_MODE_ON;
         const uint8_t lensShadingMapApplied = ACAMERA_SENSOR_INFO_LENS_SHADING_APPLIED_FALSE;
         const uint8_t antiBandingMode       = ACAMERA_CONTROL_AE_ANTIBANDING_MODE_AUTO;
-        const uint8_t noiseReduction        = ACAMERA_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+        const uint8_t noiseReduction        = ACAMERA_NOISE_REDUCTION_MODE_FAST;
+        const uint8_t edgeMode              = ACAMERA_EDGE_MODE_FAST;
 
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_SHADING_MODE, 1, &shadingMode);
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_STATISTICS_LENS_SHADING_MAP_MODE, 1, &lensShadingMapStats);
@@ -413,6 +414,7 @@ namespace motioncam {
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_CONTROL_AE_ANTIBANDING_MODE, 1, &antiBandingMode);
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_NOISE_REDUCTION_MODE, 1, &noiseReduction);
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_COLOR_CORRECTION_MODE, 1, &colorCorrectionMode);
+        ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_EDGE_MODE, 1, &edgeMode);
 
         uint8_t aeMode  = ACAMERA_CONTROL_AE_MODE_ON;
         uint8_t afMode  = ACAMERA_CONTROL_AF_MODE_CONTINUOUS_PICTURE;
@@ -587,13 +589,13 @@ namespace motioncam {
 
         // Set up a JPEG output that we don't use. For some reason without it the camera auto
         // focus does not work properly
-        setupJpegCaptureOutput(*mSessionContext);
-
-        // Set up output for preview
-        setupPreviewCaptureOutput(*mSessionContext, setupForRawPreview);
+//        setupJpegCaptureOutput(*mSessionContext);
 
         // Set up output for capture
         setupRawCaptureOutput(*mSessionContext);
+
+        // Set up output for preview
+        setupPreviewCaptureOutput(*mSessionContext, setupForRawPreview);
 
         // Finally create and start the session
         ACameraCaptureSession* captureSession = nullptr;

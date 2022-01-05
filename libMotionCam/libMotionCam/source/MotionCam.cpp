@@ -292,7 +292,7 @@ namespace motioncam {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             
-            progress.onProgressUpdate( (i*100) /orderedFrames.size());
+            progress.onProgressUpdate( (i*100) / orderedFrames.size());
         }
         
         // Flush buffers

@@ -125,7 +125,7 @@ public class CameraActivity extends AppCompatActivity implements
 
     private static final int OVERLAY_UPDATE_FREQUENCY_MS = 100;
 
-    private static final int[] ALL_FRAME_RATE_OPTIONS = new int[] { 120, 60, 30, 25, 24, 15, 10, 5, 1};
+    private static final int[] ALL_FRAME_RATE_OPTIONS = new int[] { 120, 60, 50, 48, 30, 25, 24, 15, 10, 5, 2, 1};
 
     public static final String WORKER_IMAGE_PROCESSOR = "ImageProcessor";
     public static final String WORKER_VIDEO_PROCESSOR = "VideoProcessor";
@@ -197,6 +197,7 @@ public class CameraActivity extends AppCompatActivity implements
     private long mFocusRequestedTimestampMs;
     private Timer mRecordingTimer;
     private Timer mOverlayTimer;
+    private boolean mUnsupportedFrameRate;
 
     private AtomicBoolean mImageCaptureInProgress = new AtomicBoolean(false);
 
@@ -307,12 +308,6 @@ public class CameraActivity extends AppCompatActivity implements
                 if(spaceLeft < 25) {
                     mBinding.previewFrame.freeSpaceProgress.getProgressDrawable()
                             .setTint(getColor(R.color.cancelAction));
-
-                    // Stop recording because there's no storage left
-                    if(spaceLeft < 5)  {
-                        finaliseRawVideo(true);
-                        return;
-                    }
                 }
                 else {
                     mBinding.previewFrame.freeSpaceProgress.getProgressDrawable()
@@ -712,6 +707,10 @@ public class CameraActivity extends AppCompatActivity implements
         // Update the settings
         mSettings.saveDng = mPostProcessSettings.dng;
         mSettings.captureMode = mCaptureMode;
+
+        // Reset frame rate when an unsupported frame has been selected
+        if(mUnsupportedFrameRate)
+            mSettings.frameRate = 30;
 
         mSettings.save(sharedPrefs);
 
@@ -1144,8 +1143,12 @@ public class CameraActivity extends AppCompatActivity implements
             unsupportedFpsGroup.getChildAt(i).setBackground(null);
         }
 
+        // Keep track of whether an unsupported frame rate has been selected
+        mUnsupportedFrameRate = false;
+
         if(!updateFpsToggle(fpsGroup)) {
             updateFpsToggle(unsupportedFpsGroup);
+            mUnsupportedFrameRate = true;
         }
     }
 

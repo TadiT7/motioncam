@@ -478,11 +478,11 @@ namespace motioncam {
     {
         auto outputConfigs = cameraDesc.outputConfigs;
 
-        OutputConfiguration closestConfig = { AIMAGE_FORMAT_YUV_420_888, DisplayDimension() };
+        OutputConfiguration closestConfig = { AIMAGE_FORMAT_PRIVATE, DisplayDimension() };
         bool foundConfig = false;
 
         // Find the closest preview configuration to our display resolution
-        auto yuvIt = outputConfigs.find(AIMAGE_FORMAT_YUV_420_888);
+        auto yuvIt = outputConfigs.find(AIMAGE_FORMAT_PRIVATE);
 
         if (yuvIt != outputConfigs.end()) {
             auto configurations = (*yuvIt).second;

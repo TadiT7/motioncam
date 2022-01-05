@@ -40,6 +40,7 @@ public class SettingsViewModel extends ViewModel {
     public static final String PREFS_KEY_UI_WIDTH_VIDEO_CROP                = "ui_width_video_crop";
     public static final String PREFS_KEY_UI_HEIGHT_VIDEO_CROP               = "ui_height_video_crop";
     public static final String PREFS_KEY_UI_VIDEO_BIN                       = "ui_video_bin";
+    public static final String PREFS_KEY_UI_FRAME_RATE                      = "ui_frame_rate";
     public static final String PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI          = "raw_video_temp_output_uri";
     public static final String PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI_2        = "raw_video_temp_output_uri_2";
     public static final String PREFS_KEY_RAW_VIDEO_EXPORT_URI               = "raw_video_output_uri";

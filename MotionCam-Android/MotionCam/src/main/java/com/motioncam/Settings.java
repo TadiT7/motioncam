@@ -94,8 +94,7 @@ public class Settings {
     int numRawVideoCompressionThreads;
 
     void load(SharedPreferences prefs) {
-        this.frameRate = 30; // Don't save the frame rate
-
+        this.frameRate = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_FRAME_RATE, 30);
         this.jpegQuality = prefs.getInt(SettingsViewModel.PREFS_KEY_JPEG_QUALITY, CameraProfile.DEFAULT_JPEG_QUALITY);
         this.saveDng = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_SAVE_RAW, false);
         this.exposureOverlay = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_EXPOSURE_OVERLAY, false);
@@ -162,6 +161,7 @@ public class Settings {
                 .putInt(SettingsViewModel.PREFS_KEY_UI_WIDTH_VIDEO_CROP, this.widthVideoCrop)
                 .putInt(SettingsViewModel.PREFS_KEY_UI_HEIGHT_VIDEO_CROP, this.heightVideoCrop)
                 .putBoolean(SettingsViewModel.PREFS_KEY_UI_VIDEO_BIN, this.videoBin)
+                .putInt(SettingsViewModel.PREFS_KEY_UI_FRAME_RATE, this.frameRate)
                 .apply();
     }
 
