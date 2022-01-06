@@ -55,6 +55,8 @@ bool AudioRecorder::start(const int sampleRateHz, const int channels) {
     mSampleRate = mActiveAudioStream->getSampleRate();
     mChannelCount = mActiveAudioStream->getChannelCount();
 
+    LOGD("Audio recorder started with sample rate: %d and channels: %d", mSampleRate, mChannelCount);
+
     mRunning = true;
     return true;
 }
@@ -77,7 +79,7 @@ const std::vector<int16_t>& AudioRecorder::getAudioData(uint32_t& outNumFrames) 
         throw std::runtime_error("Device still running");
     }
 
-    outNumFrames = mAudioDataOffset;
+    outNumFrames = mAudioDataOffset / mChannelCount;
 
     return mAudioData;
 }
