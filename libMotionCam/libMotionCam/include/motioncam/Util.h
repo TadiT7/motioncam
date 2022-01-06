@@ -68,17 +68,17 @@ namespace motioncam {
 
         cv::Mat BuildRawImage(std::vector<cv::Mat> channels, int cropX, int cropY);
     
-        void WriteDng(cv::Mat rawImage,
+        void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
                       const std::string& outputPath);
 
-        void WriteDng(cv::Mat rawImage,
+        void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
                       const int fd);
 
-        void WriteDng(cv::Mat rawImage,
+        void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
                       ZipWriter& zipWriter,

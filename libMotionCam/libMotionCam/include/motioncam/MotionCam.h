@@ -10,34 +10,52 @@
 
 namespace motioncam {
     class RawContainer;
+    struct ContainerFrame;
+    struct Impl;
 
-    void ConvertVideoToDNG(std::vector<std::unique_ptr<RawContainer> >& containers,
-                           DngProcessorProgress& progress,
-                           const int numThreads,
-                           const int mergeFrames);
+    class MotionCam {
+    public:
+        MotionCam();
+        ~MotionCam();
 
-    void ConvertVideoToDNG(const std::vector<std::string>& inputFile,
-                           DngProcessorProgress& progress,
-                           const int numThreads=4,
-                           const int mergeFrames=0);
+        void convertVideoToDNG(std::vector<std::unique_ptr<RawContainer> >& containers,
+                               DngProcessorProgress& progress,
+                               const int numThreads,
+                               const int mergeFrames);
 
-    void ConvertVideoToDNG(std::vector<int>& fds,
-                           DngProcessorProgress& progress,
-                           const int numThreads=4,
-                           const int mergeFrames=0);
+        void convertVideoToDNG(const std::vector<std::string>& inputFile,
+                               DngProcessorProgress& progress,
+                               const int numThreads=4,
+                               const int mergeFrames=0);
 
-    void ProcessImage(RawContainer& rawContainer, const std::string& outputFilePath, const ImageProcessorProgress& progressListener);
-    void ProcessImage(const std::string& containerPath, const std::string& outputFilePath, const ImageProcessorProgress& progressListener);
+        void convertVideoToDNG(std::vector<int>& fds,
+                               DngProcessorProgress& progress,
+                               const int numThreads=4,
+                               const int mergeFrames=0);
 
-    void GetMetadata(const std::string& filename, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
-    void GetMetadata(const std::vector<std::string>& paths, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
-    void GetMetadata(const std::vector<int>& fds, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
-    void GetMetadata(
-        const std::vector<std::unique_ptr<RawContainer>>& containers,
-        float& outDurationMs,
-        float& outFrameRate,
-        int& outNumFrames,
-        int& outNumSegments);
+        static void ProcessImage(RawContainer& rawContainer, const std::string& outputFilePath, const ImageProcessorProgress& progressListener);
+        static void ProcessImage(const std::string& containerPath, const std::string& outputFilePath, const ImageProcessorProgress& progressListener);
+
+        static void GetMetadata(const std::string& filename, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
+        static void GetMetadata(const std::vector<std::string>& paths, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
+        static void GetMetadata(const std::vector<int>& fds, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
+        static void GetMetadata(
+            const std::vector<std::unique_ptr<RawContainer>>& containers,
+            float& outDurationMs,
+            float& outFrameRate,
+            int& outNumFrames,
+            int& outNumSegments);
+
+    private:
+        static void GetOrderedFrames(
+            const std::vector<std::unique_ptr<RawContainer>>& containers,
+            std::vector<ContainerFrame>& outOrderedFrames);
+
+        void writeDNG();
+
+    private:
+        std::unique_ptr<Impl> mImpl;
+    };
 }
 
 #endif /* MotionCam_hpp */

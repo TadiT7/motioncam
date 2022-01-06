@@ -17,7 +17,7 @@
 
 namespace motioncam {
     struct Job {
-        Job(cv::Mat bayerImage,
+        Job(const cv::Mat& bayerImage,
             const RawCameraMetadata& cameraMetadata,
             const RawImageMetadata& frameMetadata,
             const int fd,
@@ -44,14 +44,25 @@ namespace motioncam {
         size_t containerIndex;
     };
 
-    moodycamel::BlockingConcurrentQueue<std::shared_ptr<Job>> JOB_QUEUE;
-    std::atomic<bool> RUNNING;
+    struct Impl {
+        Impl() : running(false) {
+        }
 
-    static void WriteDNG() {
-        while(RUNNING) {
+        moodycamel::BlockingConcurrentQueue<std::shared_ptr<Job>> jobQueue;
+        std::atomic<bool> running;
+    };
+
+    MotionCam::MotionCam() : mImpl(new Impl()) {
+    }
+
+    MotionCam::~MotionCam() {
+    }
+
+    void MotionCam::writeDNG() {
+        while(mImpl->running) {
             std::shared_ptr<Job> job;
-            
-            JOB_QUEUE.wait_dequeue_timed(job, std::chrono::milliseconds(100));
+
+            mImpl->jobQueue.wait_dequeue_timed(job, std::chrono::milliseconds(100));
             if(!job)
                 continue;
             
@@ -69,7 +80,63 @@ namespace motioncam {
         }
     }
 
-    void GetOrderedFrames(const std::vector<std::unique_ptr<RawContainer>>& containers, std::vector<ContainerFrame>& outOrderedFrames) {
+    void GetNearestBuffers(
+            const std::vector<std::unique_ptr<RawContainer>>& containers,
+            const std::vector<ContainerFrame>& orderedFrames,
+            const int startIdx,
+            const int numBuffers,
+            std::vector<std::shared_ptr<RawImageBuffer>>& outNearestBuffers)
+    {
+        int leftOffset = -1;
+        int rightOffset = 1;
+
+        // Get the nearest frames
+        outNearestBuffers.clear();
+
+        while(true) {
+            if(startIdx + leftOffset >= 0) {
+                int leftIndex = startIdx + leftOffset;
+
+                auto& container = containers[orderedFrames[leftIndex].containerIndex];
+                auto left = container->loadFrame(orderedFrames[leftIndex].frameName);
+
+                if(!left) {
+                    left = nullptr;
+                }
+
+                outNearestBuffers.push_back(left);
+
+                leftOffset--;
+
+                if(outNearestBuffers.size() >= numBuffers)
+                    break;
+            }
+
+            if(startIdx + rightOffset < orderedFrames.size()) {
+                int rightIndex = startIdx + rightOffset;
+
+                auto& container = containers[orderedFrames[rightIndex].containerIndex];
+                auto right = container->loadFrame(orderedFrames[rightIndex].frameName);
+
+                if(!right)
+                    right = nullptr;
+
+                outNearestBuffers.push_back(right);
+
+                if(outNearestBuffers.size() >= numBuffers)
+                    break;
+
+                rightOffset++;
+            }
+
+            if(startIdx + leftOffset < 0 && startIdx + rightOffset >= orderedFrames.size())
+                break;
+        }
+    }
+
+    void MotionCam::GetOrderedFrames(
+            const std::vector<std::unique_ptr<RawContainer>>& containers, std::vector<ContainerFrame>& outOrderedFrames)
+    {
         // Get a list of all frames, ordered by timestamp
         for(size_t i = 0; i < containers.size(); i++) {
             auto& container = containers[i];
@@ -85,33 +152,34 @@ namespace motioncam {
         });
     }
 
-    void ConvertVideoToDNG(const std::vector<std::string>& inputPaths, DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
+    void MotionCam::convertVideoToDNG(const std::vector<std::string>& inputPaths, DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
         std::vector<std::unique_ptr<RawContainer>> c;
         
         for(auto& inputPath : inputPaths) {
             c.push_back( std::unique_ptr<RawContainer>( new RawContainer(inputPath) ) );
         }
 
-        ConvertVideoToDNG(c, progress, numThreads, mergeFrames);
+        convertVideoToDNG(c, progress, numThreads, mergeFrames);
     }
 
-    void ConvertVideoToDNG(std::vector<int>& fds, DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
+    void MotionCam::convertVideoToDNG(std::vector<int>& fds, DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
         std::vector<std::unique_ptr<RawContainer>> c;
         
         for(auto fd : fds) {
             c.push_back( std::unique_ptr<RawContainer>( new RawContainer(fd) ) );
         }
         
-        ConvertVideoToDNG(c, progress, numThreads, mergeFrames);
+        convertVideoToDNG(c, progress, numThreads, mergeFrames);
     }
 
-    void ConvertVideoToDNG(std::vector<std::unique_ptr<RawContainer>>& containers,
-                           DngProcessorProgress& progress,
-                           const int numThreads,
-                           const int mergeFrames)
+    void MotionCam::convertVideoToDNG(
+        std::vector<std::unique_ptr<RawContainer>>& containers,
+        DngProcessorProgress& progress,
+        const int numThreads,
+        const int mergeFrames)
     {
         
-        if(RUNNING)
+        if(mImpl->running)
             throw std::runtime_error("Already running");
         
         if(numThreads <= 0)
@@ -123,13 +191,13 @@ namespace motioncam {
         GetOrderedFrames(containers, orderedFrames);
                 
         // Create processing threads
-        RUNNING = true;
+        mImpl->running = true;
         
         std::vector<std::unique_ptr<std::thread>> threads;
         std::vector<int> fds;
         
         for(int i = 0; i < numThreads; i++) {
-            auto t = std::unique_ptr<std::thread>(new std::thread(&WriteDNG));
+            auto t = std::unique_ptr<std::thread>(new std::thread(&MotionCam::writeDNG, this));
             
             threads.push_back(std::move(t));
         }
@@ -175,50 +243,9 @@ namespace motioncam {
             }
             else {
                 std::vector<std::shared_ptr<RawImageBuffer>> nearestBuffers;
-                
-                int leftOffset = -1;
-                int rightOffset = 1;
-                
-                // Get the nearest frames
-                while(true) {
-                    if(i + leftOffset >= 0) {
-                        int leftIndex = i + leftOffset;
-                        
-                        auto& container = containers[orderedFrames[leftIndex].containerIndex];
-                        auto left = container->loadFrame(orderedFrames[leftIndex].frameName);
 
-                        if(!left) {
-                            left = nullptr;
-                        }
-
-                        nearestBuffers.push_back(left);
-                        
-                        leftOffset--;
-
-                        if(nearestBuffers.size() >= mergeFrames)
-                            break;
-                    }
-
-                    if(i + rightOffset < orderedFrames.size()) {
-                        int rightIndex = i + rightOffset;
-                        
-                        auto& container = containers[orderedFrames[rightIndex].containerIndex];
-                        auto right = container->loadFrame(orderedFrames[rightIndex].frameName);
-
-                        if(!right)
-                            right = nullptr;
-                        
-                        nearestBuffers.push_back(right);
-
-                        if(nearestBuffers.size() >= mergeFrames)
-                            break;
-
-                        rightOffset++;
-                    }
-                    
-                    if(i + leftOffset < 0 && i + rightOffset >= orderedFrames.size())
-                        break;
-                }
+                // Get number of nearest buffers
+                GetNearestBuffers(containers, orderedFrames, i, mergeFrames, nearestBuffers);
                 
                 auto denoiseBuffer = ImageProcessor::denoise(frame, nearestBuffers, container->getCameraMetadata());
                 
@@ -280,7 +307,7 @@ namespace motioncam {
 #elif defined(_WIN32)
             outputPath = progress.onNeedFd(i);
 #endif
-            while(!JOB_QUEUE.try_enqueue(std::make_shared<Job>(bayerImage, metadata, frame->metadata, fd, outputPath))) {
+            while(!mImpl->jobQueue.try_enqueue(std::make_shared<Job>(bayerImage, metadata, frame->metadata, fd, outputPath))) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             
@@ -288,7 +315,7 @@ namespace motioncam {
             std::shared_ptr<Job> job;
             
             // Wait until jobs are completed
-            while(JOB_QUEUE.size_approx() > numThreads) {
+            while(mImpl->jobQueue.size_approx() > numThreads) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             
@@ -298,12 +325,12 @@ namespace motioncam {
         // Flush buffers
         int numTries = 10;
         
-        while(JOB_QUEUE.size_approx() > 0 && numTries > 0) {
+        while(mImpl->jobQueue.size_approx() > 0 && numTries > 0) {
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
             --numTries;
         }
 
-        RUNNING = false;
+        mImpl->running = false;
 
         // Stop the threads
         for(int i = 0; i < threads.size(); i++)
@@ -312,22 +339,22 @@ namespace motioncam {
         // Clear the queue if there are items in there
         std::shared_ptr<Job> job;
         
-        while(JOB_QUEUE.try_dequeue(job)) {
+        while(mImpl->jobQueue.try_dequeue(job)) {
             logger::log("Discarding video frame!");
         }
 
         progress.onCompleted();
     }
 
-    void ProcessImage(const std::string& containerPath, const std::string& outputFilePath, const ImageProcessorProgress& progressListener) {
+    void MotionCam::ProcessImage(const std::string& containerPath, const std::string& outputFilePath, const ImageProcessorProgress& progressListener) {
         ImageProcessor::process(containerPath, outputFilePath, progressListener);    
     }
 
-    void ProcessImage(RawContainer& rawContainer, const std::string& outputFilePath, const ImageProcessorProgress& progressListener) {
+    void MotionCam::ProcessImage(RawContainer& rawContainer, const std::string& outputFilePath, const ImageProcessorProgress& progressListener) {
         ImageProcessor::process(rawContainer, outputFilePath, progressListener);
     }
 
-    void GetMetadata(const std::string& filename, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments) {
+    void MotionCam::GetMetadata(const std::string& filename, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments) {
         std::vector<std::unique_ptr<RawContainer>> containers;
         
         try {
@@ -345,7 +372,7 @@ namespace motioncam {
         GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments);
     }
 
-    void GetMetadata(const std::vector<std::string>& paths, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments) {
+    void MotionCam::GetMetadata(const std::vector<std::string>& paths, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments) {
         std::vector<std::unique_ptr<RawContainer>> containers;
 
         try {
@@ -364,7 +391,7 @@ namespace motioncam {
         GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments);
     }
 
-    void GetMetadata(const std::vector<int>& fds, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments) {
+    void MotionCam::GetMetadata(const std::vector<int>& fds, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments) {
         // Try to get metadata from all segments
         std::vector<std::unique_ptr<RawContainer>> containers;
         
@@ -385,7 +412,7 @@ namespace motioncam {
         GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments);
     }
 
-    void GetMetadata(
+    void MotionCam::GetMetadata(
         const std::vector<std::unique_ptr<RawContainer>>& containers,
         float& outDurationMs,
         float& outFrameRate,
@@ -421,6 +448,6 @@ namespace motioncam {
             outNumSegments = std::max(outNumSegments, container->getNumSegments());
         }
         
-        outDurationMs = (endTime - startTime) * 1000.0f;
+        outDurationMs = static_cast<float>((endTime - startTime) * 1000.0f);
     }
 }

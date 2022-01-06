@@ -29,14 +29,14 @@ using std::set;
 class dng_fd_stream : public dng_stream {
 public:
     dng_fd_stream(const int fd, bool output) :
-        dng_stream ((dng_abort_sniffer *) NULL, kDefaultBufferSize, 0),
+        dng_stream ((dng_abort_sniffer *) nullptr, kDefaultBufferSize, 0),
     fFd(fd)
     {
         if(fd < 0)
             ThrowFileIsDamaged();
     }
     
-    ~dng_fd_stream () {
+    ~dng_fd_stream () override {
         if (fFd < 0)
             return;
 
@@ -44,7 +44,7 @@ public:
         close(fFd);
     }
 
-    uint64 DoGetLength () {
+    uint64 DoGetLength () override {
         if (lseek (fFd, 0, SEEK_END) < 0) {
             ThrowReadFile ();
         }
@@ -52,24 +52,24 @@ public:
         return (uint64) lseek(fFd, 0, SEEK_CUR);
     }
             
-    void DoRead(void *data, uint32 count, uint64 offset) {
+    void DoRead(void *data, uint32 count, uint64 offset) override {
         if (lseek (fFd, (long) offset, SEEK_SET) < 0) {
             ThrowReadFile ();
         }
         
-        uint32 bytesRead = (uint32) read (fFd, data, count);
+        auto bytesRead = (uint32) read (fFd, data, count);
         
         if (bytesRead != count) {
             ThrowReadFile ();
         }
     }
     
-    void DoWrite(const void *data, uint32 count, uint64 offset) {
+    void DoWrite(const void *data, uint32 count, uint64 offset) override {
         if (lseek (fFd, (uint32) offset, SEEK_SET) < 0) {
             ThrowWriteFile ();
         }
                 
-        uint32 bytesWritten = (uint32) write (fFd, data, count);
+        auto bytesWritten = (uint32) write (fFd, data, count);
 
         if (bytesWritten != count) {
             ThrowWriteFile ();
@@ -732,7 +732,7 @@ namespace motioncam {
             dngWriter->WriteDNG(host, dngStream, *negative.Get(), nullptr, dngVersion_SaveDefault, false);
         }
 
-        void WriteDng(cv::Mat rawImage,
+        void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
                       const std::string& outputPath)
@@ -744,7 +744,7 @@ namespace motioncam {
             stream.Flush();
         }
 
-        void WriteDng(cv::Mat rawImage,
+        void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
                       const int fd)
@@ -758,7 +758,7 @@ namespace motioncam {
             #endif
         }
 
-        void WriteDng(cv::Mat rawImage,
+        void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
                       ZipWriter& zipWriter,
