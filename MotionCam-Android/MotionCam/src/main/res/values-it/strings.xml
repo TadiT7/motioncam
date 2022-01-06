@@ -133,7 +133,7 @@
     <string name="set_export_folder">Imposta cartella esportazione</string>
     <string name="split_storage_option">Dividi la registrazione video RAW in due percorsi di archiviazione</string>
     <string name="split_storage_description">La suddivisione del file RAW tra disco interno ed esterno migliora le prestazioni.</string>
-    <string name="permissions_error">Per funzionare l\'app necessita dell\'autorizzazione all'\uso della fotocamera.</string>
+    <string name="permissions_error">Per funzionare l\'app necessita dell\'autorizzazione all\'uso della fotocamera.</string>
     <string name="exposure_clipping_overlay">Sovrapposizione ritaglio sensore</string>
     <string name="exposure_clipping_desc">Sovrapponi aree di ritaglio del sensore.</string>
     <string name="internal_mic_tag">_internal_mic</string>
