@@ -118,7 +118,7 @@ namespace motioncam {
         }
                 
         // Create process threads
-        int processThreads = std::max(numThreads, 1);
+        int processThreads = (std::max)(numThreads, 1);
 
         for(int i = 0; i < processThreads; i++) {
             auto t = std::unique_ptr<std::thread>(new std::thread(&RawBufferStreamer::doProcess, this));
