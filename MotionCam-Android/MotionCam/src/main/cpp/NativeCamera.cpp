@@ -735,16 +735,37 @@ JNIEXPORT jobjectArray JNICALL Java_com_motioncam_camera_NativeCameraSessionBrid
 
         jstring jcameraId = env->NewStringUTF(supportedCameras[i].c_str());
 
+        // Find supported fixed frame rates
+        auto it = desc->availableFpsRange.begin();
+        std::vector<int> fixedFpsRange;
+
+        while(it != desc->availableFpsRange.end()) {
+            if(it->first == it->second) {
+                fixedFpsRange.push_back(it->first);
+            }
+            ++it;
+        }
+
+        // Make sure there's at least one entry
+        if(fixedFpsRange.empty())
+            fixedFpsRange.push_back(30);
+
+        jintArray fpsRanges = env->NewIntArray(fixedFpsRange.size());
+        if(fpsRanges != nullptr) {
+            env->SetIntArrayRegion(fpsRanges, 0, fixedFpsRange.size(), fixedFpsRange.data());
+        }
+
         jobject obj =
                 env->NewObject(
                         nativeCameraInfoClass,
-                        env->GetMethodID(nativeCameraInfoClass, "<init>", "(Ljava/lang/String;ZIIII)V"),
+                        env->GetMethodID(nativeCameraInfoClass, "<init>", "(Ljava/lang/String;ZIIII[I)V"),
                         jcameraId,
                         desc->lensFacing == ACAMERA_LENS_FACING_FRONT,
                         desc->exposureCompensationRange[0],
                         desc->exposureCompensationRange[1],
                         desc->exposureCompensationStepFraction[0],
-                        desc->exposureCompensationStepFraction[1]);
+                        desc->exposureCompensationStepFraction[1],
+                        fpsRanges);
 
         env->DeleteLocalRef(jcameraId);
 
@@ -1040,7 +1061,8 @@ void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_PrepareHdrCaptu
 
 extern "C"
 JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_StartStreamToFile(
-        JNIEnv *env, jobject thiz, jlong handle, jintArray jfds, jint audioFd, jint audioDeviceId)
+        JNIEnv *env, jobject thiz,
+        jlong handle, jintArray jfds, jint audioFd, jint audioDeviceId, jboolean enableCompression, jint numThreads)
 {
     std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
     if(!sessionManager) {
@@ -1068,7 +1090,8 @@ JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_S
 
     gAudioRecorder = std::make_shared<AudioRecorder>(audioDeviceId);
 
-    RawBufferManager::get().enableStreaming(fds, audioFd, gAudioRecorder, metadata);
+    RawBufferManager::get().enableStreaming(
+            fds, audioFd, gAudioRecorder, enableCompression, numThreads, metadata);
 
     return JNI_TRUE;
 }

@@ -5,9 +5,25 @@ Motion Cam is a camera application for Android that replaces the entire camera p
 You can install the latest version from [GitHub](https://github.com/mirsadm/motioncam/releases)
 or a slightly out of date version from the [Play Store](https://play.google.com/store/apps/details?id=com.motioncam)
 
-#### RAW video capture
+# RAW video capture
 
 Capture RAW video up to 30 FPS and convert to a sequence of DNGs.
+
+### Get Help / Join a discussion about the app
+
+For bug reports, discussions and feature requests/ideas join us on Slack:
+
+[Slack Invite](https://join.slack.com/t/motioncam/shared_invite/zt-10ziu3m2d-cdNXbCPJPf1BhTZb_jBgZQ)
+
+### Convert to DNG on your PC
+
+Download tools to convert the recorded videos to DNG on your PC:
+
+![Windows](https://github.com/mirsadm/motioncam/releases/download/8.0.6-beta4/motioncam-tools-0.0.4-windows.zip)
+
+![Mac](https://github.com/mirsadm/motioncam/releases/download/8.0.6-beta4/motioncam-tools-mac-0.0.3.dmg)
+
+## Other features
 
 #### Dual exposure
 

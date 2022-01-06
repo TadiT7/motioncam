@@ -8,7 +8,7 @@ DngConverterListener::~DngConverterListener() {
     mEnv->DeleteGlobalRef(mProgressListenerRef);
 }
 
-int DngConverterListener::onNeedFd(int frameNumber) const {
+int DngConverterListener::onNeedFd(int frameNumber) {
     struct _jmethodID *onNeedFd = mEnv->GetMethodID(
             mEnv->GetObjectClass(mProgressListenerRef),
             "onNeedFd",
@@ -17,16 +17,7 @@ int DngConverterListener::onNeedFd(int frameNumber) const {
     return mEnv->CallIntMethod(mProgressListenerRef, onNeedFd, frameNumber);
 }
 
-void DngConverterListener::onCompleted(int fd) const {
-    struct _jmethodID *onSaved = mEnv->GetMethodID(
-            mEnv->GetObjectClass(mProgressListenerRef),
-            "onCompleted",
-            "(I)V");
-
-    mEnv->CallVoidMethod(mProgressListenerRef, onSaved, fd);
-}
-
-bool DngConverterListener::onProgressUpdate(int progress) const {
+bool DngConverterListener::onProgressUpdate(int progress) {
     struct _jmethodID *onProgressUpdate = mEnv->GetMethodID(
             mEnv->GetObjectClass(mProgressListenerRef),
             "onProgressUpdate",
@@ -37,7 +28,7 @@ bool DngConverterListener::onProgressUpdate(int progress) const {
     return result == 1;
 }
 
-void DngConverterListener::onCompleted() const {
+void DngConverterListener::onCompleted() {
     struct _jmethodID *onCompletedMethod = mEnv->GetMethodID(
             mEnv->GetObjectClass(mProgressListenerRef),
             "onCompleted",
@@ -46,7 +37,7 @@ void DngConverterListener::onCompleted() const {
     mEnv->CallVoidMethod(mProgressListenerRef, onCompletedMethod);
 }
 
-void DngConverterListener::onError(const std::string& error) const {
+void DngConverterListener::onError(const std::string& error) {
     struct _jmethodID *onErrorMethod = mEnv->GetMethodID(
             mEnv->GetObjectClass(mProgressListenerRef),
             "onError",

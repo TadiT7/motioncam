@@ -116,6 +116,69 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="5dp"
+                    android:text="@string/raw_video_compression"
+                    android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold" />
+
+                <CheckBox
+                    android:id="@+id/rawVideoCompressionBtn"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/MotionCam.TextAppearance.Small"
+                    android:textColor="@color/white"
+                    android:checked="@={viewModel.rawVideoCompression}"
+                    android:text="@string/enable_raw_video_compression">
+                </CheckBox>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
+                    android:text="@string/raw_video_compression_desc"
+                    android:textAppearance="@style/MotionCam.TextAppearance.Small"
+                    android:textColor="@color/silver" />
+
+                <LinearLayout
+                    android:id="@+id/rawVideoCompressionLayout"
+                    android:orientation="vertical"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="5dp"
+                        android:text="@string/number_of_compression_threads"
+                        android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/compressionThreadsText"
+                            android:layout_width="@dimen/preview_settings_value_width"
+                            android:layout_height="match_parent"
+                            android:gravity="end|center_vertical"
+                            android:textAppearance="@style/MotionCam.TextAppearance.Small" />
+
+                        <SeekBar
+                            android:id="@+id/compressionThreads"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:max="3"
+                            android:paddingTop="@dimen/seekBarPadding"
+                            android:paddingBottom="@dimen/seekBarPadding"
+                            android:progress="@={viewModel.compressionThreads}" />
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="5dp"
                     android:text="@string/raw_video_storage_folder"
                     android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold" />
 
@@ -144,7 +207,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:backgroundTint="@color/cancelAction"
-                        android:text="Clear"/>
+                        android:text="@string/clear"/>
 
                     <HorizontalScrollView
                         android:layout_width="fill_parent"
@@ -152,7 +215,7 @@
 
                         <TextView
                             android:id="@+id/rawVideoStorageFolder"
-                            android:layout_width="match_parent"
+                            android:layout_width="wrap_content"
                             android:layout_height="match_parent"
                             android:textAppearance="@style/MotionCam.TextAppearance.VerySmall"
                             android:gravity="center_vertical"
@@ -171,7 +234,6 @@
                     android:layout_height="wrap_content"
                     android:textAppearance="@style/MotionCam.TextAppearance.Small"
                     android:textColor="@color/white"
-                    android:visibility="gone"
                     android:checked="@={viewModel.splitRawVideoStorage}"
                     android:text="@string/split_storage_option">
                 </CheckBox>
@@ -181,7 +243,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="5dp"
                     android:text="@string/split_storage_description"
-                    android:visibility="gone"
+                    android:visibility="visible"
                     android:textAppearance="@style/MotionCam.TextAppearance.Small"
                     android:textColor="@color/silver" />
 
@@ -205,7 +267,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:backgroundTint="@color/cancelAction"
-                        android:text="Clear"/>
+                        android:text="@string/clear"/>
 
                     <HorizontalScrollView
                         android:layout_width="fill_parent"
@@ -213,7 +275,7 @@
 
                         <TextView
                             android:id="@+id/rawVideoStorageFolder2"
-                            android:layout_width="match_parent"
+                            android:layout_width="wrap_content"
                             android:layout_height="match_parent"
                             android:textAppearance="@style/MotionCam.TextAppearance.VerySmall"
                             android:gravity="center_vertical"
@@ -382,7 +444,6 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:padding="10dp"
-                    android:layout_marginBottom="10dp"
                     android:orientation="vertical">
 
                     <RadioButton
@@ -411,6 +472,15 @@
                         android:text="@string/raw16"
                         android:checked="@={viewModel.raw16}"/>
                 </RadioGroup>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:autoLink="web"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="20dp"
+                    android:text="@string/support_page_text"
+                    android:textAlignment="textStart" />
             </LinearLayout>
         </LinearLayout>
     </ScrollView>

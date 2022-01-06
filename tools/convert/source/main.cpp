@@ -33,7 +33,7 @@ public:
     DngOutputListener(const std::string& outputPath) : outputPath(outputPath) {
     }
     
-    int onNeedFd(int frameNumber) const {
+    int onNeedFd(int frameNumber) {
         std::ostringstream str;
 
         str << std::setw(6) << std::setfill('0') << frameNumber;
@@ -45,19 +45,16 @@ public:
         return open(outputDngPath.c_str(), O_WRONLY|O_CREAT|O_TRUNC, S_IWUSR|S_IWGRP|S_IRUSR|S_IRGRP);
     }
     
-    void onCompleted(int fd) const {
-    }
-    
-    bool onProgressUpdate(int progress) const {
+    bool onProgressUpdate(int progress) {
         std::cout << progress << "%" << std::endl;
         return true;
     }
     
-    void onCompleted() const {
+    void onCompleted() {
         std::cout << "DONE" << std::endl;
     }
     
-    void onError(const std::string& error) const {
+    void onError(const std::string& error) {
         std::cout << "ERROR: " << error << std::endl;
     }
     

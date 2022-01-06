@@ -3638,6 +3638,42 @@ void BuildBayerGenerator2::generate() {
         .vectorize(v_x, 8);
 }
 
+class BuildBayerGenerator3 : public Halide::Generator<BuildBayerGenerator3>, public PostProcessBase {
+public:
+    Input<Buffer<uint16_t>> in0{"in0", 2 };
+    Input<Buffer<uint16_t>> in1{"in1", 2 };
+    Input<Buffer<uint16_t>> in2{"in2", 2 };
+    Input<Buffer<uint16_t>> in3{"in3", 2 };
+
+    Input<int16_t[4]> blackLevel{"blackLevel"};
+    Input<int16_t> whiteLevel{"whiteLevel"};
+
+    Input<uint16_t> expandedRange{"expandedRange"};
+
+    Output<Buffer<uint16_t>> output{"output", 2 };
+
+    void generate();
+};
+
+void BuildBayerGenerator3::generate() {
+    // Func linear{"linear"};
+
+    // linear(v_x, v_y, v_c) = cast<uint16_t>(0.5f +
+    //         select( v_c == 0, (expandedRange / (whiteLevel - blackLevel[0])) * (input(v_x, v_y, 0) - blackLevel[0]),
+    //                 v_c == 1, (expandedRange / (whiteLevel - blackLevel[1])) * (input(v_x, v_y, 1) - blackLevel[1]),
+    //                 v_c == 2, (expandedRange / (whiteLevel - blackLevel[2])) * (input(v_x, v_y, 2) - blackLevel[2]),
+    //                           (expandedRange / (whiteLevel - blackLevel[3])) * (input(v_x, v_y, 3) - blackLevel[3]) ) );        
+
+    // output(v_x, v_y) =
+    //     select(v_y % 2 == 0,
+    //            select(v_x % 2 == 0, linear(v_x/2, v_y/2, 0), linear(v_x/2, v_y/2, 1)),
+    //            select(v_x % 2 == 0, linear(v_x/2, v_y/2, 2), linear(v_x/2, v_y/2, 3)));
+
+    // output.compute_root()
+    //     .parallel(v_y)
+    //     .vectorize(v_x, 8);
+}
+
 ///////////////
 
 class MeasureNoiseGenerator : public Generator<MeasureNoiseGenerator>, public PostProcessBase {
@@ -3956,4 +3992,4 @@ HALIDE_REGISTER_GENERATOR(HdrMaskGenerator, hdr_mask_generator)
 HALIDE_REGISTER_GENERATOR(LinearImageGenerator, linear_image_generator)
 HALIDE_REGISTER_GENERATOR(BuildBayerGenerator, build_bayer_generator)
 HALIDE_REGISTER_GENERATOR(BuildBayerGenerator2, build_bayer_generator2)
-
+HALIDE_REGISTER_GENERATOR(BuildBayerGenerator3, build_bayer_generator3)

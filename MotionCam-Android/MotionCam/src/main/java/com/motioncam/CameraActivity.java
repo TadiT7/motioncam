@@ -26,6 +26,7 @@ import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
 import android.view.Display;
+import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.Surface;
@@ -36,6 +37,7 @@ import android.view.WindowManager;
 import android.view.animation.BounceInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.SeekBar;
@@ -89,6 +91,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -121,6 +124,8 @@ public class CameraActivity extends AppCompatActivity implements
     private static final int MANUAL_CONTROL_MODE_FOCUS = 2;
 
     private static final int OVERLAY_UPDATE_FREQUENCY_MS = 100;
+
+    private static final int[] ALL_FRAME_RATE_OPTIONS = new int[] { 120, 60, 50, 48, 30, 25, 24, 15, 10, 5, 2, 1};
 
     public static final String WORKER_IMAGE_PROCESSOR = "ImageProcessor";
     public static final String WORKER_VIDEO_PROCESSOR = "VideoProcessor";
@@ -192,6 +197,7 @@ public class CameraActivity extends AppCompatActivity implements
     private long mFocusRequestedTimestampMs;
     private Timer mRecordingTimer;
     private Timer mOverlayTimer;
+    private boolean mUnsupportedFrameRate;
 
     private AtomicBoolean mImageCaptureInProgress = new AtomicBoolean(false);
 
@@ -302,12 +308,6 @@ public class CameraActivity extends AppCompatActivity implements
                 if(spaceLeft < 25) {
                     mBinding.previewFrame.freeSpaceProgress.getProgressDrawable()
                             .setTint(getColor(R.color.cancelAction));
-
-                    // Stop recording because there's no storage left
-                    if(spaceLeft < 5)  {
-                        finaliseRawVideo(true);
-                        return;
-                    }
                 }
                 else {
                     mBinding.previewFrame.freeSpaceProgress.getProgressDrawable()
@@ -542,13 +542,6 @@ public class CameraActivity extends AppCompatActivity implements
         ((SwitchCompat) mBinding.cameraSettings.findViewById(R.id.pixelBinSwitch))
                 .setOnCheckedChangeListener((btn, isChecked) -> toggleVideoBin(isChecked));
 
-        // Set up frame rate buttons
-        ViewGroup fpsGroup = mBinding.cameraSettings.findViewById(R.id.fpsGroup);
-        for(int i = 0; i < fpsGroup.getChildCount(); i++) {
-            View fpsToggle = fpsGroup.getChildAt(i);
-            fpsToggle.setOnClickListener(v -> toggleFrameRate(v));
-        }
-
         ((SeekBar) mBinding.cameraSettings.findViewById(R.id.widthCropSeekBar))
                 .setOnSeekBarChangeListener(mSeekBarChangeListener);
 
@@ -715,6 +708,10 @@ public class CameraActivity extends AppCompatActivity implements
         mSettings.saveDng = mPostProcessSettings.dng;
         mSettings.captureMode = mCaptureMode;
 
+        // Reset frame rate when an unsupported frame has been selected
+        if(mUnsupportedFrameRate)
+            mSettings.frameRate = 30;
+
         mSettings.save(sharedPrefs);
 
         // Camera specific settings
@@ -876,6 +873,8 @@ public class CameraActivity extends AppCompatActivity implements
         if(audioFd < 0) {
             String error = getString(R.string.recording_failed);
             Toast.makeText(CameraActivity.this, error, Toast.LENGTH_LONG).show();
+
+            Log.e(TAG, "Failed to start recording audioFd < 0");
             return;
         }
 
@@ -886,6 +885,8 @@ public class CameraActivity extends AppCompatActivity implements
             if(fd < 0) {
                 String error = getString(R.string.recording_failed);
                 Toast.makeText(CameraActivity.this, error, Toast.LENGTH_LONG).show();
+
+                Log.e(TAG, "Failed to start recording videoFds < 0");
                 return;
             }
 
@@ -898,7 +899,11 @@ public class CameraActivity extends AppCompatActivity implements
                 .mapToInt(i->i)
                 .toArray();
 
-        mNativeCamera.streamToFile(fds, audioFd, mAudioInputId);
+        int numThreads = mSettings.enableRawVideoCompression ? mSettings.numRawVideoCompressionThreads : 2;
+
+        Log.d(TAG, "streamToFile(enableRawCompression=" + mSettings.enableRawVideoCompression + ", numThreads=" + numThreads + ")");
+
+        mNativeCamera.streamToFile(fds, audioFd, mAudioInputId, mSettings.enableRawVideoCompression, numThreads);
         mImageCaptureInProgress.set(true);
 
         mBinding.switchCameraBtn.setEnabled(false);
@@ -962,8 +967,10 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void activateCamera(String cameraId) {
-        if(cameraId.equals(mSelectedCamera.cameraId))
+        if(cameraId == null || cameraId.equals(mSelectedCamera.cameraId))
             return;
+
+        Log.d(TAG, "Activating camera " + cameraId);
 
         // Save settings for current camera
         saveSettings();
@@ -1073,6 +1080,28 @@ public class CameraActivity extends AppCompatActivity implements
             mBinding.gridLayout.setCropMode(false, 0, 0);
     }
 
+    private boolean updateFpsToggle(ViewGroup fpsGroup) {
+        for(int i = 0; i < fpsGroup.getChildCount(); i++) {
+            View fpsToggle = fpsGroup.getChildAt(i);
+            String fpsTag = (String) fpsToggle.getTag();
+
+            if(fpsTag != null) {
+                try {
+                    int fps = Integer.valueOf(fpsTag);
+                    if (mSettings.frameRate == fps) {
+                        fpsToggle.setBackgroundColor(getColor(R.color.colorAccent));
+                        return true;
+                    }
+                }
+                catch(NumberFormatException e) {
+                    Log.e(TAG, "Invalid fps", e);
+                }
+            }
+        }
+
+        return false;
+    }
+
     private void updateCameraSettingsUi() {
         final int seekBarMax = 100;
 
@@ -1106,22 +1135,22 @@ public class CameraActivity extends AppCompatActivity implements
         ((TextView) mBinding.cameraSettings.findViewById(R.id.heightCropAmount)).setText(heightCropAmount);
 
         ViewGroup fpsGroup = mBinding.cameraSettings.findViewById(R.id.fpsGroup);
-        for(int i = 0; i < fpsGroup.getChildCount(); i++) {
-            View fpsToggle = fpsGroup.getChildAt(i);
-            String fpsTag = (String) fpsToggle.getTag();
+        ViewGroup unsupportedFpsGroup = mBinding.cameraSettings.findViewById(R.id.unsupportedFpsGroup);
 
-            fpsToggle.setBackground(null);
-            if(fpsTag != null) {
-                try {
-                    int fps = Integer.valueOf(fpsTag);
-                    if (mSettings.frameRate == fps) {
-                        fpsToggle.setBackgroundColor(getColor(R.color.colorAccent));
-                    }
-                }
-                catch(NumberFormatException e) {
-                    Log.e(TAG, "Invalid fps", e);
-                }
-            }
+        for(int i = 0; i < fpsGroup.getChildCount(); i++) {
+            fpsGroup.getChildAt(i).setBackground(null);
+        }
+
+        for(int i = 0; i < unsupportedFpsGroup.getChildCount(); i++) {
+            unsupportedFpsGroup.getChildAt(i).setBackground(null);
+        }
+
+        // Keep track of whether an unsupported frame rate has been selected
+        mUnsupportedFrameRate = false;
+
+        if(!updateFpsToggle(fpsGroup)) {
+            updateFpsToggle(unsupportedFpsGroup);
+            mUnsupportedFrameRate = true;
         }
     }
 
@@ -1154,7 +1183,7 @@ public class CameraActivity extends AppCompatActivity implements
             return;
         }
 
-        mNativeCamera.setFrameRate(30);
+        mNativeCamera.setFrameRate(-1);
         mNativeCamera.adjustMemory(mSettings.memoryUseBytes);
 
         if(mSettings.useDualExposure) {
@@ -1526,9 +1555,6 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void onWidthCropChanged(int progress, boolean fromUser) {
-        if(!fromUser)
-            return;
-
         mSettings.widthVideoCrop = progress;
         if(mNativeCamera != null)
             mNativeCamera.setVideoCropPercentage(mSettings.widthVideoCrop, mSettings.heightVideoCrop);
@@ -1540,9 +1566,6 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void onHeightCropChanged(int progress, boolean fromUser) {
-        if(!fromUser)
-            return;
-
         mSettings.heightVideoCrop = progress;
         if(mNativeCamera != null)
             mNativeCamera.setVideoCropPercentage(mSettings.widthVideoCrop, mSettings.heightVideoCrop);
@@ -1952,6 +1975,7 @@ public class CameraActivity extends AppCompatActivity implements
 
             NativeCameraMetadata metadata = mNativeCamera.getMetadata(cameraInfo);
             float focalLength = 0.0f;
+
             if(metadata.focalLength != null && metadata.focalLength.length > 0) {
                 focalLength = metadata.focalLength[0];
             }
@@ -2009,6 +2033,78 @@ public class CameraActivity extends AppCompatActivity implements
         }
     }
 
+    private View createFpsToggle(int fps) {
+        String fpsValue = String.valueOf(fps);
+        TextView fpsToggle = new TextView(this);
+
+        fpsToggle.setTextAppearance(R.style.MotionCam_TextAppearance_Small);
+        fpsToggle.setGravity(Gravity.CENTER);
+        fpsToggle.setText(fpsValue);
+        fpsToggle.setTag(fpsValue);
+        fpsToggle.setTextColor(getColor(R.color.white));
+        fpsToggle.setOnClickListener(v -> toggleFrameRate(v));
+
+        return fpsToggle;
+    }
+
+    private void onVideoPresetSelected(View v) {
+        if(mNativeCamera == null || mSelectedCamera == null)
+            return;
+
+        Size captureOutputSize = mNativeCamera.getRawConfigurationOutput(mSelectedCamera);
+
+        // Only doing 4K
+        int cropWidth = Math.round(100 * (1.0f - (3840.0f / captureOutputSize.getWidth())));
+        int cropHeight = Math.round(100 * (1.0f - (2160.0f / captureOutputSize.getHeight())));
+
+        if(cropWidth < 0 || cropHeight < 0)
+            return;
+
+        ((SeekBar)mBinding.cameraSettings.findViewById(R.id.widthCropSeekBar)).setProgress(cropWidth, true);
+        ((SeekBar)mBinding.cameraSettings.findViewById(R.id.heightCropSeekBar)).setProgress(cropHeight, true);
+
+        if(v == findViewById(R.id.preset1080P)) {
+            ((SwitchCompat) mBinding.cameraSettings.findViewById(R.id.pixelBinSwitch)).setChecked(true);
+        }
+        else if(v == findViewById(R.id.preset4K)) {
+            ((SwitchCompat) mBinding.cameraSettings.findViewById(R.id.pixelBinSwitch)).setChecked(false);
+        }
+
+        updateVideoUi();
+    }
+
+    private void setupFpsSelection() {
+        // Supported frame rates
+        ViewGroup fpsGroup = mBinding.cameraSettings.findViewById(R.id.fpsGroup);
+        fpsGroup.removeAllViews();
+
+        List<Integer> fpsRange = Arrays.stream( mSelectedCamera.fpsRange )
+                .boxed()
+                .sorted(Collections.reverseOrder())
+                .collect(Collectors.toList());
+
+        for(Integer fps : fpsRange) {
+            View fpsToggle = createFpsToggle(fps);
+            fpsGroup.addView(
+                    fpsToggle,
+                    new LinearLayout.LayoutParams(
+                            Math.round(getResources().getDimension(R.dimen.fps_toggle)),
+                            ViewGroup.LayoutParams.MATCH_PARENT));
+        }
+
+        // Create unsupported frame rate group
+        ViewGroup unsupportedFpsGroup = mBinding.cameraSettings.findViewById(R.id.unsupportedFpsGroup);
+        unsupportedFpsGroup.removeAllViews();
+        for(int fps : ALL_FRAME_RATE_OPTIONS) {
+            View fpsToggle = createFpsToggle(fps);
+            unsupportedFpsGroup.addView(
+                    fpsToggle,
+                    new LinearLayout.LayoutParams(
+                            Math.round(getResources().getDimension(R.dimen.fps_toggle)),
+                            ViewGroup.LayoutParams.MATCH_PARENT));
+        }
+    }
+
     private void initCamera() {
         if (mNativeCamera == null) {
             createCamera();
@@ -2034,6 +2130,7 @@ public class CameraActivity extends AppCompatActivity implements
 
         // Set up camera manual controls
         mCameraMetadata = mNativeCamera.getMetadata(mSelectedCamera);
+        Log.d(TAG, "Selected camera metadata: " + mCameraMetadata.toString());
 
         // Keep range of valid ISO/shutter speeds
         mIsoValues = CameraManualControl.GetIsoValuesInRange(mCameraMetadata.isoMin, mCameraMetadata.isoMax);
@@ -2057,8 +2154,13 @@ public class CameraActivity extends AppCompatActivity implements
 
         mBinding.exposureSeekBar.setMax(numEvSteps);
         mBinding.exposureSeekBar.setProgress(numEvSteps / 2);
-
         mBinding.shadowsSeekBar.setProgress(50);
+
+        setupFpsSelection();
+
+        // Setup preset toggles
+        findViewById(R.id.preset4K).setOnClickListener(v -> onVideoPresetSelected(v));
+        findViewById(R.id.preset1080P).setOnClickListener(v -> onVideoPresetSelected(v));
 
         // Create texture view for camera preview
         mTextureView = new TextureView(this);
@@ -2078,6 +2180,7 @@ public class CameraActivity extends AppCompatActivity implements
         }
 
         updateVideoUi();
+        updateCameraSettingsUi();
     }
 
     /**

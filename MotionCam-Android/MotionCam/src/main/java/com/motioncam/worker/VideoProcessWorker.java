@@ -323,10 +323,6 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
     }
 
     @Override
-    public void onCompleted(int fd) {
-    }
-
-    @Override
     public void onCompleted() {
     }
 

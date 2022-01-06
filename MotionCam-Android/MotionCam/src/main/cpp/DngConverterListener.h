@@ -10,11 +10,10 @@ public:
     DngConverterListener(_JNIEnv* env, _jobject* progressListener);
     ~DngConverterListener();
 
-    int onNeedFd(int frameNumber) const;
-    bool onProgressUpdate(int progress) const;
-    void onCompleted(int fd) const;
-    void onCompleted() const;
-    void onError(const std::string& error) const;
+    int onNeedFd(int frameNumber);
+    bool onProgressUpdate(int progress);
+    void onCompleted();
+    void onError(const std::string& error);
 
 private:
     _JNIEnv * mEnv;

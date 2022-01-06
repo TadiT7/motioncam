@@ -6,6 +6,7 @@ import java.util.List;
 public class CameraManualControl {
 
     public enum ISO {
+        ISO_25(25),
         ISO_50(50),
         ISO_100(100),
         ISO_125(125),
@@ -23,7 +24,9 @@ public class CameraManualControl {
         ISO_2000(2000),
         ISO_2500(2500),
         ISO_3200(3200),
-        ISO_6400(6400);
+        ISO_6400(6400),
+        ISO_12800(12800),
+        ISO_25600(25600);
 
         private final int value;
 
@@ -66,10 +69,11 @@ public class CameraManualControl {
         EXPOSURE_1_80(12500000, "1/80"),
         EXPOSURE_1_60(16666667, "1/60"),
         EXPOSURE_1_50(20000000, "1/50"),
-        EXPOSURE_1_48(21000000, "1/48"),
+        EXPOSURE_1_48(20833333, "1/48"),
         EXPOSURE_1_40(25000000, "1/40"),
         EXPOSURE_1_30(33333333, "1/30"),
         EXPOSURE_1_25(40000000, "1/25"),
+        EXPOSURE_1_24(41666666, "1/24"),
         EXPOSURE_1_20(50000000, "1/20"),
         EXPOSURE_1_15(66666667, "1/15"),
         EXPOSURE_1_13(76923077, "1/13"),
@@ -283,7 +287,7 @@ public class CameraManualControl {
 
         for(ISO iso : ISO.values())
         {
-            if(iso.value >= min && iso.value <= max)
+            if(iso.value <= max)
                 isoValues.add(iso);
         }
 

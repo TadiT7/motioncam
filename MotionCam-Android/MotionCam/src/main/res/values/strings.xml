@@ -54,7 +54,7 @@
     <string name="not_supported_error">Your device does not support RAW capture.</string>
     <string name="capture_failed">There was an error trying to capture the image.</string>
     <string name="camera_error">The camera encountered an error.</string>
-    <string name="ok">Ok</string>
+    <string name="ok">OK</string>
     <string name="hdr">HDR</string>
     <string name="burst">Burst</string>
     <string name="dual_exposure">Dual Exposure Controls</string>
@@ -102,7 +102,7 @@
     <string name="size">SIZE</string>
     <string name="dropped_frames">DROPPED FRAMES</string>
     <string name="raw_video_storage_folder">RAW Video Storage Folder</string>
-    <string name="raw_video_storage_folder_description">Where to store RAW videos during recording.\nNOTE: Choosing a different folder on the device\'s internal storage can significantly reduce performance.</string>
+    <string name="raw_video_storage_folder_description">Where to store RAW videos during recording.</string>
     <string name="select">Select</string>
     <string name="video_memory_use_error" >Recording has stopped because the memory limit has been reached.</string>
     <string name="invalid_raw_video_folder">The selected output folder is not available. Using internal storage.</string>
@@ -127,7 +127,7 @@
     <string name="video_parts_missing">This video has missing parts. It can\'t be converted.</string>
     <string name="ois_description">Enable optical image stabilisation</string>
     <string name="hdr_description">Capture HDR in photo mode</string>
-    <string name="dng_description">Save DNG along side JPEG</string>
+    <string name="dng_description">Save DNG alongside JPEG</string>
     <string name="parts">Parts</string>
     <string name="delete_after_export">Delete after export</string>
     <string name="set_export_folder">Set export folder</string>
@@ -138,4 +138,20 @@
     <string name="exposure_clipping_desc">Overlay areas where the sensor is clipping.</string>
     <string name="internal_mic_tag">_internal_mic</string>
     <string name="internal_mic">Internal Mic</string>
+    <string name="supported_frame_rate">Supported Frame Rates</string>
+    <string name="supported_frame_rate_desc">The following frame rates are reported to be available by your camera device.</string>
+    <string name="unsupported_frame_rate">Unsupported Frame Rates</string>
+    <string name="unsupported_frame_rate_desc">The following frame rates are not reported to be available by your camera device but may still work.</string>
+    <string name="pixel_binning">Pixel Binning</string>
+    <string name="pixel_binning_desc">Reduce output resolution by pixel binning</string>
+    <string name="crop_width">Crop Width</string>
+    <string name="crop_height">Crop Height</string>
+    <string name="audio_input">Audio Input</string>
+    <string name="support_page_text">Please visit https://github.com/mirsadm/motioncam for updates and support.</string>
+    <string name="convert_page_support">Please visit https://github.com/mirsadm/motioncam for tools that can convert the container files on your PC.</string>
+    <string name="raw_video_compression">RAW Video Lossless Compression</string>
+    <string name="enable_raw_video_compression">Enable RAW video compression</string>
+    <string name="raw_video_compression_desc">Compression can improve the output frame rate at the cost of extra CPU usage.</string>
+    <string name="number_of_compression_threads">Number of Compression Threads</string>
+    <string name="clear">Clear</string>
 </resources>

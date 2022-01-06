@@ -177,6 +177,19 @@ namespace motioncam {
             cameraDescription.exposureCompensationRange[1] = entry.data.i32[1];
         }
 
+        // ACAMERA_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES
+        if(ACameraMetadata_getConstEntry(cameraChars.get(), ACAMERA_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES, &entry) == ACAMERA_OK) {
+            // We are only interested in ranges that are equal, for video recording
+            for(int i = 0; i < entry.count; i+=2) {
+                LOGD("Available FPS range [%d - %d]", entry.data.i32[i], entry.data.i32[i + 1]);
+
+                auto minFps = entry.data.i32[i];
+                auto maxFps = entry.data.i32[i+1];
+
+                cameraDescription.availableFpsRange.push_back(std::make_pair(minFps, maxFps));
+            }
+        }
+
         // ACAMERA_CONTROL_AE_COMPENSATION_STEP
         if(ACameraMetadata_getConstEntry(cameraChars.get(), ACAMERA_CONTROL_AE_COMPENSATION_STEP, &entry) == ACAMERA_OK) {
             cameraDescription.exposureCompensationStepFraction[0] = entry.data.r[0].numerator;
@@ -465,11 +478,11 @@ namespace motioncam {
     {
         auto outputConfigs = cameraDesc.outputConfigs;
 
-        OutputConfiguration closestConfig = { AIMAGE_FORMAT_YUV_420_888, DisplayDimension() };
+        OutputConfiguration closestConfig = { AIMAGE_FORMAT_PRIVATE, DisplayDimension() };
         bool foundConfig = false;
 
         // Find the closest preview configuration to our display resolution
-        auto yuvIt = outputConfigs.find(AIMAGE_FORMAT_YUV_420_888);
+        auto yuvIt = outputConfigs.find(AIMAGE_FORMAT_PRIVATE);
 
         if (yuvIt != outputConfigs.end()) {
             auto configurations = (*yuvIt).second;

@@ -35,7 +35,7 @@ jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_ProcessInMemory(
     try {
         ImageProcessListener listener(env, progressListener);
 
-        motioncam::ProcessImage(*container, outputPath, listener);
+        motioncam::MotionCam::ProcessImage(*container, outputPath, listener);
     }
     catch(std::runtime_error& e) {
         jclass exClass = env->FindClass("java/lang/RuntimeException");
@@ -71,7 +71,7 @@ jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_ProcessFile(
     try {
         ImageProcessListener listener(env, progressListener);
 
-        motioncam::ProcessImage(inputPath, outputPath, listener);
+        motioncam::MotionCam::ProcessImage(inputPath, outputPath, listener);
     }
     catch(std::runtime_error& e) {
         jclass exClass = env->FindClass("java/lang/RuntimeException");
@@ -110,7 +110,9 @@ JNIEXPORT jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_ProcessR
         for(int i = 0; i < len; i++)
             fds.push_back(fdsArray[i]);
 
-        motioncam::ConvertVideoToDNG(fds, listener, 2, numFramesToMerge);
+        motioncam::MotionCam m;
+
+        m.convertVideoToDNG(fds, listener, 2, numFramesToMerge);
     }
     catch(std::runtime_error& e) {
         jclass exClass = env->FindClass("java/lang/RuntimeException");
@@ -133,6 +135,7 @@ extern "C" JNIEXPORT jobject JNICALL Java_com_motioncam_processor_NativeProcesso
     jclass nativeClass = env->FindClass("com/motioncam/processor/ContainerMetadata");
 
     float frameRate = -1;
+    float duration = -1;
     int numFrames = -1;
     int numSegments = -1;
 
@@ -144,7 +147,7 @@ extern "C" JNIEXPORT jobject JNICALL Java_com_motioncam_processor_NativeProcesso
         for(int i = 0; i < len; i++)
             fds.push_back(fdsArray[i]);
 
-        motioncam::GetMetadata(fds, frameRate, numFrames, numSegments);
+        motioncam::MotionCam::GetMetadata(fds, duration, frameRate, numFrames, numSegments);
     }
     catch(std::runtime_error& error) {
         gLastError = error.what();

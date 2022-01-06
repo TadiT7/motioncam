@@ -17,8 +17,8 @@ namespace motioncam {
 
     class RawImage;
     class RawContainer;
-    class PostProcessSettings;
     class Temperature;
+    struct PostProcessSettings;
     struct RawData;
     struct HdrMetadata;
     struct PreviewMetadata;
@@ -115,6 +115,12 @@ namespace motioncam {
                                      cv::Vec3f& cameraWhite,
                                      cv::Mat& outCameraToPcs,
                                      cv::Mat& outPcsToSrgb);
+
+        static std::vector<Halide::Runtime::Buffer<uint16_t>> denoise(
+            std::shared_ptr<RawImageBuffer> referenceRawBuffer,
+            std::vector<std::shared_ptr<RawImageBuffer>> buffers,
+            const std::vector<float>& denoiseWeights,
+            const RawCameraMetadata& cameraMetadata);
 
         static Halide::Runtime::Buffer<float> denoise(
             std::shared_ptr<RawImageBuffer> referenceRawBuffer,

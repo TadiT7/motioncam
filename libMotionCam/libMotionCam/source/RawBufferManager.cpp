@@ -13,10 +13,12 @@ namespace motioncam {
     static const int NumContainersToKeepInMemory = 2;
 
     RawBufferManager::RawBufferManager() :
+        mHorizontalCrop(0),
+        mVerticalCrop(0),
+        mBin(false),
         mMemoryUseBytes(0),
         mMemoryTargetBytes(0),
-        mNumBuffers(0),
-        mStreamer(new RawBufferStreamer())
+        mNumBuffers(0)
     {
     }
 
@@ -45,10 +47,12 @@ namespace motioncam {
         return mNumBuffers;
     }
 
-    void RawBufferManager::recordingStats(size_t& outMemoryUseBytes, float& outFps, size_t& outOutputSizeBytes) const {
+    void RawBufferManager::recordingStats(size_t& outMemoryUseBytes, float& outFps, size_t& outOutputSizeBytes) {
+        Lock lock(mMutex, "recordingStats()");
+        
         outMemoryUseBytes = mMemoryUseBytes;
-        outFps = mStreamer->estimateFps();
-        outOutputSizeBytes = mStreamer->writenOutputBytes();
+        outFps = mStreamer ? mStreamer->estimateFps() : 0;
+        outOutputSizeBytes = mStreamer ? mStreamer->writenOutputBytes() : 0;
     }
 
     size_t RawBufferManager::memoryUseBytes() const {
@@ -61,7 +65,7 @@ namespace motioncam {
         }
 
         {
-            Lock lock(mMutex, __PRETTY_FUNCTION__);
+            Lock lock(mMutex, "reset()");
             mReadyBuffers.clear();
         }
         
@@ -82,7 +86,7 @@ namespace motioncam {
         }
         
         {
-            Lock lock(mMutex, __PRETTY_FUNCTION__);
+            Lock lock(mMutex, "dequeueUnusedBuffer()");
 
             if(mMemoryUseBytes <= mMemoryTargetBytes) {
                 if(!mReadyBuffers.empty()) {
@@ -122,9 +126,9 @@ namespace motioncam {
     }
 
     void RawBufferManager::enqueueReadyBuffer(const std::shared_ptr<RawImageBuffer>& buffer) {
-        Lock lock(mMutex, __PRETTY_FUNCTION__);
+        Lock lock(mMutex, "enqueueReadyBuffer()");
 
-        if(mStreamer->isRunning()) {
+        if(mStreamer && mStreamer->isRunning()) {
             mStreamer->add(buffer);
         }
         else
@@ -132,7 +136,7 @@ namespace motioncam {
     }
 
     int RawBufferManager::numHdrBuffers() {
-        Lock lock(mMutex, __PRETTY_FUNCTION__);
+        Lock lock(mMutex, "numHdrBuffers()");
         
         int hdrBuffers = 0;
         
@@ -154,7 +158,7 @@ namespace motioncam {
     }
 
     void RawBufferManager::returnBuffers(const std::vector<std::shared_ptr<RawImageBuffer>>& buffers) {
-        Lock lock(mMutex, __PRETTY_FUNCTION__);
+        Lock lock(mMutex, "returnBuffers()");
 
         std::move(buffers.begin(), buffers.end(), std::back_inserter(mReadyBuffers));
     }
@@ -168,7 +172,7 @@ namespace motioncam {
         std::vector<std::shared_ptr<RawImageBuffer>> buffers;
 
         {
-            Lock lock(mMutex, __PRETTY_FUNCTION__);
+            Lock lock(mMutex, "saveHdr()");
 
             if (mReadyBuffers.empty() || numSaveBuffers < 1)
                 return;
@@ -274,7 +278,7 @@ namespace motioncam {
             return;
 
         {
-            Lock lock(mMutex, __PRETTY_FUNCTION__);
+            Lock lock(mMutex, "save()");
 
             if(mReadyBuffers.empty())
                 return;
@@ -350,7 +354,7 @@ namespace motioncam {
 
         // Return buffers
         {
-            Lock lock(mMutex, __PRETTY_FUNCTION__);
+            Lock lock(mMutex, "save()");
             mReadyBuffers.insert(mReadyBuffers.end(), buffers.begin(), buffers.end());
         }
 
@@ -371,7 +375,7 @@ namespace motioncam {
     }
 
     std::unique_ptr<RawBufferManager::LockedBuffers> RawBufferManager::consumeLatestBuffer() {
-        Lock lock(mMutex, __PRETTY_FUNCTION__);
+        Lock lock(mMutex, "consumeLatestBuffer()");
 
         if(mReadyBuffers.empty()) {
             return std::unique_ptr<LockedBuffers>(new LockedBuffers());
@@ -386,7 +390,7 @@ namespace motioncam {
     }
 
     std::unique_ptr<RawBufferManager::LockedBuffers> RawBufferManager::consumeBuffer(int64_t timestampNs) {
-        Lock lock(mMutex, __PRETTY_FUNCTION__);
+        Lock lock(mMutex, "consumeBuffer()");
 
         auto it = std::find_if(
             mReadyBuffers.begin(), mReadyBuffers.end(),
@@ -404,7 +408,7 @@ namespace motioncam {
     }
 
     std::unique_ptr<RawBufferManager::LockedBuffers> RawBufferManager::consumeAllBuffers() {
-        Lock lock(mMutex, __PRETTY_FUNCTION__);
+        Lock lock(mMutex, "consumeAllBuffers()");
 
         auto lockedBuffers = std::unique_ptr<LockedBuffers>(new LockedBuffers(mReadyBuffers));
         mReadyBuffers.clear();
@@ -413,7 +417,7 @@ namespace motioncam {
     }
 
     int64_t RawBufferManager::latestTimeStamp() {
-        Lock lock(mMutex, __PRETTY_FUNCTION__);
+        Lock lock(mMutex, "latestTimeStamp()");
         
         if(mReadyBuffers.empty())
             return -1;
@@ -425,6 +429,8 @@ namespace motioncam {
     void RawBufferManager::enableStreaming(const std::vector<int>& fds,
                                            const int audioFd,
                                            std::shared_ptr<AudioInterface> audioInterface,
+                                           const bool enableCompression,
+                                           const int numThreads,
                                            const RawCameraMetadata& metadata)
     {
         // Clear out buffers before streaming
@@ -432,19 +438,35 @@ namespace motioncam {
             consumeAllBuffers();
         }
         
-        mStreamer->start(fds, audioFd, audioInterface, metadata);
+        Lock lock(mMutex, "enableStreaming()");
+        
+        if(mStreamer) {
+            logger::log("Failed to start streaming, already in progress");
+            return;
+        }
+        
+        mStreamer = std::make_shared<RawBufferStreamer>();
+        
+        mStreamer->setBin(mBin);
+        mStreamer->setCropAmount(mHorizontalCrop, mVerticalCrop);
+        mStreamer->start(fds, audioFd, audioInterface, enableCompression, numThreads, metadata);
     }
 
     void RawBufferManager::setCropAmount(int horizontal, int vertical) {
-        mStreamer->setCropAmount(horizontal, vertical);
+        Lock lock(mMutex, "setCropAmount()");
+        
+        mHorizontalCrop = horizontal;
+        mVerticalCrop = vertical;
     }
 
     void RawBufferManager::setVideoBin(bool bin) {
-        mStreamer->setBin(bin);
+        Lock lock(mMutex, "setVideoBin()");
+        
+        mBin = bin;
     }
 
     float RawBufferManager::bufferSpaceUse() {
-        Lock lock(mMutex, __PRETTY_FUNCTION__);
+        Lock lock(mMutex, "bufferSpaceUse()");
 
         float bufferUseAmount = (mNumBuffers - (mReadyBuffers.size() + mUnusedBuffers.size_approx())) / (float) mNumBuffers;
 
@@ -455,6 +477,11 @@ namespace motioncam {
     }
 
     void RawBufferManager::endStreaming() {
-        mStreamer->stop();
+        Lock lock(mMutex, "endStreaming()");
+        
+        if(mStreamer)
+            mStreamer->stop();
+        
+        mStreamer = nullptr;
     }
 }

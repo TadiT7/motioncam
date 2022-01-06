@@ -3,8 +3,11 @@
 #include "motioncam/RawImageMetadata.h"
 
 #include <fstream>
-#include <unistd.h>
 #include <zstd.h>
+
+#if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
+    #include <unistd.h>
+#endif
 
 #include <dng/dng_host.h>
 #include <dng/dng_negative.h>
@@ -14,23 +17,26 @@
 #include <dng/dng_image_writer.h>
 #include <dng/dng_render.h>
 #include <dng/dng_gain_map.h>
+#include <dng/dng_exif.h>
 
 using std::string;
 using std::vector;
 using std::ios;
 using std::set;
 
+#if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
+
 class dng_fd_stream : public dng_stream {
 public:
     dng_fd_stream(const int fd, bool output) :
-        dng_stream ((dng_abort_sniffer *) NULL, kDefaultBufferSize, 0),
+        dng_stream ((dng_abort_sniffer *) nullptr, kDefaultBufferSize, 0),
     fFd(fd)
     {
         if(fd < 0)
             ThrowFileIsDamaged();
     }
     
-    ~dng_fd_stream () {
+    ~dng_fd_stream () override {
         if (fFd < 0)
             return;
 
@@ -38,7 +44,7 @@ public:
         close(fFd);
     }
 
-    uint64 DoGetLength () {
+    uint64 DoGetLength () override {
         if (lseek (fFd, 0, SEEK_END) < 0) {
             ThrowReadFile ();
         }
@@ -46,24 +52,24 @@ public:
         return (uint64) lseek(fFd, 0, SEEK_CUR);
     }
             
-    void DoRead(void *data, uint32 count, uint64 offset) {
+    void DoRead(void *data, uint32 count, uint64 offset) override {
         if (lseek (fFd, (long) offset, SEEK_SET) < 0) {
             ThrowReadFile ();
         }
         
-        uint32 bytesRead = (uint32) read (fFd, data, count);
+        auto bytesRead = (uint32) read (fFd, data, count);
         
         if (bytesRead != count) {
             ThrowReadFile ();
         }
     }
     
-    void DoWrite(const void *data, uint32 count, uint64 offset) {
+    void DoWrite(const void *data, uint32 count, uint64 offset) override {
         if (lseek (fFd, (uint32) offset, SEEK_SET) < 0) {
             ThrowWriteFile ();
         }
                 
-        uint32 bytesWritten = (uint32) write (fFd, data, count);
+        auto bytesWritten = (uint32) write (fFd, data, count);
 
         if (bytesWritten != count) {
             ThrowWriteFile ();
@@ -74,14 +80,18 @@ private:
     int fFd;
 };
 
+#endif
+
 namespace motioncam {
     namespace util {
         CloseableFd::CloseableFd(const int fd) : mFd(fd) {
         }
     
         CloseableFd::~CloseableFd() {
-            if(mFd >= 0)
-                close(mFd);
+            #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
+                if(mFd >= 0)
+                    close(mFd);
+            #endif
         }
     
         //
@@ -546,7 +556,7 @@ namespace motioncam {
             
             negative->SetBayerMosaic(phase);
             negative->SetColorChannels(3);
-            
+                        
             negative->SetQuadBlacks(cameraMetadata.blackLevel[0],
                                     cameraMetadata.blackLevel[1],
                                     cameraMetadata.blackLevel[2],
@@ -561,6 +571,15 @@ namespace motioncam {
             negative->SetNoiseReductionApplied(dng_urational(0,0));
             negative->SetCameraNeutral(dng_vector_3(imageMetadata.asShot[0], imageMetadata.asShot[1], imageMetadata.asShot[2]));
 
+            // Set metadata
+            auto exif = negative->Metadata().GetExif();
+
+            exif->SetExposureTime(imageMetadata.exposureTime / 1.0e9);
+            exif->fISOSpeedRatings[0] = imageMetadata.iso;
+            exif->fISOSpeedRatings[1] = imageMetadata.iso;
+            exif->fISOSpeedRatings[2] = imageMetadata.iso;
+            exif->SetApertureValue(cameraMetadata.apertures[0]);
+                        
             dng_orientation orientation;
             
             switch(imageMetadata.screenOrientation)
@@ -709,11 +728,11 @@ namespace motioncam {
 
             // Write DNG file to disk
             AutoPtr<dng_image_writer> dngWriter(new dng_image_writer());
-            
-            dngWriter->WriteDNG(host, dngStream, *negative.Get(), nullptr, false);
+
+            dngWriter->WriteDNG(host, dngStream, *negative.Get(), nullptr, dngVersion_SaveDefault, false);
         }
 
-        void WriteDng(cv::Mat rawImage,
+        void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
                       const std::string& outputPath)
@@ -725,19 +744,21 @@ namespace motioncam {
             stream.Flush();
         }
 
-        void WriteDng(cv::Mat rawImage,
+        void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
                       const int fd)
         {
-            dng_fd_stream stream(fd, true);
+            #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
+                dng_fd_stream stream(fd, true);
 
-            WriteDng(rawImage, cameraMetadata, imageMetadata, stream);
+                WriteDng(rawImage, cameraMetadata, imageMetadata, stream);
 
-            stream.Flush();
+                stream.Flush();
+            #endif
         }
 
-        void WriteDng(cv::Mat rawImage,
+        void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
                       ZipWriter& zipWriter,
