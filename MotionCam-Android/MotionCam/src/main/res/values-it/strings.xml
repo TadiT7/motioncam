@@ -123,4 +123,5 @@
     <string name="device_storage">Storage dispositivo:</string>
     <string name="memory_use">Uso memoria:</string>
     <string name="this_video_has_been_exported">Questo video è stato esportato</string>
+    <string name="internal_mic_tag">_internal_mic</string>
 </resources>
