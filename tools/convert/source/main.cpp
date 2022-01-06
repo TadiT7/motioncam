@@ -147,16 +147,17 @@ int main(int argc, const char* argv[]) {
 
                 ProgressListener progressListener;
             
-                motioncam::ProcessImage(inputs[i], outputPath, progressListener);
+                motioncam::MotionCam::ProcessImage(inputs[i], outputPath, progressListener);
             }
         }
         else {
             DngOutputListener listener(outputPath);
+            motioncam::MotionCam m;
 
             std::cout << "Using " << numThreads << " threads" << std::endl;
             std::cout << "Merging " << numFramesToMerge << " frames" << std::endl;
             
-            motioncam::ConvertVideoToDNG(inputs, listener, numThreads, numFramesToMerge);
+            m.convertVideoToDNG(inputs, listener, numThreads, numFramesToMerge);
         }
     }
     catch(std::runtime_error& e) {
