@@ -23,12 +23,6 @@ Download tools to convert the recorded videos to DNG on your PC:
 
 ![Mac](https://github.com/mirsadm/motioncam/releases/download/8.0.6-beta4/motioncam-tools-mac-0.0.3.dmg)
 
-### Tested phones
-
-The following phones have been tested to work for RAW video recording:
-
-* OnePlus 7 Pro
-
 ## Other features
 
 #### Dual exposure
