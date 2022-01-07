@@ -136,6 +136,5 @@
     <string name="permissions_error">Для работы приложения нужно разрешение на камеру.</string>
     <string name="exposure_clipping_overlay">Отображение пересвета</string>
     <string name="exposure_clipping_desc">Отображение областей, где сенсор отсекает сигнал - пересветов.</string>
-    <string name="internal_mic_tag">_internal_mic</string>
     <string name="internal_mic">Внутренний Mic</string>
 </resources>

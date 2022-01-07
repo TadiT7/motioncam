@@ -136,7 +136,6 @@
     <string name="permissions_error">Per funzionare l\'app necessita dell\'autorizzazione all\'uso della fotocamera.</string>
     <string name="exposure_clipping_overlay">Sovrapposizione ritaglio sensore</string>
     <string name="exposure_clipping_desc">Sovrapponi aree di ritaglio del sensore.</string>
-    <string name="internal_mic_tag">_internal_mic</string>
     <string name="internal_mic">Mic interno</string>
     <string name="supported_frame_rate">Freq. fotogrammi supportata</string>
     <string name="supported_frame_rate_desc">La fotocamera del dispositivo supporta le seguenti frequenze fotogrammi.</string>

@@ -136,7 +136,7 @@
     <string name="permissions_error">The app needs the camera permission to function.</string>
     <string name="exposure_clipping_overlay">Sensor Clipping Overlay</string>
     <string name="exposure_clipping_desc">Overlay areas where the sensor is clipping.</string>
-    <string name="internal_mic_tag">_internal_mic</string>
+    <string name="internal_mic_tag" translatable="false">_internal_mic</string>
     <string name="internal_mic">Internal Mic</string>
     <string name="supported_frame_rate">Supported Frame Rates</string>
     <string name="supported_frame_rate_desc">The following frame rates are reported to be available by your camera device.</string>
