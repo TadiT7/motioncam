@@ -188,7 +188,6 @@ public class CameraActivity extends AppCompatActivity implements
     private boolean mAwbLock;
     private boolean mAeLock;
     private boolean mAfLock;
-    private boolean mOIS;
     private int mIso;
     private long mExposureTime;
     private float mFocusDistance;
@@ -526,7 +525,7 @@ public class CameraActivity extends AppCompatActivity implements
                 .setOnClickListener(v -> setHdr(!mSettings.hdr));
 
         mBinding.cameraSettings.findViewById(R.id.oisBtn)
-                .setOnClickListener(v -> setOIS(!mOIS));
+                .setOnClickListener(v -> setOIS(!mSettings.ois));
 
         findViewById(R.id.aeLockBtn).setOnClickListener(v -> setAeLock(!mAeLock));
         findViewById(R.id.awbLockBtn).setOnClickListener(v -> setAwbLock(!mAwbLock));
@@ -1541,14 +1540,14 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void setOIS(boolean ois) {
-        if(mOIS == ois)
+        if(mSettings.ois == ois)
             return;
 
         if(mNativeCamera != null) {
             mNativeCamera.setOIS(ois);
         }
 
-        mOIS = ois;
+        mSettings.ois = ois;
     }
 
     private void onWidthCropChanged(int progress, boolean fromUser) {
