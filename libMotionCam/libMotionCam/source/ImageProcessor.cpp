@@ -438,11 +438,7 @@ namespace motioncam {
         float avgLuminance = 0.0f;
         float totalPixels = 0;
         
-        float ignorePixels = 0.005f;
-        if(ev < 7) {
-            // Ignore slightly more pixels since they are more likely to be just noise
-            ignorePixels = 0.01f;
-        }
+        float ignorePixels = 0.002f;
 
         int lowerBound = (int) (0.5f + histogram.cols * ignorePixels);
         int upperBound = histogram.cols;

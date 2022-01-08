@@ -12,6 +12,7 @@ namespace motioncam {
 
         void onCameraStateChanged(const CameraCaptureSessionState state);
         void onCameraError(int error);
+        void onCameraStarted();
         void onCameraDisconnected();
         void onCameraExposureStatus(const int32_t iso, const int64_t exposureTime);
         void onCameraAutoFocusStateChanged(const CameraFocusState state, const float focusDistance);

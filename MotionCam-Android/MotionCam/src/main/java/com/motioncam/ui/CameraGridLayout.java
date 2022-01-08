@@ -60,7 +60,7 @@ public class CameraGridLayout extends FrameLayout {
 
         mPaintCrop.setAntiAlias(false);
         mPaintCrop.setStyle(Paint.Style.FILL);
-        mPaintCrop.setColor(getContext().getColor(R.color.background));
+        mPaintCrop.setColor(getContext().getColor(R.color.black));
     }
 
     public void setCropMode(boolean cropMode, int cropWidth, int cropHeight) {

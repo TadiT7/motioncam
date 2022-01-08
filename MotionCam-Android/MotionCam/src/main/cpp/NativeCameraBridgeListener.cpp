@@ -63,6 +63,18 @@ namespace motioncam {
             env.getEnv()->CallVoidMethod(mListenerInstance, callbackMethod, error);
     }
 
+    void NativeCameraBridgeListener::onCameraStarted() {
+        JavaEnv env(mJavaVm);
+        if (!env.getEnv()) {
+            LOGE("Dropped onCameraStarted()");
+            return;
+        }
+
+        jmethodID callbackMethod = env.getEnv()->GetMethodID(mListenerClass, "onCameraStarted", "()V");
+        if(callbackMethod)
+            env.getEnv()->CallVoidMethod(mListenerInstance, callbackMethod);
+    }
+
     void NativeCameraBridgeListener::onCameraDisconnected() {
         JavaEnv env(mJavaVm);
         if (!env.getEnv()) {

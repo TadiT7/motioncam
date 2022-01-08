@@ -9,6 +9,7 @@ namespace motioncam {
     class CameraSessionListener {
     public:
         virtual void onCameraStateChanged(const CameraCaptureSessionState state) = 0;
+        virtual void onCameraStarted() = 0;
         virtual void onCameraDisconnected() = 0;
         virtual void onCameraError(const int error) = 0;
         virtual void onCameraExposureStatus(const int32_t iso, const int64_t exposureTime) = 0;

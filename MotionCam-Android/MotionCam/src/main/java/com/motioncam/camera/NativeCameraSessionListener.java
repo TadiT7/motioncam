@@ -1,6 +1,7 @@
 package com.motioncam.camera;
 
 public interface NativeCameraSessionListener {
+    void onCameraStarted();
     void onCameraDisconnected();
     void onCameraError(int error);
     void onCameraSessionStateChanged(int state);

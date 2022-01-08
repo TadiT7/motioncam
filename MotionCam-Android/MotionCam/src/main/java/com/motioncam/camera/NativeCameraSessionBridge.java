@@ -89,6 +89,7 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     }
 
     public interface CameraSessionListener {
+        void onCameraStarted();
         void onCameraDisconnected();
         void onCameraError(int error);
         void onCameraSessionStateChanged(CameraState state);
@@ -461,6 +462,11 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         ensureValidHandle();
 
         return GenerateStats(mNativeCameraHandle, listener);
+    }
+
+    @Override
+    public void onCameraStarted() {
+        mListener.onCameraStarted();
     }
 
     @Override

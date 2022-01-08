@@ -140,7 +140,7 @@ jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_StartCaptur
     try {
         std::shared_ptr<ANativeWindow> window(ANativeWindow_fromSurface(env, previewSurface), ANativeWindow_release);
 
-        LOGD("Reseting buffer manager");
+        LOGD("Resetting buffer manager");
         RawBufferManager::get().reset();
 
         LOGD("Starting camera %s", cameraId.c_str());

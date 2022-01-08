@@ -76,6 +76,7 @@ public class Settings {
     boolean saveDng;
     boolean autoNightMode;
     boolean hdr;
+    boolean ois;
     int jpegQuality;
     long memoryUseBytes;
     long rawVideoMemoryUseBytes;
@@ -100,6 +101,7 @@ public class Settings {
         this.exposureOverlay = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_EXPOSURE_OVERLAY, false);
         this.autoNightMode = prefs.getBoolean(SettingsViewModel.PREFS_KEY_AUTO_NIGHT_MODE, true);
         this.hdr = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_HDR, true);
+        this.ois = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_OIS, true);
         this.widthVideoCrop = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_WIDTH_VIDEO_CROP, 0);
         this.heightVideoCrop = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_HEIGHT_VIDEO_CROP, 0);
         this.videoBin = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_VIDEO_BIN, false);
@@ -157,6 +159,7 @@ public class Settings {
                 .putBoolean(SettingsViewModel.PREFS_KEY_UI_SAVE_RAW, this.saveDng)
                 .putBoolean(SettingsViewModel.PREFS_KEY_UI_EXPOSURE_OVERLAY, this.exposureOverlay)
                 .putBoolean(SettingsViewModel.PREFS_KEY_UI_HDR, this.hdr)
+                .putBoolean(SettingsViewModel.PREFS_KEY_UI_OIS, this.ois)
                 .putString(SettingsViewModel.PREFS_KEY_UI_CAPTURE_MODE, this.captureMode.name())
                 .putInt(SettingsViewModel.PREFS_KEY_UI_WIDTH_VIDEO_CROP, this.widthVideoCrop)
                 .putInt(SettingsViewModel.PREFS_KEY_UI_HEIGHT_VIDEO_CROP, this.heightVideoCrop)
@@ -174,6 +177,7 @@ public class Settings {
                 ", saveDng=" + saveDng +
                 ", autoNightMode=" + autoNightMode +
                 ", hdr=" + hdr +
+                ", ois=" + ois +
                 ", jpegQuality=" + jpegQuality +
                 ", memoryUseBytes=" + memoryUseBytes +
                 ", rawVideoMemoryUseBytes=" + rawVideoMemoryUseBytes +

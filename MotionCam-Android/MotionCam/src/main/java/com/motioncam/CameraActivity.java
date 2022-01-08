@@ -118,6 +118,7 @@ public class CameraActivity extends AppCompatActivity implements
     private static final int PERMISSION_REQUEST_CODE = 1;
     private static final int SETTINGS_ACTIVITY_REQUEST_CODE = 0x10;
     private static final int CONVERT_VIDEO_ACTIVITY_REQUEST_CODE = 0x20;
+    private static final int DELAY_OUTPUT_FPS_MS = 3000;
 
     private static final int MANUAL_CONTROL_MODE_ISO = 0;
     private static final int MANUAL_CONTROL_MODE_SHUTTER_SPEED = 1;
@@ -341,7 +342,7 @@ public class CameraActivity extends AppCompatActivity implements
                 // Wait for the frame rate to stabilise
                 String outputFpsText;
 
-                if(timeRecording > 1000)
+                if(timeRecording > DELAY_OUTPUT_FPS_MS)
                     outputFpsText = String.format(Locale.US, "%d\n%s", Math.round(stats.fps), getString(R.string.output_fps));
                 else
                     outputFpsText = String.format(Locale.US, "-\n%s", getString(R.string.output_fps));
@@ -662,16 +663,6 @@ public class CameraActivity extends AppCompatActivity implements
         // Release URIs we are not using anymore
         releasePermissions(getContentResolver());
 
-        setCaptureMode(CaptureMode.ZSL);
-        setSaveRaw(mSettings.saveDng);
-        setHdr(mSettings.hdr);
-
-        // Defaults
-        setAwbLock(false);
-        setAeLock(false);
-        setAfLock(false, false);
-        setOIS(true);
-
         // Hide camera settings
         toggleCameraSettings(false);
 
@@ -912,6 +903,9 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.previewFrame.videoRecordingBtns.setVisibility(View.GONE);
         mBinding.previewFrame.videoRecordingStats.setVisibility(View.VISIBLE);
 
+        mBinding.cameraSettingsBtn.setVisibility(View.GONE);
+        toggleCameraSettings(false);
+
         mRecordStartTime = System.currentTimeMillis();
 
         // Update recording time
@@ -927,6 +921,7 @@ public class CameraActivity extends AppCompatActivity implements
 
         mBinding.previewFrame.videoRecordingBtns.setVisibility(View.VISIBLE);
         mBinding.previewFrame.videoRecordingStats.setVisibility(View.GONE);
+        mBinding.cameraSettingsBtn.setVisibility(View.VISIBLE);
 
         if(mRecordingTimer != null) {
             mRecordingTimer.cancel();
@@ -1203,7 +1198,11 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void setCaptureMode(CaptureMode captureMode) {
-        if(mCaptureMode == captureMode || mImageCaptureInProgress.get())
+        setCaptureMode(captureMode, false);
+    }
+
+    private void setCaptureMode(CaptureMode captureMode, boolean forceUpdate) {
+        if(!forceUpdate && (mCaptureMode == captureMode || mImageCaptureInProgress.get()))
             return;
 
         // Can't use night mode with manual controls
@@ -1240,7 +1239,7 @@ public class CameraActivity extends AppCompatActivity implements
         }
 
         // If previous capture mode was raw video, reset frame rate
-        if(mCaptureMode == CaptureMode.RAW_VIDEO) {
+        if(mCaptureMode == CaptureMode.RAW_VIDEO && captureMode != CaptureMode.RAW_VIDEO) {
             restoreFromRawVideoCapture();
         }
 
@@ -1262,8 +1261,7 @@ public class CameraActivity extends AppCompatActivity implements
                 .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_down));
 
         findViewById(R.id.manualControlExposure).setVisibility(View.GONE);
-
-        updateManualControlView(mSensorEventManager.getOrientation());
+        findViewById(R.id.manualControlExposure).post(() -> alignManualControlView(mSensorEventManager.getOrientation(), false));
     }
 
     private void hideFocusControls() {
@@ -1272,8 +1270,7 @@ public class CameraActivity extends AppCompatActivity implements
                 .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_down));
 
         findViewById(R.id.manualControlFocus).setVisibility(View.GONE);
-
-        updateManualControlView(mSensorEventManager.getOrientation());
+        findViewById(R.id.manualControlFocus).post(() -> alignManualControlView(mSensorEventManager.getOrientation(), false));
     }
 
     private void onManualControlSettingsChanged(int progress, boolean fromUser) {
@@ -1326,7 +1323,7 @@ public class CameraActivity extends AppCompatActivity implements
         ((ImageView) findViewById(R.id.focusBtnIcon))
                 .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_up));
 
-        updateManualControlView(mSensorEventManager.getOrientation());
+        findViewById(R.id.manualControlFocus).post(() -> alignManualControlView(mSensorEventManager.getOrientation(), false));
     }
 
     private void toggleIso() {
@@ -1363,7 +1360,7 @@ public class CameraActivity extends AppCompatActivity implements
         ((ImageView) findViewById(R.id.isoBtnIcon))
                 .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_up));
 
-        updateManualControlView(mSensorEventManager.getOrientation());
+        findViewById(R.id.manualControlExposure).post(() -> alignManualControlView(mSensorEventManager.getOrientation(), false));
     }
 
     private void onManualControlPlus() {
@@ -1470,7 +1467,7 @@ public class CameraActivity extends AppCompatActivity implements
         ((ImageView) findViewById(R.id.shutterSpeedIcon))
                 .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_up));
 
-        updateManualControlView(mSensorEventManager.getOrientation());
+        findViewById(R.id.manualControlExposure).post(() -> alignManualControlView(mSensorEventManager.getOrientation(), false));
     }
 
     private void setAfLock(boolean lock, boolean uiOnly) {
@@ -1628,11 +1625,12 @@ public class CameraActivity extends AppCompatActivity implements
 
     private void toggleCameraSettings(boolean show) {
         if(show) {
-            mBinding.cameraSettings.setVisibility(View.VISIBLE);
             mBinding.cameraSettingsBtn.setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_up));
+            mBinding.cameraSettings.setVisibility(View.VISIBLE);
+            alignCameraSettingsView(mSensorEventManager.getOrientation(), false);
         }
         else {
-            mBinding.cameraSettings.setVisibility(View.GONE);
+            mBinding.cameraSettings.setVisibility(View.INVISIBLE);
             mBinding.cameraSettingsBtn.setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_down));
         }
     }
@@ -1829,7 +1827,7 @@ public class CameraActivity extends AppCompatActivity implements
                     .start();
 
             mNativeCamera.captureZslHdrImage(
-                    denoiseSettings.numMergeImages,  settings, CameraProfile.generateCaptureFile(this).getPath());
+                    denoiseSettings.numMergeImages, settings, CameraProfile.generateCaptureFile(this).getPath());
         }
     }
 
@@ -2108,7 +2106,6 @@ public class CameraActivity extends AppCompatActivity implements
     private void initCamera() {
         if (mNativeCamera == null) {
             createCamera();
-
             setupCameraSwitchButtons();
         }
 
@@ -2357,6 +2354,32 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     @Override
+    public void onCameraStarted() {
+        Log.d(TAG, "onCameraStarted()");
+
+        runOnUiThread(() ->
+        {
+            // Set up startup stuff
+            mBinding.switchCameraBtn.setEnabled(true);
+
+            setCaptureMode(mSettings.captureMode, true);
+            setSaveRaw(mSettings.saveDng);
+            setHdr(mSettings.hdr);
+            setOIS(mSettings.ois);
+
+            // Defaults
+            setAwbLock(false);
+            setAeLock(false);
+            setAfLock(false, false);
+
+            updatePreviewSettings();
+
+            mBinding.manualControlsFrame.setVisibility(View.VISIBLE);
+            alignManualControlView(mSensorEventManager.getOrientation(), false);
+        });
+    }
+
+    @Override
     public void onCameraDisconnected() {
         Log.i(TAG, "Camera has disconnected");
     }
@@ -2381,16 +2404,6 @@ public class CameraActivity extends AppCompatActivity implements
     @Override
     public void onCameraSessionStateChanged(NativeCameraSessionBridge.CameraState cameraState) {
         Log.i(TAG, "Camera state changed " + cameraState.name());
-
-        if(cameraState == NativeCameraSessionBridge.CameraState.ACTIVE) {
-            runOnUiThread(() ->
-            {
-                mBinding.switchCameraBtn.setEnabled(true);
-                updatePreviewSettings();
-
-                updateManualControlView(mSensorEventManager.getOrientation());
-            });
-        }
     }
 
     @Override
@@ -2478,6 +2491,10 @@ public class CameraActivity extends AppCompatActivity implements
                     .setDuration(125)
                     .start();
 
+            // Reset shadows and exposure slider
+            mBinding.exposureSeekBar.setProgress(mBinding.exposureSeekBar.getMax() / 2);
+            mBinding.shadowsSeekBar.setProgress(mBinding.shadowsSeekBar.getMax() / 2);
+
             startImageProcessor();
         });
     }
@@ -2510,6 +2527,10 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.captureBtn.setEnabled(true);
         mBinding.captureProgressBar.setVisibility(View.INVISIBLE);
 
+        // Reset shadows and exposure slider
+        mBinding.exposureSeekBar.setProgress(mBinding.exposureSeekBar.getMax() / 2);
+        mBinding.shadowsSeekBar.setProgress(mBinding.shadowsSeekBar.getMax() / 2);
+
         startImageProcessor();
     }
 
@@ -2523,8 +2544,61 @@ public class CameraActivity extends AppCompatActivity implements
         runOnUiThread(() -> findViewById(R.id.rawCameraPreview).invalidate());
     }
 
-    private void alignManualControlView(NativeCameraBuffer.ScreenOrientation orientation) {
+    private void alignCameraSettingsView(NativeCameraBuffer.ScreenOrientation orientation, boolean animate) {
+        if(mBinding.cameraSettings.getVisibility() != View.VISIBLE)
+            return;
+
+        final int rotation;
+        final int translationX;
+        final int translationY;
+
+        final int marginTop = getResources().getDimensionPixelSize(R.dimen.camera_settings_margin_top);
+
+        // Update position of manual controls
+        if(orientation == NativeCameraBuffer.ScreenOrientation.REVERSE_PORTRAIT) {
+            rotation = 180;
+            translationX = 0;
+            translationY = (mBinding.cameraFrame.getHeight() - mBinding.cameraSettings.getHeight()) / 2 - marginTop;
+        }
+        else if(orientation == NativeCameraBuffer.ScreenOrientation.LANDSCAPE) {
+            rotation = 90;
+            translationX = mBinding.cameraFrame.getWidth()/2 - mBinding.cameraSettings.getHeight()/2 - marginTop;
+            translationY = 0;
+        }
+        else if(orientation == NativeCameraBuffer.ScreenOrientation.REVERSE_LANDSCAPE) {
+            rotation = -90;
+            translationX = -mBinding.cameraFrame.getWidth()/2 + mBinding.cameraSettings.getHeight()/2 + marginTop;
+            translationY = 0;
+        }
+        else {
+            // Portrait
+            rotation = 0;
+            translationX = 0;
+            translationY = -mBinding.cameraSettings.getTop() + mBinding.cameraFrame.getTop() + marginTop;
+        }
+
+        if(animate) {
+            mBinding.cameraSettings.animate()
+                    .rotation(rotation)
+                    .translationX(translationX)
+                    .translationY(translationY)
+                    .setDuration(250)
+                    .start();
+        }
+        else {
+            mBinding.cameraSettings.setRotation(rotation);
+            mBinding.cameraSettings.setTranslationX(translationX);
+            mBinding.cameraSettings.setTranslationY(translationY);
+            mBinding.cameraSettings.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void alignManualControlView(NativeCameraBuffer.ScreenOrientation orientation, boolean animate) {
+        if(mBinding.manualControlsFrame.getVisibility() != View.VISIBLE)
+            return;
+
         ViewGroup.LayoutParams params = mBinding.manualControlsFrame.getLayoutParams();
+
         if(     orientation == NativeCameraBuffer.ScreenOrientation.LANDSCAPE
             ||  orientation == NativeCameraBuffer.ScreenOrientation.REVERSE_LANDSCAPE)
         {
@@ -2563,23 +2637,19 @@ public class CameraActivity extends AppCompatActivity implements
             translationY = (mBinding.cameraFrame.getHeight() - mBinding.manualControlsFrame.getHeight()) / 2;
         }
 
-        mBinding.manualControlsFrame.setRotation(rotation);
-        mBinding.manualControlsFrame.setTranslationX(translationX);
-        mBinding.manualControlsFrame.setTranslationY(translationY);
-
-        // Hack to prevent manual control bar from sliding up
-        if(mBinding.manualControlsFrame.getVisibility() != View.VISIBLE) {
-            mBinding.manualControlsFrame.setAlpha(0.0f);
-            mBinding.manualControlsFrame.setVisibility(View.VISIBLE);
-
+        if(animate) {
             mBinding.manualControlsFrame.animate()
-                    .alpha(1.0f)
-                    .setDuration(250);
+                    .rotation(rotation)
+                    .translationX(translationX)
+                    .translationY(translationY)
+                    .setDuration(250)
+                    .start();
         }
-    }
-
-    private void updateManualControlView(NativeCameraBuffer.ScreenOrientation orientation) {
-        mBinding.manualControlsFrame.post(() -> alignManualControlView(orientation));
+        else {
+            mBinding.manualControlsFrame.setRotation(rotation);
+            mBinding.manualControlsFrame.setTranslationX(translationX);
+            mBinding.manualControlsFrame.setTranslationY(translationY);
+        }
     }
 
     @Override
@@ -2617,7 +2687,8 @@ public class CameraActivity extends AppCompatActivity implements
                 .setDuration(duration)
                 .start();
 
-        updateManualControlView(orientation);
+        alignManualControlView(orientation, true);
+        alignCameraSettingsView(orientation, true);
     }
 
     private void onShadowsSeekBarChanged(int progress) {

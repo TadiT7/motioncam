@@ -14,8 +14,8 @@ android {
         applicationId "com.motioncam"
         minSdkVersion 24
         targetSdkVersion 32
-        versionCode 108
-        versionName "8.0.6"
+        versionCode 109
+        versionName "8.0.7"
         externalNativeBuild {
             cmake {
                 version "3.10.3"

@@ -620,6 +620,8 @@ namespace motioncam {
 
         mCameraStateManager = std::unique_ptr<CameraStateManager>(new CameraStateManager(*mSessionContext, *mCameraDescription));
         mCameraStateManager->start();
+
+        mSessionListener->onCameraStarted();
     }
 
     void CameraSession::doCloseCamera() {

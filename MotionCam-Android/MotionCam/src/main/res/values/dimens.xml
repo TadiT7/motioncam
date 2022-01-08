@@ -7,4 +7,5 @@
     <dimen name="preview_settings_margin">5dp</dimen>
     <dimen name="fab_margin">16dp</dimen>
     <dimen name="fps_toggle">60dp</dimen>
+    <dimen name="camera_settings_margin_top">10dp</dimen>
 </resources>
