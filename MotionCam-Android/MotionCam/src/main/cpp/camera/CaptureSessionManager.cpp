@@ -539,7 +539,8 @@ namespace motioncam {
             std::shared_ptr<ANativeWindow> previewOutputWindow,
             bool setupForRawPreview,
             bool preferRaw12,
-            bool preferRaw16)
+            bool preferRaw16,
+            const json11::Json& cameraStartupSettings)
     {
         OutputConfiguration outputConfig, previewOutputConfig;
 
@@ -576,7 +577,12 @@ namespace motioncam {
 
         mCameraSession = std::make_shared<CameraSession>(listener, cameraDesc, mImageConsumer);
         mCameraSession->openCamera(
-                outputConfig, previewOutputConfig, mCameraManager, std::move(previewOutputWindow), setupForRawPreview);
+                outputConfig,
+                previewOutputConfig,
+                mCameraManager,
+                std::move(previewOutputWindow),
+                setupForRawPreview,
+                cameraStartupSettings);
     }
 
     void CaptureSessionManager::stopCamera() {

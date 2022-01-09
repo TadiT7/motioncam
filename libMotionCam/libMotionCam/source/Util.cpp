@@ -790,5 +790,65 @@ namespace motioncam {
                 return false;
             }
         }
+
+        int GetOptionalSetting(const json11::Json& json, const string& key, const int defaultValue) {
+            if(json.object_items().find(key) == json.object_items().end()) {
+                return defaultValue;
+            }
+
+            if(!json[key].is_number())
+                return defaultValue;
+
+            return json[key].int_value();
+        }
+
+        double GetOptionalSetting(const json11::Json& json, const string& key, const double defaultValue) {
+            if(json.object_items().find(key) == json.object_items().end()) {
+                return defaultValue;
+            }
+
+            if(!json[key].is_number())
+                return defaultValue;
+
+            return json[key].number_value();
+        }
+
+        bool GetOptionalSetting(const json11::Json& json, const string& key, const bool defaultValue) {
+            if(json.object_items().find(key) == json.object_items().end()) {
+                return defaultValue;
+            }
+
+            if(!json[key].is_bool())
+                return defaultValue;
+
+            return json[key].bool_value();
+        }
+
+        string GetOptionalStringSetting(const json11::Json& json, const string& key, const string& defaultValue) {
+            if(json.object_items().find(key) == json.object_items().end()) {
+                return defaultValue;
+            }
+
+            if(!json[key].is_string())
+                return defaultValue;
+
+            return json[key].string_value();
+        }
+
+        int GetRequiredSettingAsInt(const json11::Json& json, const string& key) {
+            if(json.object_items().find(key) == json.object_items().end() || !json[key].is_number()) {
+                throw InvalidState("Invalid metadata. Missing " + key);
+            }
+
+            return json[key].int_value();
+        }
+
+        string GetRequiredSettingAsString(const json11::Json& json, const string& key) {
+            if(json.object_items().find(key) == json.object_items().end() || !json[key].is_string()) {
+                throw InvalidState("Invalid metadata. Missing " + key);
+            }
+
+            return json[key].string_value();
+        }
     }
 }

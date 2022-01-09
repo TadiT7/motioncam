@@ -77,8 +77,16 @@ namespace motioncam {
     {
     }
 
-    void CameraStateManager::start() {
+    void CameraStateManager::start(const CameraStartupSettings& startupSettings) {
         setState(State::AUTO_FOCUS_WAIT);
+
+        mFocusForVideo = startupSettings.focusForVideo;
+        mFrameRate = startupSettings.frameRate;
+        mUserIso = startupSettings.iso;
+        mUserExposureTime = startupSettings.exposureTime;
+        mOis = startupSettings.ois;
+        mCameraMode = startupSettings.useUserExposureSettings ? CameraMode::MANUAL : CameraMode::AUTO;
+
         triggerAutoFocus();
     }
 

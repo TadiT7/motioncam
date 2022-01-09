@@ -13,7 +13,6 @@ namespace motioncam {
     struct RawCameraMetadata;
 
     namespace util {
-    
         class CloseableFd {
         public:
             CloseableFd(const int fd);
@@ -84,6 +83,12 @@ namespace motioncam {
                       ZipWriter& zipWriter,
                       const std::string& outputName);
 
+        std::string GetRequiredSettingAsString(const json11::Json& json, const std::string& key);
+        int GetRequiredSettingAsInt(const json11::Json& json, const std::string& key);
+        std::string GetOptionalStringSetting(const json11::Json& json, const std::string& key, const std::string& defaultValue);
+        int GetOptionalSetting(const json11::Json& json, const std::string& key, const int defaultValue);
+        double GetOptionalSetting(const json11::Json& json, const std::string& key, const double defaultValue);
+        bool GetOptionalSetting(const json11::Json& json, const std::string& key, const bool defaultValue);
     }
 }
 

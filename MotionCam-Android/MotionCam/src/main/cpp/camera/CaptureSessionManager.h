@@ -43,7 +43,8 @@ namespace motioncam {
                 std::shared_ptr<ANativeWindow> previewOutputWindow,
                 bool setupForRawPreview,
                 bool preferRaw12,
-                bool preferRaw16);
+                bool preferRaw16,
+                const json11::Json& cameraStartupSettings);
 
         void pauseCamera(bool pause);
         void stopCamera();

@@ -37,16 +37,20 @@ public class SettingsViewModel extends ViewModel {
     public static final String PREFS_KEY_UI_SAVE_RAW                        = "ui_save_raw";
     public static final String PREFS_KEY_UI_EXPOSURE_OVERLAY                = "ui_exposure_overlay";
     public static final String PREFS_KEY_UI_HDR                             = "ui_hdr";
-    public static final String PREFS_KEY_UI_OIS                             = "ui_ois";
     public static final String PREFS_KEY_UI_WIDTH_VIDEO_CROP                = "ui_width_video_crop";
     public static final String PREFS_KEY_UI_HEIGHT_VIDEO_CROP               = "ui_height_video_crop";
     public static final String PREFS_KEY_UI_VIDEO_BIN                       = "ui_video_bin";
-    public static final String PREFS_KEY_UI_FRAME_RATE                      = "ui_frame_rate";
     public static final String PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI          = "raw_video_temp_output_uri";
     public static final String PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI_2        = "raw_video_temp_output_uri_2";
     public static final String PREFS_KEY_RAW_VIDEO_EXPORT_URI               = "raw_video_output_uri";
     public static final String PREFS_KEY_RAW_VIDEO_DELETE_AFTER_EXPORT      = "raw_video_delete_after_export";
     public static final String PREFS_KEY_RAW_VIDEO_MERGE_FRAMES             = "raw_video_merge_frames";
+
+    public static final String PREFS_KEY_UI_CAMERA_STARTUP_USE_USER_EXPOSURE    = "ui_camera_startup_use_user_exposure";
+    public static final String PREFS_KEY_UI_CAMERA_STARTUP_USER_ISO             = "ui_camera_startup_user_iso";
+    public static final String PREFS_KEY_UI_CAMERA_STARTUP_USER_EXPOSURE_TIME   = "ui_camera_startup_user_exposure_time";
+    public static final String PREFS_KEY_UI_CAMERA_STARTUP_FRAME_RATE           = "ui_camera_startup_frame_rate";
+    public static final String PREFS_KEY_UI_CAMERA_STARTUP_OIS                  = "ui_camera_startup_ois";
 
     public enum RawMode {
         RAW10,

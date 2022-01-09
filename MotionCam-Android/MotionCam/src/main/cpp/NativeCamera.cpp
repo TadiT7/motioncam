@@ -121,7 +121,8 @@ jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_StartCaptur
         jobject previewSurface,
         jboolean setupForRawPreview,
         jboolean preferRaw12,
-        jboolean preferRaw16)
+        jboolean preferRaw16,
+        jstring jcameraStartupSettingsJson)
 {
     std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(sessionHandle);
     if(!sessionManager) {
@@ -137,6 +138,21 @@ jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_StartCaptur
     std::string cameraId(cameraIdChars);
     env->ReleaseStringUTFChars(jcameraId, cameraIdChars);
 
+    // Get startu psettings
+    const char* jstartupSettingsChar = env->GetStringUTFChars(jcameraStartupSettingsJson, nullptr);
+    if(jstartupSettingsChar == nullptr) {
+        LOGE("Failed to get startup settings");
+        return JNI_FALSE;
+    }
+
+    std::string startupSettingsStr(jstartupSettingsChar);
+    env->ReleaseStringUTFChars(jcameraStartupSettingsJson, jstartupSettingsChar);
+
+    // If there's an error parsing these settings, it doesn't matter we'll ignore them
+    // later on
+    std::string err;
+    json11::Json cameraStartupSettings = json11::Json::parse(startupSettingsStr, err);
+
     try {
         std::shared_ptr<ANativeWindow> window(ANativeWindow_fromSurface(env, previewSurface), ANativeWindow_release);
 
@@ -144,7 +160,14 @@ jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_StartCaptur
         RawBufferManager::get().reset();
 
         LOGD("Starting camera %s", cameraId.c_str());
-        sessionManager->startCamera(cameraId, gCameraSessionListener, window, setupForRawPreview, preferRaw12, preferRaw16);
+        sessionManager->startCamera(
+            cameraId,
+            gCameraSessionListener,
+            window,
+            setupForRawPreview,
+            preferRaw12,
+            preferRaw16,
+            cameraStartupSettings);
     }
     catch(const CameraSessionException& e) {
         gLastError = e.what();

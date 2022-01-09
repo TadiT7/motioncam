@@ -44,7 +44,8 @@ namespace motioncam {
             const OutputConfiguration& previewOutputConfig,
             std::shared_ptr<ACameraManager> cameraManager,
             std::shared_ptr<ANativeWindow> previewOutputWindow,
-            bool setupForRawPreview);
+            bool setupForRawPreview,
+            const json11::Json& cameraStartupSettings);
 
         void closeCamera();
 
@@ -104,7 +105,7 @@ namespace motioncam {
         void doEventLoop();
         void doProcessEvent(const EventLoopDataPtr& eventLoopData);
 
-        void doOpenCamera(bool setupForRawPreview);
+        void doOpenCamera(bool setupForRawPreview, const json11::Json& startupSettings);
         void doCloseCamera();
         void doPauseCapture();
         void doResumeCapture();
