@@ -18,6 +18,10 @@
         <item name="android:textSize">12sp</item>
     </style>
 
+    <style name="MotionCam.TextAppearance.Tiny" parent="TextAppearance.AppCompat.Small">
+        <item name="android:textSize">10sp</item>
+    </style>
+
     <style name="MotionCam.TextAppearance.VerySmall.Bold" parent="TextAppearance.AppCompat.Small">
         <item name="android:textSize">12sp</item>
         <item name="android:textStyle">bold</item>

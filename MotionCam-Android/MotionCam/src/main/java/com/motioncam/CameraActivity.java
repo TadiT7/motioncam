@@ -1349,6 +1349,7 @@ public class CameraActivity extends AppCompatActivity implements
         int prevIdx = Math.max(0, iso.ordinal() - 1);
 
         ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(isoValues[prevIdx]));
+        ((TextView) findViewById(R.id.manualControlCurrentValue)).setText(String.valueOf(iso));
         ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(isoValues[nextIdx]));
 
         findViewById(R.id.manualControlExposure).setTag(R.id.manual_control_tag, MANUAL_CONTROL_MODE_ISO);
@@ -1374,6 +1375,7 @@ public class CameraActivity extends AppCompatActivity implements
             int nextNextIdx = Math.min(isoValues.length - 1, iso.ordinal() + 2);
 
             ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(iso));
+            ((TextView) findViewById(R.id.manualControlCurrentValue)).setText(String.valueOf(isoValues[nextIdx]));
             ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(isoValues[nextNextIdx]));
 
             mSettings.cameraStartupSettings.iso = isoValues[nextIdx].getIso();
@@ -1386,6 +1388,7 @@ public class CameraActivity extends AppCompatActivity implements
             int nextNextIdx = Math.min(shutterSpeedValues.length - 1, shutterSpeed.ordinal() + 2);
 
             ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(shutterSpeed));
+            ((TextView) findViewById(R.id.manualControlCurrentValue)).setText(String.valueOf(shutterSpeedValues[nextIdx]));
             ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(shutterSpeedValues[nextNextIdx]));
 
             mSettings.cameraStartupSettings.exposureTime = shutterSpeedValues[nextIdx].getExposureTime();
@@ -1405,6 +1408,7 @@ public class CameraActivity extends AppCompatActivity implements
             int prevPrevIdx = Math.max(0, iso.ordinal() - 2);
 
             ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(iso));
+            ((TextView) findViewById(R.id.manualControlCurrentValue)).setText(String.valueOf(isoValues[prevIdx]));
             ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(isoValues[prevPrevIdx]));
 
             mSettings.cameraStartupSettings.iso = isoValues[prevIdx].getIso();
@@ -1417,6 +1421,7 @@ public class CameraActivity extends AppCompatActivity implements
             int prevPrevIdx = Math.max(0, shutterSpeed.ordinal() - 2);
 
             ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(shutterSpeed));
+            ((TextView) findViewById(R.id.manualControlCurrentValue)).setText(String.valueOf(shutterSpeedValues[prevIdx]));
             ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(shutterSpeedValues[prevPrevIdx]));
 
             mSettings.cameraStartupSettings.exposureTime = shutterSpeedValues[prevIdx].getExposureTime();
@@ -1454,6 +1459,7 @@ public class CameraActivity extends AppCompatActivity implements
         int nextIdx = Math.min(shutterSpeedValues.length - 1, shutterSpeed.ordinal() + 1);
 
         ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(shutterSpeedValues[prevIdx]));
+        ((TextView) findViewById(R.id.manualControlCurrentValue)).setText(String.valueOf(shutterSpeed));
         ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(shutterSpeedValues[nextIdx]));
 
         ((ImageView) findViewById(R.id.shutterSpeedIcon))
@@ -1532,11 +1538,11 @@ public class CameraActivity extends AppCompatActivity implements
         }
     }
 
-    private void setOIS(boolean ois) {
+    private void setOIS(boolean ois, boolean uiOnly) {
         if(mSettings.cameraStartupSettings.ois == ois)
             return;
 
-        if(mNativeCamera != null) {
+        if(mNativeCamera != null && !uiOnly) {
             mNativeCamera.setOIS(ois);
         }
 
@@ -2262,6 +2268,10 @@ public class CameraActivity extends AppCompatActivity implements
         surfaceTexture.setDefaultBufferSize(previewOutputSize.getWidth(), previewOutputSize.getHeight());
 
         mSurface = new Surface(surfaceTexture);
+
+        // Enable focus for video when in RAW_VIDEO mode
+        mSettings.cameraStartupSettings.focusForVideo = mSettings.captureMode == CaptureMode.RAW_VIDEO;
+
         mNativeCamera.startCapture(
                 mSelectedCamera,
                 mSurface,
@@ -2358,7 +2368,7 @@ public class CameraActivity extends AppCompatActivity implements
             setCaptureMode(mSettings.captureMode, true);
             setSaveRaw(mSettings.saveDng);
             setHdr(mSettings.hdr);
-            setOIS(mSettings.cameraStartupSettings.ois);
+            setOIS(mSettings.cameraStartupSettings.ois, true);
             setAfLock(false, true);
             setAeLock(mSettings.cameraStartupSettings.useUserExposureSettings);
 
