@@ -522,7 +522,7 @@ public class CameraActivity extends AppCompatActivity implements
                 .setOnClickListener(v -> setHdr(!mSettings.hdr));
 
         mBinding.cameraSettings.findViewById(R.id.oisBtn)
-                .setOnClickListener(v -> setOIS(!mSettings.cameraStartupSettings.ois));
+                .setOnClickListener(v -> setOIS(!mSettings.cameraStartupSettings.ois, false));
 
         findViewById(R.id.aeLockBtn).setOnClickListener(v -> setAeLock(!mAeLock));
         findViewById(R.id.awbLockBtn).setOnClickListener(v -> setAwbLock(!mAwbLock));
