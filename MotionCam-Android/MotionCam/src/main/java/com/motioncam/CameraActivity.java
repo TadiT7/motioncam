@@ -1373,9 +1373,7 @@ public class CameraActivity extends AppCompatActivity implements
             int nextIdx = Math.min(isoValues.length - 1, iso.ordinal() + 1);
             int nextNextIdx = Math.min(isoValues.length - 1, iso.ordinal() + 2);
 
-            int prevIdx = Math.max(0, iso.ordinal() - 1);
-
-            ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(isoValues[prevIdx]));
+            ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(iso));
             ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(isoValues[nextNextIdx]));
 
             mSettings.cameraStartupSettings.iso = isoValues[nextIdx].getIso();
@@ -1387,6 +1385,7 @@ public class CameraActivity extends AppCompatActivity implements
             int nextIdx = Math.min(shutterSpeedValues.length - 1, shutterSpeed.ordinal() + 1);
             int nextNextIdx = Math.min(shutterSpeedValues.length - 1, shutterSpeed.ordinal() + 2);
 
+            ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(shutterSpeed));
             ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(shutterSpeedValues[nextNextIdx]));
 
             mSettings.cameraStartupSettings.exposureTime = shutterSpeedValues[nextIdx].getExposureTime();
@@ -1405,9 +1404,7 @@ public class CameraActivity extends AppCompatActivity implements
             int prevIdx = Math.max(0, iso.ordinal() - 1);
             int prevPrevIdx = Math.max(0, iso.ordinal() - 2);
 
-            int nextIdx = Math.min(isoValues.length - 1, iso.ordinal() + 1);
-
-            ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(isoValues[nextIdx]));
+            ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(iso));
             ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(isoValues[prevPrevIdx]));
 
             mSettings.cameraStartupSettings.iso = isoValues[prevIdx].getIso();
@@ -1419,9 +1416,7 @@ public class CameraActivity extends AppCompatActivity implements
             int prevIdx = Math.max(0, shutterSpeed.ordinal() - 1);
             int prevPrevIdx = Math.max(0, shutterSpeed.ordinal() - 2);
 
-            int nextIdx = Math.min(shutterSpeedValues.length - 1, shutterSpeed.ordinal() + 1);
-
-            ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(shutterSpeedValues[nextIdx]));
+            ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(shutterSpeed));
             ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(shutterSpeedValues[prevPrevIdx]));
 
             mSettings.cameraStartupSettings.exposureTime = shutterSpeedValues[prevIdx].getExposureTime();
