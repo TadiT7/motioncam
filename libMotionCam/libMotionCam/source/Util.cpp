@@ -744,7 +744,7 @@ namespace motioncam {
         {
             dng_file_stream stream(outputPath.c_str(), true);
             
-            WriteDng(rawImage, cameraMetadata, imageMetadata, saveShadingMap, stream);
+            WriteDng(rawImage, cameraMetadata, imageMetadata, saveShadingMap, enableCompression, stream);
             
             stream.Flush();
         }
@@ -759,7 +759,7 @@ namespace motioncam {
             #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
                 dng_fd_stream stream(fd, true);
 
-                WriteDng(rawImage, cameraMetadata, imageMetadata, saveShadingMap, stream);
+                WriteDng(rawImage, cameraMetadata, imageMetadata, saveShadingMap, enableCompression, stream);
 
                 stream.Flush();
             #endif
@@ -775,7 +775,7 @@ namespace motioncam {
         {
             dng_memory_stream stream(gDefaultDNGMemoryAllocator);
             
-            WriteDng(rawImage, cameraMetadata, imageMetadata, saveShadingMap, stream);
+            WriteDng(rawImage, cameraMetadata, imageMetadata, saveShadingMap, enableCompression, stream);
             
             stream.Flush();
             
