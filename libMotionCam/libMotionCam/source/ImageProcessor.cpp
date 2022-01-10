@@ -102,7 +102,7 @@ static std::vector<Halide::Runtime::Buffer<float>> createWaveletBuffers(int widt
 
 namespace motioncam {
     const float MAX_HDR_ERROR           = 0.0001f;
-    const float SHADOW_BIAS             = 8.0f;
+    const float SHADOW_BIAS             = 12.0f;
 
     typedef Halide::Runtime::Buffer<float> WaveletBuffer;
 
