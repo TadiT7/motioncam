@@ -21,17 +21,20 @@ namespace motioncam {
         void convertVideoToDNG(std::vector<std::unique_ptr<RawContainer> >& containers,
                                DngProcessorProgress& progress,
                                const int numThreads,
-                               const int mergeFrames);
+                               const int mergeFrames,
+                               const bool enableCompression);
 
         void convertVideoToDNG(const std::vector<std::string>& inputFile,
                                DngProcessorProgress& progress,
                                const int numThreads=4,
-                               const int mergeFrames=0);
+                               const int mergeFrames=0,
+                               const bool enableCompression=true);
 
         void convertVideoToDNG(std::vector<int>& fds,
                                DngProcessorProgress& progress,
                                const int numThreads=4,
-                               const int mergeFrames=0);
+                               const int mergeFrames=0,
+                               const bool enableCompression=true);
 
         static void ProcessImage(RawContainer& rawContainer, const std::string& outputFilePath, const ImageProcessorProgress& progressListener);
         static void ProcessImage(const std::string& containerPath, const std::string& outputFilePath, const ImageProcessorProgress& progressListener);

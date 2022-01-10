@@ -1266,7 +1266,7 @@ namespace motioncam {
             std::string dngFile = rawOutputPath + ".dng";
             
             try {
-                util::WriteDng(rawImage, metadata, referenceRawBuffer->metadata, true, dngFile);
+                util::WriteDng(rawImage, metadata, referenceRawBuffer->metadata, true, true, dngFile);
             }
             catch(std::runtime_error& e) {
             }

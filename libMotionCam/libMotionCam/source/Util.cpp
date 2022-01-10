@@ -474,6 +474,7 @@ namespace motioncam {
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
                       const bool saveShadingMap,
+                      const bool enableCompression,
                       dng_stream& dngStream)
         {
             const int width  = rawImage.cols;
@@ -731,13 +732,14 @@ namespace motioncam {
             // Write DNG file to disk
             AutoPtr<dng_image_writer> dngWriter(new dng_image_writer());
 
-            dngWriter->WriteDNG(host, dngStream, *negative.Get(), nullptr, dngVersion_SaveDefault, false);
+            dngWriter->WriteDNG(host, dngStream, *negative.Get(), nullptr, dngVersion_SaveDefault, !enableCompression);
         }
 
         void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
                       const bool saveShadingMap,
+                      const bool enableCompression,
                       const std::string& outputPath)
         {
             dng_file_stream stream(outputPath.c_str(), true);
@@ -751,6 +753,7 @@ namespace motioncam {
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
                       const bool saveShadingMap,
+                      const bool enableCompression,
                       const int fd)
         {
             #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
@@ -766,6 +769,7 @@ namespace motioncam {
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
                       const bool saveShadingMap,
+                      const bool enableCompression,
                       ZipWriter& zipWriter,
                       const std::string& outputName)
         {

@@ -20,11 +20,13 @@ namespace motioncam {
         Job(const cv::Mat& bayerImage,
             const RawCameraMetadata& cameraMetadata,
             const RawImageMetadata& frameMetadata,
+            const bool enableCompression,
             const int fd,
             const std::string& outputPath) :
         bayerImage(bayerImage.clone()),
         cameraMetadata(cameraMetadata),
         frameMetadata(frameMetadata),
+        enableCompression(enableCompression),
         fd(fd),
         outputPath(outputPath)
         {
@@ -33,6 +35,7 @@ namespace motioncam {
         cv::Mat bayerImage;
         const RawCameraMetadata& cameraMetadata;
         const RawImageMetadata& frameMetadata;
+        const bool enableCompression;
         const int fd;
         const std::string outputPath;
         std::string error;
@@ -68,9 +71,9 @@ namespace motioncam {
             
             try {
 #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
-                util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, false, job->fd);
+                util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, false, job->enableCompression, job->fd);
 #elif defined(_WIN32)
-                util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, false, job->outputPath);
+                util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, false, job->enableCompression, job->outputPath);
 #endif
             }
             catch(std::runtime_error& e) {
@@ -152,31 +155,42 @@ namespace motioncam {
         });
     }
 
-    void MotionCam::convertVideoToDNG(const std::vector<std::string>& inputPaths, DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
+    void MotionCam::convertVideoToDNG(const std::vector<std::string>& inputPaths,
+                                      DngProcessorProgress& progress,
+                                      const int numThreads,
+                                      const int mergeFrames,
+                                      const bool enableCompression)
+    {
         std::vector<std::unique_ptr<RawContainer>> c;
         
         for(auto& inputPath : inputPaths) {
             c.push_back( std::unique_ptr<RawContainer>( new RawContainer(inputPath) ) );
         }
 
-        convertVideoToDNG(c, progress, numThreads, mergeFrames);
+        convertVideoToDNG(c, progress, numThreads, mergeFrames, enableCompression);
     }
 
-    void MotionCam::convertVideoToDNG(std::vector<int>& fds, DngProcessorProgress& progress, const int numThreads, const int mergeFrames) {
+    void MotionCam::convertVideoToDNG(std::vector<int>& fds,
+                                      DngProcessorProgress& progress,
+                                      const int numThreads,
+                                      const int mergeFrames,
+                                      const bool enableCompression)
+    {
         std::vector<std::unique_ptr<RawContainer>> c;
         
         for(auto fd : fds) {
             c.push_back( std::unique_ptr<RawContainer>( new RawContainer(fd) ) );
         }
         
-        convertVideoToDNG(c, progress, numThreads, mergeFrames);
+        convertVideoToDNG(c, progress, numThreads, mergeFrames, enableCompression);
     }
 
     void MotionCam::convertVideoToDNG(
         std::vector<std::unique_ptr<RawContainer>>& containers,
         DngProcessorProgress& progress,
         const int numThreads,
-        const int mergeFrames)
+        const int mergeFrames,
+        const bool enableCompression)
     {
         
         if(mImpl->running)
@@ -337,7 +351,7 @@ namespace motioncam {
 #elif defined(_WIN32)
             outputPath = progress.onNeedFd(i);
 #endif
-            while(!mImpl->jobQueue.try_enqueue(std::make_shared<Job>(bayerImage, metadata, frame->metadata, fd, outputPath))) {
+            while(!mImpl->jobQueue.try_enqueue(std::make_shared<Job>(bayerImage, metadata, frame->metadata, enableCompression, fd, outputPath))) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             
