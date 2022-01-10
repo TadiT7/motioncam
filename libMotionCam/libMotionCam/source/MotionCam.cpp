@@ -68,9 +68,9 @@ namespace motioncam {
             
             try {
 #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
-                util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, job->fd);
+                util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, false, job->fd);
 #elif defined(_WIN32)
-                util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, job->outputPath);
+                util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, false, job->outputPath);
 #endif
             }
             catch(std::runtime_error& e) {
@@ -204,14 +204,11 @@ namespace motioncam {
         
         RawCameraMetadata metadata = containers[0]->getCameraMetadata();
 
-        if(mergeFrames > 0) {
-            metadata.blackLevel[0] = 0;
-            metadata.blackLevel[1] = 0;
-            metadata.blackLevel[2] = 0;
-            metadata.blackLevel[3] = 0;
-
-            metadata.whiteLevel = EXPANDED_RANGE;
-        }
+        metadata.blackLevel[0] = 0;
+        metadata.blackLevel[1] = 0;
+        metadata.blackLevel[2] = 0;
+        metadata.blackLevel[3] = 0;
+        metadata.whiteLevel = EXPANDED_RANGE;
         
         Halide::Runtime::Buffer<uint16_t> bayerBuffer;
         bool createdBuffer = false;
@@ -228,6 +225,19 @@ namespace motioncam {
                 continue;
             }
             
+            // Construct shading map
+            Halide::Runtime::Buffer<float> shadingMapBuffer[4];
+            
+            for(int i = 0; i < 4; i++) {
+                shadingMapBuffer[i] = Halide::Runtime::Buffer<float>(
+                    (float*) frame->metadata.lensShadingMap[i].data,
+                    frame->metadata.lensShadingMap[i].cols,
+                    frame->metadata.lensShadingMap[i].rows);
+            }
+
+            auto blackLevel = container->getCameraMetadata().blackLevel;
+            auto whiteLevel = container->getCameraMetadata().whiteLevel;
+
             if(mergeFrames == 0) {
                 auto data = frame->data->lock(false);
                 auto inputBuffer = Halide::Runtime::Buffer<uint8_t>(data, (int) frame->data->len());
@@ -238,8 +248,24 @@ namespace motioncam {
                 }
 
                 frame->data->unlock();
-                
-                build_bayer(inputBuffer, frame->rowStride, static_cast<int>(frame->pixelFormat), bayerBuffer);
+               
+                build_bayer(inputBuffer,
+                            shadingMapBuffer[0],
+                            shadingMapBuffer[1],
+                            shadingMapBuffer[2],
+                            shadingMapBuffer[3],
+                            frame->width / 2,
+                            frame->height / 2,
+                            frame->rowStride,
+                            static_cast<int>(frame->pixelFormat),
+                            static_cast<int>(metadata.sensorArrangment),
+                            blackLevel[0],
+                            blackLevel[1],
+                            blackLevel[2],
+                            blackLevel[3],
+                            whiteLevel,
+                            EXPANDED_RANGE,
+                            bayerBuffer);
             }
             else {
                 std::vector<std::shared_ptr<RawImageBuffer>> nearestBuffers;
@@ -248,10 +274,7 @@ namespace motioncam {
                 GetNearestBuffers(containers, orderedFrames, i, mergeFrames, nearestBuffers);
                 
                 auto denoiseBuffer = ImageProcessor::denoise(frame, nearestBuffers, container->getCameraMetadata());
-                
-                auto blackLevel = container->getCameraMetadata().blackLevel;
-                auto whiteLevel = container->getCameraMetadata().whiteLevel;
-                
+                                
                 // Convert from RAW10/16 -> bayer image
                 if(!createdBuffer) {
                     const int rawWidth  = frame->width / 2;
@@ -271,11 +294,18 @@ namespace motioncam {
                 }
                 
                 build_bayer2(denoiseBuffer,
+                             shadingMapBuffer[0],
+                             shadingMapBuffer[1],
+                             shadingMapBuffer[2],
+                             shadingMapBuffer[3],
+                             frame->width / 2,
+                             frame->height / 2,
                              blackLevel[0],
                              blackLevel[1],
                              blackLevel[2],
                              blackLevel[3],
                              whiteLevel,
+                             static_cast<int>(metadata.sensorArrangment),
                              1.0f / nearestBuffers.size(),
                              EXPANDED_RANGE,
                              bayerBuffer);

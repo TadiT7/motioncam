@@ -473,6 +473,7 @@ namespace motioncam {
         void WriteDng(cv::Mat rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
+                      const bool saveShadingMap,
                       dng_stream& dngStream)
         {
             const int width  = rawImage.cols;
@@ -486,51 +487,52 @@ namespace motioncam {
             AutoPtr<dng_negative> negative(host.Make_dng_negative());
             
             // Create lens shading map for each channel
-            for(int c = 0; c < 4; c++) {
-                dng_point channelGainMapPoints(imageMetadata.lensShadingMap[c].rows, imageMetadata.lensShadingMap[c].cols);
-                
-                AutoPtr<dng_gain_map> gainMap(new dng_gain_map(host.Allocator(),
-                                                               channelGainMapPoints,
-                                                               dng_point_real64(1.0 / (imageMetadata.lensShadingMap[c].rows), 1.0 / (imageMetadata.lensShadingMap[c].cols)),
-                                                               dng_point_real64(0, 0),
-                                                               1));
-                
-                for(int y = 0; y < imageMetadata.lensShadingMap[c].rows; y++) {
-                    for(int x = 0; x < imageMetadata.lensShadingMap[c].cols; x++) {
-                        gainMap->Entry(y, x, 0) = imageMetadata.lensShadingMap[c].at<float>(y, x);
+            if(saveShadingMap) {
+                for(int c = 0; c < 4; c++) {
+                    dng_point channelGainMapPoints(imageMetadata.lensShadingMap[c].rows, imageMetadata.lensShadingMap[c].cols);
+
+                    AutoPtr<dng_gain_map> gainMap(new dng_gain_map(host.Allocator(),
+                                                                   channelGainMapPoints,
+                                                                   dng_point_real64(1.0 / (imageMetadata.lensShadingMap[c].rows), 1.0 / (imageMetadata.lensShadingMap[c].cols)),
+                                                                   dng_point_real64(0, 0),
+                                                                   1));
+
+                    for(int y = 0; y < imageMetadata.lensShadingMap[c].rows; y++) {
+                        for(int x = 0; x < imageMetadata.lensShadingMap[c].cols; x++) {
+                            gainMap->Entry(y, x, 0) = imageMetadata.lensShadingMap[c].at<float>(y, x);
+                        }
                     }
+
+                    int left = 0;
+                    int top  = 0;
+
+                    if(c == 0) {
+                        left = 0;
+                        top = 0;
+                    }
+                    else if(c == 1) {
+                        left = 1;
+                        top = 0;
+                    }
+                    else if(c == 2) {
+                        left = 0;
+                        top = 1;
+                    }
+                    else if(c == 3) {
+                        left = 1;
+                        top = 1;
+                    }
+
+                    dng_rect gainMapArea(top, left, height, width);
+                    AutoPtr<dng_opcode> gainMapOpCode(new dng_opcode_GainMap(dng_area_spec(gainMapArea, 0, 1, 2, 2), gainMap));
+
+                    negative->OpcodeList2().Append(gainMapOpCode);
                 }
-                
-                int left = 0;
-                int top  = 0;
-                
-                if(c == 0) {
-                    left = 0;
-                    top = 0;
-                }
-                else if(c == 1) {
-                    left = 1;
-                    top = 0;
-                }
-                else if(c == 2) {
-                    left = 0;
-                    top = 1;
-                }
-                else if(c == 3) {
-                    left = 1;
-                    top = 1;
-                }
-                
-                dng_rect gainMapArea(top, left, height, width);
-                AutoPtr<dng_opcode> gainMapOpCode(new dng_opcode_GainMap(dng_area_spec(gainMapArea, 0, 1, 2, 2), gainMap));
-                
-                negative->OpcodeList2().Append(gainMapOpCode);
             }
             
             negative->SetModelName("MotionCam");
             negative->SetLocalName("MotionCam");
             
-            // We always use RGGB at this point
             negative->SetColorKeys(colorKeyRed, colorKeyGreen, colorKeyBlue);
             
             uint32_t phase = 0;
@@ -735,11 +737,12 @@ namespace motioncam {
         void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
+                      const bool saveShadingMap,
                       const std::string& outputPath)
         {
             dng_file_stream stream(outputPath.c_str(), true);
             
-            WriteDng(rawImage, cameraMetadata, imageMetadata, stream);
+            WriteDng(rawImage, cameraMetadata, imageMetadata, saveShadingMap, stream);
             
             stream.Flush();
         }
@@ -747,12 +750,13 @@ namespace motioncam {
         void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
+                      const bool saveShadingMap,
                       const int fd)
         {
             #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
                 dng_fd_stream stream(fd, true);
 
-                WriteDng(rawImage, cameraMetadata, imageMetadata, stream);
+                WriteDng(rawImage, cameraMetadata, imageMetadata, saveShadingMap, stream);
 
                 stream.Flush();
             #endif
@@ -761,12 +765,13 @@ namespace motioncam {
         void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
+                      const bool saveShadingMap,
                       ZipWriter& zipWriter,
                       const std::string& outputName)
         {
             dng_memory_stream stream(gDefaultDNGMemoryAllocator);
             
-            WriteDng(rawImage, cameraMetadata, imageMetadata, stream);
+            WriteDng(rawImage, cameraMetadata, imageMetadata, saveShadingMap, stream);
             
             stream.Flush();
             
