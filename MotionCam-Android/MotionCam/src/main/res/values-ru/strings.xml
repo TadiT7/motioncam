@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">Motion Cam</string>
-    <string name="light">Света</string>
+    <string name="light">Свет</string>
     <string name="shadows">Тени</string>
     <string name="highlights">Яркие света</string>
     <string name="contrast">Контраст</string>
@@ -17,7 +17,7 @@
     <string name="merge_images">Слияние кадров</string>
     <string name="additional_noise_reduction">Дополнительное шумоподавление</string>
     <string name="denoise">Шумоподавление</string>
-    <string name="detail">Детали</string>
+    <string name="detail">Детализация</string>
     <string name="sharpness">Резкость</string>
     <string name="pop">Pop</string>
     <string name="info">Информация</string>
@@ -31,7 +31,7 @@
     <string name="title_activity_test">Тест</string>
     <string name="history">История</string>
     <string name="memory_use_description">Максимальный объем памяти для использования при съемке фото.</string>
-    <string name="raw_video_memory_use_description">Максимальный объем памяти для использования при съемке видео в формате RAW.\nВнимание: Выделение слишком большого объема памяти может привести к сбою приложения.</string>
+    <string name="raw_video_memory_use_description">Максимальный объем памяти для использования при съемке видео в формате RAW.\nВНИМАНИЕ: Выделение слишком большого объема памяти может привести к сбою приложения.</string>
     <string name="camera_preview_quality_description">Качество превью камеры. Более высокое качество больше нагружает процессор.</string>
     <string name="camera_profile">Профиль камеры</string>
     <string name="camera_profile_description">Профиль камеры содержит настройки по умолчанию, которые будут применяться к снятым изображениям.</string>
@@ -54,7 +54,7 @@
     <string name="not_supported_error">Ваше устройство не поддерживает съемку в RAW.</string>
     <string name="capture_failed">Произошла ошибка при попытке сделать снимок.</string>
     <string name="camera_error">Возникла ошибка с камерой.</string>
-    <string name="ok">Ok</string>
+    <string name="ok">OK</string>
     <string name="hdr">HDR</string>
     <string name="burst">Серия</string>
     <string name="dual_exposure">Управление двойной экспозицией</string>
@@ -69,11 +69,11 @@
     <string name="photo_mode">ФОТО</string>
     <string name="night_mode">НОЧЬ</string>
     <string name="burst_mode">СЕРИЯ</string>
-    <string name="raw_video_mode">RAW видео</string>
+    <string name="raw_video_mode">RAW ВИДЕО</string>
     <string name="processing">Обработка</string>
     <string name="send_to">Отправить</string>
     <string name="automatic_night_mode">Автоматический ночной режим</string>
-    <string name="enable_automatic_night_mode">Выключить автоматический ночной режим</string>
+    <string name="enable_automatic_night_mode">Включить автоматический ночной режим</string>
     <string name="automatically_switch_to_night_mode">Автоматически переключаться в ночной режим</string>
     <string name="capture_mode">Режим съемки</string>
     <string name="value_percent">%1$d%%</string>
@@ -130,11 +130,27 @@
     <string name="dng_description">Сохранять DNG вместе с JPEG</string>
     <string name="parts">Части</string>
     <string name="delete_after_export">Удалить после экспорта</string>
-    <string name="set_export_folder">Установить папку для экспорта</string>
+    <string name="set_export_folder">Папка для экспорта</string>
     <string name="split_storage_option">Разделение записи RAW видео на два хранилища</string>
     <string name="split_storage_description">Разделение сохранения RAW на внутреннее и внешнее хранилища для увеличения производительности.</string>
     <string name="permissions_error">Для работы приложения нужно разрешение на камеру.</string>
     <string name="exposure_clipping_overlay">Отображение пересвета</string>
     <string name="exposure_clipping_desc">Отображение областей, где сенсор отсекает сигнал - пересветов.</string>
-    <string name="internal_mic">Внутренний Mic</string>
+    <string name="internal_mic">Внутренний микрофон</string>
+    <string name="supported_frame_rate">Поддерживаемые частоты кадров</string>
+    <string name="supported_frame_rate_desc">Ваше устройство сообщает, что эти частоты поддерживаются.</string>
+    <string name="unsupported_frame_rate">Неподдерживаемые частоты кадров</string>
+    <string name="unsupported_frame_rate_desc">О поддержке этих частот устройство не сообщает, но они могут работать.</string>
+    <string name="pixel_binning">Пиксель биннинг</string>
+    <string name="pixel_binning_desc">Уменьшает разрешение вывода с помощью усреднения пикселей.</string>
+    <string name="crop_width">Обрезка по ширине</string>
+    <string name="crop_height">Обрезка по высоте</string>
+    <string name="audio_input">Источник звука</string>
+    <string name="support_page_text">Пожалуйста посетите https://github.com/mirsadm/motioncam для обновления и поддержки.</string>
+    <string name="convert_page_support">Пожалуйста посетите https://github.com/mirsadm/motioncam для скачивания конвертера RAW в формат DNG на компьютере.</string>
+    <string name="raw_video_compression">Беспотерьное сжатие RAW видео</string>
+    <string name="enable_raw_video_compression">Включить сжатие RAW видео</string>
+    <string name="raw_video_compression_desc">Сжатие может повысить итоговую частоту кадров за счет дополнительной нагрузки на CPU.</string>
+    <string name="number_of_compression_threads">Количество потоков сжатия</string>
+    <string name="clear">Очистить</string>
 </resources>
