@@ -473,8 +473,8 @@ namespace motioncam {
         void WriteDng(cv::Mat rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
-                      const bool saveShadingMap,
                       const bool enableCompression,
+                      const bool saveShadingMap,
                       dng_stream& dngStream)
         {
             const int width  = rawImage.cols;
@@ -738,13 +738,13 @@ namespace motioncam {
         void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
-                      const bool saveShadingMap,
                       const bool enableCompression,
+                      const bool saveShadingMap,
                       const std::string& outputPath)
         {
             dng_file_stream stream(outputPath.c_str(), true);
             
-            WriteDng(rawImage, cameraMetadata, imageMetadata, saveShadingMap, enableCompression, stream);
+            WriteDng(rawImage, cameraMetadata, imageMetadata, enableCompression, saveShadingMap, stream);
             
             stream.Flush();
         }
@@ -752,14 +752,14 @@ namespace motioncam {
         void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
-                      const bool saveShadingMap,
                       const bool enableCompression,
+                      const bool saveShadingMap,
                       const int fd)
         {
             #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
                 dng_fd_stream stream(fd, true);
 
-                WriteDng(rawImage, cameraMetadata, imageMetadata, saveShadingMap, enableCompression, stream);
+                WriteDng(rawImage, cameraMetadata, imageMetadata, enableCompression, saveShadingMap, stream);
 
                 stream.Flush();
             #endif
@@ -768,14 +768,14 @@ namespace motioncam {
         void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
-                      const bool saveShadingMap,
                       const bool enableCompression,
+                      const bool saveShadingMap,
                       ZipWriter& zipWriter,
                       const std::string& outputName)
         {
             dng_memory_stream stream(gDefaultDNGMemoryAllocator);
             
-            WriteDng(rawImage, cameraMetadata, imageMetadata, saveShadingMap, enableCompression, stream);
+            WriteDng(rawImage, cameraMetadata, imageMetadata, enableCompression, saveShadingMap, stream);
             
             stream.Flush();
             

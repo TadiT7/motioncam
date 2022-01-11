@@ -70,22 +70,22 @@ namespace motioncam {
         void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
-                      const bool saveShadingMap,
                       const bool enableCompression,
+                      const bool saveShadingMap,
                       const std::string& outputPath);
 
         void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
-                      const bool saveShadingMap,
                       const bool enableCompression,
+                      const bool saveShadingMap,
                       const int fd);
 
         void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
-                      const bool saveShadingMap,
                       const bool enableCompression,
+                      const bool saveShadingMap,
                       ZipWriter& zipWriter,
                       const std::string& outputName);
 
