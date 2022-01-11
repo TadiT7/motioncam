@@ -54,7 +54,7 @@
     <string name="not_supported_error">Ваше устройство не поддерживает съемку в RAW.</string>
     <string name="capture_failed">Произошла ошибка при попытке сделать снимок.</string>
     <string name="camera_error">Возникла ошибка с камерой.</string>
-    <string name="ok">Ok</string>
+    <string name="ok">OK</string>
     <string name="hdr">HDR</string>
     <string name="burst">Серия</string>
     <string name="dual_exposure">Управление двойной экспозицией</string>
@@ -136,6 +136,22 @@
     <string name="permissions_error">Для работы приложения нужно разрешение на камеру.</string>
     <string name="exposure_clipping_overlay">Отображение пересвета</string>
     <string name="exposure_clipping_desc">Отображение областей, где сенсор отсекает сигнал - пересветов.</string>
-    <string name="internal_mic_tag">_internal_mic</string>
+    <string name="internal_mic_tag" translatable="false">_internal_mic</string>
     <string name="internal_mic">Внутренний микрофон</string>
+    <string name="supported_frame_rate">Поддерживаемые частоты кадров</string>
+    <string name="supported_frame_rate_desc">Ваше устройство сообщает, что эти частоты поддерживаются.</string>
+    <string name="unsupported_frame_rate">Неподдерживаемые частоты кадров</string>
+    <string name="unsupported_frame_rate_desc">О поддержке этих частот устройство не сообщает, но они могут работать.</string>
+    <string name="pixel_binning">Пиксель биннинг</string>
+    <string name="pixel_binning_desc">Уменьшает разрешение вывода с помощью усреднения пикселей.</string>
+    <string name="crop_width">Обрезка по ширине</string>
+    <string name="crop_height">Обрезка по высоте</string>
+    <string name="audio_input">Источник звука</string>
+    <string name="support_page_text">Пожалуйста посетите https://github.com/mirsadm/motioncam для обновления и поддержки.</string>
+    <string name="convert_page_support">Пожалуйста посетите https://github.com/mirsadm/motioncam для скачивания конвертера RAW в формат DNG на компьютере.</string>
+    <string name="raw_video_compression">Беспотерьное сжатие RAW видео</string>
+    <string name="enable_raw_video_compression">Включить сжатие RAW видео</string>
+    <string name="raw_video_compression_desc">Сжатие может повысить итоговую частоту кадров за счет дополнительной нагрузки на CPU.</string>
+    <string name="number_of_compression_threads">Количество потоков сжатия</string>
+    <string name="clear">Очистить</string>
 </resources>
