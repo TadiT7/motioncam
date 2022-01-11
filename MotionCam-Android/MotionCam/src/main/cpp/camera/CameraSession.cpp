@@ -213,7 +213,8 @@ namespace motioncam {
         const OutputConfiguration& previewOutputConfig,
         std::shared_ptr<ACameraManager> cameraManager,
         std::shared_ptr<ANativeWindow> previewOutputWindow,
-        bool setupForRawPreview)
+        bool setupForRawPreview,
+        const json11::Json& cameraStartupSettings)
     {
         if(mSessionContext) {
             LOGE("Trying to open camera while already running!");
@@ -236,10 +237,11 @@ namespace motioncam {
 
         json11::Json::object data = {
             { "setupForRawPreview", setupForRawPreview },
+            { "cameraStartupSettings", cameraStartupSettings }
         };
 
         mAcceptEvents = true;
-        pushEvent(EventAction::ACTION_OPEN_CAMERA);
+        pushEvent(EventAction::ACTION_OPEN_CAMERA, data);
     }
 
     void CameraSession::closeCamera() {
@@ -549,7 +551,7 @@ namespace motioncam {
         // Don't add any capture requests since we are not needing this output
     }
 
-    void CameraSession::doOpenCamera(bool setupForRawPreview) {
+    void CameraSession::doOpenCamera(bool setupForRawPreview, const json11::Json& startupSettings) {
         if(mState != CameraCaptureSessionState::CLOSED) {
             LOGE("Trying to open camera that isn't closed");
             return;
@@ -619,7 +621,9 @@ namespace motioncam {
         LOGD("Starting capture");
 
         mCameraStateManager = std::unique_ptr<CameraStateManager>(new CameraStateManager(*mSessionContext, *mCameraDescription));
-        mCameraStateManager->start();
+        mCameraStateManager->start(startupSettings);
+
+        mSessionListener->onCameraStarted();
     }
 
     void CameraSession::doCloseCamera() {
@@ -1209,8 +1213,9 @@ namespace motioncam {
 
             case EventAction::ACTION_OPEN_CAMERA: {
                 auto setupForRawPreview = eventLoopData->data["setupForRawPreview"].bool_value();
+                auto startupSettings = eventLoopData->data["cameraStartupSettings"];
 
-                doOpenCamera(setupForRawPreview);
+                doOpenCamera(setupForRawPreview, startupSettings);
                 break;
             }
 

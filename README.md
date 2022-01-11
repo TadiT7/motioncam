@@ -25,6 +25,12 @@ Download tools to convert the recorded videos to DNG on your PC:
 
 ![Mac](https://github.com/mirsadm/motioncam/releases/download/8.0.6-beta6/motioncam-tools-mac-0.0.5.dmg)
 
+### Tutorials
+
+https://youtu.be/-i_TvErm3C0
+
+https://youtu.be/DX1FEtEnt5Y
+
 ## Other features
 
 #### Dual exposure

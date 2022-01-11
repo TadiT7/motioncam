@@ -3,6 +3,7 @@ package com.motioncam;
 import android.content.SharedPreferences;
 import android.net.Uri;
 
+import com.motioncam.camera.CameraStartupSettings;
 import com.motioncam.model.CameraProfile;
 import com.motioncam.model.SettingsViewModel;
 
@@ -76,6 +77,7 @@ public class Settings {
     boolean saveDng;
     boolean autoNightMode;
     boolean hdr;
+    CameraStartupSettings cameraStartupSettings;
     int jpegQuality;
     long memoryUseBytes;
     long rawVideoMemoryUseBytes;
@@ -84,7 +86,6 @@ public class Settings {
     int cameraPreviewQuality;
     int widthVideoCrop;
     int heightVideoCrop;
-    int frameRate;
     boolean videoBin;
     Uri rawVideoExportUri;
     boolean useSecondaryRawVideoStorage;
@@ -93,8 +94,27 @@ public class Settings {
     boolean enableRawVideoCompression;
     int numRawVideoCompressionThreads;
 
+    private CameraStartupSettings loadCameraStartupSettings(SharedPreferences prefs) {
+        boolean enableUserExposure = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_CAMERA_STARTUP_USE_USER_EXPOSURE, false);
+        int userIso = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_CAMERA_STARTUP_USER_ISO, 0);
+        long userExposureTime = prefs.getLong(SettingsViewModel.PREFS_KEY_UI_CAMERA_STARTUP_USER_EXPOSURE_TIME, 0);
+        int userFrameRate = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_CAMERA_STARTUP_FRAME_RATE, -1);
+        boolean ois = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_CAMERA_STARTUP_OIS, true);
+
+        return new CameraStartupSettings(enableUserExposure, userIso, userExposureTime, userFrameRate, ois, false);
+    }
+
+    private void saveCameraStartupSettings(SharedPreferences prefs, CameraStartupSettings cameraStartupSettings) {
+        prefs.edit()
+            .putBoolean(SettingsViewModel.PREFS_KEY_UI_CAMERA_STARTUP_USE_USER_EXPOSURE, cameraStartupSettings.useUserExposureSettings)
+            .putInt(SettingsViewModel.PREFS_KEY_UI_CAMERA_STARTUP_USER_ISO, cameraStartupSettings.iso)
+            .putLong(SettingsViewModel.PREFS_KEY_UI_CAMERA_STARTUP_USER_EXPOSURE_TIME, cameraStartupSettings.exposureTime)
+            .putInt(SettingsViewModel.PREFS_KEY_UI_CAMERA_STARTUP_FRAME_RATE, cameraStartupSettings.frameRate)
+            .putBoolean(SettingsViewModel.PREFS_KEY_UI_CAMERA_STARTUP_OIS, cameraStartupSettings.ois)
+            .apply();
+    }
+
     void load(SharedPreferences prefs) {
-        this.frameRate = prefs.getInt(SettingsViewModel.PREFS_KEY_UI_FRAME_RATE, 30);
         this.jpegQuality = prefs.getInt(SettingsViewModel.PREFS_KEY_JPEG_QUALITY, CameraProfile.DEFAULT_JPEG_QUALITY);
         this.saveDng = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_SAVE_RAW, false);
         this.exposureOverlay = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_EXPOSURE_OVERLAY, false);
@@ -150,9 +170,12 @@ public class Settings {
 
         this.enableRawVideoCompression = prefs.getBoolean(SettingsViewModel.PREFS_KEY_RAW_VIDEO_COMPRESSION, true);
         this.numRawVideoCompressionThreads = prefs.getInt(SettingsViewModel.PREFS_KEY_RAW_VIDEO_COMPRESSION_THREADS, 2);
+        this.cameraStartupSettings = loadCameraStartupSettings(prefs);
     }
 
     void save(SharedPreferences prefs) {
+        saveCameraStartupSettings(prefs, this.cameraStartupSettings);
+
         prefs.edit()
                 .putBoolean(SettingsViewModel.PREFS_KEY_UI_SAVE_RAW, this.saveDng)
                 .putBoolean(SettingsViewModel.PREFS_KEY_UI_EXPOSURE_OVERLAY, this.exposureOverlay)
@@ -161,7 +184,6 @@ public class Settings {
                 .putInt(SettingsViewModel.PREFS_KEY_UI_WIDTH_VIDEO_CROP, this.widthVideoCrop)
                 .putInt(SettingsViewModel.PREFS_KEY_UI_HEIGHT_VIDEO_CROP, this.heightVideoCrop)
                 .putBoolean(SettingsViewModel.PREFS_KEY_UI_VIDEO_BIN, this.videoBin)
-                .putInt(SettingsViewModel.PREFS_KEY_UI_FRAME_RATE, this.frameRate)
                 .apply();
     }
 
@@ -174,6 +196,7 @@ public class Settings {
                 ", saveDng=" + saveDng +
                 ", autoNightMode=" + autoNightMode +
                 ", hdr=" + hdr +
+                ", cameraStartupSettings=" + cameraStartupSettings +
                 ", jpegQuality=" + jpegQuality +
                 ", memoryUseBytes=" + memoryUseBytes +
                 ", rawVideoMemoryUseBytes=" + rawVideoMemoryUseBytes +
@@ -182,7 +205,6 @@ public class Settings {
                 ", cameraPreviewQuality=" + cameraPreviewQuality +
                 ", widthVideoCrop=" + widthVideoCrop +
                 ", heightVideoCrop=" + heightVideoCrop +
-                ", frameRate=" + frameRate +
                 ", videoBin=" + videoBin +
                 ", rawVideoExportUri=" + rawVideoExportUri +
                 ", useSecondaryRawVideoStorage=" + useSecondaryRawVideoStorage +

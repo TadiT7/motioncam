@@ -155,56 +155,7 @@ namespace motioncam {
                 return "rggb";
         }
     }
-
-    int RawContainer::getOptionalSetting(const json11::Json& json, const string& key, const int defaultValue) {
-        if(json.object_items().find(key) == json.object_items().end()) {
-            return defaultValue;
-        }
-        
-        if(!json[key].is_number())
-            return defaultValue;
-        
-        return json[key].int_value();
-    }
-
-    bool RawContainer::getOptionalSetting(const json11::Json& json, const string& key, const bool defaultValue) {
-        if(json.object_items().find(key) == json.object_items().end()) {
-            return defaultValue;
-        }
-        
-        if(!json[key].is_bool())
-            return defaultValue;
-        
-        return json[key].bool_value();
-    }
-
-    string RawContainer::getOptionalStringSetting(const json11::Json& json, const string& key, const string& defaultValue) {
-        if(json.object_items().find(key) == json.object_items().end()) {
-            return defaultValue;
-        }
-        
-        if(!json[key].is_string())
-            return defaultValue;
-        
-        return json[key].string_value();
-    }
-
-    int RawContainer::getRequiredSettingAsInt(const json11::Json& json, const string& key) {
-        if(json.object_items().find(key) == json.object_items().end() || !json[key].is_number()) {
-            throw InvalidState("Invalid metadata. Missing " + key);
-        }
-        
-        return json[key].int_value();
-    }
-
-    string RawContainer::getRequiredSettingAsString(const json11::Json& json, const string& key) {
-        if(json.object_items().find(key) == json.object_items().end() || !json[key].is_string()) {
-            throw InvalidState("Invalid metadata. Missing " + key);
-        }
-        
-        return json[key].string_value();
-    }
-
+    
     RawContainer::RawContainer(const int fd) :
         mReferenceTimestamp(-1),
         mIsHdr(false),
@@ -405,7 +356,7 @@ namespace motioncam {
                 }
 
                 auto buffer = loadFrameMetadata(frameJson);
-                string filename = getRequiredSettingAsString(frameJson, "filename");
+                string filename = util::GetRequiredSettingAsString(frameJson, "filename");
 
                 mFrames.push_back(filename);
                 mFrameBuffers.insert(make_pair(filename, buffer));
@@ -471,9 +422,9 @@ namespace motioncam {
             mPostProcessSettings = PostProcessSettings(metadata["postProcessingSettings"]);
         }
         
-        mReferenceTimestamp = stoll(getOptionalStringSetting(metadata, "referenceTimestamp", "0"));
-        mIsHdr = getOptionalSetting(metadata, "isHdr", false);
-        mNumSegments = getOptionalSetting(metadata, "numSegments", 1);
+        mReferenceTimestamp = stoll(util::GetOptionalStringSetting(metadata, "referenceTimestamp", "0"));
+        mIsHdr = util::GetOptionalSetting(metadata, "isHdr", false);
+        mNumSegments = util::GetOptionalSetting(metadata, "numSegments", 1);
 
         // Black/white levels
         vector<Json> blackLevelValues = metadata["blackLevel"].array_items();
@@ -481,7 +432,7 @@ namespace motioncam {
             mCameraMetadata.blackLevel.push_back(blackLevelValue.number_value());
         }
         
-        mCameraMetadata.whiteLevel = getRequiredSettingAsInt(metadata, "whiteLevel");
+        mCameraMetadata.whiteLevel = util::GetRequiredSettingAsInt(metadata, "whiteLevel");
         
         // Default to 64
         if(mCameraMetadata.blackLevel.empty()) {
@@ -494,7 +445,7 @@ namespace motioncam {
             mCameraMetadata.whiteLevel = 1023;
 
         // Color arrangement
-        string colorFilterArrangment = getRequiredSettingAsString(metadata, "sensorArrangment");
+        string colorFilterArrangment = util::GetRequiredSettingAsString(metadata, "sensorArrangment");
 
         if(colorFilterArrangment == "grbg") {
             mCameraMetadata.sensorArrangment = ColorFilterArrangment::GRBG;
@@ -552,7 +503,7 @@ namespace motioncam {
         
         while(it != frameList.end()) {
             auto buffer = loadFrameMetadata(*it);
-            string filename = getRequiredSettingAsString(*it, "filename");
+            string filename = util::GetRequiredSettingAsString(*it, "filename");
 
             // If this is the reference image, keep the name
             if(buffer->metadata.timestampNs == mReferenceTimestamp) {
@@ -736,21 +687,21 @@ namespace motioncam {
     shared_ptr<RawImageBuffer> RawContainer::loadFrameMetadata(const json11::Json& obj) {
         shared_ptr<RawImageBuffer> buffer = std::make_shared<RawImageBuffer>();
         
-        buffer->width               = getRequiredSettingAsInt(obj, "width");
-        buffer->height              = getRequiredSettingAsInt(obj, "height");
-        buffer->rowStride           = getRequiredSettingAsInt(obj, "rowStride");
-        buffer->isCompressed        = getOptionalSetting(obj, "isCompressed", false);
-        buffer->compressionType     = static_cast<CompressionType>(getOptionalSetting(obj, "compressionType", 0));
+        buffer->width               = util::GetRequiredSettingAsInt(obj, "width");
+        buffer->height              = util::GetRequiredSettingAsInt(obj, "height");
+        buffer->rowStride           = util::GetRequiredSettingAsInt(obj, "rowStride");
+        buffer->isCompressed        = util::GetOptionalSetting(obj, "isCompressed", false);
+        buffer->compressionType     = static_cast<CompressionType>(util::GetOptionalSetting(obj, "compressionType", 0));
         
         // Default to ZSTD if no compression type specified
         if(buffer->isCompressed && buffer->compressionType == CompressionType::UNCOMPRESSED) {
             buffer->compressionType = CompressionType::ZSTD;
         }
         
-        std::string offset   = getOptionalStringSetting(obj, "offset", "0");
+        std::string offset   = util::GetOptionalStringSetting(obj, "offset", "0");
         buffer->offset       = stoll(offset);
         
-        string pixelFormat = getOptionalStringSetting(obj, "pixelFormat", "raw10");
+        string pixelFormat = util::GetOptionalStringSetting(obj, "pixelFormat", "raw10");
 
         if(pixelFormat == "raw16") {
             buffer->pixelFormat = PixelFormat::RAW16;
@@ -766,15 +717,15 @@ namespace motioncam {
             buffer->pixelFormat = PixelFormat::RAW10;
         }
 
-        buffer->metadata.exposureTime           = getOptionalSetting(obj, "exposureTime", 0);
-        buffer->metadata.iso                    = getOptionalSetting(obj, "iso", 0);
-        buffer->metadata.exposureCompensation   = getOptionalSetting(obj, "exposureCompensation", 0);
+        buffer->metadata.exposureTime           = util::GetOptionalSetting(obj, "exposureTime", 0);
+        buffer->metadata.iso                    = util::GetOptionalSetting(obj, "iso", 0);
+        buffer->metadata.exposureCompensation   = util::GetOptionalSetting(obj, "exposureCompensation", 0);
         buffer->metadata.screenOrientation      =
-            static_cast<ScreenOrientation>(getOptionalSetting(obj, "orientation", static_cast<int>(ScreenOrientation::LANDSCAPE)));
+            static_cast<ScreenOrientation>(util::GetOptionalSetting(obj, "orientation", static_cast<int>(ScreenOrientation::LANDSCAPE)));
         
         buffer->metadata.asShot             = toVec3f((obj)["asShotNeutral"].array_items());
         
-        string timestamp                    = getRequiredSettingAsString(obj, "timestamp");
+        string timestamp                    = util::GetRequiredSettingAsString(obj, "timestamp");
         buffer->metadata.timestampNs        = stoll(timestamp);
 
         if(obj.object_items().find("colorMatrix1") != obj.object_items().end()) {
@@ -802,8 +753,8 @@ namespace motioncam {
         }
         
         // Lens shading maps
-        int lenShadingMapWidth  = getOptionalSetting(obj, "lensShadingMapWidth", 0);
-        int lenShadingMapHeight = getOptionalSetting(obj, "lensShadingMapHeight", 0);
+        int lenShadingMapWidth  = util::GetOptionalSetting(obj, "lensShadingMapWidth", 0);
+        int lenShadingMapHeight = util::GetOptionalSetting(obj, "lensShadingMapHeight", 0);
         
         // Make sure there are a reasonable number of points available
         if(lenShadingMapHeight < 4 || lenShadingMapWidth < 4) {

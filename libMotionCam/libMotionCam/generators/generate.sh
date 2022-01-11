@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euxo pipefail
 
-if [ -z "${HALIDE_PATH}" ]; then
+if [ -z "${HALIDE_PATH+x}" ]
+then
 	HALIDE_PATH="../../thirdparty/halide"
 fi
 
@@ -64,9 +65,6 @@ function build_postprocess() {
 
 	echo "[$ARCH] Building build_bayer_generator2"
 	./tmp/postprocess_generator -g build_bayer_generator2 -f build_bayer2 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS}
-
-	echo "[$ARCH] Building build_bayer_generator3"
-	./tmp/postprocess_generator -g build_bayer_generator3 -f build_bayer3 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS}
 
 	echo "[$ARCH] Building hdr_mask_generator"
 	./tmp/postprocess_generator -g hdr_mask_generator -f hdr_mask -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS}

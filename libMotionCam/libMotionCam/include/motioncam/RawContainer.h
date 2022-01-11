@@ -62,13 +62,7 @@ namespace motioncam {
         
         void generateContainerMetadata(json11::Json::object& metadataJson);
         void loadContainerMetadata(const json11::Json& metadata);
-        
-        static std::string getRequiredSettingAsString(const json11::Json& json, const std::string& key);
-        static int getRequiredSettingAsInt(const json11::Json& json, const std::string& key);
-        static std::string getOptionalStringSetting(const json11::Json& json, const std::string& key, const std::string& defaultValue);
-        static int getOptionalSetting(const json11::Json& json, const std::string& key, const int defaultValue);
-        static bool getOptionalSetting(const json11::Json& json, const std::string& key, const bool defaultValue);
-    
+
         static std::string toString(ColorFilterArrangment sensorArrangment);
         static std::string toString(PixelFormat format);
         static std::string toString(RawType rawType);

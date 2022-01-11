@@ -102,7 +102,7 @@ static std::vector<Halide::Runtime::Buffer<float>> createWaveletBuffers(int widt
 
 namespace motioncam {
     const float MAX_HDR_ERROR           = 0.0001f;
-    const float SHADOW_BIAS             = 8.0f;
+    const float SHADOW_BIAS             = 12.0f;
 
     typedef Halide::Runtime::Buffer<float> WaveletBuffer;
 
@@ -438,11 +438,7 @@ namespace motioncam {
         float avgLuminance = 0.0f;
         float totalPixels = 0;
         
-        float ignorePixels = 0.005f;
-        if(ev < 7) {
-            // Ignore slightly more pixels since they are more likely to be just noise
-            ignorePixels = 0.01f;
-        }
+        float ignorePixels = 0.002f;
 
         int lowerBound = (int) (0.5f + histogram.cols * ignorePixels);
         int upperBound = histogram.cols;
@@ -1270,7 +1266,7 @@ namespace motioncam {
             std::string dngFile = rawOutputPath + ".dng";
             
             try {
-                util::WriteDng(rawImage, metadata, referenceRawBuffer->metadata, dngFile);
+                util::WriteDng(rawImage, metadata, referenceRawBuffer->metadata, true, true, dngFile);
             }
             catch(std::runtime_error& e) {
             }

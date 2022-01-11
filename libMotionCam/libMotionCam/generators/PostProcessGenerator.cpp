@@ -3570,27 +3570,52 @@ void LinearImageGenerator::generate() {
 class BuildBayerGenerator : public Halide::Generator<BuildBayerGenerator>, public PostProcessBase {
 public:
     Input<Buffer<uint8_t>> input{"input", 1 };
+    Input<Buffer<float>> inShadingMap0{"inShadingMap0", 2 };
+    Input<Buffer<float>> inShadingMap1{"inShadingMap1", 2 };
+    Input<Buffer<float>> inShadingMap2{"inShadingMap2", 2 };
+    Input<Buffer<float>> inShadingMap3{"inShadingMap3", 2 };
+
+    Input<int> width{"width"};
+    Input<int> height{"height"};
 
     Input<int> stride{"stride"};
     Input<int> pixelFormat{"pixelFormat"};
+    Input<int> sensorArrangement{"sensorArrangement"};
+
+    Input<int16_t[4]> blackLevel{"blackLevel"};
+    Input<int16_t> whiteLevel{"whiteLevel"};
 
     Output<Buffer<uint16_t>> output{"output", 2 };
 
     void generate() {
         Func inputDeinterleaved{"inputDeinterleaved"};
+        Func shadingMap0{"shadingMap0"}, shadingMap1{"shadingMap1"}, shadingMap2{"shadingMap2"}, shadingMap3{"shadingMap3"};
+        Func shadingMapArranged{"shadingMapArranged"};
+        Func shaded{"shaded"};
+        Func bl{"bl"};
 
         deinterleave(inputDeinterleaved, BoundaryConditions::repeat_edge(input), stride, pixelFormat);
 
+        linearScale(shadingMap0, inShadingMap0, inShadingMap0.width(), inShadingMap0.height(), width, height);
+        linearScale(shadingMap1, inShadingMap1, inShadingMap1.width(), inShadingMap1.height(), width, height);
+        linearScale(shadingMap2, inShadingMap2, inShadingMap2.width(), inShadingMap2.height(), width, height);
+        linearScale(shadingMap3, inShadingMap3, inShadingMap3.width(), inShadingMap3.height(), width, height);
+
+        rearrange(shadingMapArranged, shadingMap0, shadingMap1, shadingMap2, shadingMap3, sensorArrangement);
+
+        bl(v_c) = mux(v_c, {
+            blackLevel[0],
+            blackLevel[1],
+            blackLevel[2],
+            blackLevel[3]
+        });
+
+        shaded(v_x, v_y, v_c) = cast<uint16_t>(0.5f + clamp(bl(v_c) + ((inputDeinterleaved(v_x, v_y, v_c) - bl(v_c)) * shadingMapArranged(v_x, v_y, v_c)), 0, whiteLevel));
+
         output(v_x, v_y) =
             select(v_y % 2 == 0,
-                   select(v_x % 2 == 0, inputDeinterleaved(v_x/2, v_y/2, 0), inputDeinterleaved(v_x/2, v_y/2, 1)),
-                   select(v_x % 2 == 0, inputDeinterleaved(v_x/2, v_y/2, 2), inputDeinterleaved(v_x/2, v_y/2, 3)));
-
-        input.set_estimates({ {0, 24000000} });
-        stride.set_estimate(5008);
-        pixelFormat.set_estimate(0);
-
-        output.set_estimates({{0, 4000}, {0, 3000} });
+                   select(v_x % 2 == 0, shaded(v_x/2, v_y/2, 0), shaded(v_x/2, v_y/2, 1)),
+                   select(v_x % 2 == 0, shaded(v_x/2, v_y/2, 2), shaded(v_x/2, v_y/2, 3)));
 
         output.compute_root()
             .parallel(v_y)
@@ -3601,9 +3626,17 @@ public:
 class BuildBayerGenerator2 : public Halide::Generator<BuildBayerGenerator2>, public PostProcessBase {
 public:
     Input<Buffer<float>> input{"input", 3 };
+    Input<Buffer<float>> inShadingMap0{"inShadingMap0", 2 };
+    Input<Buffer<float>> inShadingMap1{"inShadingMap1", 2 };
+    Input<Buffer<float>> inShadingMap2{"inShadingMap2", 2 };
+    Input<Buffer<float>> inShadingMap3{"inShadingMap3", 2 };
+
+    Input<int> width{"width"};
+    Input<int> height{"height"};
 
     Input<int16_t[4]> blackLevel{"blackLevel"};
     Input<int16_t> whiteLevel{"whiteLevel"};
+    Input<int> sensorArrangement{"sensorArrangement"};
     Input<float> scale{"scale"};
 
     Input<uint16_t> expandedRange{"expandedRange"};
@@ -3616,62 +3649,43 @@ public:
 void BuildBayerGenerator2::generate() {
     Func linear{"linear"};
     Func scaled{"scaled"};
+    Func shadingMapArranged{"shadingMapArranged"};
+    Func shadingMap0{"shadingMap0"}, shadingMap1{"shadingMap1"}, shadingMap2{"shadingMap2"}, shadingMap3{"shadingMap3"};
+    Func shaded{"shaded"};
+    Func clamped{"clamped"};
+    Func bl{"bl"};
+    Func range{"range"};
+
+    linearScale(shadingMap0, inShadingMap0, inShadingMap0.width(), inShadingMap0.height(), width, height);
+    linearScale(shadingMap1, inShadingMap1, inShadingMap1.width(), inShadingMap1.height(), width, height);
+    linearScale(shadingMap2, inShadingMap2, inShadingMap2.width(), inShadingMap2.height(), width, height);
+    linearScale(shadingMap3, inShadingMap3, inShadingMap3.width(), inShadingMap3.height(), width, height);
+
+    rearrange(shadingMapArranged, shadingMap0, shadingMap1, shadingMap2, shadingMap3, sensorArrangement);
+
+    bl(v_c) = mux(v_c, {
+        blackLevel[0],
+        blackLevel[1],
+        blackLevel[2],
+        blackLevel[3]
+    });
 
     scaled(v_x, v_y, v_c) = input(v_x, v_y, v_c) * scale;
 
-    linear(v_x, v_y, v_c) = cast<uint16_t>(0.5f +
-            select( v_c == 0, (expandedRange / (whiteLevel - blackLevel[0])) * (scaled(v_x, v_y, 0) - blackLevel[0]),
-                    v_c == 1, (expandedRange / (whiteLevel - blackLevel[1])) * (scaled(v_x, v_y, 1) - blackLevel[1]),
-                    v_c == 2, (expandedRange / (whiteLevel - blackLevel[2])) * (scaled(v_x, v_y, 2) - blackLevel[2]),
-                              (expandedRange / (whiteLevel - blackLevel[3])) * (scaled(v_x, v_y, 3) - blackLevel[3]) ) );        
+    range(v_c) = expandedRange / (whiteLevel - bl(v_c));
+
+    shaded(v_x, v_y, v_c) = range(v_c) * ((scaled(v_x, v_y, v_c) - bl(v_c)) * shadingMapArranged(v_x, v_y, v_c));
+    
+    clamped(v_x, v_y, v_c) = cast<uint16_t>(clamp(0.5f + bl(v_c) + shaded(v_x, v_y, v_c), 0, expandedRange));
 
     output(v_x, v_y) =
         select(v_y % 2 == 0,
-               select(v_x % 2 == 0, linear(v_x/2, v_y/2, 0), linear(v_x/2, v_y/2, 1)),
-               select(v_x % 2 == 0, linear(v_x/2, v_y/2, 2), linear(v_x/2, v_y/2, 3)));
-
-    input.set_estimates({{0, 2000}, {0, 1500}, {0, 4} });
-    output.set_estimates({{0, 4000}, {0, 3000} });
+               select(v_x % 2 == 0, clamped(v_x/2, v_y/2, 0), clamped(v_x/2, v_y/2, 1)),
+               select(v_x % 2 == 0, clamped(v_x/2, v_y/2, 2), clamped(v_x/2, v_y/2, 3)));
 
     output.compute_root()
         .parallel(v_y)
         .vectorize(v_x, 8);
-}
-
-class BuildBayerGenerator3 : public Halide::Generator<BuildBayerGenerator3>, public PostProcessBase {
-public:
-    Input<Buffer<uint16_t>> in0{"in0", 2 };
-    Input<Buffer<uint16_t>> in1{"in1", 2 };
-    Input<Buffer<uint16_t>> in2{"in2", 2 };
-    Input<Buffer<uint16_t>> in3{"in3", 2 };
-
-    Input<int16_t[4]> blackLevel{"blackLevel"};
-    Input<int16_t> whiteLevel{"whiteLevel"};
-
-    Input<uint16_t> expandedRange{"expandedRange"};
-
-    Output<Buffer<uint16_t>> output{"output", 2 };
-
-    void generate();
-};
-
-void BuildBayerGenerator3::generate() {
-    // Func linear{"linear"};
-
-    // linear(v_x, v_y, v_c) = cast<uint16_t>(0.5f +
-    //         select( v_c == 0, (expandedRange / (whiteLevel - blackLevel[0])) * (input(v_x, v_y, 0) - blackLevel[0]),
-    //                 v_c == 1, (expandedRange / (whiteLevel - blackLevel[1])) * (input(v_x, v_y, 1) - blackLevel[1]),
-    //                 v_c == 2, (expandedRange / (whiteLevel - blackLevel[2])) * (input(v_x, v_y, 2) - blackLevel[2]),
-    //                           (expandedRange / (whiteLevel - blackLevel[3])) * (input(v_x, v_y, 3) - blackLevel[3]) ) );        
-
-    // output(v_x, v_y) =
-    //     select(v_y % 2 == 0,
-    //            select(v_x % 2 == 0, linear(v_x/2, v_y/2, 0), linear(v_x/2, v_y/2, 1)),
-    //            select(v_x % 2 == 0, linear(v_x/2, v_y/2, 2), linear(v_x/2, v_y/2, 3)));
-
-    // output.compute_root()
-    //     .parallel(v_y)
-    //     .vectorize(v_x, 8);
 }
 
 ///////////////
@@ -3992,4 +4006,3 @@ HALIDE_REGISTER_GENERATOR(HdrMaskGenerator, hdr_mask_generator)
 HALIDE_REGISTER_GENERATOR(LinearImageGenerator, linear_image_generator)
 HALIDE_REGISTER_GENERATOR(BuildBayerGenerator, build_bayer_generator)
 HALIDE_REGISTER_GENERATOR(BuildBayerGenerator2, build_bayer_generator2)
-HALIDE_REGISTER_GENERATOR(BuildBayerGenerator3, build_bayer_generator3)

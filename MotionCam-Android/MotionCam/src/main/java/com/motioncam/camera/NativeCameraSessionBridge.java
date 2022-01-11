@@ -89,6 +89,7 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     }
 
     public interface CameraSessionListener {
+        void onCameraStarted();
         void onCameraDisconnected();
         void onCameraError(int error);
         void onCameraSessionStateChanged(CameraState state);
@@ -166,11 +167,23 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
             Surface previewOutput,
             boolean setupForRawPreview,
             boolean preferRaw12,
-            boolean preferRaw16)
+            boolean preferRaw16,
+            CameraStartupSettings startupSettings)
     {
         ensureValidHandle();
 
-        if(!StartCapture(mNativeCameraHandle, cameraInfo.cameraId, previewOutput, setupForRawPreview, preferRaw12, preferRaw16)) {
+        JsonAdapter<CameraStartupSettings> jsonAdapter = mJson.adapter(CameraStartupSettings.class);
+        String startupSettingsJson = jsonAdapter.toJson(startupSettings);
+
+        if(!StartCapture(
+                mNativeCameraHandle,
+                cameraInfo.cameraId,
+                previewOutput,
+                setupForRawPreview,
+                preferRaw12,
+                preferRaw16,
+                startupSettingsJson))
+        {
             throw new CameraException(GetLastError());
         }
     }
@@ -464,6 +477,11 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     }
 
     @Override
+    public void onCameraStarted() {
+        mListener.onCameraStarted();
+    }
+
+    @Override
     public void onCameraDisconnected() {
         mListener.onCameraDisconnected();
     }
@@ -545,7 +563,15 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
 
     private native NativeCameraInfo[] GetSupportedCameras(long handle);
 
-    private native boolean StartCapture(long handle, String cameraId, Surface previewSurface, boolean setupForRawPreview, boolean preferRaw12, boolean preferRaw16);
+    private native boolean StartCapture(
+            long handle,
+            String cameraId,
+            Surface previewSurface,
+            boolean setupForRawPreview,
+            boolean preferRaw12,
+            boolean preferRaw16,
+            String cameraStartupSettingsJson);
+
     private native boolean StopCapture(long handle);
 
     private native boolean PauseCapture(long handle);

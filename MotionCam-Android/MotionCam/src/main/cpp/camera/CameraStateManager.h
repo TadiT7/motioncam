@@ -2,6 +2,8 @@
 #define MOTIONCAM_ANDROID_CAMERASTATEMANAGER_H
 
 #include <memory>
+#include <json11/json11.hpp>
+#include <motioncam/Util.h>
 
 #include "CameraSessionState.h"
 
@@ -29,11 +31,39 @@ namespace motioncam {
         PAUSED
     };
 
+    struct CameraStartupSettings {
+        bool useUserExposureSettings;
+        int32_t iso;
+        int64_t exposureTime;
+        int32_t frameRate;
+        bool ois;
+        bool focusForVideo;
+
+        CameraStartupSettings() :
+            useUserExposureSettings(false),
+            iso(0),
+            exposureTime(0),
+            frameRate(-1),
+            ois(true),
+            focusForVideo(false)
+        {
+        }
+
+        CameraStartupSettings(const json11::Json& json) {
+            useUserExposureSettings = util::GetOptionalSetting(json, "useUserExposureSettings", false);
+            iso = util::GetOptionalSetting(json, "iso", 0);
+            exposureTime = util::GetOptionalSetting(json, "exposureTime", 0.0);
+            frameRate = util::GetOptionalSetting(json, "frameRate", -1);
+            ois = util::GetOptionalSetting(json, "ois", false);
+            focusForVideo = util::GetOptionalSetting(json, "focusForVideo", false);
+        }
+    };
+
     class CameraStateManager {
     public:
         CameraStateManager(const CameraCaptureSessionContext& context, const CameraDescription& cameraDescription);
 
-        void start();
+        void start(const CameraStartupSettings& startupSettings);
 
         void requestPause();
         void requestResume();

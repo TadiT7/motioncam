@@ -187,8 +187,16 @@
             android:gravity="center"
             android:layout_marginStart="5dp"
             android:drawableStart="@drawable/minus_circle_outline"
-            android:layout_weight="1"
+            android:layout_weight="3"
             android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold" />
+
+        <TextView
+            android:id="@+id/manualControlCurrentValue"
+            android:layout_width="40dp"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:layout_weight="1"
+            android:textAppearance="@style/MotionCam.TextAppearance.VerySmall" />
 
         <TextView
             android:id="@+id/manualControlPlusBtn"
@@ -196,7 +204,7 @@
             android:layout_height="match_parent"
             android:drawableEnd="@drawable/plus_circle_outline"
             android:layout_marginEnd="5dp"
-            android:layout_weight="1"
+            android:layout_weight="3"
             android:gravity="center"
             android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold" />
     </LinearLayout>
