@@ -27,8 +27,8 @@ namespace motioncam {
         bayerImage(bayerImage.clone()),
         cameraMetadata(cameraMetadata),
         frameMetadata(frameMetadata),
+        enableCompression(enableCompression),
         saveShadingMap(saveShadingMap),
-        applyShadingMap(applyShadingMap),
         fd(fd),
         outputPath(outputPath)
         {
