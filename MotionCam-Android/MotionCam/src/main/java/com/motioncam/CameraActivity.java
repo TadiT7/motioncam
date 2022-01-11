@@ -2935,12 +2935,10 @@ public class CameraActivity extends AppCompatActivity implements
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if(keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+        if(keyCode == KeyEvent.KEYCODE_VOLUME_DOWN ||
+            keyCode == KeyEvent.KEYCODE_VOLUME_UP)
+        {
             onCaptureClicked();
-            return true;
-        }
-        else if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
-            capture(CaptureMode.BURST);
             return true;
         }
 
