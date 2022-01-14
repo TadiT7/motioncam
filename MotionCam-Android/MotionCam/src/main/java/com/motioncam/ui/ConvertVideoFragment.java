@@ -59,6 +59,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
     private int mNumFramesToMerge;
     private View mConvertSettings;
     private boolean mDeleteAfterExport;
+    private boolean mCorrectVignette;
 
     static final String AUDIO_TAG = "audio";
     static final String VIDEO_TAG = "video";
@@ -120,17 +121,21 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
     private void loadSettings(SharedPreferences sharedPrefs) {
         ProgressBar mergeFramesSeekBar = requireView().findViewById(R.id.mergeFramesSeekBar);
         CheckBox deleteAfterExportCheckbox = requireView().findViewById(R.id.deleteAfterExport);
+        CheckBox correctVignetterCheckbox = requireView().findViewById(R.id.correctVignette);
 
         mDeleteAfterExport = sharedPrefs.getBoolean(SettingsViewModel.PREFS_KEY_RAW_VIDEO_DELETE_AFTER_EXPORT, false);
+        mCorrectVignette = sharedPrefs.getBoolean(SettingsViewModel.PREFS_KEY_RAW_VIDEO_CORRECT_VIGNETTE, true);
         mNumFramesToMerge = sharedPrefs.getInt(SettingsViewModel.PREFS_KEY_RAW_VIDEO_MERGE_FRAMES, 0);
 
-        mergeFramesSeekBar.setProgress(mNumFramesToMerge / 4);
         deleteAfterExportCheckbox.setChecked(mDeleteAfterExport);
+        correctVignetterCheckbox.setChecked(mCorrectVignette);
+        mergeFramesSeekBar.setProgress(mNumFramesToMerge / 4);
     }
 
     private void saveSettings(SharedPreferences sharedPrefs) {
         sharedPrefs.edit()
                 .putBoolean(SettingsViewModel.PREFS_KEY_RAW_VIDEO_DELETE_AFTER_EXPORT, mDeleteAfterExport)
+                .putBoolean(SettingsViewModel.PREFS_KEY_RAW_VIDEO_CORRECT_VIGNETTE, mCorrectVignette)
                 .putInt(SettingsViewModel.PREFS_KEY_RAW_VIDEO_MERGE_FRAMES, mNumFramesToMerge)
                 .apply();;
     }
@@ -316,6 +321,9 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
         ((CheckBox) view.findViewById(R.id.deleteAfterExport)).setOnCheckedChangeListener(
                 (buttonView, isChecked) -> mDeleteAfterExport = isChecked);
 
+        ((CheckBox) view.findViewById(R.id.correctVignette)).setOnCheckedChangeListener(
+                (buttonView, isChecked) -> mCorrectVignette = isChecked);
+
         ((SimpleItemAnimator) mFileList.getItemAnimator()).setSupportsChangeAnimations(false);
 
         view.findViewById(R.id.setExportFolderBtn).setOnClickListener(e -> selectExportFolder());
@@ -414,6 +422,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                 .putString(VideoProcessWorker.OUTPUT_URI_KEY, outputUri.toString())
                 .putString(VideoProcessWorker.INPUT_NAME_KEY, videoEntry.getName())
                 .putBoolean(VideoProcessWorker.INPUT_DELETE_AFTER_EXPORT_KEY, mDeleteAfterExport)
+                .putBoolean(VideoProcessWorker.INPUT_CORRECT_VIGNETTE_KEY, mCorrectVignette)
                 .putInt(VideoProcessWorker.INPUT_NUM_FRAMES_TO_MERGE, numFramesToMerge);
 
         OneTimeWorkRequest.Builder requestBuilder = new OneTimeWorkRequest.Builder(VideoProcessWorker.class);

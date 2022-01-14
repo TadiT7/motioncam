@@ -153,6 +153,10 @@ add_library(fast_preview STATIC IMPORTED)
 set_target_properties(fast_preview PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/fast_preview.a)
 
+add_library(fast_preview2 STATIC IMPORTED)
+set_target_properties(fast_preview2 PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/halide/${ANDROID_ABI}/fast_preview2.a)
+
 add_library(camera_video_preview2_raw10 STATIC IMPORTED)
 set_target_properties(camera_video_preview2_raw10 PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview2_raw10.a)
@@ -560,6 +564,7 @@ set(native-camera-libs
         build_bayer2
         measure_noise
         fast_preview
+        fast_preview2
         linear_image
         hdr_mask
         generate_edges

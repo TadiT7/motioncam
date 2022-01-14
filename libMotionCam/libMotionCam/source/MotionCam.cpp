@@ -44,12 +44,6 @@ namespace motioncam {
         std::string error;
     };
 
-    struct ContainerFrame {
-        std::string frameName;
-        int64_t timestamp;
-        size_t containerIndex;
-    };
-
     struct Impl {
         Impl() : running(false) {
         }
@@ -86,84 +80,15 @@ namespace motioncam {
         }
     }
 
-    void GetNearestBuffers(
-            const std::vector<std::unique_ptr<RawContainer>>& containers,
-            const std::vector<ContainerFrame>& orderedFrames,
-            const int startIdx,
-            const int numBuffers,
-            std::vector<std::shared_ptr<RawImageBuffer>>& outNearestBuffers)
-    {
-        int leftOffset = -1;
-        int rightOffset = 1;
-
-        // Get the nearest frames
-        outNearestBuffers.clear();
-
-        while(true) {
-            if(startIdx + leftOffset >= 0) {
-                int leftIndex = startIdx + leftOffset;
-
-                auto& container = containers[orderedFrames[leftIndex].containerIndex];
-                auto left = container->loadFrame(orderedFrames[leftIndex].frameName);
-
-                if(!left) {
-                    left = nullptr;
-                }
-
-                outNearestBuffers.push_back(left);
-
-                leftOffset--;
-
-                if(outNearestBuffers.size() >= numBuffers)
-                    break;
-            }
-
-            if(startIdx + rightOffset < orderedFrames.size()) {
-                int rightIndex = startIdx + rightOffset;
-
-                auto& container = containers[orderedFrames[rightIndex].containerIndex];
-                auto right = container->loadFrame(orderedFrames[rightIndex].frameName);
-
-                if(!right)
-                    right = nullptr;
-
-                outNearestBuffers.push_back(right);
-
-                if(outNearestBuffers.size() >= numBuffers)
-                    break;
-
-                rightOffset++;
-            }
-
-            if(startIdx + leftOffset < 0 && startIdx + rightOffset >= orderedFrames.size())
-                break;
-        }
-    }
-
-    void MotionCam::GetOrderedFrames(
-            const std::vector<std::unique_ptr<RawContainer>>& containers, std::vector<ContainerFrame>& outOrderedFrames)
-    {
-        // Get a list of all frames, ordered by timestamp
-        for(size_t i = 0; i < containers.size(); i++) {
-            auto& container = containers[i];
-            
-            for(auto& frameName : container->getFrames()) {
-                auto frame = container->getFrame(frameName);
-                outOrderedFrames.push_back({ frameName, frame->metadata.timestampNs, i} );
-            }
-        }
-        
-        std::sort(outOrderedFrames.begin(), outOrderedFrames.end(), [](ContainerFrame& a, ContainerFrame& b) {
-            return a.timestamp < b.timestamp;
-        });
-    }
-
     void MotionCam::convertVideoToDNG(const std::vector<std::string>& inputPaths,
                                       DngProcessorProgress& progress,
+                                      const std::vector<float>& denoiseWeights,
                                       const int numThreads,
                                       const int mergeFrames,
                                       const bool enableCompression,
-                                      const bool applyShadingMap)
+                                      const bool applyShadingMap,
+                                      const int fromFrameNumber,
+                                      const int toFrameNumber)
     {
         std::vector<std::unique_ptr<RawContainer>> c;
         
@@ -171,15 +96,18 @@ namespace motioncam {
             c.push_back( std::unique_ptr<RawContainer>( new RawContainer(inputPath) ) );
         }
 
-        convertVideoToDNG(c, progress, numThreads, mergeFrames, enableCompression, applyShadingMap);
+        convertVideoToDNG(c, progress, denoiseWeights, numThreads, mergeFrames, enableCompression, applyShadingMap, fromFrameNumber, toFrameNumber);
     }
 
     void MotionCam::convertVideoToDNG(std::vector<int>& fds,
                                       DngProcessorProgress& progress,
+                                      const std::vector<float>& denoiseWeights,
                                       const int numThreads,
                                       const int mergeFrames,
                                       const bool enableCompression,
-                                      const bool applyShadingMap)
+                                      const bool applyShadingMap,
+                                      const int fromFrameNumber,
+                                      const int toFrameNumber)
     {
         std::vector<std::unique_ptr<RawContainer>> c;
         
@@ -187,15 +115,18 @@ namespace motioncam {
             c.push_back( std::unique_ptr<RawContainer>( new RawContainer(fd) ) );
         }
         
-        convertVideoToDNG(c, progress, numThreads, mergeFrames, enableCompression, applyShadingMap);
+        convertVideoToDNG(c, progress, denoiseWeights, numThreads, mergeFrames, enableCompression, applyShadingMap, fromFrameNumber, toFrameNumber);
     }
 
     void MotionCam::convertVideoToDNG(std::vector<std::unique_ptr<RawContainer>>& containers,
                                       DngProcessorProgress& progress,
+                                      const std::vector<float>& denoiseWeights,
                                       const int numThreads,
                                       const int mergeFrames,
                                       const bool enableCompression,
-                                      const bool applyShadingMap)
+                                      const bool applyShadingMap,
+                                      const int fromFrameNumber,
+                                      const int toFrameNumber)
     {
         
         if(mImpl->running)
@@ -205,9 +136,9 @@ namespace motioncam {
             return;
 
         // Get a list of all frames, ordered by timestamp
-        std::vector<ContainerFrame> orderedFrames;
+        std::vector<util::ContainerFrame> orderedFrames;
         
-        GetOrderedFrames(containers, orderedFrames);
+        util::GetOrderedFrames(containers, orderedFrames);
                 
         // Create processing threads
         mImpl->running = true;
@@ -222,15 +153,26 @@ namespace motioncam {
         }
         
         RawCameraMetadata metadata = containers[0]->getCameraMetadata();
-
-        if(mergeFrames > 0) {
-            metadata.whiteLevel = EXPANDED_RANGE;
-        }
         
         Halide::Runtime::Buffer<uint16_t> bayerBuffer;
         bool createdBuffer = false;
         
-        for(int i = 0; i < orderedFrames.size(); i++) {
+        int startIdx = fromFrameNumber;
+        int endIdx = toFrameNumber;
+        
+        if(startIdx < 0)
+            startIdx = 0;
+        
+        if(endIdx < 0)
+            endIdx = (int) orderedFrames.size() - 1;
+        
+        if(startIdx > endIdx)
+            startIdx = endIdx;
+
+        startIdx = std::min((int)orderedFrames.size() - 1, std::max(0, fromFrameNumber));
+        endIdx = std::min((int)orderedFrames.size() - 1, std::max(0, toFrameNumber));
+                
+        for(int i = startIdx; i <= endIdx; i++) {
             auto& container = containers[orderedFrames[i].containerIndex];
             auto frame = container->loadFrame(orderedFrames[i].frameName);
             
@@ -247,18 +189,38 @@ namespace motioncam {
             
             for(int i = 0; i < 4; i++) {
                 cv::Mat shadingMap = frame->metadata.lensShadingMap[i];
-                if(!applyShadingMap) {
-                    shadingMap.setTo(1.0f);
-                }
                 
-                shadingMapBuffer[i] = Halide::Runtime::Buffer<float>(
-                    (float*) shadingMap.data,
-                    shadingMap.cols,
-                    shadingMap.rows);
+                if(applyShadingMap) {
+                    shadingMapBuffer[i] = Halide::Runtime::Buffer<float>(
+                        (float*) shadingMap.data,
+                        shadingMap.cols,
+                        shadingMap.rows);
+                }
+                else {
+                    shadingMapBuffer[i] = Halide::Runtime::Buffer<float>(shadingMap.cols, shadingMap.rows);
+                    shadingMapBuffer[i].fill(1.0f);
+                }
             }
 
-            auto blackLevel = container->getCameraMetadata().blackLevel;
-            auto whiteLevel = container->getCameraMetadata().whiteLevel;
+            std::vector<std::shared_ptr<RawImageBuffer>> nearestBuffers;
+            
+            // Convert from RAW10/16 -> bayer image
+            if(!createdBuffer) {
+                const int rawWidth  = frame->width / 2;
+                const int rawHeight = frame->height / 2;
+
+                const int T = pow(2, EXTEND_EDGE_AMOUNT);
+
+                const int offsetX = static_cast<int>(T * ceil(rawWidth / (double) T) - rawWidth);
+                const int offsetY = static_cast<int>(T * ceil(rawHeight / (double) T) - rawHeight);
+
+                bayerBuffer = Halide::Runtime::Buffer<uint16_t>((rawWidth-offsetX)*2, (rawHeight-offsetY)*2);
+                
+                bayerBuffer.translate(0, offsetX);
+                bayerBuffer.translate(1, offsetY);
+                
+                createdBuffer = true;
+            }
 
             if(mergeFrames == 0) {
                 auto data = frame->data->lock(false);
@@ -271,63 +233,77 @@ namespace motioncam {
 
                 frame->data->unlock();
                
-                build_bayer(inputBuffer,
-                            shadingMapBuffer[0],
-                            shadingMapBuffer[1],
-                            shadingMapBuffer[2],
-                            shadingMapBuffer[3],
-                            frame->width / 2,
-                            frame->height / 2,
-                            frame->rowStride,
-                            static_cast<int>(frame->pixelFormat),
-                            static_cast<int>(metadata.sensorArrangment),
-                            blackLevel[0],
-                            blackLevel[1],
-                            blackLevel[2],
-                            blackLevel[3],
-                            whiteLevel,
-                            bayerBuffer);
-            }
-            else {
-                std::vector<std::shared_ptr<RawImageBuffer>> nearestBuffers;
-
-                // Get number of nearest buffers
-                GetNearestBuffers(containers, orderedFrames, i, mergeFrames, nearestBuffers);
-                
-                auto denoiseBuffer = ImageProcessor::denoise(frame, nearestBuffers, container->getCameraMetadata());
-                                
-                // Convert from RAW10/16 -> bayer image
-                if(!createdBuffer) {
-                    const int rawWidth  = frame->width / 2;
-                    const int rawHeight = frame->height / 2;
-
-                    const int T = pow(2, EXTEND_EDGE_AMOUNT);
-
-                    const int offsetX = static_cast<int>(T * ceil(rawWidth / (double) T) - rawWidth);
-                    const int offsetY = static_cast<int>(T * ceil(rawHeight / (double) T) - rawHeight);
-
-                    bayerBuffer = Halide::Runtime::Buffer<uint16_t>((denoiseBuffer.width()-offsetX)*2 , (denoiseBuffer.height()-offsetY)*2);
-                    
-                    bayerBuffer.translate(0, offsetX);
-                    bayerBuffer.translate(1, offsetY);
-                    
-                    createdBuffer = true;
+                // If all denoising is disabled, just build the bayer buffer
+                float weightSum = 0.0f;
+                for(size_t i = 0; i < denoiseWeights.size(); i++) {
+                    weightSum += denoiseWeights[i];
                 }
                 
-                build_bayer2(denoiseBuffer,
+                if(weightSum > 1e-5f) {
+                    auto denoiseBuffers = ImageProcessor::denoise(frame, nearestBuffers, denoiseWeights, container->getCameraMetadata());
+                    
+                    // Update black/white levels to match new range
+                    for(int i = 0; i < 4; i++)
+                        metadata.blackLevel[i] = 0;
+                    
+                    metadata.whiteLevel = EXPANDED_RANGE;
+
+                    build_bayer2(denoiseBuffers[0],
+                                 denoiseBuffers[1],
+                                 denoiseBuffers[2],
+                                 denoiseBuffers[3],
+                                 shadingMapBuffer[0],
+                                 shadingMapBuffer[1],
+                                 shadingMapBuffer[2],
+                                 shadingMapBuffer[3],
+                                 frame->width / 2,
+                                 frame->height / 2,
+                                 static_cast<int>(metadata.sensorArrangment),
+                                 EXPANDED_RANGE,
+                                 bayerBuffer);
+                }
+                else {
+                    build_bayer(inputBuffer,
+                                shadingMapBuffer[0],
+                                shadingMapBuffer[1],
+                                shadingMapBuffer[2],
+                                shadingMapBuffer[3],
+                                frame->width / 2,
+                                frame->height / 2,
+                                frame->rowStride,
+                                static_cast<int>(frame->pixelFormat),
+                                static_cast<int>(metadata.sensorArrangment),
+                                metadata.blackLevel[0],
+                                metadata.blackLevel[1],
+                                metadata.blackLevel[2],
+                                metadata.blackLevel[3],
+                                metadata.whiteLevel,
+                                bayerBuffer);
+                }
+            }
+            else {
+                // Get number of nearest buffers
+                util::GetNearestBuffers(containers, orderedFrames, i, mergeFrames, nearestBuffers);
+                
+                auto denoiseBuffers = ImageProcessor::denoise(frame, nearestBuffers, denoiseWeights, container->getCameraMetadata());
+                
+                // Update black/white levels to match new range
+                for(int i = 0; i < 4; i++)
+                    metadata.blackLevel[i] = 0;
+                
+                metadata.whiteLevel = EXPANDED_RANGE;
+
+                build_bayer2(denoiseBuffers[0],
+                             denoiseBuffers[1],
+                             denoiseBuffers[2],
+                             denoiseBuffers[3],
                              shadingMapBuffer[0],
                              shadingMapBuffer[1],
                              shadingMapBuffer[2],
                              shadingMapBuffer[3],
                              frame->width / 2,
                              frame->height / 2,
-                             blackLevel[0],
-                             blackLevel[1],
-                             blackLevel[2],
-                             blackLevel[3],
-                             whiteLevel,
                              static_cast<int>(metadata.sensorArrangment),
-                             1.0f / nearestBuffers.size(),
                              EXPANDED_RANGE,
                              bayerBuffer);
             }
@@ -482,9 +458,9 @@ namespace motioncam {
         int& outNumFrames,
         int& outNumSegments)
     {
-        std::vector<ContainerFrame> orderedFrames;
+        std::vector<util::ContainerFrame> orderedFrames;
         
-        GetOrderedFrames(containers, orderedFrames);
+        util::GetOrderedFrames(containers, orderedFrames);
                 
         if(orderedFrames.empty()) {
             outNumFrames = 0;

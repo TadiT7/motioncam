@@ -13,6 +13,8 @@ namespace motioncam {
     struct ContainerFrame;
     struct Impl;
 
+    const std::vector<float> NO_DENOISE_WEIGHTS = { 0, 0, 0, 0 };
+
     class MotionCam {
     public:
         MotionCam();
@@ -20,24 +22,33 @@ namespace motioncam {
 
         void convertVideoToDNG(std::vector<std::unique_ptr<RawContainer> >& containers,
                                DngProcessorProgress& progress,
+                               const std::vector<float>& denoiseWeights,
                                const int numThreads,
                                const int mergeFrames,
                                const bool enableCompression,
-                               const bool applyShadingMap);
+                               const bool applyShadingMap,
+                               const int fromFrameNumber,
+                               const int toFrameNumber);
 
         void convertVideoToDNG(const std::vector<std::string>& inputFile,
                                DngProcessorProgress& progress,
+                               const std::vector<float>& denoiseWeights,
                                const int numThreads=4,
                                const int mergeFrames=0,
                                const bool enableCompression=true,
-                               const bool applyShadingMap=true);
+                               const bool applyShadingMap=true,
+                               const int fromFrameNumber=-1,
+                               const int toFrameNumber=-1);
 
         void convertVideoToDNG(std::vector<int>& fds,
                                DngProcessorProgress& progress,
+                               const std::vector<float>& denoiseWeights,
                                const int numThreads=4,
                                const int mergeFrames=0,
                                const bool enableCompression=true,
-                               const bool applyShadingMap=true);
+                               const bool applyShadingMap=true,
+                               const int fromFrameNumber=-1,
+                               const int toFrameNumber=-1);
 
         static void ProcessImage(RawContainer& rawContainer, const std::string& outputFilePath, const ImageProcessorProgress& progressListener);
         static void ProcessImage(const std::string& containerPath, const std::string& outputFilePath, const ImageProcessorProgress& progressListener);
@@ -53,10 +64,6 @@ namespace motioncam {
             int& outNumSegments);
 
     private:
-        static void GetOrderedFrames(
-            const std::vector<std::unique_ptr<RawContainer>>& containers,
-            std::vector<ContainerFrame>& outOrderedFrames);
-
         void writeDNG();
 
     private:

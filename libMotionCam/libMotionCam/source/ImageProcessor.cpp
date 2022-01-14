@@ -24,6 +24,7 @@
 #include "fuse_denoise_5x5.h"
 #include "fuse_denoise_7x7.h"
 #include "fast_preview.h"
+#include "fast_preview2.h"
 #include "measure_noise.h"
 
 #include "linear_image.h"
@@ -680,6 +681,65 @@ namespace motioncam {
         return outputBuffer;
     }
 
+    Halide::Runtime::Buffer<uint8_t> ImageProcessor::createFastPreview(std::vector<Halide::Runtime::Buffer<uint16_t>>& inputBuffers,
+                                                                       const int sx,
+                                                                       const int sy,
+                                                                       const RawImageMetadata& metadata,
+                                                                       const RawCameraMetadata& cameraMetadata) {
+        cv::Mat cameraToPcs;
+        cv::Mat pcsToSrgb;
+        cv::Vec3f cameraWhite;
+        
+        createSrgbMatrix(cameraMetadata, metadata, metadata.asShot, cameraWhite, cameraToPcs, pcsToSrgb);
+
+        cv::Mat cameraToSrgb = pcsToSrgb * cameraToPcs;
+        
+        Halide::Runtime::Buffer<float> cameraToSrgbBuffer = ToHalideBuffer<float>(cameraToSrgb);
+
+        Halide::Runtime::Buffer<float> shadingMapBuffer[4];
+        for(int i = 0; i < 4; i++) {
+            shadingMapBuffer[i] = ToHalideBuffer<float>(metadata.lensShadingMap[i]);
+        }
+        
+        const int width  = inputBuffers[0].width() / sx;
+        const int height = inputBuffers[0].height() / sy;
+
+        const int T = pow(2, EXTEND_EDGE_AMOUNT);
+
+        const int offsetX = static_cast<int>(T * ceil(width / (double) T) - width);
+        const int offsetY = static_cast<int>(T * ceil(height / (double) T) - height);
+
+        Halide::Runtime::Buffer<uint8_t> outputBuffer =
+            Halide::Runtime::Buffer<uint8_t>::make_interleaved((width-offsetX)*2, (height-offsetY)*2, 4);
+
+        outputBuffer.translate(0, offsetX);
+        outputBuffer.translate(1, offsetY);
+
+        fast_preview2(
+            inputBuffers[0],
+            inputBuffers[1],
+            inputBuffers[2],
+            inputBuffers[3],
+            static_cast<int>(cameraMetadata.sensorArrangment),
+            shadingMapBuffer[0],
+            shadingMapBuffer[1],
+            shadingMapBuffer[2],
+            shadingMapBuffer[3],
+            sx,
+            sy,
+            EXPANDED_RANGE,
+            metadata.asShot[0],
+            metadata.asShot[1],
+            metadata.asShot[2],
+            cameraToSrgbBuffer,
+            outputBuffer);
+
+        outputBuffer.device_sync();
+        outputBuffer.copy_to_host();
+        
+        return outputBuffer;
+    }
+
     Halide::Runtime::Buffer<uint8_t> ImageProcessor::createPreview(const RawImageBuffer& rawBuffer,
                                                                    const int downscaleFactor,
                                                                    const RawCameraMetadata& cameraMetadata,
@@ -715,7 +775,6 @@ namespace motioncam {
 
         NativeBufferContext inputBufferContext(*rawBuffer.data, false);
 
-        // Set up rotation based on orientation of image
         int width = rawBuffer.width / 2 / downscaleFactor; // Divide by 2 because we are not demosaicing the RAW data
         int height = rawBuffer.height / 2 / downscaleFactor;
         

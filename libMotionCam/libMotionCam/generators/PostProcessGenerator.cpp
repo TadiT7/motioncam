@@ -3033,6 +3033,93 @@ void FastPreviewGenerator::schedule_for_cpu() {
         .parallel(v_y);
 }
 
+//
+
+class FastPreviewGenerator2 : public Halide::Generator<FastPreviewGenerator2>, public PostProcessBase {
+public:
+    Input<Buffer<uint16_t>> in0{"in0", 2 };
+    Input<Buffer<uint16_t>> in1{"in1", 2 };
+    Input<Buffer<uint16_t>> in2{"in2", 2 };
+    Input<Buffer<uint16_t>> in3{"in3", 2 };
+
+    Input<int> sensorArrangement{"sensorArrangement"};
+
+    Input<Buffer<float>> inShadingMap0{"inShadingMap0", 2 };
+    Input<Buffer<float>> inShadingMap1{"inShadingMap1", 2 };
+    Input<Buffer<float>> inShadingMap2{"inShadingMap2", 2 };
+    Input<Buffer<float>> inShadingMap3{"inShadingMap3", 2 };
+
+    Input<int> sx{"sx"};
+    Input<int> sy{"sy"};
+
+    Input<uint16_t> range{"range"};
+
+    Input<float[3]> asShotVector{"asShotVector"};
+    Input<Buffer<float>> cameraToSrgb{"cameraToSrgb", 2};
+
+    Output<Buffer<uint8_t>> output{"output", 3};
+
+    void generate();
+    void schedule_for_cpu();
+};
+
+void FastPreviewGenerator2::generate() {
+    Func bayer{"bayer"};
+    Func linear{"linear"};
+    Func bayerInput{"bayerInput"};
+    Func clamped{"clamped"};
+    Func colorCorrected{"colorCorrected"};
+    Func colorCorrectInput{"colorCorrectInput"};
+
+    std::vector<Expr> asShot{ asShotVector[0], asShotVector[1], asShotVector[2] };
+
+    Expr WIDTH = in0.width();
+    Expr HEIGHT = in0.height();
+
+    // Demosaic image
+    auto demosaic = create<Demosaic>();
+    demosaic->apply(
+        in0, in1, in2, in3,
+        inShadingMap0, inShadingMap1, inShadingMap2, inShadingMap3,
+        WIDTH, HEIGHT,
+        inShadingMap0.width(), inShadingMap0.height(),
+        cast<float>(range),
+        sensorArrangement,
+        asShot,
+        cameraToSrgb);
+
+    linear(v_x, v_y, v_c) = demosaic->output(v_x * sx, v_y * sy, v_c) / 65535.0f;
+
+    Func gammaLut{"gammaLut"};
+    Expr h = v_i / 255.0f;
+
+    gammaLut(v_i) = saturating_cast<uint8_t>(select(h < 0.0031308f, h * 12.92f, pow(h, 1.0f / 2.4f) * 1.055f - 0.055f) * 255.0f);
+    if(!auto_schedule)
+        gammaLut.compute_root().vectorize(v_i, 8);
+
+    output(v_x, v_y, v_c) = gammaLut(saturating_cast<uint8_t>(
+        select( v_c == 0, linear(v_x, v_y, 0) * 255.0f + 0.5f,
+                v_c == 1, linear(v_x, v_y, 1) * 255.0f + 0.5f,
+                v_c == 2, linear(v_x, v_y, 2) * 255.0f + 0.5f,
+                255)));
+
+    // Output interleaved
+    output
+        .dim(0).set_stride(4)
+        .dim(2).set_stride(1);
+
+    if(!get_auto_schedule()) {
+        schedule_for_cpu();
+    }
+ }
+
+void FastPreviewGenerator2::schedule_for_cpu() {
+    output.compute_root()
+        .vectorize(v_x, 16)
+        .parallel(v_c)
+        .parallel(v_y);
+}
+
 
 //
 
@@ -3625,7 +3712,11 @@ public:
 
 class BuildBayerGenerator2 : public Halide::Generator<BuildBayerGenerator2>, public PostProcessBase {
 public:
-    Input<Buffer<float>> input{"input", 3 };
+    Input<Buffer<uint16_t>> in0{"in0", 2 };
+    Input<Buffer<uint16_t>> in1{"in1", 2 };
+    Input<Buffer<uint16_t>> in2{"in2", 2 };
+    Input<Buffer<uint16_t>> in3{"in3", 2 };
+
     Input<Buffer<float>> inShadingMap0{"inShadingMap0", 2 };
     Input<Buffer<float>> inShadingMap1{"inShadingMap1", 2 };
     Input<Buffer<float>> inShadingMap2{"inShadingMap2", 2 };
@@ -3634,12 +3725,8 @@ public:
     Input<int> width{"width"};
     Input<int> height{"height"};
 
-    Input<int16_t[4]> blackLevel{"blackLevel"};
-    Input<int16_t> whiteLevel{"whiteLevel"};
     Input<int> sensorArrangement{"sensorArrangement"};
-    Input<float> scale{"scale"};
-
-    Input<uint16_t> expandedRange{"expandedRange"};
+    Input<uint16_t> range{"range"};
 
     Output<Buffer<uint16_t>> output{"output", 2 };
 
@@ -3647,14 +3734,10 @@ public:
 };
 
 void BuildBayerGenerator2::generate() {
-    Func linear{"linear"};
-    Func scaled{"scaled"};
+    Func bayerInput{"bayerInput"};
     Func shadingMapArranged{"shadingMapArranged"};
     Func shadingMap0{"shadingMap0"}, shadingMap1{"shadingMap1"}, shadingMap2{"shadingMap2"}, shadingMap3{"shadingMap3"};
     Func shaded{"shaded"};
-    Func clamped{"clamped"};
-    Func bl{"bl"};
-    Func range{"range"};
 
     linearScale(shadingMap0, inShadingMap0, inShadingMap0.width(), inShadingMap0.height(), width, height);
     linearScale(shadingMap1, inShadingMap1, inShadingMap1.width(), inShadingMap1.height(), width, height);
@@ -3663,25 +3746,33 @@ void BuildBayerGenerator2::generate() {
 
     rearrange(shadingMapArranged, shadingMap0, shadingMap1, shadingMap2, shadingMap3, sensorArrangement);
 
-    bl(v_c) = mux(v_c, {
-        blackLevel[0],
-        blackLevel[1],
-        blackLevel[2],
-        blackLevel[3]
+    bayerInput(v_x, v_y, v_c) = mux(v_c, {
+        in0(v_x, v_y),
+        in1(v_x, v_y),
+        in2(v_x, v_y),
+        in3(v_x, v_y)
     });
 
-    scaled(v_x, v_y, v_c) = input(v_x, v_y, v_c) * scale;
+    // Suppress hot pixels
+    Expr a0 = bayerInput(v_x - 1, v_y,       v_c);
+    Expr a1 = bayerInput(v_x + 1, v_y,       v_c);
+    Expr a2 = bayerInput(v_x,     v_y + 1,   v_c);
+    Expr a3 = bayerInput(v_x,     v_y - 1,   v_c);
 
-    range(v_c) = expandedRange / (whiteLevel - bl(v_c));
+    cmpSwap(a0, a1);
+    cmpSwap(a2, a3);
+    cmpSwap(a0, a2);
+    cmpSwap(a1, a3);
+    cmpSwap(a1, a2);
 
-    shaded(v_x, v_y, v_c) = range(v_c) * ((scaled(v_x, v_y, v_c) - bl(v_c)) * shadingMapArranged(v_x, v_y, v_c));
+    Expr threshold = 4*((cast<int32_t>(a1) + cast<int32_t>(a2)) / 2) / 2;
+
+    shaded(v_x, v_y, v_c) = cast<uint16_t>( clamp( clamp(cast<int32_t>(bayerInput(v_x, v_y, v_c)), 0, threshold) * shadingMapArranged(v_x, v_y, v_c) + 0.5f, 0, range) );
     
-    clamped(v_x, v_y, v_c) = cast<uint16_t>(clamp(0.5f + bl(v_c) + shaded(v_x, v_y, v_c), 0, expandedRange));
-
     output(v_x, v_y) =
         select(v_y % 2 == 0,
-               select(v_x % 2 == 0, clamped(v_x/2, v_y/2, 0), clamped(v_x/2, v_y/2, 1)),
-               select(v_x % 2 == 0, clamped(v_x/2, v_y/2, 2), clamped(v_x/2, v_y/2, 3)));
+               select(v_x % 2 == 0, shaded(v_x/2, v_y/2, 0), shaded(v_x/2, v_y/2, 1)),
+               select(v_x % 2 == 0, shaded(v_x/2, v_y/2, 2), shaded(v_x/2, v_y/2, 3)));
 
     output.compute_root()
         .parallel(v_y)
@@ -3997,6 +4088,7 @@ HALIDE_REGISTER_GENERATOR(MeasureNoiseGenerator, measure_noise_generator)
 HALIDE_REGISTER_GENERATOR(DeinterleaveRawGenerator, deinterleave_raw_generator)
 HALIDE_REGISTER_GENERATOR(PostProcessGenerator, postprocess_generator)
 HALIDE_REGISTER_GENERATOR(FastPreviewGenerator, fast_preview_generator)
+HALIDE_REGISTER_GENERATOR(FastPreviewGenerator2, fast_preview_generator2)
 HALIDE_REGISTER_GENERATOR(GuidedFilter, guided_filter_generator)
 HALIDE_REGISTER_GENERATOR(Demosaic, demosaic_generator)
 HALIDE_REGISTER_GENERATOR(TonemapGenerator, tonemap_generator)

@@ -58,6 +58,12 @@ namespace motioncam {
                                                                   const int sy,
                                                                   const RawCameraMetadata& cameraMetadata);
 
+        static Halide::Runtime::Buffer<uint8_t> createFastPreview(std::vector<Halide::Runtime::Buffer<uint16_t>>& inputBuffers,
+                                                                  const int sx,
+                                                                  const int sy,
+                                                                  const RawImageMetadata& metadata,
+                                                                  const RawCameraMetadata& cameraMetadata);
+
         static Halide::Runtime::Buffer<uint8_t> generateStats(const RawImageBuffer& rawBuffer,
                                                               const int sx,
                                                               const int sy,

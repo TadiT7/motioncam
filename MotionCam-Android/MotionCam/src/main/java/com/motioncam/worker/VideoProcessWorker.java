@@ -41,7 +41,7 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
     public static final String INPUT_VIDEO_URI_KEY = "input_video_uri";
     public static final String INPUT_AUDIO_URI_KEY = "input_audio_uri";
     public static final String INPUT_DELETE_AFTER_EXPORT_KEY = "delete_after_export";
-
+    public static final String INPUT_CORRECT_VIGNETTE_KEY = "correct_vignette";
     public static final String INPUT_NUM_FRAMES_TO_MERGE = "num_frames_to_merge";
 
     public static final String OUTPUT_URI_KEY = "output_uri";
@@ -74,7 +74,7 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         }
     }
 
-    private void processVideo(List<Uri> inputUris, int numFramesToMerge) throws IOException {
+    private void processVideo(List<Uri> inputUris, int numFramesToMerge, boolean correctVignette) throws IOException {
         mInputUris = inputUris;
 
         ContentResolver resolver = getApplicationContext().getContentResolver();
@@ -108,7 +108,7 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
 
         final int[] finalFds = fds.stream().mapToInt(i -> i).toArray();
 
-        mNativeProcessor.processRawVideo(finalFds, numFramesToMerge, this);
+        mNativeProcessor.processRawVideo(finalFds, numFramesToMerge, correctVignette, this);
     }
 
     private boolean init() {
@@ -158,7 +158,9 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         Log.d(TAG, "Starting video worker");
 
         Data inputData = getInputData();
+
         int numFramesToMerge = inputData.getInt(INPUT_NUM_FRAMES_TO_MERGE, 0);
+        boolean correctVignette = inputData.getBoolean(INPUT_NUM_FRAMES_TO_MERGE, true);
 
         String name = inputData.getString(INPUT_NAME_KEY);
         String inputAudioUriString = inputData.getString(INPUT_AUDIO_URI_KEY);
@@ -215,7 +217,7 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
 
             try {
                 Log.i(TAG, "Processing video segments " + TextUtils.join(",", inputVideoUriString));
-                processVideo(videoUris, numFramesToMerge);
+                processVideo(videoUris, numFramesToMerge, correctVignette);
             }
             catch (Exception e) {
                 Log.e(TAG, "Error while processing video segments", e);

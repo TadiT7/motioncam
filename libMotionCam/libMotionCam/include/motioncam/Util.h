@@ -11,8 +11,16 @@
 namespace motioncam {
     struct RawImageMetadata;
     struct RawCameraMetadata;
+    struct RawImageBuffer;
+    class RawContainer;
 
     namespace util {
+        struct ContainerFrame {
+            std::string frameName;
+            int64_t timestamp;
+            size_t containerIndex;
+        };
+
         class CloseableFd {
         public:
             CloseableFd(const int fd);
@@ -95,6 +103,17 @@ namespace motioncam {
         int GetOptionalSetting(const json11::Json& json, const std::string& key, const int defaultValue);
         double GetOptionalSetting(const json11::Json& json, const std::string& key, const double defaultValue);
         bool GetOptionalSetting(const json11::Json& json, const std::string& key, const bool defaultValue);
+    
+        void GetNearestBuffers(
+            const std::vector<std::unique_ptr<RawContainer>>& containers,
+            const std::vector<ContainerFrame>& orderedFrames,
+            const int startIdx,
+            const int numBuffers,
+            std::vector<std::shared_ptr<RawImageBuffer>>& outNearestBuffers);
+    
+        void GetOrderedFrames(
+            const std::vector<std::unique_ptr<RawContainer>>& containers,
+            std::vector<ContainerFrame>& outOrderedFrames);
     }
 }
 

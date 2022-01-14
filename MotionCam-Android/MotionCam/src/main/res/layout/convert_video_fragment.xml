@@ -29,6 +29,7 @@
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/fileList"
+            android:background="@color/black"
             android:layout_weight="1"
             android:padding="10dp"
             android:layout_width="match_parent"
@@ -39,7 +40,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:padding="10dp"
-            android:background="@color/black"
             android:orientation="vertical">
 
             <LinearLayout
@@ -49,19 +49,22 @@
 
                 <CheckBox
                     android:id="@+id/deleteAfterExport"
-                    android:layout_width="0dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:textColor="@color/white"
+                    android:layout_weight="1"
                     android:textAppearance="@style/MotionCam.TextAppearance.Small"
                     android:text="@string/delete_after_export"/>
 
-                <Button
-                    android:id="@+id/setExportFolderBtn"
+                <CheckBox
+                    android:id="@+id/correctVignette"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/set_export_folder"
-                    android:backgroundTint="@color/acceptAction"/>
+                    android:textColor="@color/white"
+                    android:layout_weight="1"
+                    android:textAppearance="@style/MotionCam.TextAppearance.Small"
+                    android:text="@string/correct_vignette"/>
+
             </LinearLayout>
 
             <TextView
@@ -99,6 +102,14 @@
                     android:tickMark="@drawable/seekbar_tick_mark"/>
 
             </LinearLayout>
+
+            <Button
+                android:id="@+id/setExportFolderBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/set_export_folder"
+                android:backgroundTint="@color/acceptAction"/>
 
             <TextView
                 android:layout_width="match_parent"

@@ -56,6 +56,8 @@
 		4521E0452732E69900DEBD25 /* preview_reverse_landscape8.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFFF2732E69700DEBD25 /* preview_reverse_landscape8.h */; };
 		4521E0462732E69900DEBD25 /* preview_reverse_portrait2.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521E0002732E69700DEBD25 /* preview_reverse_portrait2.h */; };
 		4521E0482732E69900DEBD25 /* preview_reverse_landscape4.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521E0022732E69700DEBD25 /* preview_reverse_landscape4.a */; };
+		45448525278ED44D0034AD17 /* fast_preview2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45448523278ED44D0034AD17 /* fast_preview2.a */; };
+		45448526278ED44D0034AD17 /* fast_preview2.h in Headers */ = {isa = PBXBuildFile; fileRef = 45448524278ED44D0034AD17 /* fast_preview2.h */; };
 		455C31342775E70D006F41A7 /* generate_stats.h in Headers */ = {isa = PBXBuildFile; fileRef = 455C31322775E70D006F41A7 /* generate_stats.h */; };
 		455C31352775E70D006F41A7 /* generate_stats.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 455C31332775E70D006F41A7 /* generate_stats.a */; };
 		45684CB52720AC24004E7A12 /* CameraPreview.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45A340A1260B887700405A85 /* CameraPreview.cpp */; };
@@ -274,6 +276,8 @@
 		452B6CC126A02FD100992FB4 /* BlueNoiseLUT.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BlueNoiseLUT.h; sourceTree = "<group>"; };
 		453ACCA120E431320083620E /* OpenCL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenCL.framework; path = System/Library/Frameworks/OpenCL.framework; sourceTree = SDKROOT; };
 		4541C94D27031D610067BED9 /* Lock.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Lock.h; sourceTree = "<group>"; };
+		45448523278ED44D0034AD17 /* fast_preview2.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = fast_preview2.a; sourceTree = "<group>"; };
+		45448524278ED44D0034AD17 /* fast_preview2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fast_preview2.h; sourceTree = "<group>"; };
 		4550698226EB838C00ADBD75 /* libdlib.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libdlib.dylib; path = ../../../../../usr/local/lib/libdlib.dylib; sourceTree = "<group>"; };
 		45565E2E246592590021A442 /* RawContainer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RawContainer.cpp; sourceTree = "<group>"; };
 		45565E2F246592590021A442 /* RawContainer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RawContainer.h; sourceTree = "<group>"; };
@@ -605,6 +609,7 @@
 				4521E03B2732E69900DEBD25 /* preview_reverse_landscape8.a in Frameworks */,
 				4521E0482732E69900DEBD25 /* preview_reverse_landscape4.a in Frameworks */,
 				4576A647273E910400657DFC /* fuse_denoise_5x5.a in Frameworks */,
+				45448525278ED44D0034AD17 /* fast_preview2.a in Frameworks */,
 				4521E01C2732E69800DEBD25 /* postprocess.a in Frameworks */,
 				45DFA09B276FE7A80068AFA6 /* camera_video_preview2_raw12.a in Frameworks */,
 				4521E02D2732E69900DEBD25 /* inverse_transform.a in Frameworks */,
@@ -933,6 +938,8 @@
 				4521DFF92732E69600DEBD25 /* deinterleave_raw.h */,
 				4521DFF42732E69500DEBD25 /* fast_preview.a */,
 				4521DFF12732E69400DEBD25 /* fast_preview.h */,
+				45448523278ED44D0034AD17 /* fast_preview2.a */,
+				45448524278ED44D0034AD17 /* fast_preview2.h */,
 				4521DFFA2732E69600DEBD25 /* forward_transform.a */,
 				4521DFF72732E69600DEBD25 /* forward_transform.h */,
 				4576A642273E910300657DFC /* fuse_denoise_3x3.a */,
@@ -1192,6 +1199,7 @@
 				4521E0442732E69900DEBD25 /* fuse_image.h in Headers */,
 				45DFA080276FE7A80068AFA6 /* camera_video_preview2_raw12.h in Headers */,
 				4521E0212732E69800DEBD25 /* preview_reverse_landscape4.h in Headers */,
+				45448526278ED44D0034AD17 /* fast_preview2.h in Headers */,
 				4576A6542740582300657DFC /* fuse_denoise_7x7.h in Headers */,
 				4576A650273EB24800657DFC /* hdr_mask.h in Headers */,
 				45DFA083276FE7A80068AFA6 /* camera_preview2_raw10.h in Headers */,

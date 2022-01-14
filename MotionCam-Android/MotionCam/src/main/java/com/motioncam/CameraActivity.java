@@ -2050,8 +2050,8 @@ public class CameraActivity extends AppCompatActivity implements
         Size captureOutputSize = mNativeCamera.getRawConfigurationOutput(mSelectedCamera);
 
         // Only doing 4K
-        int cropWidth = Math.round(100 * (1.0f - (3840.0f / captureOutputSize.getWidth())));
-        int cropHeight = Math.round(100 * (1.0f - (2160.0f / captureOutputSize.getHeight())));
+        int cropWidth = (int) Math.floor(100.0f - (Math.ceil(3840.0f / captureOutputSize.getWidth() * 100.0f)));
+        int cropHeight = (int) Math.floor(100.0f - (Math.ceil(2160.0f / captureOutputSize.getHeight() * 100.0f)));
 
         if(cropWidth < 0 || cropHeight < 0)
             return;

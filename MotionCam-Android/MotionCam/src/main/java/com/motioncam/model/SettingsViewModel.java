@@ -44,6 +44,7 @@ public class SettingsViewModel extends ViewModel {
     public static final String PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI_2        = "raw_video_temp_output_uri_2";
     public static final String PREFS_KEY_RAW_VIDEO_EXPORT_URI               = "raw_video_output_uri";
     public static final String PREFS_KEY_RAW_VIDEO_DELETE_AFTER_EXPORT      = "raw_video_delete_after_export";
+    public static final String PREFS_KEY_RAW_VIDEO_CORRECT_VIGNETTE         = "raw_video_correct_vignette";
     public static final String PREFS_KEY_RAW_VIDEO_MERGE_FRAMES             = "raw_video_merge_frames";
 
     public static final String PREFS_KEY_UI_CAMERA_STARTUP_USE_USER_EXPOSURE    = "ui_camera_startup_use_user_exposure";

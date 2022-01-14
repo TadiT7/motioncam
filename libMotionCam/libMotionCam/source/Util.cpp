@@ -1,6 +1,7 @@
 #include "motioncam/Util.h"
 #include "motioncam/Exceptions.h"
 #include "motioncam/RawImageMetadata.h"
+#include "motioncam/RawContainer.h"
 
 #include <fstream>
 #include <zstd.h>
@@ -489,18 +490,46 @@ namespace motioncam {
             
             // Create lens shading map for each channel
             if(saveShadingMap) {
+                // Rearrange the shading map channels to match the sensor layout
+                auto shadingMap = imageMetadata.lensShadingMap;
+                
+                switch(cameraMetadata.sensorArrangment) {
+                    case ColorFilterArrangment::GRBG:
+                        shadingMap[0] = imageMetadata.lensShadingMap[1];
+                        shadingMap[1] = imageMetadata.lensShadingMap[0];
+                        shadingMap[2] = imageMetadata.lensShadingMap[3];
+                        shadingMap[3] = imageMetadata.lensShadingMap[2];
+                        break;
+
+                    case ColorFilterArrangment::BGGR:
+                        std::swap(shadingMap[0], shadingMap[3]);
+                        break;
+                        
+                    case ColorFilterArrangment::GBRG:
+                        shadingMap[0] = imageMetadata.lensShadingMap[2];
+                        shadingMap[1] = imageMetadata.lensShadingMap[0];
+                        shadingMap[2] = imageMetadata.lensShadingMap[3];
+                        shadingMap[3] = imageMetadata.lensShadingMap[1];
+                        break;
+                        
+                    default:
+                    case ColorFilterArrangment::RGGB:
+                        break;
+                }
+                
                 for(int c = 0; c < 4; c++) {
-                    dng_point channelGainMapPoints(imageMetadata.lensShadingMap[c].rows, imageMetadata.lensShadingMap[c].cols);
+                    dng_point channelGainMapPoints(shadingMap[c].rows, shadingMap[c].cols);
 
                     AutoPtr<dng_gain_map> gainMap(new dng_gain_map(host.Allocator(),
                                                                    channelGainMapPoints,
-                                                                   dng_point_real64(1.0 / (imageMetadata.lensShadingMap[c].rows), 1.0 / (imageMetadata.lensShadingMap[c].cols)),
+                                                                   dng_point_real64(1.0 / (shadingMap[c].rows),
+                                                                                    1.0 / (shadingMap[c].cols)),
                                                                    dng_point_real64(0, 0),
                                                                    1));
 
-                    for(int y = 0; y < imageMetadata.lensShadingMap[c].rows; y++) {
-                        for(int x = 0; x < imageMetadata.lensShadingMap[c].cols; x++) {
-                            gainMap->Entry(y, x, 0) = imageMetadata.lensShadingMap[c].at<float>(y, x);
+                    for(int y = 0; y < shadingMap[c].rows; y++) {
+                        for(int x = 0; x < shadingMap[c].cols; x++) {
+                            gainMap->Entry(y, x, 0) = shadingMap[c].at<float>(y, x);
                         }
                     }
 
@@ -543,17 +572,17 @@ namespace motioncam {
                     phase = 0;
                     break;
 
-                default:
-                case ColorFilterArrangment::RGGB:
-                    phase = 1;
-                    break;
-
                 case ColorFilterArrangment::BGGR:
                     phase = 2;
                     break;
                     
                 case ColorFilterArrangment::GBRG:
                     phase = 3;
+                    break;
+                    
+                default:
+                case ColorFilterArrangment::RGGB:
+                    phase = 1;
                     break;
             }
             
@@ -571,7 +600,6 @@ namespace motioncam {
             negative->SetDefaultScale(dng_urational(1,1), dng_urational(1,1));
             
             negative->SetDefaultCropSize(width, height);
-            negative->SetNoiseReductionApplied(dng_urational(0,0));
             negative->SetCameraNeutral(dng_vector_3(imageMetadata.asShot[0], imageMetadata.asShot[1], imageMetadata.asShot[2]));
 
             // Set metadata
@@ -858,6 +886,78 @@ namespace motioncam {
             }
 
             return json[key].string_value();
+        }
+    
+        void GetNearestBuffers(
+                const std::vector<std::unique_ptr<RawContainer>>& containers,
+                const std::vector<ContainerFrame>& orderedFrames,
+                const int startIdx,
+                const int numBuffers,
+                std::vector<std::shared_ptr<RawImageBuffer>>& outNearestBuffers)
+        {
+            int leftOffset = -1;
+            int rightOffset = 1;
+
+            // Get the nearest frames
+            outNearestBuffers.clear();
+
+            while(true) {
+                if(outNearestBuffers.size() >= numBuffers)
+                    break;
+
+                if(startIdx + leftOffset >= 0) {
+                    int leftIndex = startIdx + leftOffset;
+
+                    auto& container = containers[orderedFrames[leftIndex].containerIndex];
+                    auto left = container->loadFrame(orderedFrames[leftIndex].frameName);
+
+                    if(!left) {
+                        left = nullptr;
+                    }
+
+                    outNearestBuffers.push_back(left);
+
+                    leftOffset--;
+                }
+
+                if(startIdx + rightOffset < orderedFrames.size()) {
+                    int rightIndex = startIdx + rightOffset;
+
+                    auto& container = containers[orderedFrames[rightIndex].containerIndex];
+                    auto right = container->loadFrame(orderedFrames[rightIndex].frameName);
+
+                    if(!right)
+                        right = nullptr;
+
+                    outNearestBuffers.push_back(right);
+
+                    rightOffset++;
+                }
+
+                if(outNearestBuffers.size() >= numBuffers)
+                    break;
+
+                if(startIdx + leftOffset < 0 && startIdx + rightOffset >= orderedFrames.size())
+                    break;
+            }
+        }
+
+        void GetOrderedFrames(const std::vector<std::unique_ptr<RawContainer>>& containers,
+                              std::vector<ContainerFrame>& outOrderedFrames)
+        {
+            // Get a list of all frames, ordered by timestamp
+            for(size_t i = 0; i < containers.size(); i++) {
+                auto& container = containers[i];
+                
+                for(auto& frameName : container->getFrames()) {
+                    auto frame = container->getFrame(frameName);
+                    outOrderedFrames.push_back({ frameName, frame->metadata.timestampNs, i} );
+                }
+            }
+            
+            std::sort(outOrderedFrames.begin(), outOrderedFrames.end(), [](ContainerFrame& a, ContainerFrame& b) {
+                return a.timestamp < b.timestamp;
+            });
         }
     }
 }

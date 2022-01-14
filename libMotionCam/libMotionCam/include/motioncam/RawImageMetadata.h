@@ -238,6 +238,9 @@ namespace motioncam {
             pixelFormat(PixelFormat::RAW10),
             width(0),
             height(0),
+            originalWidth(0),
+            originalHeight(0),
+            isBinned(false),
             rowStride(0),
             isCompressed(false),
             compressionType(CompressionType::UNCOMPRESSED),
@@ -250,6 +253,9 @@ namespace motioncam {
             pixelFormat(PixelFormat::RAW10),
             width(0),
             height(0),
+            originalWidth(0),
+            originalHeight(0),
+            isBinned(false),
             rowStride(0),
             isCompressed(false),
             compressionType(CompressionType::UNCOMPRESSED),
@@ -262,6 +268,9 @@ namespace motioncam {
             pixelFormat(other.pixelFormat),
             width(other.width),
             height(other.height),
+            originalWidth(other.width),
+            originalHeight(other.height),
+            isBinned(other.isBinned),
             rowStride(other.rowStride),
             isCompressed(other.isCompressed),
             compressionType(other.compressionType),
@@ -276,6 +285,9 @@ namespace motioncam {
                 pixelFormat(other.pixelFormat),
                 width(other.width),
                 height(other.height),
+                originalWidth(other.width),
+                originalHeight(other.height),
+                isBinned(other.isBinned),
                 rowStride(other.rowStride),
                 isCompressed(other.isCompressed),
                 compressionType(other.compressionType),
@@ -289,6 +301,9 @@ namespace motioncam {
             pixelFormat = obj.pixelFormat;
             width = obj.width;
             height = obj.height;
+            originalWidth = obj.originalWidth;
+            originalHeight = obj.originalHeight;
+            isBinned = obj.isBinned;
             rowStride = obj.rowStride;
             isCompressed = obj.isCompressed;
             compressionType = obj.compressionType;
@@ -302,6 +317,9 @@ namespace motioncam {
             pixelFormat = obj.pixelFormat;
             width = obj.width;
             height = obj.height;
+            originalWidth = obj.originalWidth;
+            originalHeight = obj.originalHeight;
+            isBinned = obj.isBinned;
             rowStride = obj.rowStride;
             isCompressed = obj.isCompressed;
             compressionType = obj.compressionType;
@@ -313,6 +331,9 @@ namespace motioncam {
         PixelFormat pixelFormat;
         int32_t width;
         int32_t height;
+        int32_t originalWidth;
+        int32_t originalHeight;
+        bool isBinned;
         int32_t rowStride;
         bool isCompressed;
         CompressionType compressionType;

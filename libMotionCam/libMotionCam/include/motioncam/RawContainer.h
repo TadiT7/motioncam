@@ -57,11 +57,14 @@ namespace motioncam {
     private:
         void initialise(const std::string& inputPath);
         void initialise(const int fd);
+        void ensureValid();
+        
         void loadFromBin(FILE* file);
         void loadFromZip(std::unique_ptr<util::ZipReader> zipReader);
         
         void generateContainerMetadata(json11::Json::object& metadataJson);
         void loadContainerMetadata(const json11::Json& metadata);
+        std::shared_ptr<RawImageBuffer> loadFrameMetadata(const json11::Json& obj);
 
         static std::string toString(ColorFilterArrangment sensorArrangment);
         static std::string toString(PixelFormat format);
@@ -71,7 +74,6 @@ namespace motioncam {
         static cv::Vec3f toVec3f(const std::vector<json11::Json>& array);
         static json11::Json::array toJsonArray(cv::Mat m);
 
-        static std::shared_ptr<RawImageBuffer> loadFrameMetadata(const json11::Json& obj);
         static void generateMetadata(const RawImageBuffer& frame, json11::Json::object& metadata, const std::string& filename);
 
     private:
@@ -87,6 +89,7 @@ namespace motioncam {
         int mNumSegments;
         std::vector<std::string> mFrames;
         std::map<std::string, std::shared_ptr<RawImageBuffer>> mFrameBuffers;
+        std::vector<cv::Mat> mShadingMap;
     };
 }
 

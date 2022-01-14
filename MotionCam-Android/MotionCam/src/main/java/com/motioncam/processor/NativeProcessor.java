@@ -15,10 +15,10 @@ public class NativeProcessor {
         ProcessFile(inputPath, outputPath, listener);
     }
 
-    public void processRawVideo(int fds[], int numFramesToMerge, NativeDngConverterListener listener) {
+    public void processRawVideo(int fds[], int numFramesToMerge, boolean correctVignette, NativeDngConverterListener listener) {
         Objects.requireNonNull(fds);
 
-        ProcessRawVideo(fds, numFramesToMerge, listener);
+        ProcessRawVideo(fds, numFramesToMerge, correctVignette, listener);
     }
 
     public ContainerMetadata getRawVideoMetadata(int fds[]) {
@@ -34,7 +34,7 @@ public class NativeProcessor {
     native boolean ProcessInMemory(String outputPath, NativeProcessorProgressListener progressListener);
     native boolean ProcessFile(String inputPath, String outputPath, NativeProcessorProgressListener progressListener);
 
-    native boolean ProcessRawVideo(int fds[], int numFramesToMerge, NativeDngConverterListener progressListener);
+    native boolean ProcessRawVideo(int fds[], int numFramesToMerge, boolean correctVignette, NativeDngConverterListener progressListener);
     native ContainerMetadata GetRawVideoMetadata(int fds[]);
     native boolean GenerateRawVideoPreview(int fd, int numPreviews, NativeBitmapListener listener);
 

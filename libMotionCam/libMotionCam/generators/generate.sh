@@ -87,6 +87,9 @@ function build_postprocess() {
 	echo "[$ARCH] Building fast_preview_generator"
 	./tmp/postprocess_generator -g fast_preview_generator -f fast_preview -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS}
 
+	echo "[$ARCH] Building fast_preview_generator2"
+	./tmp/postprocess_generator -g fast_preview_generator2 -f fast_preview2 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS}
+
 	echo "[$ARCH] Building preview_generator2 rotation=0"
 	./tmp/postprocess_generator -g preview_generator -f preview_landscape2 -e static_library,h -o ../halide/${ARCH} target=${TARGET}-${FLAGS} rotation=0 tonemap_levels=8 downscale_factor=2 enable_sharpen=true pop_radius=7
 

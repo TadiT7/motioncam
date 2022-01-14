@@ -783,6 +783,7 @@ namespace motioncam {
 
         buffer.width = croppedWidth / 2;
         buffer.height = croppedHeight / 2;
+        buffer.isBinned = true;
         
         if(mEnableCompression) {
             buffer.pixelFormat = PixelFormat::RAW16;

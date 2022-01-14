@@ -97,6 +97,7 @@ JNIEXPORT jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_ProcessR
         jobject thiz,
         jintArray jfds,
         jint numFramesToMerge,
+        jboolean correctVignette,
         jobject progressListener)
 {
     // Process the video
@@ -111,8 +112,9 @@ JNIEXPORT jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_ProcessR
             fds.push_back(fdsArray[i]);
 
         motioncam::MotionCam m;
+        const std::vector<float> weights = { 0, 0, 0, 0 };
 
-        m.convertVideoToDNG(fds, listener, 2, numFramesToMerge);
+        m.convertVideoToDNG(fds, listener, weights, 2, numFramesToMerge, true, correctVignette);
     }
     catch(std::runtime_error& e) {
         jclass exClass = env->FindClass("java/lang/RuntimeException");

@@ -154,4 +154,5 @@
     <string name="raw_video_compression_desc">Compression can improve the output frame rate at the cost of extra CPU usage.</string>
     <string name="number_of_compression_threads">Number of Compression Threads</string>
     <string name="clear">Clear</string>
+    <string name="correct_vignette">Correct vignette</string>
 </resources>

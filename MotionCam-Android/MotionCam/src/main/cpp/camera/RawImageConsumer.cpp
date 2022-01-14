@@ -759,6 +759,9 @@ namespace motioncam {
 
                 dst->width                  = width;
                 dst->height                 = height;
+                dst->originalWidth          = width;
+                dst->originalHeight         = height;
+                dst->isBinned               = false;
                 dst->rowStride              = rowStride;
                 dst->metadata.timestampNs   = timestamp;
 
