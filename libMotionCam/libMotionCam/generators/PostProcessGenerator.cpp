@@ -3747,10 +3747,10 @@ void BuildBayerGenerator2::generate() {
     rearrange(shadingMapArranged, shadingMap0, shadingMap1, shadingMap2, shadingMap3, sensorArrangement);
 
     bayerInput(v_x, v_y, v_c) = mux(v_c, {
-        in0(v_x, v_y),
-        in1(v_x, v_y),
-        in2(v_x, v_y),
-        in3(v_x, v_y)
+        in0(clamp(v_x, 0, in0.width() - 1), clamp(v_y, 0, in0.height() - 1)),
+        in1(clamp(v_x, 0, in1.width() - 1), clamp(v_y, 0, in1.height() - 1)),
+        in2(clamp(v_x, 0, in2.width() - 1), clamp(v_y, 0, in2.height() - 1)),
+        in3(clamp(v_x, 0, in3.width() - 1), clamp(v_y, 0, in3.height() - 1))
     });
 
     // Suppress hot pixels
