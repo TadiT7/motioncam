@@ -169,8 +169,8 @@ namespace motioncam {
         if(startIdx > endIdx)
             startIdx = endIdx;
 
-        startIdx = std::min((int)orderedFrames.size() - 1, std::max(0, fromFrameNumber));
-        endIdx = std::min((int)orderedFrames.size() - 1, std::max(0, toFrameNumber));
+        startIdx = std::min((int)orderedFrames.size() - 1, std::max(0, startIdx));
+        endIdx = std::min((int)orderedFrames.size() - 1, std::max(0, endIdx));
                 
         for(int i = startIdx; i <= endIdx; i++) {
             auto& container = containers[orderedFrames[i].containerIndex];

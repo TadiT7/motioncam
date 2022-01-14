@@ -160,7 +160,7 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         Data inputData = getInputData();
 
         int numFramesToMerge = inputData.getInt(INPUT_NUM_FRAMES_TO_MERGE, 0);
-        boolean correctVignette = inputData.getBoolean(INPUT_NUM_FRAMES_TO_MERGE, true);
+        boolean correctVignette = inputData.getBoolean(INPUT_CORRECT_VIGNETTE_KEY, true);
 
         String name = inputData.getString(INPUT_NAME_KEY);
         String inputAudioUriString = inputData.getString(INPUT_AUDIO_URI_KEY);
