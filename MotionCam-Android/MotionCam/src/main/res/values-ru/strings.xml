@@ -153,4 +153,5 @@
     <string name="raw_video_compression_desc">Сжатие может повысить итоговую частоту кадров за счет дополнительной нагрузки на CPU.</string>
     <string name="number_of_compression_threads">Количество потоков сжатия</string>
     <string name="clear">Очистить</string>
+    <string name="correct_vignette">Исправить виньетку</string>
 </resources>
