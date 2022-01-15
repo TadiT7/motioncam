@@ -531,6 +531,9 @@ namespace motioncam {
                 mCameraMetadata.focalLengths.push_back(metadata["focalLengths"].array_items().at(i).number_value());
         }
         
+        // Lens shading map
+        mShadingMap = getLensShadingMap(metadata);
+        
         // Add the frames
         Json frames = metadata["frames"];
         if(!frames.is_array()) {
@@ -727,6 +730,54 @@ namespace motioncam {
             mFrameBuffers.erase(bufferIt);
     }
 
+    std::vector<cv::Mat> RawContainer::getLensShadingMap(const json11::Json& obj) {
+        std::vector<cv::Mat> lensShadingMap;
+        
+        // Lens shading maps
+        int lenShadingMapWidth  = util::GetOptionalSetting(obj, "lensShadingMapWidth", 0);
+        int lenShadingMapHeight = util::GetOptionalSetting(obj, "lensShadingMapHeight", 0);
+
+        // Make sure there are a reasonable number of points available
+        if(lenShadingMapHeight > 4 && lenShadingMapWidth > 4) {
+            for(int i = 0; i < 4; i++) {
+                cv::Mat m(lenShadingMapHeight, lenShadingMapWidth, CV_32F, cv::Scalar(1));
+                lensShadingMap.push_back(m);
+            }
+
+            // Load points for shading map
+            auto shadingMapPts = (obj)["lensShadingMap"].array_items();
+
+            if(shadingMapPts.size() == 4) {
+                for(int i = 0; i < 4; i++) {
+                    auto pts = shadingMapPts[i].array_items();
+
+                    // Check number of points matches
+                    if(pts.size() == lenShadingMapWidth * lenShadingMapHeight) {
+                        for(int y = 0; y < lenShadingMapHeight; y++) {
+                            for(int x = 0; x < lenShadingMapWidth; x++) {
+                                lensShadingMap[i].at<float>(y, x) = pts[y * lenShadingMapWidth + x].number_value();
+                            }
+                        }
+                    }
+                }
+            }
+            else {
+                if(shadingMapPts.size() == lenShadingMapWidth * lenShadingMapHeight * 4) {
+                    for(int y = 0; y < lenShadingMapHeight * 4; y+=4) {
+                        for(int x = 0; x < lenShadingMapWidth * 4; x+=4) {
+                            lensShadingMap[0].at<float>(y/4, x/4) = shadingMapPts[y * lenShadingMapWidth + x + 0].number_value();
+                            lensShadingMap[1].at<float>(y/4, x/4) = shadingMapPts[y * lenShadingMapWidth + x + 1].number_value();
+                            lensShadingMap[2].at<float>(y/4, x/4) = shadingMapPts[y * lenShadingMapWidth + x + 2].number_value();
+                            lensShadingMap[3].at<float>(y/4, x/4) = shadingMapPts[y * lenShadingMapWidth + x + 3].number_value();
+                        }
+                    }
+                }
+            }
+        }
+        
+        return lensShadingMap;
+    }
+
     shared_ptr<RawImageBuffer> RawContainer::loadFrameMetadata(const json11::Json& obj) {
         shared_ptr<RawImageBuffer> buffer = std::make_shared<RawImageBuffer>();
         
@@ -800,47 +851,7 @@ namespace motioncam {
   
         // Load shading map if it has been set at the top level
         if(mShadingMap.empty()) {
-            // Lens shading maps
-            int lenShadingMapWidth  = util::GetOptionalSetting(obj, "lensShadingMapWidth", 0);
-            int lenShadingMapHeight = util::GetOptionalSetting(obj, "lensShadingMapHeight", 0);
-
-            // Make sure there are a reasonable number of points available
-            if(lenShadingMapHeight > 4 && lenShadingMapWidth > 4) {
-                for(int i = 0; i < 4; i++) {
-                    cv::Mat m(lenShadingMapHeight, lenShadingMapWidth, CV_32F, cv::Scalar(1));
-                    mShadingMap.push_back(m);
-                }
-
-                // Load points for shading map
-                auto shadingMapPts = (obj)["lensShadingMap"].array_items();
-
-                if(shadingMapPts.size() == 4) {
-                    for(int i = 0; i < 4; i++) {
-                        auto pts = shadingMapPts[i].array_items();
-
-                        // Check number of points matches
-                        if(pts.size() == lenShadingMapWidth * lenShadingMapHeight) {
-                            for(int y = 0; y < lenShadingMapHeight; y++) {
-                                for(int x = 0; x < lenShadingMapWidth; x++) {
-                                    mShadingMap[i].at<float>(y, x) = pts[y * lenShadingMapWidth + x].number_value();
-                                }
-                            }
-                        }
-                    }
-                }
-                else {
-                    if(shadingMapPts.size() == lenShadingMapWidth * lenShadingMapHeight * 4) {
-                        for(int y = 0; y < lenShadingMapHeight * 4; y+=4) {
-                            for(int x = 0; x < lenShadingMapWidth * 4; x+=4) {
-                                mShadingMap[0].at<float>(y/4, x/4) = shadingMapPts[y * lenShadingMapWidth + x + 0].number_value();
-                                mShadingMap[1].at<float>(y/4, x/4) = shadingMapPts[y * lenShadingMapWidth + x + 1].number_value();
-                                mShadingMap[2].at<float>(y/4, x/4) = shadingMapPts[y * lenShadingMapWidth + x + 2].number_value();
-                                mShadingMap[3].at<float>(y/4, x/4) = shadingMapPts[y * lenShadingMapWidth + x + 3].number_value();
-                            }
-                        }
-                    }
-                }
-            }
+            mShadingMap = getLensShadingMap(obj);
         }
                 
         return buffer;

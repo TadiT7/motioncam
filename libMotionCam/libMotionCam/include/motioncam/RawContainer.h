@@ -66,6 +66,8 @@ namespace motioncam {
         void loadContainerMetadata(const json11::Json& metadata);
         std::shared_ptr<RawImageBuffer> loadFrameMetadata(const json11::Json& obj);
 
+        static std::vector<cv::Mat> getLensShadingMap(const json11::Json& obj);
+        
         static std::string toString(ColorFilterArrangment sensorArrangment);
         static std::string toString(PixelFormat format);
         static std::string toString(RawType rawType);
