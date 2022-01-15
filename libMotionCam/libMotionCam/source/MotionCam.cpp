@@ -118,6 +118,27 @@ namespace motioncam {
         convertVideoToDNG(c, progress, denoiseWeights, numThreads, mergeFrames, enableCompression, applyShadingMap, fromFrameNumber, toFrameNumber);
     }
 
+    Halide::Runtime::Buffer<uint16_t> getOutputBuffer(int width, int height, bool hasExtendedEdges) {
+        Halide::Runtime::Buffer<uint16_t> bayerBuffer;
+        
+        if(hasExtendedEdges) {
+            const int T = pow(2, EXTEND_EDGE_AMOUNT);
+
+            const int offsetX = static_cast<int>(T * ceil(width / (double) T) - width);
+            const int offsetY = static_cast<int>(T * ceil(height / (double) T) - height);
+
+            bayerBuffer = Halide::Runtime::Buffer<uint16_t>(width * 2, height * 2);
+            
+            bayerBuffer.translate(0, offsetX);
+            bayerBuffer.translate(1, offsetY);
+        }
+        else {
+            bayerBuffer = Halide::Runtime::Buffer<uint16_t>(width, height);
+        }
+        
+        return bayerBuffer;
+    }
+
     void MotionCam::convertVideoToDNG(std::vector<std::unique_ptr<RawContainer>>& containers,
                                       DngProcessorProgress& progress,
                                       const std::vector<float>& denoiseWeights,
@@ -155,7 +176,6 @@ namespace motioncam {
         RawCameraMetadata metadata = containers[0]->getCameraMetadata();
         
         Halide::Runtime::Buffer<uint16_t> bayerBuffer;
-        bool createdBuffer = false;
         
         int startIdx = fromFrameNumber;
         int endIdx = toFrameNumber;
@@ -204,33 +224,10 @@ namespace motioncam {
 
             std::vector<std::shared_ptr<RawImageBuffer>> nearestBuffers;
             
-            // Convert from RAW10/16 -> bayer image
-            if(!createdBuffer) {
-                const int rawWidth  = frame->width / 2;
-                const int rawHeight = frame->height / 2;
-
-                const int T = pow(2, EXTEND_EDGE_AMOUNT);
-
-                const int offsetX = static_cast<int>(T * ceil(rawWidth / (double) T) - rawWidth);
-                const int offsetY = static_cast<int>(T * ceil(rawHeight / (double) T) - rawHeight);
-
-                bayerBuffer = Halide::Runtime::Buffer<uint16_t>((rawWidth-offsetX)*2, (rawHeight-offsetY)*2);
-                
-                bayerBuffer.translate(0, offsetX);
-                bayerBuffer.translate(1, offsetY);
-                
-                createdBuffer = true;
-            }
-
             if(mergeFrames == 0) {
                 auto data = frame->data->lock(false);
                 auto inputBuffer = Halide::Runtime::Buffer<uint8_t>(data, (int) frame->data->len());
                 
-                if(!createdBuffer) {
-                    bayerBuffer = Halide::Runtime::Buffer<uint16_t>(frame->width , frame->height);
-                    createdBuffer = true;
-                }
-
                 frame->data->unlock();
                
                 // If all denoising is disabled, just build the bayer buffer
@@ -248,6 +245,8 @@ namespace motioncam {
                     
                     metadata.whiteLevel = EXPANDED_RANGE;
 
+                    bayerBuffer = getOutputBuffer(frame->width / 2, frame->height / 2, true);
+
                     build_bayer2(denoiseBuffers[0],
                                  denoiseBuffers[1],
                                  denoiseBuffers[2],
@@ -263,6 +262,8 @@ namespace motioncam {
                                  bayerBuffer);
                 }
                 else {
+                    bayerBuffer = getOutputBuffer(frame->width, frame->height, false);
+                    
                     build_bayer(inputBuffer,
                                 shadingMapBuffer[0],
                                 shadingMapBuffer[1],
@@ -293,6 +294,8 @@ namespace motioncam {
                 
                 metadata.whiteLevel = EXPANDED_RANGE;
 
+                bayerBuffer = getOutputBuffer(frame->width / 2, frame->height / 2, true);
+                
                 build_bayer2(denoiseBuffers[0],
                              denoiseBuffers[1],
                              denoiseBuffers[2],
