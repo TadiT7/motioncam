@@ -407,7 +407,7 @@ namespace motioncam {
         const uint8_t lensShadingMapStats   = ACAMERA_STATISTICS_LENS_SHADING_MAP_MODE_ON;
         const uint8_t lensShadingMapApplied = ACAMERA_SENSOR_INFO_LENS_SHADING_APPLIED_FALSE;
         const uint8_t antiBandingMode       = ACAMERA_CONTROL_AE_ANTIBANDING_MODE_AUTO;
-        const uint8_t noiseReduction        = ACAMERA_NOISE_REDUCTION_MODE_ZERO_SHUTTER_LAG;
+        const uint8_t noiseReduction        = ACAMERA_NOISE_REDUCTION_MODE_FAST;
         const uint8_t edgeMode              = ACAMERA_EDGE_MODE_FAST;
 
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_SHADING_MODE, 1, &shadingMode);
