@@ -31,10 +31,10 @@ namespace motioncam {
         ACTION_SET_MANUAL_EXPOSURE,
         ACTION_SET_EXPOSURE_COMP_VALUE,
         ACTION_SET_FRAME_RATE,
-        ACTION_SET_VIDEO_BIN,
         ACTION_SET_AWB_LOCK,
         ACTION_SET_AE_LOCK,
         ACTION_SET_OIS,
+        ACTION_SET_LENS_APERTURE,
         ACTION_SET_FOCUS_DISTANCE,
         ACTION_SET_FOCUS_FOR_VIDEO,
         ACTION_SET_AUTO_FOCUS,
@@ -316,6 +316,11 @@ namespace motioncam {
     void CameraSession::setFocusForVideo(bool focusForVideo) {
         json11::Json::object data = { { "value", focusForVideo } };
         pushEvent(EventAction::ACTION_SET_FOCUS_FOR_VIDEO, data);
+    }
+
+    void CameraSession::setLensAperture(float lensAperture) {
+        json11::Json::object data = { { "value", lensAperture } };
+        pushEvent(EventAction::ACTION_SET_LENS_APERTURE, data);
     }
 
     void CameraSession::setFocusPoint(float focusX, float focusY, float exposureX, float exposureY) {
@@ -941,6 +946,10 @@ namespace motioncam {
         mCameraStateManager->setFocusForVideo(focusForVideo);
     }
 
+    void CameraSession::doSetLensAperture(float lensAperture) {
+        mCameraStateManager->requestAperture(lensAperture);
+    }
+
     void CameraSession::updateOrientation(ScreenOrientation orientation) {
         mScreenOrientation = orientation;
     }
@@ -1278,6 +1287,12 @@ namespace motioncam {
             case EventAction::ACTION_SET_FOCUS_FOR_VIDEO: {
                 bool value = eventLoopData->data["value"].bool_value();
                 doSetFocusForVideo(value);
+                break;
+            }
+
+            case EventAction::ACTION_SET_LENS_APERTURE: {
+                float value = eventLoopData->data["value"].number_value();
+                doSetLensAperture(value);
                 break;
             }
 

@@ -2073,19 +2073,12 @@ void EnhanceGenerator::generate() {
         Expr j = select(i < 0.0031308f, i * 12.92f, pow(i, 1.0f / 2.4f) * 1.055f - 0.055f);
 
         // Midtones
-        Expr k = pow(j, 1.0f/brightness);
+        Expr k = clamp(pow(j, 1.0f/brightness), 0.0f, 1.0f);
 
         // Contrast
-        Expr K = max(1e-05f, contrast);
-
-        Expr A = K*6.0f;
-        Expr B = K*4.0f;
-
-        Expr m = 1.0f / (1 + exp(B));
-        Expr n = 1.0f / (1 + exp(-A + B)) - m;
-        
-        Expr s = 1.0f / (1.0f + exp(-A*k + B));
-        Expr t = (s - m) / n;
+        Expr c = clamp(contrast, 0.0f, 1.0f) + 1.0f;
+        Expr s = k / max(1e-5f, 1.0f - k);
+        Expr t = 1.0f / (1 + pow(max(1e-5f, s), -c));
 
         // Black/white point
         Expr u = clamp(t - blackPoint, 0.0f, 1.0f) * (1.0f / (1.0f - blackPoint + 1e-5f));
@@ -3973,31 +3966,24 @@ public:
 
     Input<float> weight{"weight"};
 
-    Output<Buffer<uint8_t>> output{"output", 3};
+    Output<Buffer<uint8_t>> whiteLevelClipping{"whiteLevelClipping", 2};
+    Output<Buffer<uint8_t>> blackLevelClipping{"blackLevelClipping", 2};
 
     void generate();
     void apply_auto_schedule(::Halide::Pipeline pipeline, ::Halide::Target target);
 };
 
 void StatsGenerator::generate() {
-    Func bayer{"bayer"};
-    Func linear{"linear"};
-    Func peak{"peak"};
     Func clamped{"clamped"};
-    Func toLinear{"toLinear"};
+    Func bayer{"bayer"};
     Func bl{"bl"};
+    Func peakWhite{"peakWhite"};
+    Func peakBlack{"peakBlack"};
 
     // Deinterleave
     clamped = BoundaryConditions::repeat_edge(input);
 
     deinterleave(bayer, clamped, stride, pixelFormat);
-
-    toLinear(v_c) = select(
-        v_c == 0, 1.0f / cast<float>(whiteLevel - blackLevel[0]),
-        v_c == 1, 1.0f / cast<float>(whiteLevel - blackLevel[1]),
-        v_c == 2, 1.0f / cast<float>(whiteLevel - blackLevel[2]),
-                  1.0f / cast<float>(whiteLevel - blackLevel[3])
-    );
 
     bl(v_c) = mux(v_c, {
         blackLevel[0],
@@ -4006,22 +3992,25 @@ void StatsGenerator::generate() {
         blackLevel[3]
     });
 
-    linear(v_x, v_y, v_c) = (bayer(v_x * sx, v_y * sy, v_c) - bl(v_c)) * toLinear(v_c);
-    peak(v_x, v_y) = max(linear(v_x, v_y, 0), linear(v_x, v_y, 1), linear(v_x, v_y, 2), linear(v_x, v_y, 3)) - 1.0f;
+    Func scaled{"scaled"};
+    Func maxChannel{"maxChannel"};
+    Func minChannel{"minChannel"};
+
+    scaled(v_x, v_y, v_c) = cast<int16_t>(bayer(v_x * sx, v_y * sy, v_c));
+
+    maxChannel(v_x, v_y) = max(scaled(v_x, v_y, 0), scaled(v_x, v_y, 1), scaled(v_x, v_y, 2) , scaled(v_x, v_y, 3));
+    minChannel(v_x, v_y) = min(
+        scaled(v_x, v_y, 0) - bl(0),
+        scaled(v_x, v_y, 1) - bl(1),
+        scaled(v_x, v_y, 2) - bl(2),
+        scaled(v_x, v_y, 3) - bl(3));
     
     // Return in portrait
     Expr X = v_y;
     Expr Y = height - v_x;
 
-    output(v_x, v_y, v_c) =
-        select( v_c == 0, cast<uint8_t>(0),
-                v_c == 1, cast<uint8_t>(0),
-                v_c == 2, cast<uint8_t>(0),
-                saturating_cast<uint8_t>(255.0f * exp(-weight * (peak(X, Y)*peak(X, Y)))));
-
-    output
-        .dim(0).set_stride(4)
-        .dim(2).set_stride(1);
+    whiteLevelClipping(v_x, v_y) = saturating_cast<uint8_t>(255 * cast<uint8_t>(maxChannel(X, Y) >= whiteLevel));
+    blackLevelClipping(v_x, v_y) = saturating_cast<uint8_t>(255 * cast<uint8_t>(minChannel(X, Y) <= 0));
 
     input.set_estimates({ {0, 18000000} });
     width.set_estimate(4000);
@@ -4037,7 +4026,8 @@ void StatsGenerator::generate() {
     sensorArrangement.set_estimate(0);
     pixelFormat.set_estimate(0);
 
-    output.set_estimates({{0, 250}, {0, 150}, {0, 3} } );
+    whiteLevelClipping.set_estimates({{0, 250}, {0, 150} });
+    blackLevelClipping.set_estimates({{0, 250}, {0, 150} });
 
     if(!get_auto_schedule()) {
         apply_auto_schedule(get_pipeline(), get_target());
@@ -4055,29 +4045,48 @@ void StatsGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::Halide::
     Var y_vi("y_vi");
     Var y_vo("y_vo");
 
-    Func output = pipeline.get_func(12);
-    Func peak = pipeline.get_func(11);
+    Func blackLevelClipping = pipeline.get_func(13);
+    Func maxChannel = pipeline.get_func(9);
+    Func minChannel = pipeline.get_func(12);
+    Func whiteLevelClipping = pipeline.get_func(10);
 
     {
-        Var x = output.args()[0];
-        Var y = output.args()[1];
-        Var c = output.args()[2];
-        output
+        Var x = blackLevelClipping.args()[0];
+        Var y = blackLevelClipping.args()[1];
+        blackLevelClipping
             .compute_root()
-            .reorder(y, x, c)
+            .reorder(y, x)
             .split(y, y_vo, y_vi, 32)
             .vectorize(y_vi)
-            .parallel(c)
             .parallel(x);
     }
     {
-        Var x = peak.args()[0];
-        Var y = peak.args()[1];
-        peak
+        Var x = maxChannel.args()[0];
+        Var y = maxChannel.args()[1];
+        maxChannel
+            .compute_root()
+            .split(x, x_vo, x_vi, 16)
+            .vectorize(x_vi)
+            .parallel(y);
+    }
+    {
+        Var x = minChannel.args()[0];
+        Var y = minChannel.args()[1];
+        minChannel
             .compute_root()
             .split(x, x_vo, x_vi, 8)
             .vectorize(x_vi)
             .parallel(y);
+    }
+    {
+        Var x = whiteLevelClipping.args()[0];
+        Var y = whiteLevelClipping.args()[1];
+        whiteLevelClipping
+            .compute_root()
+            .reorder(y, x)
+            .split(y, y_vo, y_vi, 32)
+            .vectorize(y_vi)
+            .parallel(x);
     }
 }
 

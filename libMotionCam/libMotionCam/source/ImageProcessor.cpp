@@ -63,12 +63,12 @@ using std::to_string;
 using std::pair;
 
 static std::vector<std::vector<float>> WEIGHTS = {
-    { 12, 4,   2,   1  },
-    { 8,  4,   2,   1  },
-    { 6,  4,   1,   1  },
-    { 4,  2,   1,   0  },
-    { 2,  1,   0.5, 0  },
-    { 1,  1,   0,   0  }
+    { 12, 4,   2,   1, 1, 1  },
+    { 8,  4,   2,   1, 1, 1  },
+    { 6,  4,   1,   1, 1, 1  },
+    { 4,  2,   1,   0, 0, 0  },
+    { 2,  1,   0.5, 0, 0, 0  },
+    { 1,  1,   0,   0, 0, 0  }
 };
 
 extern "C" int extern_defringe(halide_buffer_t *in, int32_t width, int32_t height, halide_buffer_t *out) {
@@ -591,22 +591,23 @@ namespace motioncam {
         pcsToSrgb.copyTo(outPcsToSrgb);
     }
 
-    Halide::Runtime::Buffer<uint8_t> ImageProcessor::generateStats(const RawImageBuffer& rawBuffer,
-                                                                   const int sx,
-                                                                   const int sy,
-                                                                   const RawCameraMetadata& cameraMetadata)
+    void ImageProcessor::generateStats(const RawImageBuffer& rawBuffer,
+                                       const int sx,
+                                       const int sy,
+                                       const RawCameraMetadata& cameraMetadata,
+                                       Halide::Runtime::Buffer<uint8_t>& whiteLevelClipping,
+                                       Halide::Runtime::Buffer<uint8_t>& blackLevelClipping)
     {
-        //Measure measure("generateStats()");
+        Measure measure("generateStats()");
         
         NativeBufferContext inputBufferContext(*rawBuffer.data, false);
 
-        // Set up rotation based on orientation of image
         int width = rawBuffer.width / 2 / sx; // Divide by 2 because we are not demosaicing the RAW data
         int height = rawBuffer.height / 2 / sy;
         
-        Halide::Runtime::Buffer<uint8_t> outputBuffer =
-            Halide::Runtime::Buffer<uint8_t>::make_interleaved(height, width, 4);
-
+        Halide::Runtime::Buffer<uint8_t> outputWhiteLevelClipping(height, width);
+        Halide::Runtime::Buffer<uint8_t> outputBlackLevelClipping(height, width);
+        
         generate_stats(
             inputBufferContext.getHalideBuffer(),
             rawBuffer.rowStride,
@@ -622,12 +623,11 @@ namespace motioncam {
             cameraMetadata.blackLevel[2],
             cameraMetadata.blackLevel[3],
             16.0f,
-            outputBuffer);
+            outputWhiteLevelClipping,
+            outputBlackLevelClipping);
 
-        outputBuffer.device_sync();
-        outputBuffer.copy_to_host();
-        
-        return outputBuffer;
+        whiteLevelClipping = outputWhiteLevelClipping;
+        blackLevelClipping = outputBlackLevelClipping;
     }
 
     Halide::Runtime::Buffer<uint8_t> ImageProcessor::createFastPreview(const RawImageBuffer& rawBuffer,
@@ -1625,7 +1625,7 @@ namespace motioncam {
         std::vector<float> weights = denoiseWeights;
         
         auto wavelet = createWaveletBuffers(denoiseInput.width(), denoiseInput.height());
-        auto weightsBuffer = Halide::Runtime::Buffer<float>(&weights[0], 4);
+        auto weightsBuffer = Halide::Runtime::Buffer<float>(&weights[0], WAVELET_LEVELS);
 
         for(int c = 0; c < 4; c++) {
             forward_transform(denoiseInput,
@@ -1635,7 +1635,9 @@ namespace motioncam {
                               wavelet[0],
                               wavelet[1],
                               wavelet[2],
-                              wavelet[3]);
+                              wavelet[3],
+                              wavelet[4],
+                              wavelet[5]);
 
             int offset = wavelet[0].stride(2);
 
@@ -1649,6 +1651,8 @@ namespace motioncam {
                               wavelet[1],
                               wavelet[2],
                               wavelet[3],
+                              wavelet[4],
+                              wavelet[5],
                               noiseSigma,
                               false,
                               weightsBuffer,
@@ -1890,7 +1894,7 @@ namespace motioncam {
             weights = WEIGHTS[WEIGHTS.size() - i];
         }
         
-        auto weightsBuffer = Halide::Runtime::Buffer<float>(&weights[0], 4);
+        auto weightsBuffer = Halide::Runtime::Buffer<float>(&weights[0], WAVELET_LEVELS);
 
         for(int c = 0; c < 4; c++) {
             forward_transform(denoiseInput,
@@ -1900,7 +1904,9 @@ namespace motioncam {
                               wavelet[0],
                               wavelet[1],
                               wavelet[2],
-                              wavelet[3]);
+                              wavelet[3],
+                              wavelet[4],
+                              wavelet[5]);
 
             int offset = wavelet[0].stride(2);
 
@@ -1918,6 +1924,8 @@ namespace motioncam {
                               wavelet[1],
                               wavelet[2],
                               wavelet[3],
+                              wavelet[4],
+                              wavelet[5],
                               noiseSigma,
                               false,
                               weightsBuffer,

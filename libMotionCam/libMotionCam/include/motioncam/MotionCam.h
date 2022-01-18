@@ -13,7 +13,7 @@ namespace motioncam {
     struct ContainerFrame;
     struct Impl;
 
-    const std::vector<float> NO_DENOISE_WEIGHTS = { 0, 0, 0, 0 };
+    const std::vector<float> NO_DENOISE_WEIGHTS = { 0, 0, 0, 0, 0, 0 };
 
     class MotionCam {
     public:

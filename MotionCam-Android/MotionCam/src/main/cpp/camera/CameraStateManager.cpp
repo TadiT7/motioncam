@@ -73,7 +73,8 @@ namespace motioncam {
         mAeLock(false),
         mOis(true),
         mFocusDistance(-1),
-        mFocusForVideo(false)
+        mFocusForVideo(false),
+        mRequestedAperture(-1)
     {
     }
 
@@ -86,6 +87,7 @@ namespace motioncam {
         mUserExposureTime = startupSettings.exposureTime;
         mOis = startupSettings.ois;
         mCameraMode = startupSettings.useUserExposureSettings ? CameraMode::MANUAL : CameraMode::AUTO;
+        mRequestedAperture = -1;
 
         triggerAutoFocus();
     }
@@ -156,6 +158,18 @@ namespace motioncam {
         }
         else {
             setNextAction(Action::REQUEST_USER_FOCUS);
+        }
+    }
+
+    void CameraStateManager::requestAperture(float aperture) {
+        LOGD("requestAperture(%.2f)", aperture);
+        mRequestedAperture = aperture;
+
+        if(mState == State::AUTO_FOCUS_ACTIVE) {
+            setAutoFocus();
+        }
+        else if(mState == State::USER_FOCUS_LOCKED) {
+            setUserFocus();
         }
     }
 
@@ -300,6 +314,9 @@ namespace motioncam {
             ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &mUserIso);
             ACaptureRequest_setEntry_i64(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &mUserExposureTime);
             ACaptureRequest_setEntry_i64(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_SENSOR_FRAME_DURATION, 1, &sensorFrameDuration);
+
+            if(mRequestedAperture > 0)
+                ACaptureRequest_setEntry_float(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_LENS_APERTURE, 1, &mRequestedAperture);
 
             LOGD("userIso=%d, userExposure=%.4f", mUserIso, mUserExposureTime/1.0e9f);
         }

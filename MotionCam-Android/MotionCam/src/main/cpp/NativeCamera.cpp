@@ -23,6 +23,10 @@ using namespace motioncam;
 
 static const jlong INVALID_NATIVE_OBJ = -1;
 
+static const int TYPE_RAW_PREVIEW = 0;
+static const int TYPE_WHITE_LEVEL = 1;
+static const int TYPE_BLACK_LEVEL = 2;
+
 namespace {
     std::shared_ptr<NativeRawPreviewListener> gRawPreviewListener = nullptr;
     std::shared_ptr<NativeCameraBridgeListener> gCameraSessionListener = nullptr;
@@ -1249,65 +1253,32 @@ JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_SetVi
     RawBufferManager::get().setVideoBin(bin);
 }
 
-extern "C"
-JNIEXPORT jobject JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GenerateStats(
-        JNIEnv *env, jobject thiz, jlong handle, jobject listener) {
-
-    jobject listenerClass = env->GetObjectClass(listener);
-    if(!listenerClass)
-        return nullptr;
-
-    jmethodID callbackMethod = env->GetMethodID(
-            reinterpret_cast<jclass>(listenerClass), "createBitmap", "(II)Landroid/graphics/Bitmap;");
-
-    if(!callbackMethod)
-        return nullptr;
-
-    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
-    if(!sessionManager) {
-        return nullptr;
-    }
-
-    auto lockedBuffer = RawBufferManager::get().consumeLatestBuffer();
-    if(!lockedBuffer || lockedBuffer->getBuffers().empty())
-        return nullptr;
-
-    auto imageBuffer = lockedBuffer->getBuffers().front();
-    auto cameraId = sessionManager->getSelectedCameraId();
-    auto metadata = sessionManager->getCameraDescription(cameraId)->metadata;
-
-    auto output = ImageProcessor::generateStats(*imageBuffer, 8, 8, metadata);
-
-    jobject dst = env->CallObjectMethod(listener, callbackMethod, output.width(), output.height());
-    if(!dst)
-        return nullptr;
-
-    // Get bitmap info
+void copyToAlphaBitmap(JNIEnv* env, const Halide::Runtime::Buffer<uint8_t>& src, jobject& dst) {
     AndroidBitmapInfo bitmapInfo;
 
     int result = AndroidBitmap_getInfo(env, dst, &bitmapInfo);
 
     if(result != ANDROID_BITMAP_RESULT_SUCCESS) {
         LOGE("AndroidBitmap_getInfo() failed, error=%d", result);
-        return nullptr;
+        return;
     }
 
-    if( bitmapInfo.format != ANDROID_BITMAP_FORMAT_RGBA_8888    ||
-        bitmapInfo.stride != output.width() * 4                 ||
-        bitmapInfo.width  != output.width()                     ||
-        bitmapInfo.height != output.height())
+    if( bitmapInfo.format != ANDROID_BITMAP_FORMAT_A_8      ||
+        bitmapInfo.stride != src.width()                    ||
+        bitmapInfo.width  != src.width()                    ||
+        bitmapInfo.height != src.height())
     {
         LOGE("Invalid bitmap format format=%d, stride=%d, width=%d, height=%d, output.width=%d, output.height=%d",
-             bitmapInfo.format, bitmapInfo.stride, bitmapInfo.width, bitmapInfo.height, output.width(), output.height());
+             bitmapInfo.format, bitmapInfo.stride, bitmapInfo.width, bitmapInfo.height, src.width(), src.height());
 
-        return nullptr;
+        return;
     }
 
     // Copy pixels
-    size_t size = bitmapInfo.width * bitmapInfo.height * 4;
-    if(output.size_in_bytes() != size) {
-        LOGE("buffer sizes do not match, buffer0=%ld, buffer1=%ld", output.size_in_bytes(), size);
-        return nullptr;
+    size_t size = bitmapInfo.width * bitmapInfo.height;
+    if(src.size_in_bytes() != size) {
+        LOGE("buffer sizes do not match, buffer0=%ld, buffer1=%ld", src.size_in_bytes(), size);
+        return;
     }
 
     // Copy pixels to bitmap
@@ -1317,17 +1288,78 @@ JNIEXPORT jobject JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_Ge
     result = AndroidBitmap_lockPixels(env, dst, &pixels);
     if(result != ANDROID_BITMAP_RESULT_SUCCESS) {
         LOGE("AndroidBitmap_lockPixels() failed, error=%d", result);
-        return JNI_FALSE;
+        return;
     }
 
-    std::copy(output.data(), output.data() + size, (uint8_t*) pixels);
+    std::copy(src.data(), src.data() + size, (uint8_t*) pixels);
 
     // Unlock
     result = AndroidBitmap_unlockPixels(env, dst);
     if(result != ANDROID_BITMAP_RESULT_SUCCESS) {
         LOGE("AndroidBitmap_unlockPixels() failed, error=%d", result);
-        return nullptr;
+        return;
+    }
+}
+
+extern "C"
+JNIEXPORT void JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_GenerateStats(
+        JNIEnv *env, jobject thiz, jlong handle, jobject listener) {
+
+    jobject listenerClass = env->GetObjectClass(listener);
+    if(!listenerClass)
+        return;
+
+    jmethodID callbackMethod = env->GetMethodID(
+            reinterpret_cast<jclass>(listenerClass), "createBitmap", "(III)Landroid/graphics/Bitmap;");
+
+    if(!callbackMethod)
+        return;
+
+    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
+    if(!sessionManager) {
+        return;
     }
 
-    return dst;
+    auto lockedBuffer = RawBufferManager::get().consumeLatestBuffer();
+    if(!lockedBuffer || lockedBuffer->getBuffers().empty())
+        return;
+
+    auto imageBuffer = lockedBuffer->getBuffers().front();
+    auto cameraId = sessionManager->getSelectedCameraId();
+    auto metadata = sessionManager->getCameraDescription(cameraId)->metadata;
+
+    Halide::Runtime::Buffer<uint8_t> whiteLevelBuffer;
+    Halide::Runtime::Buffer<uint8_t> blackLevelBuffer;
+
+    ImageProcessor::generateStats(*imageBuffer, 8, 8, metadata, whiteLevelBuffer, blackLevelBuffer);
+
+    jobject whiteLevelDst = env->CallObjectMethod(
+            listener, callbackMethod, whiteLevelBuffer.width(), whiteLevelBuffer.height(), TYPE_WHITE_LEVEL);
+
+    if(!whiteLevelDst)
+        return;
+
+    jobject blackLevelDst = env->CallObjectMethod(
+            listener, callbackMethod, blackLevelBuffer.width(), blackLevelBuffer.height(), TYPE_BLACK_LEVEL);
+
+    if(!blackLevelDst)
+        return;
+
+    copyToAlphaBitmap(env, whiteLevelBuffer, whiteLevelDst);
+
+    copyToAlphaBitmap(env, blackLevelBuffer, blackLevelDst);
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_motioncam_camera_NativeCameraSessionBridge_SetLensAperture(JNIEnv *env, jobject thiz, jlong handle, jfloat lensAperture) {
+    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
+    if(!sessionManager) {
+        return JNI_FALSE;
+    }
+
+    sessionManager->setLensAperture(lensAperture);
+
+    return JNI_TRUE;
+
 }

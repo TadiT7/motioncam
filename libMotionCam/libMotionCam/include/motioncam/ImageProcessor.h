@@ -12,7 +12,7 @@
 
 namespace motioncam {
     const int EXPANDED_RANGE        = 16384;
-    const int WAVELET_LEVELS        = 4;
+    const int WAVELET_LEVELS        = 6;
     const int EXTEND_EDGE_AMOUNT    = 6;
 
     class RawImage;
@@ -63,6 +63,13 @@ namespace motioncam {
                                                                   const int sy,
                                                                   const RawImageMetadata& metadata,
                                                                   const RawCameraMetadata& cameraMetadata);
+
+        static void generateStats(const RawImageBuffer& rawBuffer,
+                                  const int sx,
+                                  const int sy,
+                                  const RawCameraMetadata& cameraMetadata,
+                                  Halide::Runtime::Buffer<uint8_t>& whiteLevelClipping,
+                                  Halide::Runtime::Buffer<uint8_t>& blackLevelClipping);
 
         static Halide::Runtime::Buffer<uint8_t> generateStats(const RawImageBuffer& rawBuffer,
                                                               const int sx,

@@ -674,6 +674,11 @@ namespace motioncam {
             mCameraSession->setFocusForVideo(focusForVideo);
     }
 
+    void CaptureSessionManager::setLensAperture(float lensAperture) {
+        if(mCameraSession)
+            mCameraSession->setLensAperture(lensAperture);
+    }
+
     void CaptureSessionManager::enableRawPreview(std::shared_ptr<RawPreviewListener> listener, const int previewQuality, bool overrideWb) {
         if(mImageConsumer) {
             mImageConsumer->enableRawPreview(std::move(listener), previewQuality);

@@ -141,10 +141,17 @@
 
             </FrameLayout>
 
-            <ImageView android:id="@+id/cameraOverlay"
+            <ImageView android:id="@+id/cameraOverlayClipHigh"
                 android:visibility="gone"
                 android:scaleType="fitXY"
-                app:tint="@color/red"
+                app:tint="@color/clipHigh"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <ImageView android:id="@+id/cameraOverlayClipLow"
+                android:visibility="gone"
+                android:scaleType="fitXY"
+                app:tint="@color/clipLow"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
 

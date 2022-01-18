@@ -24,4 +24,7 @@
     <color name="acceptAction">#207561</color>
 
     <color name="headerColor">#45565c</color>
+
+    <color name="clipHigh">#FFC20A</color>
+    <color name="clipLow">#0C7BDC</color>
 </resources>

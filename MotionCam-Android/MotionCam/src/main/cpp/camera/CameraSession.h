@@ -61,6 +61,7 @@ namespace motioncam {
         void setAELock(bool lock);
         void setFocusDistance(float focusDistance);
         void setFocusForVideo(bool focusForVideo);
+        void setLensAperture(float lensAperture);
 
         void captureHdr(
                 int numImages,
@@ -130,6 +131,7 @@ namespace motioncam {
         void doSetOIS(bool on);
         void doSetFocusDistance(float focusDistance);
         void doSetFocusForVideo(bool focusForVideo);
+        void doSetLensAperture(float lensAperture);
         void doSetAWBLock(bool lock);
         void doSave(int numImages);
         void doAttemptSaveHdrData();

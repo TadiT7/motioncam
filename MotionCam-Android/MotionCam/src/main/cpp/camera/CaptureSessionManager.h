@@ -58,6 +58,7 @@ namespace motioncam {
         void setFocusDistance(float focusDistance);
         void setFocusForVideo(bool focusForVideo);
         void setAELock(bool lock);
+        void setLensAperture(float lensAperture);
 
         void setFocusPoint(float focusX, float focusY, float exposureX, float exposureY);
         void setAutoFocus();

@@ -242,23 +242,6 @@ public class AsyncNativeCameraOps implements Closeable {
         });
     }
 
-    public void generateStats(StatsListener statsListener, Bitmap bitmap) {
-        mBackgroundProcessor.submit(() -> {
-            Bitmap result;
-
-            result = mCameraSessionBridge.generateStats((width, height) -> {
-                if(bitmap != null && bitmap.getWidth() == width && bitmap.getHeight() == height)
-                    return bitmap;
-
-                return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-            });
-
-            if(result != null) {
-                mMainHandler.post(() -> statsListener.onExposureMap(result));
-            }
-        });
-    }
-
     public void generateVideoPreview(Context context, VideoEntry entry, int numPreviews, ContainerListener listener) {
         Objects.requireNonNull(context);
         Objects.requireNonNull(entry);
@@ -295,7 +278,7 @@ public class AsyncNativeCameraOps implements Closeable {
 
             List<Bitmap> bitmaps = new ArrayList<>();
 
-            processor.generateRawVideoPreview(finalFd, numPreviews, (width, height) -> {
+            processor.generateRawVideoPreview(finalFd, numPreviews, (width, height, type) -> {
                 Bitmap preview = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
                 bitmaps.add(preview);
 

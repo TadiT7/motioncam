@@ -428,6 +428,12 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         SetAutoFocus(mNativeCameraHandle);
     }
 
+    public void setAperture(float aperture) {
+        ensureValidHandle();
+
+        SetLensAperture(mNativeCameraHandle, aperture);
+    }
+
     public void streamToFile(int[] fds, int audioFd, int audioDeviceId, boolean enableCompression, int numThreads) {
         ensureValidHandle();
 
@@ -470,10 +476,10 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         return GetVideoRecordingStats(mNativeCameraHandle);
     }
 
-    public Bitmap generateStats(NativeBitmapListener listener) {
+    public void generateStats(NativeBitmapListener listener) {
         ensureValidHandle();
 
-        return GenerateStats(mNativeCameraHandle, listener);
+        GenerateStats(mNativeCameraHandle, listener);
     }
 
     @Override
@@ -585,6 +591,7 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native boolean SetOIS(long handle, boolean on);
     private native boolean SetManualFocus(long handle, float focusDistance);
     private native boolean SetFocusForVideo(long handle, boolean focusForVideo);
+    private native boolean SetLensAperture(long handle, float lensAperture);
 
     private native boolean EnableRawPreview(long handle, NativeCameraRawPreviewListener listener, int previewQuality, boolean overrideWb);
     private native boolean SetRawPreviewSettings(long handle, float shadows, float contrast, float saturation, float blacks, float whitePoint, float tempOffset, float tintOfset, boolean useVideoPreview);
@@ -627,5 +634,5 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
 
     private native void AdjustMemoryUse(long handle, long maxUseBytes);
 
-    private native Bitmap GenerateStats(long handle, NativeBitmapListener listener);
+    private native void GenerateStats(long handle, NativeBitmapListener listener);
 }

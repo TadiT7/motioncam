@@ -124,7 +124,7 @@ public class CameraActivity extends AppCompatActivity implements
     private static final int MANUAL_CONTROL_MODE_SHUTTER_SPEED = 1;
     private static final int MANUAL_CONTROL_MODE_FOCUS = 2;
 
-    private static final int OVERLAY_UPDATE_FREQUENCY_MS = 100;
+    private static final int OVERLAY_UPDATE_FREQUENCY_MS = 250;
 
     private static final int[] ALL_FRAME_RATE_OPTIONS = new int[] { 120, 60, 50, 48, 30, 25, 24, 15, 10, 5, 2, 1};
 
@@ -263,19 +263,33 @@ public class CameraActivity extends AppCompatActivity implements
     };
 
     private class OverlayTimer extends TimerTask {
-        private Bitmap mBitmap = null;
+        private Bitmap mWhiteLevel = null;
+        private Bitmap mBlackLevel = null;
+
+        // TODO: Move this
+        final int TYPE_WHITE_LEVEL = 1;
+        final int TYPE_BLACK_LEVEL = 2;
 
         @Override
         public void run() {
-            AsyncNativeCameraOps ops = new AsyncNativeCameraOps(mNativeCamera);
+            mNativeCamera.generateStats((width, height, type) -> {
+                if(type == TYPE_WHITE_LEVEL) {
+                    if(mWhiteLevel == null)
+                        mWhiteLevel = Bitmap.createBitmap(width, height, Bitmap.Config.ALPHA_8);
+                    return mWhiteLevel;
+                }
+                else if(type == TYPE_BLACK_LEVEL) {
+                    if(mBlackLevel == null)
+                        mBlackLevel = Bitmap.createBitmap(width, height, Bitmap.Config.ALPHA_8);
+                    return mBlackLevel;
+                }
+                return null;
+            });
 
-            ops.generateStats(bitmap ->
-            {
-                if(bitmap != null)
-                    mBinding.cameraOverlay.setImageBitmap(bitmap);
-
-                mBitmap = bitmap;
-            }, mBitmap);
+            runOnUiThread(() -> {
+                mBinding.cameraOverlayClipLow.setImageBitmap(mBlackLevel);
+                mBinding.cameraOverlayClipHigh.setImageBitmap(mWhiteLevel);
+            });
         }
     }
 
@@ -1571,6 +1585,23 @@ public class CameraActivity extends AppCompatActivity implements
         updateVideoUi();
     }
 
+    private void toggleAperture(View v) {
+        String apertureTag = (String) v.getTag();
+        if(apertureTag == null)
+            return;
+
+        try {
+            float aperture = Float.parseFloat(apertureTag);
+
+            if(mNativeCamera != null)
+                mNativeCamera.setAperture(aperture);
+        }
+        catch(NumberFormatException e) {
+            Log.e(TAG, "Invalid aperture value", e);
+            return;
+        }
+    }
+
     private void toggleFrameRate(View v) {
         String fpsTag = (String) v.getTag();
         if(fpsTag == null)
@@ -1610,10 +1641,12 @@ public class CameraActivity extends AppCompatActivity implements
         if(mSettings.exposureOverlay) {
             mOverlayTimer = new Timer();
             mOverlayTimer.scheduleAtFixedRate(new OverlayTimer(), OVERLAY_UPDATE_FREQUENCY_MS, OVERLAY_UPDATE_FREQUENCY_MS);
-            mBinding.cameraOverlay.setVisibility(View.VISIBLE);
+            mBinding.cameraOverlayClipHigh.setVisibility(View.VISIBLE);
+            mBinding.cameraOverlayClipLow.setVisibility(View.VISIBLE);
         }
         else {
-            mBinding.cameraOverlay.setVisibility(View.GONE);
+            mBinding.cameraOverlayClipHigh.setVisibility(View.GONE);
+            mBinding.cameraOverlayClipLow.setVisibility(View.GONE);
         }
     }
 
@@ -2069,6 +2102,38 @@ public class CameraActivity extends AppCompatActivity implements
         updateVideoUi();
     }
 
+    private void setupApertures() {
+        if(mCameraMetadata == null || mCameraMetadata.cameraApertures.length < 2)
+            return;
+
+        ViewGroup apertures = findViewById(R.id.apertures);
+
+        // Remove previous apertures
+        apertures.removeAllViews();
+
+        for(float aperture : mCameraMetadata.cameraApertures) {
+            TextView apertureBtn = new TextView(this);
+            String apertureValue = String.valueOf(aperture);
+
+            int width = Math.round(getResources().getDimension(R.dimen.aperture_btn));
+
+            LinearLayout.LayoutParams layoutParams =
+                    new LinearLayout.LayoutParams(width, ViewGroup.LayoutParams.WRAP_CONTENT);
+
+            apertureBtn.setTextAppearance(R.style.MotionCam_TextAppearance_VerySmall_Bold);
+            apertureBtn.setGravity(Gravity.CENTER);
+            apertureBtn.setText(apertureValue);
+            apertureBtn.setTag(apertureValue);
+            apertureBtn.setLayoutParams(layoutParams);
+            apertureBtn.setTextColor(getColor(R.color.white));
+            apertureBtn.setOnClickListener(v -> toggleAperture(v));
+
+            apertures.addView(apertureBtn);
+        }
+
+        apertures.setVisibility(View.VISIBLE);
+    }
+
     private void setupFpsSelection() {
         // Supported frame rates
         ViewGroup fpsGroup = mBinding.cameraSettings.findViewById(R.id.fpsGroup);
@@ -2150,6 +2215,8 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.exposureSeekBar.setMax(numEvSteps);
         mBinding.exposureSeekBar.setProgress(numEvSteps / 2);
         mBinding.shadowsSeekBar.setProgress(50);
+
+        setupApertures();
 
         setupFpsSelection();
 

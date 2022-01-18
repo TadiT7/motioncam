@@ -174,7 +174,7 @@ JNIEXPORT jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_Generate
         return JNI_FALSE;
 
     jmethodID callbackMethod = env->GetMethodID(
-            reinterpret_cast<jclass>(listenerClass), "createBitmap", "(II)Landroid/graphics/Bitmap;");
+            reinterpret_cast<jclass>(listenerClass), "createBitmap", "(III)Landroid/graphics/Bitmap;");
 
     if(!callbackMethod)
         return JNI_FALSE;
@@ -195,7 +195,7 @@ JNIEXPORT jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_Generate
 
             auto output = motioncam::ImageProcessor::createFastPreview(*frame, 4, 4, cameraMetadata);
 
-            jobject dst = env->CallObjectMethod(listener, callbackMethod, output.width(), output.height());
+            jobject dst = env->CallObjectMethod(listener, callbackMethod, output.width(), output.height(), 0);
 
             // Get bitmap info
             AndroidBitmapInfo bitmapInfo;
