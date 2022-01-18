@@ -120,7 +120,7 @@
     <string name="af_lock">AF</string>
     <string name="awb_lock">AWB</string>
     <string name="ois">OIS</string>
-    <string name="video_size">РАЗМЕР ВИЛЕО:</string>
+    <string name="video_size">РАЗМЕР ВИДЕО:</string>
     <string name="device_storage">Хранилище:</string>
     <string name="memory_use">Память:</string>
     <string name="this_video_has_been_exported">Это видео было экспортировано</string>
