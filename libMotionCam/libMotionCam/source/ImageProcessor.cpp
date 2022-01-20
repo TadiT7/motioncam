@@ -63,12 +63,12 @@ using std::to_string;
 using std::pair;
 
 static std::vector<std::vector<float>> WEIGHTS = {
-    { 12, 4,   2,   1, 1, 1  },
-    { 8,  4,   2,   1, 1, 1  },
-    { 6,  4,   1,   1, 1, 1  },
-    { 4,  2,   1,   0, 0, 0  },
-    { 2,  1,   0.5, 0, 0, 0  },
-    { 1,  1,   0,   0, 0, 0  }
+    { 12, 4,   2,   1 },
+    { 8,  4,   2,   1 },
+    { 6,  4,   1,   1 },
+    { 4,  2,   1,   0 },
+    { 2,  1,   0.5, 0 },
+    { 1,  1,   0,   0 }
 };
 
 extern "C" int extern_defringe(halide_buffer_t *in, int32_t width, int32_t height, halide_buffer_t *out) {
@@ -1635,9 +1635,7 @@ namespace motioncam {
                               wavelet[0],
                               wavelet[1],
                               wavelet[2],
-                              wavelet[3],
-                              wavelet[4],
-                              wavelet[5]);
+                              wavelet[3]);
 
             int offset = wavelet[0].stride(2);
 
@@ -1651,8 +1649,6 @@ namespace motioncam {
                               wavelet[1],
                               wavelet[2],
                               wavelet[3],
-                              wavelet[4],
-                              wavelet[5],
                               noiseSigma,
                               false,
                               weightsBuffer,
@@ -1904,9 +1900,7 @@ namespace motioncam {
                               wavelet[0],
                               wavelet[1],
                               wavelet[2],
-                              wavelet[3],
-                              wavelet[4],
-                              wavelet[5]);
+                              wavelet[3]);
 
             int offset = wavelet[0].stride(2);
 
@@ -1924,8 +1918,6 @@ namespace motioncam {
                               wavelet[1],
                               wavelet[2],
                               wavelet[3],
-                              wavelet[4],
-                              wavelet[5],
                               noiseSigma,
                               false,
                               weightsBuffer,

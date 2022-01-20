@@ -916,6 +916,9 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.cameraSettingsBtn.setVisibility(View.GONE);
         toggleCameraSettings(false);
 
+        // Disable overlay
+        setExposureOverlay(false);
+
         mRecordStartTime = System.currentTimeMillis();
 
         // Update recording time
@@ -1641,6 +1644,7 @@ public class CameraActivity extends AppCompatActivity implements
         if(mSettings.exposureOverlay) {
             mOverlayTimer = new Timer();
             mOverlayTimer.scheduleAtFixedRate(new OverlayTimer(), OVERLAY_UPDATE_FREQUENCY_MS, OVERLAY_UPDATE_FREQUENCY_MS);
+
             mBinding.cameraOverlayClipHigh.setVisibility(View.VISIBLE);
             mBinding.cameraOverlayClipLow.setVisibility(View.VISIBLE);
         }
