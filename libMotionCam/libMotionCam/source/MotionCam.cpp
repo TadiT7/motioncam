@@ -208,26 +208,23 @@ namespace motioncam {
             // Construct shading map
             std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer;
             std::vector<float> shadingMapScale;
-            float shadingMapMaxScale;
 
-            ImageProcessor::getNormalisedShadingMap(frame->metadata, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
+            if(applyShadingMap) {
+                float shadingMapMaxScale;
 
-//            Halide::Runtime::Buffer<float> shadingMapBuffer[4];
-//
-//            for(int i = 0; i < 4; i++) {
-//                cv::Mat shadingMap = frame->metadata.lensShadingMap[i];
-//
-//                if(applyShadingMap) {
-//                    shadingMapBuffer[i] = Halide::Runtime::Buffer<float>(
-//                        (float*) shadingMap.data,
-//                        shadingMap.cols,
-//                        shadingMap.rows);
-//                }
-//                else {
-//                    shadingMapBuffer[i] = Halide::Runtime::Buffer<float>(shadingMap.cols, shadingMap.rows);
-//                    shadingMapBuffer[i].fill(1.0f);
-//                }
-//            }
+                ImageProcessor::getNormalisedShadingMap(frame->metadata, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
+            }
+            else {
+                for(int i = 0; i < 4; i++) {
+                    cv::Mat shadingMap = frame->metadata.lensShadingMap[i];
+    
+                    auto buffer = Halide::Runtime::Buffer<float>(shadingMap.cols, shadingMap.rows);
+                    buffer.fill(1.0f);
+                    
+                    shadingMapBuffer.push_back(buffer);
+                    shadingMapScale.push_back(1.0f);
+                }
+            }
 
             std::vector<std::shared_ptr<RawImageBuffer>> nearestBuffers;
             
