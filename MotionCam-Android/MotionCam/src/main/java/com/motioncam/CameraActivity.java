@@ -2013,11 +2013,11 @@ public class CameraActivity extends AppCompatActivity implements
                 focalLength = metadata.focalLength[0];
             }
 
-            if(!seenFocalLength.contains(String.valueOf(focalLength)))
+//            if(!seenFocalLength.contains(String.valueOf(focalLength)))
                 cameraMetadataMap.put(cameraInfo.cameraId, focalLength);
 
-            if(focalLength > 0)
-                seenFocalLength.add(String.valueOf(focalLength));
+//            if(focalLength > 0)
+//                seenFocalLength.add(String.valueOf(focalLength));
         }
 
         List<String> cameraList = cameraMetadataMap

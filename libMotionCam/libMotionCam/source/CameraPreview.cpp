@@ -40,14 +40,13 @@ namespace motioncam {
         int height = rawBuffer.height / 2 / downscaleFactor;
 
         // Setup buffers
-        Halide::Runtime::Buffer<float> shadingMapBuffer[4];
+        std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer;
+        std::vector<float> shadingMapScale;
+        float shadingMapMaxScale;
+        
+        ImageProcessor::getNormalisedShadingMap(rawBuffer.metadata, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
 
         for(int i = 0; i < 4; i++) {
-            shadingMapBuffer[i] = Halide::Runtime::Buffer<float>(
-                (float*) rawBuffer.metadata.lensShadingMap[i].data,
-                rawBuffer.metadata.lensShadingMap[i].cols,
-                rawBuffer.metadata.lensShadingMap[i].rows);
-            
             shadingMapBuffer[i].set_host_dirty();
         }
         
@@ -110,6 +109,12 @@ namespace motioncam {
 
         camera_preview(inputBuffer,
                        rawBuffer.rowStride,
+                       rawBuffer.metadata.asShot[0],
+                       rawBuffer.metadata.asShot[1],
+                       rawBuffer.metadata.asShot[2],
+                       shadingMapScale[0],
+                       shadingMapScale[1],
+                       shadingMapScale[2],
                        cameraToSrgbBuffer,
                        width,
                        height,
@@ -150,17 +155,16 @@ namespace motioncam {
         int height = rawBuffer.height / 2 / downscaleFactor;
 
         // Setup buffers
-        Halide::Runtime::Buffer<float> shadingMapBuffer[4];
+        std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer;
+        std::vector<float> shadingMapScale;
+        float shadingMapMaxScale;
+        
+        ImageProcessor::getNormalisedShadingMap(rawBuffer.metadata, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
 
         for(int i = 0; i < 4; i++) {
-            shadingMapBuffer[i] = Halide::Runtime::Buffer<float>(
-                (float*) rawBuffer.metadata.lensShadingMap[i].data,
-                rawBuffer.metadata.lensShadingMap[i].cols,
-                rawBuffer.metadata.lensShadingMap[i].rows);
-            
             shadingMapBuffer[i].set_host_dirty();
         }
-        
+
         cv::Mat cameraToPcs;
         cv::Mat pcsToSrgb;
 
@@ -223,6 +227,9 @@ namespace motioncam {
                        rawBuffer.metadata.asShot[0],
                        rawBuffer.metadata.asShot[1],
                        rawBuffer.metadata.asShot[2],
+                       shadingMapScale[0],
+                       shadingMapScale[1],
+                       shadingMapScale[2],
                        cameraToSrgbBuffer,
                        flipped,
                        width,
@@ -239,7 +246,7 @@ namespace motioncam {
                        static_cast<int>(cameraMetadata.sensorArrangment),
                        tonemapVariance,
                        2.2f,
-                       shadows,
+                       shadows * shadingMapMaxScale,
                        blacks,
                        whitePoint,
                        contrast,

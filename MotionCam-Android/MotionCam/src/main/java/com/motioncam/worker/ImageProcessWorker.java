@@ -328,28 +328,34 @@ public class ImageProcessWorker extends Worker implements NativeProcessorProgres
 
         setForegroundAsync(new ForegroundInfo(NOTIFICATION_ID, mNotificationBuilder.build()));
 
-        List<WorkResult> completedFiles = new ArrayList<>();
+        try {
+            List<WorkResult> completedFiles = new ArrayList<>();
 
-        completedFiles.addAll(processInMemory(mPreviewDirectory));
-        completedFiles.addAll(processOnStorage(mPreviewDirectory));
+            completedFiles.addAll(processInMemory(mPreviewDirectory));
+            completedFiles.addAll(processOnStorage(mPreviewDirectory));
 
-        mNotifyManager.cancel(NOTIFICATION_ID);
+            mNotifyManager.cancel(NOTIFICATION_ID);
 
-        String[] completedUris = completedFiles.stream()
-                .map(e -> e.outputUri.toString())
-                .toArray(String[]::new);
+            String[] completedUris = completedFiles.stream()
+                    .map(e -> e.outputUri.toString())
+                    .toArray(String[]::new);
 
-        String[] completedImagePaths = completedFiles.stream()
-                .map(e -> e.outputPath)
-                .toArray(String[]::new);
+            String[] completedImagePaths = completedFiles.stream()
+                    .map(e -> e.outputPath)
+                    .toArray(String[]::new);
 
-        Data result = new Data.Builder()
-            .putInt(State.PROGRESS_STATE_KEY,           State.STATE_COMPLETED)
-            .putStringArray(State.PROGRESS_URI_KEY,     completedUris)
-            .putStringArray(State.PROGRESS_IMAGE_PATH,  completedImagePaths)
-            .build();
+            Data result = new Data.Builder()
+                    .putInt(State.PROGRESS_STATE_KEY, State.STATE_COMPLETED)
+                    .putStringArray(State.PROGRESS_URI_KEY, completedUris)
+                    .putStringArray(State.PROGRESS_IMAGE_PATH, completedImagePaths)
+                    .build();
 
-        return Result.success(result);
+            return Result.success(result);
+        }
+        catch(Exception e) {
+            Log.e(TAG, "Error processing image", e);
+            return Result.failure();
+        }
     }
 
     @RequiresApi(api = Build.VERSION_CODES.O)

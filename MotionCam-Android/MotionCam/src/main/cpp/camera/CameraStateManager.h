@@ -21,12 +21,8 @@ namespace motioncam {
 
     enum class State : int {
         AUTO_FOCUS_WAIT = 0,
-        TRIGGER_AUTO_FOCUS,
-        AUTO_FOCUS_LOCKED,
         AUTO_FOCUS_ACTIVE,
         USER_FOCUS_WAIT,
-        TRIGGER_USER_FOCUS,
-        USER_FOCUS_LOCKED,
         USER_FOCUS_ACTIVE,
         PAUSED
     };
@@ -79,20 +75,20 @@ namespace motioncam {
         void requestAperture(float aperture);
 
         void requestUserExposure(int32_t iso, int64_t exposureTime);
-        void requestMode(CameraMode mode);
+        void requestExposureMode(CameraMode mode);
 
-        void setFocusForVideo(bool focusForVideo);
+        void requestFocusForVideo(bool focusForVideo);
 
         void onCameraCaptureSequenceCompleted(const int sequenceId);
         void onCameraSessionStateChanged(const CameraCaptureSessionState state);
 
     private:
-        bool triggerUserAutoFocus();
-        bool triggerAutoFocus();
+        void updateCamera();
+
         bool setUserFocus();
         bool setAutoFocus();
 
-        void setState(State state);
+        void setState(State state, int sequenceId);
         void setNextAction(Action action);
 
         void nextAction();
@@ -107,7 +103,9 @@ namespace motioncam {
         CameraCaptureSessionState mCaptureSessionState;
         State mState;
         Action mRequestedAction;
-        CameraMode mCameraMode;
+        CameraMode mCameraExposureMode;
+        CameraMode mCameraFocusMode;
+        int mPendingSequenceId;
         int mExposureCompensation;
         int mFrameRate;
         bool mAwbLock;

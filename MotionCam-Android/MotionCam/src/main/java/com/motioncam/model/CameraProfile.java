@@ -13,7 +13,7 @@ public class CameraProfile {
     private static final SimpleDateFormat OUTPUT_DATE_FORMAT = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.forLanguageTag("en-US"));
 
     static public String generateFilename() {
-        return generateFilename("IMG", ".container");
+        return generateFilename("IMG", ".zip");
     }
 
     static public String generateFilename(String prefix, String extension) {
@@ -62,7 +62,7 @@ public class CameraProfile {
     public static final int DEFAULT_JPEG_QUALITY = 95;
 
     // Light
-    public static final int DEFAULT_CONTRAST = 40;
+    public static final int DEFAULT_CONTRAST = 25;
     public static final int DEFAULT_WHITE_POINT = 50;
 
     // Saturation

@@ -54,6 +54,8 @@ namespace motioncam {
         bool isInMemory() const { return mIsInMemory; };
         int getNumSegments() const;
         
+        const std::vector<cv::Mat>& getCachedShadingMap() const;
+        
     private:
         void initialise(const std::string& inputPath);
         void initialise(const int fd);

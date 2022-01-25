@@ -125,7 +125,7 @@ namespace motioncam {
             }
         }
     
-        ZipWriter::ZipWriter(const string& filename, bool append) : mZip{ 0 }, mCommited(false), mFile(nullptr) {
+        ZipWriter::ZipWriter(const string& filename, bool append) : mZip{ 0 }, mFile(nullptr), mCommited(false) {
             if(append) {
                 if(!mz_zip_reader_init_file(&mZip, filename.c_str(), 0)) {
                     throw IOException("Can't read " + filename);

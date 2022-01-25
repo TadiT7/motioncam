@@ -4,8 +4,8 @@
 #include <HalideBuffer.h>
 
 namespace motioncam {
-    class RawCameraMetadata;
-    class RawImageBuffer;
+    struct RawCameraMetadata;
+    struct RawImageBuffer;
 
     class CameraPreview {
     public:

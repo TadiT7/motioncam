@@ -1077,4 +1077,8 @@ namespace motioncam {
     int RawContainer::getNumSegments() const {
         return mNumSegments;
     }
+
+    const std::vector<cv::Mat>& RawContainer::getCachedShadingMap() const {
+        return mShadingMap;
+    }
 }

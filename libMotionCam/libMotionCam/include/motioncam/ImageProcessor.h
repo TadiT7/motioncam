@@ -23,6 +23,12 @@ namespace motioncam {
     struct HdrMetadata;
     struct PreviewMetadata;
     
+    struct RawData {
+        Halide::Runtime::Buffer<uint16_t> rawBuffer;
+        Halide::Runtime::Buffer<uint8_t> previewBuffer;
+        RawImageMetadata metadata;
+    };
+
     class ImageProgressHelper {
     public:
         ImageProgressHelper(const ImageProcessorProgress& progressListener, int numImages, int start);
@@ -141,8 +147,9 @@ namespace motioncam {
             const RawCameraMetadata& cameraMetadata);
 
         static std::vector<Halide::Runtime::Buffer<uint16_t>> denoise(
+            RawImageBuffer& referenceRawBuffer,
+            RawData& reference,
             RawContainer& rawContainer,
-            std::shared_ptr<RawImageBuffer> referenceRawBuffer,
             float* outNoise,
             ImageProgressHelper& progressHelper);
 
@@ -177,6 +184,11 @@ namespace motioncam {
         static float adjustShadowsForFaces(cv::Mat input, PreviewMetadata& metadata);
         
         static std::vector<cv::Rect2f> detectFaces(const RawImageBuffer& buffer, const RawCameraMetadata& cameraMetadata);
+        
+        static void getNormalisedShadingMap(const RawImageMetadata& metadata,
+                                            std::vector<Halide::Runtime::Buffer<float>>& outShadingMapBuffer,
+                                            std::vector<float>& outShadingMapScale,
+                                            float& outShadingMapMaxScale);
     };
 }
 

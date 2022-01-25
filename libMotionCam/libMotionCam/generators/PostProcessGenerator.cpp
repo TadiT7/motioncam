@@ -817,12 +817,15 @@ public:
 
     Input<int> width{"width"};
     Input<int> height{"height"};
+
     Input<int> shadingMapWidth{"shadingMapWidth"};
     Input<int> shadingMapHeight{"shadingMapHeight"};
     Input<float> range{"range"};
     Input<int> sensorArrangement{"sensorArrangement"};
 
-    Input<float[3]> asShotVector{"asShotVector"};
+    Input<float[3]> asShot{"asShot"};
+    Input<float[3]> wbOffset{"wbOffset"};
+
     Input<Func> cameraToSrgb{"cameraToSrgb", Float(32), 2 };
 
     Output<Func> output{ "output", UInt(16), 3 };
@@ -858,8 +861,8 @@ public:
 
     Func linear{"linear"};
     Func colorCorrectInput{"colorCorrectInput"};
-    Func XYZ{"XYZ"};
     Func colorCorrected{"colorCorrected"};
+    Func whiteBalanced{"whiteBalanced"};
 
     void generate();
     void schedule();
@@ -1296,10 +1299,26 @@ void Demosaic::calculateBlue(Func& output, Func input, Func green) {
 }
 
 void Demosaic::generate() {
+    Func input{"input"};
+    Func asShotFunc{"asShotFunc"};
+    Func hotPixel{"hotPixel"};
+
     clamped0(v_x, v_y) = in0(clamp(v_x, 0, width - 1), clamp(v_y, 0, height - 1));
     clamped1(v_x, v_y) = in1(clamp(v_x, 0, width - 1), clamp(v_y, 0, height - 1));
     clamped2(v_x, v_y) = in2(clamp(v_x, 0, width - 1), clamp(v_y, 0, height - 1));
     clamped3(v_x, v_y) = in3(clamp(v_x, 0, width - 1), clamp(v_y, 0, height - 1));
+
+    asShotFunc(v_c) =
+        select(
+            sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
+                mux(v_c, { asShot[0], asShot[1], asShot[1], asShot[2] } ),
+            sensorArrangement == static_cast<int>(SensorArrangement::GRBG),
+                mux(v_c, { asShot[1], asShot[0], asShot[2], asShot[1] } ),
+            sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
+                mux(v_c, { asShot[1], asShot[2], asShot[0], asShot[1] } ),
+                // BGGR
+                mux(v_c, { asShot[2], asShot[1], asShot[1], asShot[0] } )
+    );
 
     linearScale(shadingMap0, inShadingMap0, shadingMapWidth, shadingMapHeight, width, height);
     linearScale(shadingMap1, inShadingMap1, shadingMapWidth, shadingMapHeight, width, height);
@@ -1307,8 +1326,6 @@ void Demosaic::generate() {
     linearScale(shadingMap3, inShadingMap3, shadingMapWidth, shadingMapHeight, width, height);
 
     rearrange(shadingMapArranged, shadingMap0, shadingMap1, shadingMap2, shadingMap3, sensorArrangement);
-
-    Func input{"input"};
 
     input(v_x, v_y, v_c) =
         mux(v_c,
@@ -1331,13 +1348,16 @@ void Demosaic::generate() {
 
     Expr threshold = 4*((cast<int32_t>(a1) + cast<int32_t>(a2)) / 2) / 2;
 
-    shaded(v_x, v_y, v_c) = cast<int16_t>( clamp( clamp(cast<int32_t>(input(v_x, v_y, v_c)), 0, threshold) * shadingMapArranged(v_x, v_y, v_c) + 0.5f, 0, range) );
+    hotPixel(v_x, v_y, v_c) = cast<int16_t>(clamp(cast<int32_t>(input(v_x, v_y, v_c)), 0, threshold));
 
+    whiteBalanced(v_x, v_y, v_c) = cast<int16_t>(
+        clamp(range * shadingMapArranged(v_x, v_y, v_c) * clamp(hotPixel(v_x, v_y, v_c) / range, 0.0f, asShotFunc(v_c)), 0, range));
+    
     // Combined image
     combinedInput(v_x, v_y) =
         select(v_y % 2 == 0,
-               select(v_x % 2 == 0, shaded(v_x/2, v_y/2, 0), shaded(v_x/2, v_y/2, 1)),
-               select(v_x % 2 == 0, shaded(v_x/2, v_y/2, 2), shaded(v_x/2, v_y/2, 3)));
+               select(v_x % 2 == 0, whiteBalanced(v_x/2, v_y/2, 0), whiteBalanced(v_x/2, v_y/2, 1)),
+               select(v_x % 2 == 0, whiteBalanced(v_x/2, v_y/2, 2), whiteBalanced(v_x/2, v_y/2, 3)));
 
     bayerInput(v_x, v_y) =
         select(sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
@@ -1356,19 +1376,16 @@ void Demosaic::generate() {
     calculateRed(red, bayerInput, green);
     calculateBlue(blue, bayerInput, green);
 
-    demosaicOutput(v_x, v_y, v_c) = select( v_c == 0, red(v_x, v_y),
-                                            v_c == 1, green(v_x, v_y),
-                                                      blue(v_x, v_y));
+    demosaicOutput(v_x, v_y, v_c) = saturating_cast<uint16_t>(
+        select( v_c == 0, wbOffset[0]*red(v_x, v_y),
+                v_c == 1, wbOffset[1]*green(v_x, v_y),
+                          wbOffset[2]*blue(v_x, v_y))
+    );
 
     // Transform to sRGB space
     linear(v_x, v_y, v_c) =  demosaicOutput(v_x, v_y, v_c) / cast<float>(range);
 
-    colorCorrectInput(v_x, v_y, v_c) =
-        select( v_c == 0, clamp( linear(v_x, v_y, 0), 0.0f, asShotVector[0] ),
-                v_c == 1, clamp( linear(v_x, v_y, 1), 0.0f, asShotVector[1] ),
-                          clamp( linear(v_x, v_y, 2), 0.0f, asShotVector[2] ));
-
-    transform(colorCorrected, colorCorrectInput, cameraToSrgb);
+    transform(colorCorrected, linear, cameraToSrgb);
 
     output(v_x, v_y, v_c) = saturating_cast<uint16_t>(colorCorrected(v_x, v_y, v_c) * 65535 + 0.5f);
 
@@ -1392,9 +1409,9 @@ void Demosaic::generate() {
 
     cameraToSrgb.set_estimates({{0, 3}, {0, 3}});
 
-    asShotVector.set_estimate(0, 1.0f);
-    asShotVector.set_estimate(1, 1.0f);
-    asShotVector.set_estimate(2, 1.0f);
+    asShot.set_estimate(0, 1.0f);
+    asShot.set_estimate(1, 1.0f);
+    asShot.set_estimate(2, 1.0f);
 
     output.set_estimates({{0, 4096}, {0, 3072}, {0, 3}});
 
@@ -1452,13 +1469,13 @@ void Demosaic::apply_auto_schedule() {
     //     .compute_at(colorCorrected, c)
     //     .store_at(colorCorrected, x)
     //     .reorder({xi, x, y, c});
-    colorCorrectInput
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 8, TailStrategy::RoundUp)
-        .vectorize(xi)
-        .compute_at(output, yiii)
-        .store_at(output, yii)
-        .reorder({xi, x, y, c});
+    // colorCorrectInput
+    //     .store_in(MemoryType::Stack)
+    //     .split(x, x, xi, 8, TailStrategy::RoundUp)
+    //     .vectorize(xi)
+    //     .compute_at(output, yiii)
+    //     .store_at(output, yii)
+    //     .reorder({xi, x, y, c});
     linear
         .store_in(MemoryType::Stack)
         .split(x, x, xi, 128, TailStrategy::RoundUp)
@@ -1558,7 +1575,7 @@ void Demosaic::apply_auto_schedule() {
         .vectorize(xi)
         .compute_at(bayerInput, y)
         .reorder({xi, x, y});
-    shaded
+    whiteBalanced
         .split(x, x, xi, 32, TailStrategy::ShiftInwards)
         .split(xi, xi, xii, 16, TailStrategy::ShiftInwards)
         .unroll(c)
@@ -1571,55 +1588,55 @@ void Demosaic::apply_auto_schedule() {
         .unroll(x)
         .unroll(c)
         .vectorize(xi)
-        .compute_at(shaded, xi)
+        .compute_at(whiteBalanced, xi)
         .reorder({xi, x, y, c});
     shadingMap3
         .store_in(MemoryType::Stack)
         .split(x, x, xi, 16, TailStrategy::ShiftInwards)
         .vectorize(xi)
-        .compute_at(shaded, x)
+        .compute_at(whiteBalanced, x)
         .reorder({xi, x, y});
     shadingMap2
         .store_in(MemoryType::Stack)
         .split(x, x, xi, 16, TailStrategy::ShiftInwards)
         .vectorize(xi)
-        .compute_at(shaded, x)
+        .compute_at(whiteBalanced, x)
         .reorder({xi, x, y});
     shadingMap1
         .store_in(MemoryType::Stack)
         .split(x, x, xi, 16, TailStrategy::ShiftInwards)
         .vectorize(xi)
-        .compute_at(shaded, x)
+        .compute_at(whiteBalanced, x)
         .reorder({xi, x, y});
     shadingMap0
         .store_in(MemoryType::Stack)
         .split(x, x, xi, 16, TailStrategy::ShiftInwards)
         .vectorize(xi)
-        .compute_at(shaded, x)
+        .compute_at(whiteBalanced, x)
         .reorder({xi, x, y});
     clamped3
         .store_in(MemoryType::Stack)
         .split(x, x, xi, 16, TailStrategy::ShiftInwards)
         .vectorize(xi)
-        .compute_at(shaded, xi)
+        .compute_at(whiteBalanced, xi)
         .reorder({xi, x, y});
     clamped2
         .store_in(MemoryType::Stack)
         .split(x, x, xi, 16, TailStrategy::ShiftInwards)
         .vectorize(xi)
-        .compute_at(shaded, xi)
+        .compute_at(whiteBalanced, xi)
         .reorder({xi, x, y});
     clamped1
         .store_in(MemoryType::Stack)
         .split(x, x, xi, 16, TailStrategy::ShiftInwards)
         .vectorize(xi)
-        .compute_at(shaded, xi)
+        .compute_at(whiteBalanced, xi)
         .reorder({xi, x, y});
     clamped0
         .store_in(MemoryType::Stack)
         .split(x, x, xi, 16, TailStrategy::ShiftInwards)
         .vectorize(xi)
-        .compute_at(shaded, xi)
+        .compute_at(whiteBalanced, xi)
         .reorder({xi, x, y});
 }
 
@@ -2343,6 +2360,8 @@ public:
     Input<bool> useHdr{"useHdr"};
 
     Input<float[3]> asShotVector{"asShotVector"};
+    Input<float[3]> wbOffsetVector{"wbOffsetVector"};
+
     Input<Buffer<float>> cameraToSrgb{"cameraToSrgb", 2};
 
     Input<Buffer<float>> inShadingMap0{"inShadingMap0", 2 };
@@ -2415,6 +2434,7 @@ private:
 void PostProcessGenerator::generate()
 {
     std::vector<Expr> asShot{ asShotVector[0], asShotVector[1], asShotVector[2] };
+    std::vector<Expr> wbOffset{ wbOffsetVector[0], wbOffsetVector[1], wbOffsetVector[2] };
 
     Expr WIDTH = in0.width();
     Expr HEIGHT = in0.height();
@@ -2429,6 +2449,7 @@ void PostProcessGenerator::generate()
         cast<float>(range),
         sensorArrangement,
         asShot,
+        wbOffset,
         cameraToSrgb);
 
     // Calculate chroma denoising map
@@ -2450,19 +2471,13 @@ void PostProcessGenerator::generate()
 
     Func hdrInputRepeated{"hdrInputRepeated"};
     Func baseInput{"baseInput"};
-    Func Linput{"Linput"};
-    Func Minput{"Minput"};
 
     baseInput(v_x, v_y, v_c) = demosaic->output(v_x, v_y, v_c)/65535.0f;
     hdrInputRepeated(v_x, v_y, v_c) = Halide::BoundaryConditions::repeat_edge(hdrInput)(v_x, v_y, v_c)/65535.0f;
 
-    Expr L0 = clamp(1.0f/hdrScale * (0.299f*hdrInputRepeated(v_x, v_y, 0) + 0.587f*hdrInputRepeated(v_x, v_y, 1) + 0.114f*hdrInputRepeated(v_x, v_y, 2)), 0.0f, 1.0f);
-    Expr L1 = 0.299f*baseInput(v_x, v_y, 0) + 0.587f*baseInput(v_x, v_y, 1) + 0.114f*baseInput(v_x, v_y, 2);
+    Expr L = 0.299f*baseInput(v_x, v_y, 0) + 0.587f*baseInput(v_x, v_y, 1) + 0.114f*baseInput(v_x, v_y, 2);
 
-    Linput(v_x, v_y, v_c) = select(v_c == 0, L0, L1);
-    Minput(v_x, v_y, v_c) = exp(-16.0f * (Linput(v_x, v_y, v_c) - 1.0f) * (Linput(v_x, v_y, v_c) - 1.0f));
-
-    hdrMask(v_x, v_y) = Minput(v_x, v_y, 0) * Minput(v_x, v_y, 1);
+    hdrMask(v_x, v_y) = exp(-4.0f * (L - 1.0f) * (L - 1.0f));
 
     highlights(v_x, v_y, v_c) = (hdrMask(v_x, v_y)*hdrInputRepeated(v_x, v_y, v_c)) + ((1.0f - hdrMask(v_x, v_y))*hdrScale*baseInput(v_x, v_y, v_c));
 
@@ -2662,6 +2677,7 @@ public:
     Input<Buffer<float>> inShadingMap3{"inShadingMap3", 2 };
     
     Input<float[3]> asShotVector{"asShotVector"};
+    Input<float[3]> wbOffsetVector{"wbOffsetVector"};
     Input<Buffer<float>> cameraToSrgb{"cameraToSrgb", 2};
 
     Input<int> width{"width"};
@@ -2708,7 +2724,10 @@ private:
     Func deinterleaved{"deinterleaved"};
     Func demosaicInput{"demosaicInput"};
     Func downscaledInput{"downscaledInput"};
+    Func shadingMapFunc{"shadingMapFunc"};
     Func srgbInput{"srgbInput"};
+    Func wbOffsetFunc{"wbOffsetFunc"};
+    Func whiteBalanced{"whiteBalanced"};
     Func inMuxed{"inMuxed"};
     Func SRGB{"SRGB"};
     Func enhanceInput{"enhanceInput"};
@@ -2752,6 +2771,14 @@ void PreviewGenerator::generate() {
     linearScale(shadingMap[2], inShadingMap2, inShadingMap2.width(), inShadingMap2.height(), width, height);
     linearScale(shadingMap[3], inShadingMap3, inShadingMap3.width(), inShadingMap3.height(), width, height);
 
+    shadingMapFunc(v_x, v_y, v_c) = mux(v_c, {
+        shadingMap[0](v_x, v_y),
+        0.5f*(shadingMap[1](v_x, v_y) + shadingMap[2](v_x, v_y)),
+        shadingMap[3](v_x, v_y)
+    });
+
+    wbOffsetFunc(v_c) = mux(v_c, { wbOffsetVector[0], wbOffsetVector[1], wbOffsetVector[2] } );
+
     downscaledInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(0.5f + d[d.size()-1](v_x, v_y, v_c));
 
     d[d.size()-1].compute_root()
@@ -2767,16 +2794,18 @@ void PreviewGenerator::generate() {
 
     rearrange(demosaicInput, downscaledInput, sensorArrangement);
 
-    Expr c0 = (demosaicInput(v_x, v_y, 0) - blackLevel[0]) / (cast<float>(whiteLevel - blackLevel[0])) * shadingMap[0](v_x, v_y);
-    Expr c1 = (demosaicInput(v_x, v_y, 1) - blackLevel[1]) / (cast<float>(whiteLevel - blackLevel[1])) * shadingMap[1](v_x, v_y);
-    Expr c2 = (demosaicInput(v_x, v_y, 2) - blackLevel[2]) / (cast<float>(whiteLevel - blackLevel[2])) * shadingMap[2](v_x, v_y);
-    Expr c3 = (demosaicInput(v_x, v_y, 3) - blackLevel[3]) / (cast<float>(whiteLevel - blackLevel[3])) * shadingMap[3](v_x, v_y);
+    Expr c0 = (demosaicInput(v_x, v_y, 0) - blackLevel[0]) / (cast<float>(whiteLevel - blackLevel[0]));
+    Expr c1 = (demosaicInput(v_x, v_y, 1) - blackLevel[1]) / (cast<float>(whiteLevel - blackLevel[1]));
+    Expr c2 = (demosaicInput(v_x, v_y, 2) - blackLevel[2]) / (cast<float>(whiteLevel - blackLevel[2]));
+    Expr c3 = (demosaicInput(v_x, v_y, 3) - blackLevel[3]) / (cast<float>(whiteLevel - blackLevel[3]));
     
     srgbInput(v_x, v_y, v_c) = select(v_c == 0,  clamp( c0,               0.0f, asShotVector[0] ),
                                       v_c == 1,  clamp( (c1 + c2) / 2,    0.0f, asShotVector[1] ),
                                                  clamp( c3,               0.0f, asShotVector[2] ));
 
-    transform(SRGB, srgbInput, cameraToSrgb);
+    whiteBalanced(v_x, v_y, v_c) = clamp(wbOffsetFunc(v_c) * shadingMapFunc(v_x, v_y, v_c) * srgbInput(v_x, v_y, v_c), 0.0f, 1.0f);
+
+    transform(SRGB, whiteBalanced, cameraToSrgb);
 
     tonemapInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(SRGB(v_x, v_y, v_c) * pow(2.0f, exposure) * 65535.0f + 0.5f);
 
@@ -3048,6 +3077,7 @@ public:
     Input<uint16_t> range{"range"};
 
     Input<float[3]> asShotVector{"asShotVector"};
+    Input<float[3]> wbOffsetVector{"wbOffsetVector"};
     Input<Buffer<float>> cameraToSrgb{"cameraToSrgb", 2};
 
     Output<Buffer<uint8_t>> output{"output", 3};
@@ -3065,6 +3095,7 @@ void FastPreviewGenerator2::generate() {
     Func colorCorrectInput{"colorCorrectInput"};
 
     std::vector<Expr> asShot{ asShotVector[0], asShotVector[1], asShotVector[2] };
+    std::vector<Expr> wbOffset{ wbOffsetVector[0], wbOffsetVector[1], wbOffsetVector[2] };
 
     Expr WIDTH = in0.width();
     Expr HEIGHT = in0.height();
@@ -3079,6 +3110,7 @@ void FastPreviewGenerator2::generate() {
         cast<float>(range),
         sensorArrangement,
         asShot,
+        wbOffset,
         cameraToSrgb);
 
     linear(v_x, v_y, v_c) = demosaic->output(v_x * sx, v_y * sy, v_c) / 65535.0f;
@@ -3555,7 +3587,8 @@ public:
     Input<Buffer<float>> inShadingMap2{"inShadingMap2", 2 };
     Input<Buffer<float>> inShadingMap3{"inShadingMap3", 2 };
 
-    Input<float[3]> asShotVector{"asShotVector"};    
+    Input<float[3]> asShotVector{"asShotVector"};
+    Input<float[3]> wbOffsetVector{"wbOffsetVector"};
     Input<Buffer<float>> cameraToSrgb{"cameraToSrgb", 2};
 
     Input<int> width{"width"};
@@ -3599,6 +3632,7 @@ void LinearImageGenerator::generate() {
     inDemosaic[3](v_x, v_y) = scaled(v_x, v_y, 3);
 
     std::vector<Expr> asShot{ asShotVector[0], asShotVector[1], asShotVector[2] };
+    std::vector<Expr> wbOffset{ wbOffsetVector[0], wbOffsetVector[1], wbOffsetVector[2] };
 
     demosaic = create<Demosaic>();
 
@@ -3610,6 +3644,7 @@ void LinearImageGenerator::generate() {
         cast<float>(range),
         sensorArrangement,
         asShot,
+        wbOffset,
         cameraToSrgb);
 
     output(v_x, v_y, v_c) = cast<uint16_t>(clamp(cast<float>(demosaic->output(v_x, v_y, v_c)) + 0.5f, 0, 65535));
@@ -3631,6 +3666,10 @@ void LinearImageGenerator::generate() {
     asShotVector.set_estimate(1, 1.0f);
     asShotVector.set_estimate(2, 1.0f);
 
+    wbOffsetVector.set_estimate(0, 1.0f);
+    wbOffsetVector.set_estimate(1, 1.0f);
+    wbOffsetVector.set_estimate(2, 1.0f);
+
     cameraToSrgb.set_estimates({{0, 3}, {0, 3}});
     sensorArrangement.set_estimate(0);
 
@@ -3650,6 +3689,7 @@ void LinearImageGenerator::generate() {
 class BuildBayerGenerator : public Halide::Generator<BuildBayerGenerator>, public PostProcessBase {
 public:
     Input<Buffer<uint8_t>> input{"input", 1 };
+
     Input<Buffer<float>> inShadingMap0{"inShadingMap0", 2 };
     Input<Buffer<float>> inShadingMap1{"inShadingMap1", 2 };
     Input<Buffer<float>> inShadingMap2{"inShadingMap2", 2 };
@@ -3662,8 +3702,13 @@ public:
     Input<int> pixelFormat{"pixelFormat"};
     Input<int> sensorArrangement{"sensorArrangement"};
 
-    Input<int16_t[4]> blackLevel{"blackLevel"};
-    Input<int16_t> whiteLevel{"whiteLevel"};
+    Input<uint16_t[4]> blackLevel{"blackLevel"};
+    Input<uint16_t> whiteLevel{"whiteLevel"};
+
+    Input<float[3]> asShot{"asShot"};
+    Input<float[3]> wbOffset{"wbOffset"};
+
+    Input<uint16_t> outputRange{"outputRange"};
 
     Output<Buffer<uint16_t>> output{"output", 2 };
 
@@ -3672,7 +3717,12 @@ public:
         Func shadingMap0{"shadingMap0"}, shadingMap1{"shadingMap1"}, shadingMap2{"shadingMap2"}, shadingMap3{"shadingMap3"};
         Func shadingMapArranged{"shadingMapArranged"};
         Func shaded{"shaded"};
+        Func whiteBalanced{"whiteBalanced"};
+        Func asShotFunc{"asShotFunc"};
+        Func wbOffsetFunc{"wbOffsetFunc"};
         Func bl{"bl"};
+        Func linear{"linear"};
+        Func final{"final"};
 
         deinterleave(inputDeinterleaved, BoundaryConditions::repeat_edge(input), stride, pixelFormat);
 
@@ -3683,6 +3733,30 @@ public:
 
         rearrange(shadingMapArranged, shadingMap0, shadingMap1, shadingMap2, shadingMap3, sensorArrangement);
 
+        asShotFunc(v_c) =
+            select(
+                sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
+                    mux(v_c, { asShot[0], asShot[1], asShot[1], asShot[2] } ),
+                sensorArrangement == static_cast<int>(SensorArrangement::GRBG),
+                    mux(v_c, { asShot[1], asShot[0], asShot[2], asShot[1] } ),
+                sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
+                    mux(v_c, { asShot[1], asShot[2], asShot[0], asShot[1] } ),
+                    // BGGR
+                    mux(v_c, { asShot[2], asShot[1], asShot[1], asShot[0] } )
+        );
+
+        wbOffsetFunc(v_c) =
+            select(
+                sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
+                    mux(v_c, { wbOffset[0], wbOffset[1], wbOffset[1], wbOffset[2] } ),
+                sensorArrangement == static_cast<int>(SensorArrangement::GRBG),
+                    mux(v_c, { wbOffset[1], wbOffset[0], wbOffset[2], wbOffset[1] } ),
+                sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
+                    mux(v_c, { wbOffset[1], wbOffset[2], wbOffset[0], wbOffset[1] } ),
+                    // BGGR
+                    mux(v_c, { wbOffset[2], wbOffset[1], wbOffset[1], wbOffset[0] } )
+        );
+
         bl(v_c) = mux(v_c, {
             blackLevel[0],
             blackLevel[1],
@@ -3690,12 +3764,20 @@ public:
             blackLevel[3]
         });
 
-        shaded(v_x, v_y, v_c) = cast<uint16_t>(0.5f + clamp(bl(v_c) + ((inputDeinterleaved(v_x, v_y, v_c) - bl(v_c)) * shadingMapArranged(v_x, v_y, v_c)), 0, whiteLevel));
+        linear(v_x, v_y, v_c) = (inputDeinterleaved(v_x, v_y, v_c) - bl(v_c)) / cast<float>(whiteLevel - bl(v_c));
+
+        shaded(v_x, v_y, v_c) = shadingMapArranged(v_x, v_y, v_c) * clamp(linear(v_x, v_y, v_c), 0.0f, asShotFunc(v_c));
+
+        whiteBalanced(v_x, v_y, v_c) = shaded(v_x, v_y, v_c) * wbOffsetFunc(v_c);
+
+        Expr S = outputRange - bl(v_c);
+
+        final(v_x, v_y, v_c) = clamp(cast<uint16_t>(whiteBalanced(v_x, v_y, v_c) * S + 0.5f) + bl(v_c), 0, outputRange);
 
         output(v_x, v_y) =
             select(v_y % 2 == 0,
-                   select(v_x % 2 == 0, shaded(v_x/2, v_y/2, 0), shaded(v_x/2, v_y/2, 1)),
-                   select(v_x % 2 == 0, shaded(v_x/2, v_y/2, 2), shaded(v_x/2, v_y/2, 3)));
+                   select(v_x % 2 == 0, final(v_x/2, v_y/2, 0), final(v_x/2, v_y/2, 1)),
+                   select(v_x % 2 == 0, final(v_x/2, v_y/2, 2), final(v_x/2, v_y/2, 3)));
 
         output.compute_root()
             .parallel(v_y)
@@ -3721,6 +3803,9 @@ public:
     Input<int> sensorArrangement{"sensorArrangement"};
     Input<uint16_t> range{"range"};
 
+    Input<float[3]> asShot{"asShot"};
+    Input<float[3]> wbOffset{"wbOffset"};
+
     Output<Buffer<uint16_t>> output{"output", 2 };
 
     void generate();
@@ -3730,7 +3815,12 @@ void BuildBayerGenerator2::generate() {
     Func bayerInput{"bayerInput"};
     Func shadingMapArranged{"shadingMapArranged"};
     Func shadingMap0{"shadingMap0"}, shadingMap1{"shadingMap1"}, shadingMap2{"shadingMap2"}, shadingMap3{"shadingMap3"};
+    Func asShotFunc{"asShotFunc"};
+    Func wbOffsetFunc{"wbOffsetFunc"};
+    Func linear{"linear"};
     Func shaded{"shaded"};
+    Func whiteBalanced{"whiteBalanced"};
+    Func final{"final"};
 
     linearScale(shadingMap0, inShadingMap0, inShadingMap0.width(), inShadingMap0.height(), width, height);
     linearScale(shadingMap1, inShadingMap1, inShadingMap1.width(), inShadingMap1.height(), width, height);
@@ -3739,6 +3829,30 @@ void BuildBayerGenerator2::generate() {
 
     rearrange(shadingMapArranged, shadingMap0, shadingMap1, shadingMap2, shadingMap3, sensorArrangement);
 
+    asShotFunc(v_c) =
+        select(
+            sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
+                mux(v_c, { asShot[0], asShot[1], asShot[1], asShot[2] } ),
+            sensorArrangement == static_cast<int>(SensorArrangement::GRBG),
+                mux(v_c, { asShot[1], asShot[0], asShot[2], asShot[1] } ),
+            sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
+                mux(v_c, { asShot[1], asShot[2], asShot[0], asShot[1] } ),
+                // BGGR
+                mux(v_c, { asShot[2], asShot[1], asShot[1], asShot[0] } )
+    );
+
+    wbOffsetFunc(v_c) =
+        select(
+            sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
+                mux(v_c, { wbOffset[0], wbOffset[1], wbOffset[1], wbOffset[2] } ),
+            sensorArrangement == static_cast<int>(SensorArrangement::GRBG),
+                mux(v_c, { wbOffset[1], wbOffset[0], wbOffset[2], wbOffset[1] } ),
+            sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
+                mux(v_c, { wbOffset[1], wbOffset[2], wbOffset[0], wbOffset[1] } ),
+                // BGGR
+                mux(v_c, { wbOffset[2], wbOffset[1], wbOffset[1], wbOffset[0] } )
+    );
+
     bayerInput(v_x, v_y, v_c) = mux(v_c, {
         in0(clamp(v_x, 0, in0.width() - 1), clamp(v_y, 0, in0.height() - 1)),
         in1(clamp(v_x, 0, in1.width() - 1), clamp(v_y, 0, in1.height() - 1)),
@@ -3746,26 +3860,18 @@ void BuildBayerGenerator2::generate() {
         in3(clamp(v_x, 0, in3.width() - 1), clamp(v_y, 0, in3.height() - 1))
     });
 
-    // Suppress hot pixels
-    Expr a0 = bayerInput(v_x - 1, v_y,       v_c);
-    Expr a1 = bayerInput(v_x + 1, v_y,       v_c);
-    Expr a2 = bayerInput(v_x,     v_y + 1,   v_c);
-    Expr a3 = bayerInput(v_x,     v_y - 1,   v_c);
+    linear(v_x, v_y, v_c) = bayerInput(v_x, v_y, v_c) / cast<float>(range);
 
-    cmpSwap(a0, a1);
-    cmpSwap(a2, a3);
-    cmpSwap(a0, a2);
-    cmpSwap(a1, a3);
-    cmpSwap(a1, a2);
+    shaded(v_x, v_y, v_c) = shadingMapArranged(v_x, v_y, v_c) * clamp(linear(v_x, v_y, v_c), 0.0f, asShotFunc(v_c));
 
-    Expr threshold = 4*((cast<int32_t>(a1) + cast<int32_t>(a2)) / 2) / 2;
+    whiteBalanced(v_x, v_y, v_c) = shaded(v_x, v_y, v_c) * wbOffsetFunc(v_c);
 
-    shaded(v_x, v_y, v_c) = cast<uint16_t>( clamp( clamp(cast<int32_t>(bayerInput(v_x, v_y, v_c)), 0, threshold) * shadingMapArranged(v_x, v_y, v_c) + 0.5f, 0, range) );
-    
+    final(v_x, v_y, v_c) = clamp(cast<uint16_t>(whiteBalanced(v_x, v_y, v_c) * range + 0.5f), 0, range);
+
     output(v_x, v_y) =
         select(v_y % 2 == 0,
-               select(v_x % 2 == 0, shaded(v_x/2, v_y/2, 0), shaded(v_x/2, v_y/2, 1)),
-               select(v_x % 2 == 0, shaded(v_x/2, v_y/2, 2), shaded(v_x/2, v_y/2, 3)));
+               select(v_x % 2 == 0, final(v_x/2, v_y/2, 0), final(v_x/2, v_y/2, 1)),
+               select(v_x % 2 == 0, final(v_x/2, v_y/2, 2), final(v_x/2, v_y/2, 3)));
 
     output.compute_root()
         .parallel(v_y)

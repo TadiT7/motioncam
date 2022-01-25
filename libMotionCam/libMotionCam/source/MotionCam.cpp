@@ -174,6 +174,7 @@ namespace motioncam {
         }
         
         RawCameraMetadata metadata = containers[0]->getCameraMetadata();
+        auto originalWhiteLevel = containers[0]->getCameraMetadata().whiteLevel;
         
         Halide::Runtime::Buffer<uint16_t> bayerBuffer;
         
@@ -203,24 +204,30 @@ namespace motioncam {
             if(frame->width <= 0 || frame->height <= 0) {
                 continue;
             }
-            
+                        
             // Construct shading map
-            Halide::Runtime::Buffer<float> shadingMapBuffer[4];
-            
-            for(int i = 0; i < 4; i++) {
-                cv::Mat shadingMap = frame->metadata.lensShadingMap[i];
-                
-                if(applyShadingMap) {
-                    shadingMapBuffer[i] = Halide::Runtime::Buffer<float>(
-                        (float*) shadingMap.data,
-                        shadingMap.cols,
-                        shadingMap.rows);
-                }
-                else {
-                    shadingMapBuffer[i] = Halide::Runtime::Buffer<float>(shadingMap.cols, shadingMap.rows);
-                    shadingMapBuffer[i].fill(1.0f);
-                }
-            }
+            std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer;
+            std::vector<float> shadingMapScale;
+            float shadingMapMaxScale;
+
+            ImageProcessor::getNormalisedShadingMap(frame->metadata, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
+
+//            Halide::Runtime::Buffer<float> shadingMapBuffer[4];
+//
+//            for(int i = 0; i < 4; i++) {
+//                cv::Mat shadingMap = frame->metadata.lensShadingMap[i];
+//
+//                if(applyShadingMap) {
+//                    shadingMapBuffer[i] = Halide::Runtime::Buffer<float>(
+//                        (float*) shadingMap.data,
+//                        shadingMap.cols,
+//                        shadingMap.rows);
+//                }
+//                else {
+//                    shadingMapBuffer[i] = Halide::Runtime::Buffer<float>(shadingMap.cols, shadingMap.rows);
+//                    shadingMapBuffer[i].fill(1.0f);
+//                }
+//            }
 
             std::vector<std::shared_ptr<RawImageBuffer>> nearestBuffers;
             
@@ -258,12 +265,21 @@ namespace motioncam {
                                  frame->width / 2,
                                  frame->height / 2,
                                  static_cast<int>(metadata.sensorArrangment),
-                                 EXPANDED_RANGE,
+                                 metadata.whiteLevel,
+                                 frame->metadata.asShot[0],
+                                 frame->metadata.asShot[1],
+                                 frame->metadata.asShot[2],
+                                 shadingMapScale[0],
+                                 shadingMapScale[1],
+                                 shadingMapScale[2],
                                  bayerBuffer);
                 }
                 else {
                     bayerBuffer = getOutputBuffer(frame->width, frame->height, false);
                     
+                    if(applyShadingMap)
+                        metadata.whiteLevel = EXPANDED_RANGE;
+
                     build_bayer(inputBuffer,
                                 shadingMapBuffer[0],
                                 shadingMapBuffer[1],
@@ -278,6 +294,13 @@ namespace motioncam {
                                 metadata.blackLevel[1],
                                 metadata.blackLevel[2],
                                 metadata.blackLevel[3],
+                                originalWhiteLevel,
+                                frame->metadata.asShot[0],
+                                frame->metadata.asShot[1],
+                                frame->metadata.asShot[2],
+                                shadingMapScale[0],
+                                shadingMapScale[1],
+                                shadingMapScale[2],
                                 metadata.whiteLevel,
                                 bayerBuffer);
                 }
@@ -308,6 +331,12 @@ namespace motioncam {
                              frame->height / 2,
                              static_cast<int>(metadata.sensorArrangment),
                              EXPANDED_RANGE,
+                             frame->metadata.asShot[0],
+                             frame->metadata.asShot[1],
+                             frame->metadata.asShot[2],
+                             shadingMapScale[0],
+                             shadingMapScale[1],
+                             shadingMapScale[2],
                              bayerBuffer);
             }
 

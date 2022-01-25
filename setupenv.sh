@@ -20,7 +20,7 @@ LIBEXIV2_VERSION="0.27.4"
 ZSTD_VERSION="v1.5.0"
 DLIB_VERSION="19.22"
 HALIDE_BRANCH=https://github.com/mirsadm/Halide
-PFOR_BRANCH=https://github.com/teemodk/TurboPFor-Integer-Compression.git # To remove -lrt flag for android cross-compilation
+PFOR_BRANCH=https://github.com/mirsadm/TurboPFor-Integer-Compression.git # To remove -lrt flag for android cross-compilation
 
 mkdir -p tmp
 pushd tmp
@@ -42,8 +42,82 @@ build_opencv() {
 
 	cmake -DCMAKE_BUILD_TYPE=Release -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-${OPENCV_VERSION}/modules -DCMAKE_INSTALL_PREFIX=../build/${ANDROID_ABI} -DCMAKE_SYSTEM_NAME=Android 	\
 		-DANDROID_NATIVE_API_LEVEL=21 -DCMAKE_SYSTEM_VERSION=21 -DANDROID_ABI=${ANDROID_ABI} -DCMAKE_ANDROID_ARCH_ABI=${ANDROID_ABI} -DANDROID_STL=c++_shared 								\
-		-DCMAKE_ANDROID_NDK_TOOLCHAIN_VERSION=clang -DWITH_TBB=ON -DBUILD_ANDROID_EXAMPLES=OFF -DBUILD_DOCS=OFF -DBUILD_PERF_TESTS=OFF -DBUILD_TESTS=OFF -DCPU_BASELINE=NEON 				\
-		-DBUILD_JAVA=OFF -DENABLE_NEON=ON -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake ..
+		-DCMAKE_ANDROID_NDK_TOOLCHAIN_VERSION=clang -DWITH_TBB=ON -DCPU_BASELINE=NEON -DENABLE_NEON=ON -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake 			\
+		-DWITH_OPENEXR=OFF \
+		-DWITH_LAPACK=OFF \
+		-DWITH_EIGEN=OFF \
+		-DWITH_OPENCL=OFF \
+		-DBUILD_ANDROID_EXAMPLES=OFF \
+		-DBUILD_DOCS=OFF \
+		-DBUILD_PERF_TESTS=OFF \
+		-DBUILD_TESTS=OFF \
+		-DBUILD_JAVA=OFF \
+		-DBUILD_SHARED_LIBS=OFF \
+		-DBUILD_opencv_calib3d=ON \
+		-DBUILD_opencv_core=ON \
+		-DBUILD_opencv_features2d=ON \
+		-DBUILD_opencv_flann=ON \
+		-DBUILD_opencv_imgcodecs=ON \
+		-DBUILD_opencv_imgproc=ON \
+		-DBUILD_opencv_objdetect=ON \
+		-DBUILD_opencv_photo=ON \
+		-DBUILD_opencv_video=ON \
+		-DBUILD_opencv_xfeatures2d=ON \
+		-DBUILD_opencv_ximgproc=ON \
+		-DBUILD_opencv_alphamat=OFF \
+		-DBUILD_opencv_apps=OFF \
+		-DBUILD_opencv_aruco=OFF \
+		-DBUILD_opencv_barcode=OFF \
+		-DBUILD_opencv_bgsegm=OFF \
+		-DBUILD_opencv_bioinspired=OFF \
+		-DBUILD_opencv_ccalib=OFF \
+		-DBUILD_opencv_datasets=OFF \
+		-DBUILD_opencv_dnn=OFF \
+		-DBUILD_opencv_dnn_objdetect=OFF \
+		-DBUILD_opencv_dnn_superres=OFF \
+		-DBUILD_opencv_dpm=OFF \
+		-DBUILD_opencv_face=OFF \
+		-DBUILD_opencv_freetype=OFF \
+		-DBUILD_opencv_fuzzy=OFF \
+		-DBUILD_opencv_gapi=OFF \
+		-DBUILD_opencv_hdf=OFF \
+		-DBUILD_opencv_hfs=OFF \
+		-DBUILD_opencv_highgui=OFF \
+		-DBUILD_opencv_img_hash=OFF \
+		-DBUILD_opencv_intensity_transform=OFF \
+		-DBUILD_opencv_java_bindings_generator=OFF \
+		-DBUILD_opencv_js=OFF \
+		-DBUILD_opencv_js_bindings_generator=OFF \
+		-DBUILD_opencv_line_descriptor=OFF \
+		-DBUILD_opencv_mcc=OFF \
+		-DBUILD_opencv_ml=OFF \
+		-DBUILD_opencv_objc_bindings_generator=OFF \
+		-DBUILD_opencv_optflow=OFF \
+		-DBUILD_opencv_phase_unwrapping=OFF \
+		-DBUILD_opencv_plot=OFF \
+		-DBUILD_opencv_python3=OFF \
+		-DBUILD_opencv_python_bindings_generator=OFF \
+		-DBUILD_opencv_python_tests=OFF \
+		-DBUILD_opencv_quality=OFF \
+		-DBUILD_opencv_rapid=OFF \
+		-DBUILD_opencv_reg=OFF \
+		-DBUILD_opencv_rgbd=OFF \
+		-DBUILD_opencv_saliency=OFF \
+		-DBUILD_opencv_sfm=OFF \
+		-DBUILD_opencv_shape=OFF \
+		-DBUILD_opencv_stereo=OFF \
+		-DBUILD_opencv_stitching=OFF \
+		-DBUILD_opencv_structured_light=OFF \
+		-DBUILD_opencv_superres=OFF \
+		-DBUILD_opencv_surface_matching=OFF \
+		-DBUILD_opencv_text=OFF \
+		-DBUILD_opencv_tracking=OFF \
+		-DBUILD_opencv_videoio=OFF \
+		-DBUILD_opencv_videostab=OFF \
+		-DBUILD_opencv_wechat_qrcode=OFF \
+		-DBUILD_opencv_world=OFF \
+		-DBUILD_opencv_xobjdetect=OFF \
+		-DBUILD_opencv_xphoto=OFF ..
 
 	make -j${NUM_CORES}
 
@@ -277,7 +351,7 @@ build_fpor() {
 		TOOLCHAIN_HOST=linux-x86_64
 	fi
 
-	export AR=${ANDROID_NDK}/toolchains/llvm/prebuilt/${TOOLCHAIN_HOST}/bin/aarch64-linux-android-ar
+	export AR=${ANDROID_NDK}/toolchains/llvm/prebuilt/${TOOLCHAIN_HOST}/bin/llvm-ar
 	export CL=${ANDROID_NDK}/toolchains/llvm/prebuilt/${TOOLCHAIN_HOST}/bin/aarch64-linux-android24-clang
 	export CC=${ANDROID_NDK}/toolchains/llvm/prebuilt/${TOOLCHAIN_HOST}/bin/aarch64-linux-android24-clang
 	export CXX=${ANDROID_NDK}/toolchains/llvm/prebuilt/${TOOLCHAIN_HOST}/bin/aarch64-linux-android24-clang++

@@ -714,7 +714,7 @@ namespace motioncam {
             return;
         }
 
-        mCameraStateManager->requestMode(CameraMode::AUTO);
+        mCameraStateManager->requestExposureMode(CameraMode::AUTO);
     }
 
     void CameraSession::doSetManualExposure(int32_t iso, int64_t exposureTime) {
@@ -943,7 +943,7 @@ namespace motioncam {
     }
 
     void CameraSession::doSetFocusForVideo(bool focusForVideo) {
-        mCameraStateManager->setFocusForVideo(focusForVideo);
+        mCameraStateManager->requestFocusForVideo(focusForVideo);
     }
 
     void CameraSession::doSetLensAperture(float lensAperture) {

@@ -11,23 +11,11 @@ namespace motioncam {
             case State::AUTO_FOCUS_WAIT:
                 return "AUTO_FOCUS_WAIT";
 
-            case State::TRIGGER_AUTO_FOCUS:
-                return "TRIGGER_AUTO_FOCUS";
-
-            case State::AUTO_FOCUS_LOCKED:
-                return "AUTO_FOCUS_LOCKED";
-
             case State::AUTO_FOCUS_ACTIVE:
                 return "AUTO_FOCUS_ACTIVE";
 
             case State::USER_FOCUS_WAIT:
                 return "USER_FOCUS_WAIT";
-
-            case State::TRIGGER_USER_FOCUS:
-                return "TRIGGER_USER_FOCUS";
-
-            case State::USER_FOCUS_LOCKED:
-                return "USER_FOCUS_LOCKED";
 
             case State::USER_FOCUS_ACTIVE:
                 return "USER_FOCUS_ACTIVE";
@@ -57,44 +45,45 @@ namespace motioncam {
     }
 
     CameraStateManager::CameraStateManager(const CameraCaptureSessionContext& context, const CameraDescription& cameraDescription) :
-        mSessionContext(context),
-        mCameraDescription(cameraDescription),
-        mCaptureSessionState(CameraCaptureSessionState::ACTIVE),
-        mCameraMode(CameraMode::AUTO),
-        mState(State::AUTO_FOCUS_ACTIVE),
-        mRequestedAction(Action::NONE),
-        mExposureCompensation(0),
-        mRequestedFocusX(0),
-        mRequestedFocusY(0),
-        mUserIso(0),
-        mUserExposureTime(0),
-        mFrameRate(-1),
-        mAwbLock(false),
-        mAeLock(false),
-        mOis(true),
-        mFocusDistance(-1),
-        mFocusForVideo(false),
-        mRequestedAperture(-1)
+            mSessionContext(context),
+            mCameraDescription(cameraDescription),
+            mCaptureSessionState(CameraCaptureSessionState::ACTIVE),
+            mCameraExposureMode(CameraMode::AUTO),
+            mCameraFocusMode(CameraMode::AUTO),
+            mPendingSequenceId(-1),
+            mState(State::PAUSED),
+            mRequestedAction(Action::NONE),
+            mExposureCompensation(0),
+            mRequestedFocusX(0),
+            mRequestedFocusY(0),
+            mUserIso(0),
+            mUserExposureTime(0),
+            mFrameRate(-1),
+            mAwbLock(false),
+            mAeLock(false),
+            mOis(true),
+            mFocusDistance(-1),
+            mFocusForVideo(false),
+            mRequestedAperture(-1)
     {
     }
 
     void CameraStateManager::start(const CameraStartupSettings& startupSettings) {
-        setState(State::AUTO_FOCUS_WAIT);
-
         mFocusForVideo = startupSettings.focusForVideo;
         mFrameRate = startupSettings.frameRate;
         mUserIso = startupSettings.iso;
         mUserExposureTime = startupSettings.exposureTime;
         mOis = startupSettings.ois;
-        mCameraMode = startupSettings.useUserExposureSettings ? CameraMode::MANUAL : CameraMode::AUTO;
+        mCameraExposureMode = startupSettings.useUserExposureSettings ? CameraMode::MANUAL : CameraMode::AUTO;
         mRequestedAperture = -1;
 
-        triggerAutoFocus();
+        setAutoFocus();
     }
 
-    void CameraStateManager::setState(State state) {
-        LOGD("setState(%s -> %s)", ToString(mState).c_str(), ToString(state).c_str());
+    void CameraStateManager::setState(State state, int sequenceId) {
+        LOGD("setState(%s -> %s, sequenceId: %d)", ToString(mState).c_str(), ToString(state).c_str(), sequenceId);
         mState = state;
+        mPendingSequenceId = sequenceId;
     }
 
     void CameraStateManager::setNextAction(Action action) {
@@ -105,23 +94,18 @@ namespace motioncam {
     void CameraStateManager::requestUserExposure(int32_t iso, int64_t exposureTime) {
         mUserIso = iso;
         mUserExposureTime = exposureTime;
-        mCameraMode = CameraMode::MANUAL;
+        mCameraExposureMode = CameraMode::MANUAL;
         mAeLock = false;
 
-        if(mState == State::AUTO_FOCUS_ACTIVE) {
-            setAutoFocus();
-        }
-        else if(mState == State::USER_FOCUS_LOCKED) {
-            setUserFocus();
-        }
+        updateCamera();
     }
 
-    void CameraStateManager::requestMode(CameraMode mode) {
-        mCameraMode = mode;
+    void CameraStateManager::requestExposureMode(CameraMode mode) {
+        mCameraExposureMode = mode;
         mAeLock = false;
         mFocusDistance = -1;
 
-        setAutoFocus();
+        updateCamera();
     }
 
     void CameraStateManager::requestPause() {
@@ -130,7 +114,7 @@ namespace motioncam {
         mFocusDistance = -1;
         mAeLock = false;
 
-        setState(State::PAUSED);
+        setState(State::PAUSED, -1);
         ACameraCaptureSession_stopRepeating(mSessionContext.captureSession.get());
     }
 
@@ -138,26 +122,7 @@ namespace motioncam {
         LOGD("requestResume()");
 
         if( mState == State::PAUSED ) {
-            setState(State::AUTO_FOCUS_WAIT);
-            triggerAutoFocus();
-        }
-    }
-
-    void CameraStateManager::requestUserFocus(float x, float y) {
-        mRequestedFocusX = x;
-        mRequestedFocusY = y;
-        mFocusDistance = -1;
-
-        LOGD("requestUserFocus(%.2f, %.2f)", x, y);
-
-        if( mState == State::AUTO_FOCUS_ACTIVE ||
-            mState == State::USER_FOCUS_ACTIVE)
-        {
-            setState(State::USER_FOCUS_WAIT);
-            ACameraCaptureSession_stopRepeating(mSessionContext.captureSession.get());
-        }
-        else {
-            setNextAction(Action::REQUEST_USER_FOCUS);
+            setAutoFocus();
         }
     }
 
@@ -165,41 +130,38 @@ namespace motioncam {
         LOGD("requestAperture(%.2f)", aperture);
         mRequestedAperture = aperture;
 
-        if(mState == State::AUTO_FOCUS_ACTIVE) {
-            setAutoFocus();
-        }
-        else if(mState == State::USER_FOCUS_LOCKED) {
-            setUserFocus();
-        }
+        updateCamera();
     }
 
     void CameraStateManager::requestManualFocus(float distance) {
         LOGD("requestManualFocus(%.2f)", distance);
 
         mFocusDistance = distance;
+        mCameraFocusMode = CameraMode::MANUAL;
 
-        setAutoFocus();
+        updateCamera();
+    }
+
+    void CameraStateManager::requestUserFocus(float x, float y) {
+        LOGD("requestUserFocus(%.2f, %.2f)", x, y);
+
+        mRequestedFocusX = x;
+        mRequestedFocusY = y;
+        mFocusDistance = -1;
+        mCameraFocusMode = CameraMode::MANUAL;
+
+        updateCamera();
     }
 
     void CameraStateManager::requestAutoFocus() {
+        LOGD("requestAutoFocus()");
+
         mRequestedFocusX = 0.5f;
         mRequestedFocusY = 0.5f;
         mFocusDistance = -1;
+        mCameraFocusMode = CameraMode::AUTO;
 
-        LOGD("requestAutoFocus()");
-
-        if(mState == State::AUTO_FOCUS_ACTIVE) {
-           return;
-        }
-
-        if( mState == State::USER_FOCUS_ACTIVE )
-        {
-            mState = State::AUTO_FOCUS_WAIT;
-            ACameraCaptureSession_stopRepeating(mSessionContext.captureSession.get());
-        }
-        else {
-            setNextAction(Action::REQUEST_AUTO_FOCUS);
-        }
+        updateCamera();
     }
 
     void CameraStateManager::requestExposureCompensation(int exposureCompensation) {
@@ -210,12 +172,7 @@ namespace motioncam {
 
         mExposureCompensation = exposureCompensation;
 
-        if(mState == State::AUTO_FOCUS_ACTIVE) {
-            setAutoFocus();
-        }
-        else if(mState == State::USER_FOCUS_ACTIVE) {
-            setUserFocus();
-        }
+        updateCamera();
     }
 
     void CameraStateManager::requestAwbLock(bool lock) {
@@ -223,12 +180,7 @@ namespace motioncam {
 
         LOGD("requestAwbLock(%d)", lock);
 
-        if(mState == State::AUTO_FOCUS_ACTIVE) {
-            setAutoFocus();
-        }
-        else if(mState == State::USER_FOCUS_ACTIVE) {
-            setUserFocus();
-        }
+        updateCamera();
     }
 
     void CameraStateManager::requestAeLock(bool lock) {
@@ -236,12 +188,7 @@ namespace motioncam {
 
         LOGD("requestAeLock(%d)", lock);
 
-        if(mState == State::AUTO_FOCUS_ACTIVE) {
-            setAutoFocus();
-        }
-        else if(mState == State::USER_FOCUS_ACTIVE) {
-            setUserFocus();
-        }
+        updateCamera();
     }
 
     void CameraStateManager::requestOis(bool ois) {
@@ -249,12 +196,7 @@ namespace motioncam {
 
         LOGD("requestOis(%d)", ois);
 
-        if(mState == State::AUTO_FOCUS_ACTIVE) {
-            setAutoFocus();
-        }
-        else if(mState == State::USER_FOCUS_ACTIVE) {
-            setUserFocus();
-        }
+        updateCamera();
     }
 
     void CameraStateManager::requestFrameRate(int frameRate) {
@@ -273,24 +215,37 @@ namespace motioncam {
             mFocusForVideo = true;
         }
 
-        if(mState == State::AUTO_FOCUS_ACTIVE) {
-            setAutoFocus();
-        }
-        else if(mState == State::USER_FOCUS_ACTIVE) {
-            setUserFocus();
-        }
+        updateCamera();
     }
 
-    void CameraStateManager::setFocusForVideo(bool focusForVideo) {
+    void CameraStateManager::requestFocusForVideo(bool focusForVideo) {
         mFocusForVideo = focusForVideo;
 
         LOGD("setFocusForVideo(%d)", focusForVideo);
 
-        if(mState == State::AUTO_FOCUS_ACTIVE) {
-            setAutoFocus();
+        updateCamera();
+    }
+
+    void CameraStateManager::updateCamera() {
+        if(mCameraFocusMode == CameraMode::AUTO) {
+            if( mState == State::USER_FOCUS_WAIT ||
+                mState == State::AUTO_FOCUS_WAIT)
+            {
+                setNextAction(Action::REQUEST_AUTO_FOCUS);
+            }
+            else {
+                setAutoFocus();
+            }
         }
-        else if(mState == State::USER_FOCUS_ACTIVE) {
-            setUserFocus();
+        else {
+            if( mState == State::USER_FOCUS_WAIT ||
+                mState == State::AUTO_FOCUS_WAIT)
+            {
+                setNextAction(Action::REQUEST_USER_FOCUS);
+            }
+            else {
+                setUserFocus();
+            }
         }
     }
 
@@ -298,18 +253,17 @@ namespace motioncam {
         uint8_t aeMode = ACAMERA_CONTROL_AE_MODE_ON;
         uint8_t controlMode = ACAMERA_CONTROL_MODE_AUTO;
 
-        if(mCameraMode == CameraMode::AUTO) {
-            ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_EXPOSURE_COMPENSATION, 1, &mExposureCompensation);
-
+        if(mCameraExposureMode == CameraMode::AUTO) {
             uint8_t aeLock = mAeLock ? ACAMERA_CONTROL_AE_LOCK_ON : ACAMERA_CONTROL_AE_LOCK_OFF;
 
             ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_LOCK, 1, &aeLock);
+            ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_EXPOSURE_COMPENSATION, 1, &mExposureCompensation);
         }
-        else if(mCameraMode == CameraMode::MANUAL) {
+        else if(mCameraExposureMode == CameraMode::MANUAL) {
             aeMode = ACAMERA_CONTROL_AE_MODE_OFF;
 
             int frameRate = mFrameRate < 0 ? 30 : mFrameRate;
-            int64_t sensorFrameDuration = (int64_t)  ((1.0f / frameRate) * 1e9);
+            auto sensorFrameDuration = static_cast<int64_t>((1.0 / frameRate) * 1e9);
 
             ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &mUserIso);
             ACaptureRequest_setEntry_i64(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &mUserExposureTime);
@@ -334,136 +288,10 @@ namespace motioncam {
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_MODE, 1, &controlMode);
     }
 
-    bool CameraStateManager::triggerUserAutoFocus() {
-        uint8_t afMode      = ACAMERA_CONTROL_AF_MODE_AUTO;
-        uint8_t afTrigger   = ACAMERA_CONTROL_AF_TRIGGER_START;
-
-        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_MODE, 1, &afMode);
-        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_TRIGGER, 1, &afTrigger);
-
-        // Set the focus region
-        int w = static_cast<int>(mCameraDescription.sensorSize.width * 0.125f);
-        int h = static_cast<int>(mCameraDescription.sensorSize.height * 0.125f);
-
-        int px = static_cast<int>(static_cast<float>(mCameraDescription.sensorSize.left + mCameraDescription.sensorSize.width) * mRequestedFocusX);
-        int py = static_cast<int>(static_cast<float>(mCameraDescription.sensorSize.top + mCameraDescription.sensorSize.height) * mRequestedFocusY);
-
-        int32_t afRegion[5] = { px - w/2, py - h/2,
-                                px + w/2, py + h/2,
-                                1000 };
-
-        ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_REGIONS, 5, &afRegion[0]);
-
-        // Set auto exposure region if supported or use user settings for exposure
-        uint8_t aeTrigger;
-
-        if(mCameraMode == CameraMode::AUTO) {
-            aeTrigger = ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER_START;
-
-            if(mCameraDescription.maxAeRegions > 0) {
-                ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_REGIONS, 5, &afRegion[0]);
-            }
-        }
-        else if(mCameraMode == CameraMode::MANUAL) {
-            aeTrigger = ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
-        }
-
-        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER, 1, &aeTrigger);
-
-        updateCaptureRequestExposure();
-
-        LOGD("triggerUserAutoFocus()");
-
-        return ACameraCaptureSession_capture(
-            mSessionContext.captureSession.get(),
-            &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->callbacks,
-            1,
-            &mSessionContext.repeatCaptureRequest->captureRequest,
-            &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->sequenceId) == ACAMERA_OK;
-    }
-
     bool CameraStateManager::setUserFocus() {
+        updateCaptureRequestExposure();
+
         uint8_t afMode = ACAMERA_CONTROL_AF_MODE_AUTO;
-        uint8_t afTrigger = ACAMERA_CONTROL_AF_TRIGGER_IDLE;
-
-        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_MODE, 1, &afMode);
-        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_TRIGGER, 1, &afTrigger);
-
-        uint8_t aeTrigger = ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
-
-        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER, 1, &aeTrigger);
-
-        updateCaptureRequestExposure();
-
-        LOGD("setUserFocus()");
-
-        return ACameraCaptureSession_setRepeatingRequest(
-            mSessionContext.captureSession.get(),
-            &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->callbacks,
-            1,
-            &mSessionContext.repeatCaptureRequest->captureRequest,
-            &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->sequenceId) == ACAMERA_OK;
-    }
-
-    bool CameraStateManager::triggerAutoFocus() {
-        uint8_t afMode      = ACAMERA_CONTROL_AF_MODE_AUTO;
-        uint8_t afTrigger   = ACAMERA_CONTROL_AF_TRIGGER_START;
-
-        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_MODE, 1, &afMode);
-        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_TRIGGER, 1, &afTrigger);
-
-        // Set the focus region
-        int w = static_cast<int>(mCameraDescription.sensorSize.width * 0.25f);
-        int h = static_cast<int>(mCameraDescription.sensorSize.height * 0.25f);
-
-        int px = static_cast<int>(static_cast<float>(mCameraDescription.sensorSize.left + mCameraDescription.sensorSize.width) * 0.5f);
-        int py = static_cast<int>(static_cast<float>(mCameraDescription.sensorSize.top + mCameraDescription.sensorSize.height) * 0.5f);
-
-        int32_t afRegion[5] = {px - w/2, py - h/2,
-                               px + w/2, py + h/2,
-                               1000 };
-
-        ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_REGIONS, 5, &afRegion[0]);
-
-        // Set auto exposure region if supported
-        uint8_t aeTrigger;
-
-        if(mCameraMode == CameraMode::AUTO) {
-            aeTrigger = ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER_START;
-
-            if(mCameraDescription.maxAeRegions > 0) {
-                w = static_cast<int>(mCameraDescription.sensorSize.width * 0.75f);
-                h = static_cast<int>(mCameraDescription.sensorSize.height * 0.75f);
-
-                int32_t aeRegion[5] = { px - w/2, py - h/2,
-                                        px + w/2, py + h/2,
-                                        1000 };
-
-                ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_REGIONS, 5, &aeRegion[0]);
-            }
-        }
-        else {
-            aeTrigger = ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
-        }
-
-        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER, 1, &aeTrigger);
-
-        updateCaptureRequestExposure();
-
-        LOGD("triggerAutoFocus()");
-
-        return ACameraCaptureSession_capture(
-                mSessionContext.captureSession.get(),
-                &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->callbacks,
-                1,
-                &mSessionContext.repeatCaptureRequest->captureRequest,
-                &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->sequenceId) == ACAMERA_OK;
-    }
-
-    bool CameraStateManager::setAutoFocus() {
-        uint8_t afMode;
-        uint8_t afTrigger = ACAMERA_CONTROL_AF_TRIGGER_IDLE;
-        uint8_t aeTrigger = ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
 
         // Adjust focus if manual focus is set
         if(mFocusDistance >= 0) {
@@ -475,10 +303,76 @@ namespace motioncam {
             afMode = ACAMERA_CONTROL_AF_MODE_OFF;
         }
         else {
-            float infiniteFocusDistance = 0;
-            ACaptureRequest_setEntry_float(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_LENS_FOCUS_DISTANCE, 1, &infiniteFocusDistance);
-            afMode = mFocusForVideo ? ACAMERA_CONTROL_AF_MODE_CONTINUOUS_VIDEO : ACAMERA_CONTROL_AF_MODE_CONTINUOUS_PICTURE;
+            int w = static_cast<int>(mCameraDescription.sensorSize.width * 0.25);
+            int h = static_cast<int>(mCameraDescription.sensorSize.height * 0.25);
+
+            int px = static_cast<int>(static_cast<float>(mCameraDescription.sensorSize.left + mCameraDescription.sensorSize.width) * mRequestedFocusX);
+            int py = static_cast<int>(static_cast<float>(mCameraDescription.sensorSize.top + mCameraDescription.sensorSize.height) * mRequestedFocusY);
+
+            int32_t afRegion[5] = { px - w/2, py - h/2,
+                                    px + w/2, py + h/2,
+                                    1000 };
+
+            // Set the focus region
+            if(mCameraDescription.maxAeRegions > 0) {
+                ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_REGIONS, 5, &afRegion[0]);
+            }
+
+            // Set auto exposure region if supported or use user settings for exposure
+            if(mCameraExposureMode == CameraMode::AUTO) {
+                if(mCameraDescription.maxAeRegions > 0) {
+                    ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_REGIONS, 5, &afRegion[0]);
+                }
+            }
         }
+
+        uint8_t afTrigger = ACAMERA_CONTROL_AF_TRIGGER_IDLE;
+        uint8_t aeTrigger = ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
+
+        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_MODE, 1, &afMode);
+        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_TRIGGER, 1, &afTrigger);
+        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER, 1, &aeTrigger);
+
+        // Set up focus region
+        ACameraCaptureSession_setRepeatingRequest(
+            mSessionContext.captureSession.get(),
+            &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->callbacks,
+            1,
+            &mSessionContext.repeatCaptureRequest->captureRequest,
+            &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->sequenceId);
+
+        // Kick off focus trigger if touch to focus
+        if(afMode == ACAMERA_CONTROL_AF_MODE_AUTO) {
+            afTrigger = ACAMERA_CONTROL_AF_TRIGGER_START;
+            aeTrigger = ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER_START;
+
+            ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_TRIGGER, 1, &afTrigger);
+            ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER, 1, &aeTrigger);
+
+            auto result = ACameraCaptureSession_capture(
+                    mSessionContext.captureSession.get(),
+                    &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->callbacks,
+                    1,
+                    &mSessionContext.repeatCaptureRequest->captureRequest,
+                    &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->sequenceId);
+
+            setState(State::USER_FOCUS_WAIT, mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->sequenceId);
+
+            return result == ACAMERA_OK;
+        }
+        else {
+            return true;
+        }
+    }
+
+    bool CameraStateManager::setAutoFocus() {
+        updateCaptureRequestExposure();
+
+        // Set focus type
+        float infiniteFocusDistance = 0;
+        ACaptureRequest_setEntry_float(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_LENS_FOCUS_DISTANCE, 1, &infiniteFocusDistance);
+
+        uint8_t afMode = mFocusForVideo ? ACAMERA_CONTROL_AF_MODE_CONTINUOUS_VIDEO : ACAMERA_CONTROL_AF_MODE_CONTINUOUS_PICTURE;
 
         // Pick default frame rate
         int32_t startRange = mFrameRate;
@@ -502,18 +396,49 @@ namespace motioncam {
             endRange = 30;
         }
 
+        // Set the focus region
+        int px = static_cast<int>(static_cast<float>(mCameraDescription.sensorSize.left + mCameraDescription.sensorSize.width) * 0.5f);
+        int py = static_cast<int>(static_cast<float>(mCameraDescription.sensorSize.top + mCameraDescription.sensorSize.height) * 0.5f);
+
+        if(mCameraDescription.maxAfRegions > 0) {
+            int w = static_cast<int>(mCameraDescription.sensorSize.width * 0.25);
+            int h = static_cast<int>(mCameraDescription.sensorSize.height * 0.25);
+
+            int32_t afRegion[5] = {px - w/2, py - h/2,
+                                   px + w/2, py + h/2,
+                                   1000 };
+
+            ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_REGIONS, 5, &afRegion[0]);
+            ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_MODE, 1, &afMode);
+        }
+
+        // Set auto exposure region if supported
+        if(mCameraExposureMode == CameraMode::AUTO && mCameraDescription.maxAeRegions > 0) {
+            int w = static_cast<int>(mCameraDescription.sensorSize.width * 0.75);
+            int h = static_cast<int>(mCameraDescription.sensorSize.height * 0.75);
+
+            int32_t aeRegion[5] = { px - w/2, py - h/2,
+                                    px + w/2, py + h/2,
+                                    1000 };
+
+            ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_REGIONS, 5, &aeRegion[0]);
+        }
+
+        uint8_t afTrigger = ACAMERA_CONTROL_AF_TRIGGER_IDLE;
+        uint8_t aeTrigger = ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
+
         int32_t frameDuration[2] = { startRange, endRange };
 
+        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_TRIGGER, 1, &afTrigger);
+        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER, 1, &aeTrigger);
         ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_TARGET_FPS_RANGE, 2, &frameDuration[0]);
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_MODE, 1, &afMode);
         ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_EXPOSURE_COMPENSATION, 1, &mExposureCompensation);
-        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_TRIGGER, 1, &afTrigger);
-        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER, 1, &aeTrigger);
-
-        updateCaptureRequestExposure();
 
         LOGD("setAutoFocus(%d,%d)", startRange, endRange);
-        setState(State::AUTO_FOCUS_ACTIVE);
+
+        int pendingSequenceId = mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->sequenceId;
+        setState(State::AUTO_FOCUS_WAIT, pendingSequenceId);
 
         return ACameraCaptureSession_setRepeatingRequest(
                 mSessionContext.captureSession.get(),
@@ -537,75 +462,32 @@ namespace motioncam {
     }
 
     void CameraStateManager::nextState(CameraCaptureSessionState state) {
-
-        //
-        // Move state when camera session state changes
-        //
-
-        if(state == CameraCaptureSessionState::READY) {
-            if(mState == State::TRIGGER_USER_FOCUS) {
-                triggerUserAutoFocus();
-            }
-            else if(mState == State::TRIGGER_AUTO_FOCUS) {
-                triggerAutoFocus();
-            }
-            else if(mState == State::AUTO_FOCUS_LOCKED) {
-                setAutoFocus();
-            }
-            else if(mState == State::USER_FOCUS_LOCKED) {
-                setUserFocus();
-            }
+        if(mState == State::AUTO_FOCUS_WAIT) {
+            LOGD("AUTO_FOCUS_WAIT completed");
+            setState(State::AUTO_FOCUS_ACTIVE, -1);
         }
-        else if(state == CameraCaptureSessionState::ACTIVE) {
-            if(mState == State::AUTO_FOCUS_LOCKED) {
-                setState(State::AUTO_FOCUS_ACTIVE);
-            }
-            else if(mState == State::USER_FOCUS_LOCKED) {
-                setState(State::USER_FOCUS_ACTIVE);
-            }
-
-            // If there's a pending action execute it now.
-            if(mRequestedAction != Action::NONE) {
-                nextAction();
-                return;
-            }
+        else if(mState == State::USER_FOCUS_WAIT) {
+            LOGD("USER_FOCUS_WAIT completed");
+            setState(State::USER_FOCUS_ACTIVE, -1);
         }
     }
 
     void CameraStateManager::onCameraSessionStateChanged(const CameraCaptureSessionState state) {
+        LOGD("onCameraSessionStateChanged(%d)", state);
+
         mCaptureSessionState = state;
 
-        nextState(state);
+        if(state == CameraCaptureSessionState::ACTIVE) {
+            nextState(mCaptureSessionState);
+        }
     }
 
     void CameraStateManager::onCameraCaptureSequenceCompleted(const int sequenceId) {
-        if(mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->sequenceId == sequenceId) {
-            if(mState == State::USER_FOCUS_WAIT) {
-                LOGD("USER_FOCUS_WAIT completed");
-                setState(State::TRIGGER_USER_FOCUS);
-            }
-            else if(mState == State::TRIGGER_USER_FOCUS) {
-                LOGD("TRIGGER_USER_FOCUS completed");
-                setState(State::USER_FOCUS_LOCKED);
-            }
-            else if(mState == State::AUTO_FOCUS_WAIT) {
-                LOGD("AUTO_FOCUS_WAIT completed");
-                setState(State::TRIGGER_AUTO_FOCUS);
-            }
-            else if(mState == State::TRIGGER_AUTO_FOCUS) {
-                LOGD("TRIGGER_AUTO_FOCUS completed");
-                setState(State::AUTO_FOCUS_LOCKED);
-            }
-            else if(mState == State::AUTO_FOCUS_ACTIVE) {
-                LOGD("AUTO_FOCUS_ACTIVE completed");
-                setState(State::AUTO_FOCUS_WAIT);
-            }
+        LOGD("onCameraCaptureSequenceCompleted(%d)", sequenceId);
 
-            // If the capture session state has changed synchronously
-            if(mCaptureSessionState == CameraCaptureSessionState::READY) {
-                LOGD("nextState() [mCaptureSessionState == CameraCaptureSessionState::READY]");
-                nextState(mCaptureSessionState);
-            }
+        if(mPendingSequenceId == sequenceId) {
+            nextState(mCaptureSessionState);
+            nextAction();
         }
     }
 }

@@ -24,6 +24,9 @@ public:
 
     Input<Buffer<uint8_t>> input{"input", 1};
     Input<int> stride{"stride"};
+    Input<float[3]> asShotVector{"asShotVector"};
+    Input<float[3]> wbOffset{"wbOffset"};
+
     Input<Buffer<float>> cameraToSrgb{"cameraToSrgb", 2};
 
     Input<int> width{"width"};
@@ -139,6 +142,9 @@ void CameraVideoPreviewGenerator::generate() {
     Func blackLevelFunc{"blackLevelFunc"};
     Func linearFunc{"linearFunc"};
     Func clampedInput{"clampedInput"};
+    Func asShotFunc{"asShotFunc"};
+    Func wbOffsetFunc{"wbOffsetFunc"};
+    Func demosaiced{"demosaiced"};
 
     Expr HALF_0_0 = cast<float16_t>(0.0f);
     Expr HALF_0_5 = cast<float16_t>(0.5f);
@@ -225,11 +231,12 @@ void CameraVideoPreviewGenerator::generate() {
     linearFunc.compute_root().unroll(v_c);
 
     linear(v_x, v_y, v_c) = cast<float16_t>(
-        (downscaled(v_x, v_y, v_c) - blackLevelFunc(v_c)) * linearFunc(v_c) * shadingMapInput(v_x, v_y, v_c));
+        (downscaled(v_x, v_y, v_c) - blackLevelFunc(v_c)) * linearFunc(v_c));
 
-    Func demosaiced;
+    asShotFunc(v_c) = mux(v_c, { asShotVector[0], asShotVector[1], asShotVector[2] } );
+    wbOffsetFunc(v_c) = mux(v_c, { wbOffset[0], wbOffset[1], wbOffset[2] } );
 
-    demosaiced(v_x, v_y, v_c) = clamp(linear(v_x, v_y, v_c), cast<float16_t>(0.0f), cast<float16_t>(1.0f));
+    demosaiced(v_x, v_y, v_c) = cast<float16_t>(wbOffsetFunc(v_c)) * shadingMapInput(v_x, v_y, v_c) * clamp(linear(v_x, v_y, v_c), cast<float16_t>(0.0f), cast<float16_t>(asShotFunc(v_c)));
 
     transform(colorCorrected, demosaiced, cameraToSrgb);
 
@@ -297,6 +304,7 @@ public:
     Input<Buffer<uint8_t>> input{"input", 1};
     Input<int> stride{"stride"};
     Input<float[3]> asShotVector{"asShotVector"};
+    Input<float[3]> wbOffset{"wbOffset"};
     Input<Buffer<float>> cameraToSrgb{"cameraToSrgb", 2};
     Input<bool> flipped{"flipped", false};
 
@@ -708,6 +716,9 @@ void CameraPreviewGenerator::generate() {
     Func demosaicInput("demosaicInput");
     Func blackLevelFunc{"blackLevelFunc"};
     Func linearFunc{"linearFunc"};
+    Func asShotFunc{"asShotFunc"};
+    Func wbOffsetFunc{"wbOffsetFunc"};
+    Func demosaiced{"demosaiced"};
 
     inputRepeated(v_i) = cast<uint16_t>(input(v_i));
 
@@ -795,16 +806,12 @@ void CameraPreviewGenerator::generate() {
     blackLevelFunc.compute_root().unroll(v_c);
     linearFunc.compute_root().unroll(v_c);
 
-    linear(v_x, v_y, v_c) = cast<float16_t>(
-        (flippedDownscaled(v_x, v_y, v_c) - blackLevelFunc(v_c)) * linearFunc(v_c) * shadingMapInput(v_x, v_y, v_c));
+    linear(v_x, v_y, v_c) = cast<float16_t>((flippedDownscaled(v_x, v_y, v_c) - blackLevelFunc(v_c)) * linearFunc(v_c));
 
-    Func demosaiced;
+    asShotFunc(v_c) = mux(v_c, { asShotVector[0], asShotVector[1], asShotVector[2] } );
+    wbOffsetFunc(v_c) = mux(v_c, { wbOffset[0], wbOffset[1], wbOffset[2] } );
 
-    demosaiced(v_x, v_y, v_c) =
-        select(
-            v_c == 0, clamp(linear(v_x, v_y, 0), cast<float16_t>(0.0f), cast<float16_t>(asShotVector[0])),
-            v_c == 1, clamp(linear(v_x, v_y, 1), cast<float16_t>(0.0f), cast<float16_t>(asShotVector[1])),
-                      clamp(linear(v_x, v_y, 3), cast<float16_t>(0.0f), cast<float16_t>(asShotVector[2])));
+    demosaiced(v_x, v_y, v_c) = cast<float16_t>(wbOffsetFunc(v_c)) * shadingMapInput(v_x, v_y, v_c) * clamp(linear(v_x, v_y, v_c), cast<float16_t>(0.0f), cast<float16_t>(asShotFunc(v_c)));
 
     transform(colorCorrected, demosaiced, cameraToSrgb);
 

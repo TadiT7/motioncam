@@ -412,6 +412,9 @@ namespace motioncam {
                 updateCameraMetadata(safeCameraChars, *cameraDescription);
                 mCameras.push_back(cameraDescription);
             }
+            else {
+                LOGE("Failed to get camera %s", it->c_str());
+            }
 
             ++it;
         }
