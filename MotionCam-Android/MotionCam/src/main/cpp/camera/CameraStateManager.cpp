@@ -33,8 +33,8 @@ namespace motioncam {
             case Action::NONE:
                 return "NONE";
 
-            case Action::REQUEST_USER_FOCUS:
-                return "REQUEST_USER_FOCUS";
+            case Action::REQUEST_USER_TOUCH_FOCUS:
+                return "REQUEST_USER_TOUCH_FOCUS";
 
             case Action::REQUEST_AUTO_FOCUS:
                 return "REQUEST_AUTO_FOCUS";
@@ -241,7 +241,10 @@ namespace motioncam {
             if( mState == State::USER_FOCUS_WAIT ||
                 mState == State::AUTO_FOCUS_WAIT)
             {
-                setNextAction(Action::REQUEST_USER_FOCUS);
+                if(mFocusDistance < 0)
+                    setNextAction(Action::REQUEST_USER_TOUCH_FOCUS);
+                else
+                    setNextAction(Action::REQUEST_USER_MANUAL_FOCUS);
             }
             else {
                 setUserFocus();
@@ -334,6 +337,9 @@ namespace motioncam {
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER, 1, &aeTrigger);
 
         // Set up focus region
+        int activeSequenceId = mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->sequenceId;
+        setState(State::USER_FOCUS_WAIT, activeSequenceId);
+
         ACameraCaptureSession_setRepeatingRequest(
             mSessionContext.captureSession.get(),
             &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->callbacks,
@@ -349,14 +355,14 @@ namespace motioncam {
             ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_TRIGGER, 1, &afTrigger);
             ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER, 1, &aeTrigger);
 
+            int sequenceId = -1;
+
             auto result = ACameraCaptureSession_capture(
                     mSessionContext.captureSession.get(),
                     &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->callbacks,
                     1,
                     &mSessionContext.repeatCaptureRequest->captureRequest,
-                    &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->sequenceId);
-
-            setState(State::USER_FOCUS_WAIT, mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->sequenceId);
+                    &sequenceId);
 
             return result == ACAMERA_OK;
         }
@@ -437,8 +443,8 @@ namespace motioncam {
 
         LOGD("setAutoFocus(%d,%d)", startRange, endRange);
 
-        int pendingSequenceId = mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->sequenceId;
-        setState(State::AUTO_FOCUS_WAIT, pendingSequenceId);
+        int activeSequenceId = mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->sequenceId;
+        setState(State::AUTO_FOCUS_WAIT, activeSequenceId);
 
         return ACameraCaptureSession_setRepeatingRequest(
                 mSessionContext.captureSession.get(),
@@ -454,8 +460,11 @@ namespace motioncam {
         if(mRequestedAction == Action::REQUEST_AUTO_FOCUS) {
             requestAutoFocus();
         }
-        else if(mRequestedAction == Action::REQUEST_USER_FOCUS) {
+        else if(mRequestedAction == Action::REQUEST_USER_TOUCH_FOCUS) {
             requestUserFocus(mRequestedFocusX, mRequestedFocusY);
+        }
+        else if(mRequestedAction == Action::REQUEST_USER_MANUAL_FOCUS) {
+            requestManualFocus(mFocusDistance);
         }
 
         setNextAction(Action::NONE);

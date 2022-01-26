@@ -157,7 +157,7 @@ int main(int argc, const char* argv[]) {
             std::cout << "Using " << numThreads << " threads" << std::endl;
             std::cout << "Merging " << numFramesToMerge << " frames" << std::endl;
             
-            m.convertVideoToDNG(inputs, listener, motioncam::NO_DENOISE_WEIGHTS, numThreads, numFramesToMerge, true, false);
+            m.convertVideoToDNG(inputs, listener, motioncam::NO_DENOISE_WEIGHTS, numThreads, numFramesToMerge, true, true);
         }
     }
     catch(std::runtime_error& e) {

@@ -37,7 +37,7 @@ public class DenoiseSettings {
             mergeImages             += 2;
         }
 
-        this.numMergeImages     = mergeImages;
+        this.numMergeImages     = Math.min(12, mergeImages);
     }
 
     public DenoiseSettings(float noiseProfile, float ev, float shadows) {

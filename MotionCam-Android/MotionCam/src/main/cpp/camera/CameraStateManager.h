@@ -15,7 +15,8 @@ namespace motioncam {
 
     enum class Action : int {
         NONE,
-        REQUEST_USER_FOCUS,
+        REQUEST_USER_TOUCH_FOCUS,
+        REQUEST_USER_MANUAL_FOCUS,
         REQUEST_AUTO_FOCUS
     };
 

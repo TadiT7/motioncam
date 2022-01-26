@@ -3764,7 +3764,7 @@ public:
             blackLevel[3]
         });
 
-        linear(v_x, v_y, v_c) = (inputDeinterleaved(v_x, v_y, v_c) - bl(v_c)) / cast<float>(whiteLevel - bl(v_c));
+        linear(v_x, v_y, v_c) = (cast<float>(inputDeinterleaved(v_x, v_y, v_c)) - bl(v_c)) / cast<float>(whiteLevel - bl(v_c));
 
         shaded(v_x, v_y, v_c) = shadingMapArranged(v_x, v_y, v_c) * clamp(linear(v_x, v_y, v_c), 0.0f, asShotFunc(v_c));
 
@@ -3772,7 +3772,7 @@ public:
 
         Expr S = outputRange - bl(v_c);
 
-        final(v_x, v_y, v_c) = clamp(cast<uint16_t>(whiteBalanced(v_x, v_y, v_c) * S + 0.5f) + bl(v_c), 0, outputRange);
+        final(v_x, v_y, v_c) = cast<uint16_t>(clamp((whiteBalanced(v_x, v_y, v_c) * S + 0.5f) + bl(v_c), 0, outputRange));
 
         output(v_x, v_y) =
             select(v_y % 2 == 0,
@@ -3866,7 +3866,7 @@ void BuildBayerGenerator2::generate() {
 
     whiteBalanced(v_x, v_y, v_c) = shaded(v_x, v_y, v_c) * wbOffsetFunc(v_c);
 
-    final(v_x, v_y, v_c) = clamp(cast<uint16_t>(whiteBalanced(v_x, v_y, v_c) * range + 0.5f), 0, range);
+    final(v_x, v_y, v_c) = cast<uint16_t>(clamp(whiteBalanced(v_x, v_y, v_c) * range + 0.5f, 0, range));
 
     output(v_x, v_y) =
         select(v_y % 2 == 0,

@@ -384,7 +384,7 @@ namespace motioncam {
                     tonemapVariance,
                     settings.blacks,
                     settings.exposure,
-                    1,//settings.whitePoint,
+                    settings.whitePoint,
                     settings.contrast,
                     settings.brightness,
                     settings.blues,
@@ -452,12 +452,12 @@ namespace motioncam {
         
         // Estimate white point
         const int maxWhitePointBin = 0.75f * histBins[0] + 0.5f;
-        const float whitePoint = 0.995f;
+        const float whitePoint = 0.997f;
         
         for(endBin = histogram.rows - 2; endBin >= maxWhitePointBin; endBin--) {
             float p = histogram.at<float>(endBin);
 
-            if(p > whitePoint)
+            if(p < whitePoint)
                 break;
         }
         
@@ -468,7 +468,7 @@ namespace motioncam {
         float avgLuminance = 0.0f;
         float totalPixels = 0;
         
-        float ignorePixels = 0.002f;
+        float ignorePixels = 0.005f;
 
         int lowerBound = (int) (0.5f + histogram.cols * ignorePixels);
         int upperBound = histogram.cols;
@@ -477,7 +477,7 @@ namespace motioncam {
             avgLuminance += histogram.at<float>(i) * log(1e-5 + i / 65535.0f);
             totalPixels += histogram.at<float>(i);
         }
-        
+
         avgLuminance = exp(avgLuminance / (totalPixels + 1e-5f));
         
         return (std::max)(1.0f, (std::min)(keyValue / avgLuminance, 32.0f));
@@ -508,8 +508,8 @@ namespace motioncam {
         return std::log2(m);
     }
 
-    std::vector<float>& ImageProcessor::estimateDenoiseWeights(const float noise) {
-        const float NOISE_MAP[] = {
+    std::vector<float>& ImageProcessor::estimateDenoiseWeights(const float signalLevel) {
+        const float SIGNAL_MAP[] = {
             0.001f,
             0.005f,
             0.01f,
@@ -522,7 +522,7 @@ namespace motioncam {
         int w = (int) WEIGHTS.size()-1;
         
         for(int i = 0; i < WEIGHTS.size(); i++) {
-            float diff = abs(noise  - NOISE_MAP[i]);
+            float diff = abs(signalLevel  - SIGNAL_MAP[i]);
             
             if(diff < minDiff) {
                 minDiff = diff;
@@ -561,7 +561,7 @@ namespace motioncam {
 
         outSettings.temperature    = static_cast<float>(temperature.temperature());
         outSettings.tint           = static_cast<float>(temperature.tint());
-        outSettings.shadows        = estimateShadows(histogram, keyValue);
+        outSettings.shadows        = estimateShadows(histogram, ev, keyValue);
         outSettings.exposure       = estimateExposureCompensation(histogram, 0.005f);
 
         estimateHdr(histogram, outSettings.clippedLows, outSettings.clippedHighs);
@@ -1254,7 +1254,7 @@ namespace motioncam {
             
             cv::Mat histogram = calcHistogram(rawContainer.getCameraMetadata(), *referenceRawBuffer, false, 4);
             
-            settings.shadows = estimateShadows(histogram, keyValue);
+            settings.shadows = estimateShadows(histogram, ev, keyValue);
         }
         
         if(settings.blacks < 0 || settings.whitePoint < 0) {
