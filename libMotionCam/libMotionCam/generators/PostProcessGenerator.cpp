@@ -4134,7 +4134,10 @@ void StatsGenerator::generate() {
          maxChannel(X, Y-1) +
          maxChannel(X, Y+1)) >> 2;
 
-    whiteLevelClipping(v_x, v_y) = saturating_cast<uint8_t>(255 * cast<uint8_t>(whiteClipped >= whiteLevel));
+    Expr fadeRange = (whiteLevel >> 5);    
+    Expr fadeout = whiteLevel - fadeRange;
+
+    whiteLevelClipping(v_x, v_y) = saturating_cast<uint8_t>(255 * max(whiteClipped - fadeout, 0) / fadeRange);
     blackLevelClipping(v_x, v_y) = saturating_cast<uint8_t>(255 * cast<uint8_t>(blackClipped <= 0));
 
     input.set_estimates({ {0, 18000000} });
