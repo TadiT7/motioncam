@@ -4120,8 +4120,22 @@ void StatsGenerator::generate() {
     Expr X = v_y;
     Expr Y = height - v_x;
 
-    whiteLevelClipping(v_x, v_y) = saturating_cast<uint8_t>(255 * cast<uint8_t>(maxChannel(X, Y) >= whiteLevel));
-    blackLevelClipping(v_x, v_y) = saturating_cast<uint8_t>(255 * cast<uint8_t>(minChannel(X, Y) <= 0));
+    Expr blackClipped = 
+        (minChannel(X, Y)   +
+         minChannel(X-1, Y) +
+         minChannel(X+1, Y) +
+         minChannel(X, Y-1) +
+         minChannel(X, Y+1)) >> 2;
+
+    Expr whiteClipped = 
+        (maxChannel(X, Y)   +
+         maxChannel(X-1, Y) +
+         maxChannel(X+1, Y) +
+         maxChannel(X, Y-1) +
+         maxChannel(X, Y+1)) >> 2;
+
+    whiteLevelClipping(v_x, v_y) = saturating_cast<uint8_t>(255 * cast<uint8_t>(whiteClipped >= whiteLevel));
+    blackLevelClipping(v_x, v_y) = saturating_cast<uint8_t>(255 * cast<uint8_t>(blackClipped <= 0));
 
     input.set_estimates({ {0, 18000000} });
     width.set_estimate(4000);
