@@ -633,7 +633,7 @@ namespace motioncam {
                                        Halide::Runtime::Buffer<uint8_t>& whiteLevelClipping,
                                        Halide::Runtime::Buffer<uint8_t>& blackLevelClipping)
     {
-        Measure measure("generateStats()");
+        //Measure measure("generateStats()");
         
         NativeBufferContext inputBufferContext(*rawBuffer.data, false);
 
