@@ -164,7 +164,7 @@ public class PostProcessFragment extends Fragment implements
         });
 
         // Noise reduction
-        mViewModel.numMergeImages.observe(getViewLifecycleOwner(), (value) -> dataBinding.numMergeImagesText.setText(String.format(Locale.US, "%d", value)));
+        mViewModel.numMergeImages.observe(getViewLifecycleOwner(), (value) -> dataBinding.numMergeImagesText.setText(String.format(Locale.US, "%d", value * 4)));
 
         mViewModel.spatialDenoiseLevel.observe(getViewLifecycleOwner(), (value) -> {
             int level = value - 1;
@@ -376,9 +376,9 @@ public class PostProcessFragment extends Fragment implements
 
         PostProcessPreviewAdapter adapter = (PostProcessPreviewAdapter) mPreviewPager.getAdapter();
 
-        Integer numMergeImages = mViewModel.numMergeImages.getValue();
+        Integer numMergeImages = mViewModel.numMergeImages.getValue() * 4;
         if(numMergeImages == null)
-            numMergeImages = 3; // Default to 3
+            numMergeImages = 4; // Default to 4
 
         if(adapter != null) {
             // Disable save button and show progress until we have captured the image
@@ -398,7 +398,7 @@ public class PostProcessFragment extends Fragment implements
             if(buffer != null) {
                 mAsyncNativeCameraOps.captureImage(
                         buffer.timestamp,
-                        numMergeImages,
+                        Math.max(1, numMergeImages),
                         mViewModel.getPostProcessSettings(),
                         CameraProfile.generateCaptureFile(getContext()).getPath(),
                         this);

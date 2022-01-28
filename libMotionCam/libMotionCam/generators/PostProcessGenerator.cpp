@@ -43,7 +43,7 @@ protected:
 
     void linearScale(Func& result, Func image, Expr fromWidth, Expr fromHeight, Expr toWidth, Expr toHeight);
 
-    void warp(Func& output, const Func& in, const Func& m);
+    void warp(Func& output, const Func& in, const Func& m, const Expr width, const Expr height);
 
 private:
     Func deinterleaveRaw16(Func in, Expr stride);
@@ -70,7 +70,7 @@ protected:
     Var tile_idx{"tile_idx"};
 };
 
-void PostProcessBase::warp(Func& output, const Func& in, const Func& m) {
+void PostProcessBase::warp(Func& output, const Func& in, const Func& m, const Expr width, const Expr height) {
     Func inputF32{"inputF32"};
 
     inputF32(v_x, v_y, v_c) = cast<float>(in(v_x, v_y, v_c));
@@ -82,8 +82,8 @@ void PostProcessBase::warp(Func& output, const Func& in, const Func& m) {
     fx = fx / fw;
     fy = fy / fw;
 
-    Expr x = cast<int16_t>(fx);
-    Expr y = cast<int16_t>(fy);
+    Expr x = clamp(cast<int>(fx), 0, width - 1);
+    Expr y = clamp(cast<int>(fy), 0, height - 1);
     
     Expr a = fx - x;
     Expr b = fy - y;
@@ -2356,6 +2356,7 @@ public:
 
     Input<Buffer<uint8_t>> blueNoise{"blueNoise", 3 };
     Input<Buffer<uint16_t>> hdrInput{"hdrInput", 3 };
+    Input<Buffer<uint8_t>> hdrMask{"hdrMask", 2 };
 
     Input<bool> useHdr{"useHdr"};
 
@@ -2404,7 +2405,6 @@ public:
 
     Func colorCorrected{"colorCorrected"};
     Func hdrTonemapInput{"hdrTonemapInput"};
-    Func hdrMask{"hdrMask"};
     Func highlights{"highlights"};
     Func YCbCr{"YCbCr"};
     Func linearRgb{"linearRgb"};
@@ -2462,24 +2462,18 @@ void PostProcessGenerator::generate()
 
     chromaEps(v_x, v_y) = 65535.0f*65535.0f*eps*eps;
 
-    //
-    // Merge HDR images
-    // Only merge parts of the image which is overexposed with the HDR image
-    //
-
+     // Blend HDR images based on provided mask
     tonemapInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(0.5f + pow(2.0f, exposure) * demosaic->output(v_x, v_y, v_c));
 
     Func hdrInputRepeated{"hdrInputRepeated"};
     Func baseInput{"baseInput"};
+    Func hdrMaskInput{"hdrMaskInput"};
 
-    baseInput(v_x, v_y, v_c) = demosaic->output(v_x, v_y, v_c)/65535.0f;
+    baseInput(v_x, v_y, v_c) = demosaic->output(v_x, v_y, v_c) / 65535.0f;
     hdrInputRepeated(v_x, v_y, v_c) = Halide::BoundaryConditions::repeat_edge(hdrInput)(v_x, v_y, v_c)/65535.0f;
+    hdrMaskInput(v_x, v_y) = Halide::BoundaryConditions::repeat_edge(hdrMask)(v_x, v_y)/255.0f;
 
-    Expr L = 0.299f*baseInput(v_x, v_y, 0) + 0.587f*baseInput(v_x, v_y, 1) + 0.114f*baseInput(v_x, v_y, 2);
-
-    hdrMask(v_x, v_y) = exp(-4.0f * (L - 1.0f) * (L - 1.0f));
-
-    highlights(v_x, v_y, v_c) = (hdrMask(v_x, v_y)*hdrInputRepeated(v_x, v_y, v_c)) + ((1.0f - hdrMask(v_x, v_y))*hdrScale*baseInput(v_x, v_y, v_c));
+    highlights(v_x, v_y, v_c) = (hdrMaskInput(v_x, v_y)*hdrInputRepeated(v_x, v_y, v_c)) + ((1.0f - hdrMaskInput(v_x, v_y))*hdrScale*baseInput(v_x, v_y, v_c));
 
     hdrTonemapInput(v_x, v_y, v_c) = select(useHdr, 
         saturating_cast<uint16_t>(hdrInputGain * highlights(v_x, v_y, v_c) * 65535.0f),
@@ -3466,6 +3460,7 @@ public:
     Input<float> c{"c"};
 
     Output<Buffer<uint8_t>> outputGhost{"outputGhost", 2};
+    Output<Buffer<uint8_t>> outputMask{"outputMask", 2};
 
     void generate();
 
@@ -3494,7 +3489,7 @@ void HdrMaskGenerator::generate() {
                 blackLevel[2],
                 blackLevel[3] });
 
-    warp(warped, BoundaryConditions::repeat_edge(input1), warpMatrix);
+    warp(warped, BoundaryConditions::repeat_edge(input1), warpMatrix, input1.width(), input1.height());
 
     inputf0(v_x, v_y, v_c) = clamp(scale0*(cast<float>(BoundaryConditions::repeat_edge(input0)(v_x, v_y, v_c))-bl(v_c)) / whiteLevel, 0.0f, 1.0f);
     inputf1(v_x, v_y, v_c) = clamp(scale1*(cast<float>(warped(v_x, v_y, v_c))-bl(v_c)) / whiteLevel, 0.0f, 1.0f);
@@ -3523,6 +3518,8 @@ void HdrMaskGenerator::generate() {
 
     outputGhost(v_x, v_y) = cast<uint8_t>(1);
     outputGhost(v_x, v_y) = outputGhost(v_x, v_y) & ghostMap(v_x + r.x, v_y + r.y);
+
+    outputMask(v_x, v_y) = saturating_cast<uint8_t>(mask0(v_x, v_y) * 255);
 
     c.set_estimate(4.0f);
 
@@ -3608,12 +3605,20 @@ private:
     std::unique_ptr<Demosaic> demosaic;
 };
 
+// TODO: Shading map is not aligned
 void LinearImageGenerator::generate() {
     Func inDemosaic[4];
 
     Func b{"b"};
     Func scaled{"scaled"};
     Func warped{"warped"};
+    Func inputRepeated{"inputRepeated"};
+    Func linearScale{"linearScale"};
+
+    inputRepeated = BoundaryConditions::repeat_edge(input);
+
+    // Warp after demosaicing
+    warp(warped, inputRepeated, warpMatrix, input.width(), input.height());
 
     b(v_c) =
         mux(v_c,
@@ -3622,9 +3627,10 @@ void LinearImageGenerator::generate() {
                 blackLevel[2],
                 blackLevel[3] });
 
-    warp(warped, BoundaryConditions::repeat_edge(input), warpMatrix);
+    linearScale(v_c) = 1.0f / (whiteLevel - b(v_c));
 
-    scaled(v_x, v_y, v_c) = cast<uint16_t>(clamp((cast<float>(warped(v_x, v_y, v_c)) - b(v_c)) / cast<float>(whiteLevel - b(v_c)) * range + 0.5f, 0, range));
+    scaled(v_x, v_y, v_c) = cast<uint16_t>(0.5f +
+        clamp((cast<float>(warped(v_x, v_y, v_c)) - b(v_c)) * linearScale(v_c) * range, 0, range));
 
     inDemosaic[0](v_x, v_y) = scaled(v_x, v_y, 0);
     inDemosaic[1](v_x, v_y) = scaled(v_x, v_y, 1);
@@ -3647,13 +3653,12 @@ void LinearImageGenerator::generate() {
         wbOffset,
         cameraToSrgb);
 
-    output(v_x, v_y, v_c) = cast<uint16_t>(clamp(cast<float>(demosaic->output(v_x, v_y, v_c)) + 0.5f, 0, 65535));
+    output(v_x, v_y, v_c) = demosaic->output(v_x, v_y, v_c);
 
-    scaled
+    output
         .compute_root()
         .vectorize(v_x, 8)
-        .parallel(v_y)
-        .unroll(v_c);
+        .parallel(v_y);
 
     input.set_estimates({{0, 2048}, {0, 1536}, {0, 4}});
 

@@ -124,11 +124,19 @@ public class CameraManualControl {
     }
 
     public static class Exposure {
-        Exposure(SHUTTER_SPEED shutterSpeed, ISO iso) {
+        Exposure(long shutterSpeed, int iso) {
             this.iso = iso;
             this.shutterSpeed = shutterSpeed;
         }
 
+        Exposure(SHUTTER_SPEED shutterSpeed, ISO iso) {
+            this.iso = iso.getIso();
+            this.shutterSpeed = shutterSpeed.getExposureTime();
+        }
+
+        public static Exposure Create(long shutterSpeed, int iso) {
+            return new Exposure(shutterSpeed, iso);
+        }
         public static Exposure Create(SHUTTER_SPEED shutterSpeed, ISO iso) {
             return new Exposure(shutterSpeed, iso);
         }
@@ -139,11 +147,11 @@ public class CameraManualControl {
 
         public double getEv(double cameraAperture) {
             final double s = cameraAperture*cameraAperture;
-            return log2(s / (shutterSpeed.value / 1.0e9)) - log2(iso.value / 100.0);
+            return log2(s / (shutterSpeed / 1.0e9)) - log2(iso / 100.0);
         }
 
-        public final ISO iso;
-        public final SHUTTER_SPEED shutterSpeed;
+        public final int iso;
+        public final long shutterSpeed;
     }
 
     public static Exposure[] EXPOSURE_LINE = new Exposure[] {
@@ -282,28 +290,77 @@ public class CameraManualControl {
         return shutterSpeeds;
     }
 
-    public static List<ISO> GetIsoValuesInRange(int min, int max) {
-        List<ISO> isoValues = new ArrayList<>();
+    public static List<Integer> GetIsoValuesInRange(int min, int max) {
+        List<Integer> isoValues = new ArrayList<>();
 
         for(ISO iso : ISO.values())
         {
-            if(iso.value <= max)
-                isoValues.add(iso);
+            if(iso.value >= min && iso.value <= max)
+                isoValues.add(iso.value);
+        }
+
+        if(isoValues.get(isoValues.size() - 1) < max) {
+            isoValues.add(max);
         }
 
         return isoValues;
     }
 
-    public static ISO GetClosestIso(List<ISO> isoList, int iso) {
+    public static int GetClosestIso(List<Integer> isoList, int iso) {
+        int bestIsoMatch = ISO.ISO_100.value;
+
+        for(Integer currentIso : isoList) {
+            if(currentIso == null)
+                continue;
+
+            if(Math.abs(currentIso - iso) < Math.abs(bestIsoMatch - iso)) {
+                bestIsoMatch = currentIso;
+            }
+        }
+
+        return bestIsoMatch;
+    }
+
+    public static ISO MatchISO(int iso) {
         ISO bestIsoMatch = ISO.ISO_100;
 
-        for(ISO currentIso : isoList) {
+        for(ISO currentIso : ISO.values()) {
             if(Math.abs(currentIso.value - iso) < Math.abs(bestIsoMatch.value - iso)) {
                 bestIsoMatch = currentIso;
             }
         }
 
         return bestIsoMatch;
+    }
+
+    public static int FindISOIdx(List<Integer> isoList, int iso) {
+        int bestIsoMatchIdx = 0;
+
+        for(int i = 0; i < isoList.size(); i++) {
+            int currentIso = isoList.get(i);
+            int bestIsoMatch = isoList.get(bestIsoMatchIdx);
+
+            if(Math.abs(currentIso - iso) < Math.abs(bestIsoMatch - iso)) {
+                bestIsoMatchIdx = i;
+            }
+        }
+
+        return bestIsoMatchIdx;
+    }
+
+    public static int FindShutterSpeedIdx(List<SHUTTER_SPEED> exposureList, long exposureTime) {
+        int bestShutterSpeedMatchIdx = 0;
+
+        for(int i = 0; i < exposureList.size(); i++) {
+            long currentShutterSpeed = exposureList.get(i).getExposureTime();
+            long bestShutterSpeedMatch = exposureList.get(bestShutterSpeedMatchIdx).getExposureTime();
+
+            if(Math.abs(currentShutterSpeed - exposureTime) < Math.abs(bestShutterSpeedMatch - exposureTime)) {
+                bestShutterSpeedMatchIdx = i;
+            }
+        }
+
+        return bestShutterSpeedMatchIdx;
     }
 
     public static SHUTTER_SPEED GetClosestShutterSpeed(long exposureTime) {
@@ -317,4 +374,17 @@ public class CameraManualControl {
 
         return bestShutterSpeedMatch;
     }
+
+    public static SHUTTER_SPEED GetClosestShutterSpeed(SHUTTER_SPEED exposureTime) {
+        SHUTTER_SPEED bestShutterSpeedMatch = SHUTTER_SPEED.EXPOSURE_1_100;
+
+        for(SHUTTER_SPEED currentShutterSpeed : SHUTTER_SPEED.values()) {
+            if(Math.abs(currentShutterSpeed.value - exposureTime.value) < Math.abs(bestShutterSpeedMatch.value - exposureTime.value)) {
+                bestShutterSpeedMatch = currentShutterSpeed;
+            }
+        }
+
+        return bestShutterSpeedMatch;
+    }
+
 }

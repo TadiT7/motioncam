@@ -103,7 +103,7 @@ namespace motioncam {
         static void estimateHdr(const cv::Mat& histogram, float& outLows, float& outHighs);
         static float estimateExposureCompensation(const cv::Mat& histogram, float threshold=1e-4f);
         
-        static std::vector<float>& estimateDenoiseWeights(const float noise);
+        static const std::vector<float>& estimateDenoiseWeights(const float noise);
         
         static double measureSharpness(const RawImageBuffer& rawBuffer);
 

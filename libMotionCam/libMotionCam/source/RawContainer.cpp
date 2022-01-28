@@ -649,9 +649,10 @@ namespace motioncam {
                 
                 buffer->second->data->copyHostData(tmp);
             }
-            else if(buffer->second->compressionType == CompressionType::V8NZENC ||
-                    buffer->second->compressionType == CompressionType::P4NZENC ||
-                    buffer->second->compressionType == CompressionType::BITNZPACK )
+            else if(buffer->second->compressionType == CompressionType::V8NZENC     ||
+                    buffer->second->compressionType == CompressionType::P4NZENC     ||
+                    buffer->second->compressionType == CompressionType::BITNZPACK   ||
+                    buffer->second->compressionType == CompressionType::BITNZPACK_2)
             {
                 std::vector<uint16_t> rowOutput(2*buffer->second->width);
                 std::vector<uint8_t> uncompressedBuffer(2*buffer->second->width*buffer->second->height);
@@ -664,6 +665,8 @@ namespace motioncam {
                     decodeFunc = &p4nzdec128v16;
                 else if(buffer->second->compressionType == CompressionType::BITNZPACK)
                     decodeFunc = &bitnzunpack128v16;
+                else if(buffer->second->compressionType == CompressionType::BITNZPACK_2)
+                    decodeFunc = &bitnzunpack16;
                 else if(buffer->second->compressionType == CompressionType::V8NZENC)
                     decodeFunc = &v8nzdec128v16;
                 else

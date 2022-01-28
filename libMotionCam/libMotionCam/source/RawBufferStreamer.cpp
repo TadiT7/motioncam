@@ -207,7 +207,7 @@ namespace motioncam {
         std::vector<uint16_t> row1(binnedWidth);
         size_t offset = 0;
 
-        auto* encodeFunc = &bitnzpack128v16;
+        auto* encodeFunc = &bitnzpack16;
 
         for(int16_t y = ystart; y < yend; y+=4) {
             for(int16_t x = xstart; x < xend; x+=4) {
@@ -398,7 +398,7 @@ namespace motioncam {
         std::vector<uint16_t> row0(binnedWidth);
         std::vector<uint16_t> row1(binnedWidth);
         uint32_t offset = 0;
-        auto* encodeFunc = &bitnzpack128v16;
+        auto* encodeFunc = &bitnzpack16;
 
         for(int16_t y = ystart; y < yend; y+=4) {
             for(int16_t x = xstart; x < xend; x+=4) {
@@ -576,7 +576,7 @@ namespace motioncam {
         std::vector<uint16_t> row0(binnedWidth);
         std::vector<uint16_t> row1(binnedWidth);
         uint32_t offset = 0;
-        auto* encodeFunc = &bitnzpack128v16;
+        auto* encodeFunc = &bitnzpack16;
 
         for(int16_t y = ystart; y < yend; y+=4) {
             for(int16_t x = xstart; x < xend; x+=4) {
@@ -788,7 +788,7 @@ namespace motioncam {
         if(mEnableCompression) {
             buffer.pixelFormat = PixelFormat::RAW16;
             buffer.isCompressed = true;
-            buffer.compressionType = CompressionType::BITNZPACK;
+            buffer.compressionType = CompressionType::BITNZPACK_2;
             buffer.rowStride = 2 * buffer.width;
         }
         else {
@@ -806,7 +806,7 @@ namespace motioncam {
     }
 
     void RawBufferStreamer::cropAndCompress(RawImageBuffer& buffer) const {
-        //Measure m("crop");
+        Measure m("crop");
 
         const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropWidth/100.0f * buffer.width)) / 4));
 
@@ -829,8 +829,8 @@ namespace motioncam {
         std::vector<uint16_t> row(croppedWidth);
         size_t offset = 0;
         
-        auto* encodeFunc = &bitnzpack128v16;
-        auto compressionType = CompressionType::BITNZPACK;
+        auto* encodeFunc = &bitnzpack16;
+        auto compressionType = CompressionType::BITNZPACK_2;
 
         // TODO: Unsafely assuming here that the compressed size is always smaller than the input.
 

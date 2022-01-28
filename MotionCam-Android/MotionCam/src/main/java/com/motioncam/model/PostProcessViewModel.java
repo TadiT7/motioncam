@@ -238,7 +238,7 @@ public class PostProcessViewModel extends ViewModel {
 
         // Denoise settings
         CameraManualControl.Exposure exposure = CameraManualControl.Exposure.Create(
-                CameraManualControl.GetClosestShutterSpeed(shutterSpeed),
+                CameraManualControl.GetClosestShutterSpeed(shutterSpeed).getExposureTime(),
                 CameraManualControl.GetClosestIso(CameraManualControl.GetIsoValuesInRange(100, 6400), iso));
 
         float a = 1.6f;
@@ -247,7 +247,7 @@ public class PostProcessViewModel extends ViewModel {
 
         DenoiseSettings denoiseSettings = new DenoiseSettings(0, (float) exposure.getEv(a), settings.shadows);
 
-        numMergeImages.setValue(denoiseSettings.numMergeImages);
+        numMergeImages.setValue(denoiseSettings.numMergeImages / 4);
         spatialDenoiseLevel.setValue(-1);
 
         saveDng.setValue(settings.dng);

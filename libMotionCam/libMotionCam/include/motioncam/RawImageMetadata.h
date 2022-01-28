@@ -44,7 +44,8 @@ namespace motioncam {
         ZSTD,
         V8NZENC,
         P4NZENC,
-        BITNZPACK
+        BITNZPACK,
+        BITNZPACK_2
     };
 
     struct RawImageMetadata

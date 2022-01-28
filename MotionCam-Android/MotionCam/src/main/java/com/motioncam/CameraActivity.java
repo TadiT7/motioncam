@@ -158,7 +158,7 @@ public class CameraActivity extends AppCompatActivity implements
     private Surface mSurface;
     private CameraActivityBinding mBinding;
     private List<CameraManualControl.SHUTTER_SPEED> mExposureValues;
-    private List<CameraManualControl.ISO> mIsoValues;
+    private List<Integer> mIsoValues;
     private NativeCameraSessionBridge mNativeCamera;
     private List<NativeCameraInfo> mCameraInfos;
     private NativeCameraInfo mSelectedCamera;
@@ -1359,15 +1359,22 @@ public class CameraActivity extends AppCompatActivity implements
             setAeLock(true);
         }
 
-        CameraManualControl.ISO iso = CameraManualControl.GetClosestIso(mIsoValues, mSettings.cameraStartupSettings.iso);
-        CameraManualControl.ISO[] isoValues = CameraManualControl.ISO.values();
+        int isoIdx = CameraManualControl.FindISOIdx(mIsoValues, mSettings.cameraStartupSettings.iso);
 
-        int nextIdx = Math.min(isoValues.length - 1, iso.ordinal() + 1);
-        int prevIdx = Math.max(0, iso.ordinal() - 1);
+        String current = String.valueOf(mIsoValues.get(isoIdx));
+        String next = "-";
+        String prev = "-";
 
-        ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(isoValues[prevIdx]));
-        ((TextView) findViewById(R.id.manualControlCurrentValue)).setText(String.valueOf(iso));
-        ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(isoValues[nextIdx]));
+        if(isoIdx > 0) {
+            prev = String.valueOf(mIsoValues.get(isoIdx - 1));
+        }
+
+        if(isoIdx < mIsoValues.size() - 1)
+            next = String.valueOf(mIsoValues.get(isoIdx + 1));
+
+        ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(prev);
+        ((TextView) findViewById(R.id.manualControlCurrentValue)).setText(current);
+        ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(next);
 
         findViewById(R.id.manualControlExposure).setTag(R.id.manual_control_tag, MANUAL_CONTROL_MODE_ISO);
         findViewById(R.id.manualControlExposure).setVisibility(View.VISIBLE);
@@ -1376,75 +1383,6 @@ public class CameraActivity extends AppCompatActivity implements
                 .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_up));
 
         findViewById(R.id.manualControlExposure).post(() -> alignManualControlView(mSensorEventManager.getOrientation(), false));
-    }
-
-    private void onManualControlPlus() {
-        if(mNativeCamera == null)
-            return;
-
-        int selectionMode = (int) findViewById(R.id.manualControlExposure).getTag(R.id.manual_control_tag);
-
-        if(selectionMode == MANUAL_CONTROL_MODE_ISO) {
-            CameraManualControl.ISO iso = CameraManualControl.GetClosestIso(mIsoValues, mSettings.cameraStartupSettings.iso);
-            CameraManualControl.ISO[] isoValues = CameraManualControl.ISO.values();
-
-            int nextIdx = Math.min(isoValues.length - 1, iso.ordinal() + 1);
-            int nextNextIdx = Math.min(isoValues.length - 1, iso.ordinal() + 2);
-
-            ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(iso));
-            ((TextView) findViewById(R.id.manualControlCurrentValue)).setText(String.valueOf(isoValues[nextIdx]));
-            ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(isoValues[nextNextIdx]));
-
-            mSettings.cameraStartupSettings.iso = isoValues[nextIdx].getIso();
-        }
-        else if(selectionMode == MANUAL_CONTROL_MODE_SHUTTER_SPEED) {
-            CameraManualControl.SHUTTER_SPEED shutterSpeed = CameraManualControl.GetClosestShutterSpeed(mSettings.cameraStartupSettings.exposureTime);
-            CameraManualControl.SHUTTER_SPEED[] shutterSpeedValues = CameraManualControl.SHUTTER_SPEED.values();
-
-            int nextIdx = Math.min(shutterSpeedValues.length - 1, shutterSpeed.ordinal() + 1);
-            int nextNextIdx = Math.min(shutterSpeedValues.length - 1, shutterSpeed.ordinal() + 2);
-
-            ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(shutterSpeed));
-            ((TextView) findViewById(R.id.manualControlCurrentValue)).setText(String.valueOf(shutterSpeedValues[nextIdx]));
-            ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(shutterSpeedValues[nextNextIdx]));
-
-            mSettings.cameraStartupSettings.exposureTime = shutterSpeedValues[nextIdx].getExposureTime();
-        }
-
-        mNativeCamera.setManualExposureValues(mSettings.cameraStartupSettings.iso, mSettings.cameraStartupSettings.exposureTime);
-    }
-
-    private void onManualControlMinus() {
-        int selectionMode = (int) findViewById(R.id.manualControlExposure).getTag(R.id.manual_control_tag);
-
-        if(selectionMode == MANUAL_CONTROL_MODE_ISO) {
-            CameraManualControl.ISO iso = CameraManualControl.GetClosestIso(mIsoValues, mSettings.cameraStartupSettings.iso);
-            CameraManualControl.ISO[] isoValues = CameraManualControl.ISO.values();
-
-            int prevIdx = Math.max(0, iso.ordinal() - 1);
-            int prevPrevIdx = Math.max(0, iso.ordinal() - 2);
-
-            ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(iso));
-            ((TextView) findViewById(R.id.manualControlCurrentValue)).setText(String.valueOf(isoValues[prevIdx]));
-            ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(isoValues[prevPrevIdx]));
-
-            mSettings.cameraStartupSettings.iso = isoValues[prevIdx].getIso();
-        }
-        else if(selectionMode == MANUAL_CONTROL_MODE_SHUTTER_SPEED) {
-            CameraManualControl.SHUTTER_SPEED shutterSpeed = CameraManualControl.GetClosestShutterSpeed(mSettings.cameraStartupSettings.exposureTime);
-            CameraManualControl.SHUTTER_SPEED[] shutterSpeedValues = CameraManualControl.SHUTTER_SPEED.values();
-
-            int prevIdx = Math.max(0, shutterSpeed.ordinal() - 1);
-            int prevPrevIdx = Math.max(0, shutterSpeed.ordinal() - 2);
-
-            ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(shutterSpeed));
-            ((TextView) findViewById(R.id.manualControlCurrentValue)).setText(String.valueOf(shutterSpeedValues[prevIdx]));
-            ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(shutterSpeedValues[prevPrevIdx]));
-
-            mSettings.cameraStartupSettings.exposureTime = shutterSpeedValues[prevIdx].getExposureTime();
-        }
-
-        mNativeCamera.setManualExposureValues(mSettings.cameraStartupSettings.iso, mSettings.cameraStartupSettings.exposureTime);
     }
 
     private void toggleShutterSpeed() {
@@ -1469,20 +1407,140 @@ public class CameraActivity extends AppCompatActivity implements
         findViewById(R.id.manualControlExposure).setTag(R.id.manual_control_tag, MANUAL_CONTROL_MODE_SHUTTER_SPEED);
         findViewById(R.id.manualControlExposure).setVisibility(View.VISIBLE);
 
-        CameraManualControl.SHUTTER_SPEED shutterSpeed = CameraManualControl.GetClosestShutterSpeed(mSettings.cameraStartupSettings.exposureTime);
-        CameraManualControl.SHUTTER_SPEED[] shutterSpeedValues = CameraManualControl.SHUTTER_SPEED.values();
+        int exposureValueIdx = CameraManualControl.FindShutterSpeedIdx(mExposureValues, mSettings.cameraStartupSettings.exposureTime);
 
-        int prevIdx = Math.max(0, shutterSpeed.ordinal() - 1);
-        int nextIdx = Math.min(shutterSpeedValues.length - 1, shutterSpeed.ordinal() + 1);
+        String current = mExposureValues.get(exposureValueIdx).toString();
+        String next = "-";
+        String prev = "-";
 
-        ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(String.valueOf(shutterSpeedValues[prevIdx]));
-        ((TextView) findViewById(R.id.manualControlCurrentValue)).setText(String.valueOf(shutterSpeed));
-        ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(String.valueOf(shutterSpeedValues[nextIdx]));
+        if(exposureValueIdx > 0) {
+            prev = mExposureValues.get(exposureValueIdx - 1).toString();
+        }
+
+        if(exposureValueIdx < mExposureValues.size() - 1)
+            next = mExposureValues.get(exposureValueIdx + 1).toString();
+
+        ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(prev);
+        ((TextView) findViewById(R.id.manualControlCurrentValue)).setText(current);
+        ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(next);
 
         ((ImageView) findViewById(R.id.shutterSpeedIcon))
                 .setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.chevron_up));
 
         findViewById(R.id.manualControlExposure).post(() -> alignManualControlView(mSensorEventManager.getOrientation(), false));
+    }
+
+    private void onManualControlPlus() {
+        if(mNativeCamera == null)
+            return;
+
+        int selectionMode = (int) findViewById(R.id.manualControlExposure).getTag(R.id.manual_control_tag);
+
+        if(selectionMode == MANUAL_CONTROL_MODE_ISO) {
+            int isoIdx = CameraManualControl.FindISOIdx(mIsoValues, mSettings.cameraStartupSettings.iso);
+            if(isoIdx >= mIsoValues.size() - 1)
+                return;
+
+            String current = String.valueOf(mIsoValues.get(isoIdx));
+            String next;
+            String nextNext = "-";
+
+            int nextIdx = isoIdx + 1;
+            next = mIsoValues.get(nextIdx).toString();
+
+            ((TextView) findViewById(R.id.manualControlCurrentValue)).setText(next);
+
+            if(isoIdx < mIsoValues.size() - 2) {
+                int nextNextIdx = isoIdx + 2;
+                nextNext = String.valueOf(mIsoValues.get(nextNextIdx));
+            }
+
+            mSettings.cameraStartupSettings.iso = mIsoValues.get(nextIdx);
+
+            ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(nextNext);
+            ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(current);
+        }
+        else if(selectionMode == MANUAL_CONTROL_MODE_SHUTTER_SPEED) {
+            int exposureTimeIdx = CameraManualControl.FindShutterSpeedIdx(mExposureValues, mSettings.cameraStartupSettings.exposureTime);
+            if(exposureTimeIdx >= mExposureValues.size() - 1)
+                return;
+
+            String current = mExposureValues.get(exposureTimeIdx).toString();
+            String next;
+            String nextNext = "-";
+
+            int nextIdx = exposureTimeIdx + 1;
+            next = mExposureValues.get(nextIdx).toString();
+
+            ((TextView) findViewById(R.id.manualControlCurrentValue)).setText(next);
+
+            if(exposureTimeIdx < mExposureValues.size() - 2) {
+                int nextNextIdx = exposureTimeIdx + 2;
+                nextNext = mExposureValues.get(nextNextIdx).toString();
+            }
+
+            mSettings.cameraStartupSettings.exposureTime = mExposureValues.get(nextIdx).getExposureTime();
+
+            ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(nextNext);
+            ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(current);
+        }
+
+        mNativeCamera.setManualExposureValues(mSettings.cameraStartupSettings.iso, mSettings.cameraStartupSettings.exposureTime);
+    }
+
+    private void onManualControlMinus() {
+        int selectionMode = (int) findViewById(R.id.manualControlExposure).getTag(R.id.manual_control_tag);
+
+        if(selectionMode == MANUAL_CONTROL_MODE_ISO) {
+            int isoIdx = CameraManualControl.FindISOIdx(mIsoValues, mSettings.cameraStartupSettings.iso);
+            if(isoIdx == 0)
+                return;
+
+            String current = String.valueOf(mIsoValues.get(isoIdx));
+            String prev;
+            String prevPrev = "-";
+
+            int prevIdx = isoIdx - 1;
+            prev = String.valueOf(mIsoValues.get(prevIdx));
+
+            ((TextView) findViewById(R.id.manualControlCurrentValue)).setText(prev);
+
+            if(isoIdx > 1) {
+                int prevPrevIdx = isoIdx - 2;
+                prevPrev = String.valueOf(mIsoValues.get(prevPrevIdx));
+            }
+
+            mSettings.cameraStartupSettings.iso = mIsoValues.get(prevIdx);
+
+            ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(current);
+            ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(prevPrev);
+        }
+        else if(selectionMode == MANUAL_CONTROL_MODE_SHUTTER_SPEED) {
+            int exposureIdx = CameraManualControl.FindShutterSpeedIdx(mExposureValues, mSettings.cameraStartupSettings.exposureTime);
+            if(exposureIdx == 0)
+                return;
+
+            String current = mExposureValues.get(exposureIdx).toString();
+            String prev;
+            String prevPrev = "-";
+
+            int prevIdx = exposureIdx - 1;
+            prev = mExposureValues.get(prevIdx).toString();
+
+            ((TextView) findViewById(R.id.manualControlCurrentValue)).setText(prev);
+
+            if(exposureIdx > 1) {
+                int prevPrevIdx = exposureIdx - 2;
+                prevPrev = mExposureValues.get(prevPrevIdx).toString();
+            }
+
+            mSettings.cameraStartupSettings.exposureTime = mExposureValues.get(prevIdx).getExposureTime();
+
+            ((TextView) findViewById(R.id.manualControlPlusBtn)).setText(current);
+            ((TextView) findViewById(R.id.manualControlMinusBtn)).setText(prevPrev);
+        }
+
+        mNativeCamera.setManualExposureValues(mSettings.cameraStartupSettings.iso, mSettings.cameraStartupSettings.exposureTime);
     }
 
     private void setAfLock(boolean lock, boolean uiOnly) {
@@ -1726,13 +1784,13 @@ public class CameraActivity extends AppCompatActivity implements
                 long exposureTime = Math.round(mExposureTime / 4.0f);
 
                 hdrExposure = CameraManualControl.Exposure.Create(
-                        CameraManualControl.GetClosestShutterSpeed(exposureTime),
+                        CameraManualControl.GetClosestShutterSpeed(exposureTime).getExposureTime(),
                         CameraManualControl.GetClosestIso(mIsoValues, mIso));
 
                 hdrExposure = CameraManualControl.MapToExposureLine(a, hdrExposure, CameraManualControl.HDR_EXPOSURE_LINE);
 
                 Log.i(TAG, "Precapturing HDR image");
-                mNativeCamera.prepareHdrCapture(hdrExposure.iso.getIso(), hdrExposure.shutterSpeed.getExposureTime());
+                mNativeCamera.prepareHdrCapture(hdrExposure.iso, hdrExposure.shutterSpeed);
             }
         }
 
@@ -1798,12 +1856,9 @@ public class CameraActivity extends AppCompatActivity implements
             // We'll estimate the shadows again since the exposure has been adjusted
             settings.shadows = -1;
 
-            CameraManualControl.Exposure baseExposure = CameraManualControl.Exposure.Create(
-                    CameraManualControl.GetClosestShutterSpeed(cameraExposure),
-                    CameraManualControl.GetClosestIso(mIsoValues, mIso));
-
+            CameraManualControl.Exposure baseExposure = CameraManualControl.Exposure.Create(cameraExposure, mIso);
             CameraManualControl.Exposure hdrExposure = CameraManualControl.Exposure.Create(
-                    CameraManualControl.GetClosestShutterSpeed(mExposureTime / 4),
+                    CameraManualControl.GetClosestShutterSpeed(mExposureTime / 4).getExposureTime(),
                     CameraManualControl.GetClosestIso(mIsoValues, mIso));
 
             baseExposure = CameraManualControl.MapToExposureLine(a, baseExposure, CameraManualControl.EXPOSURE_LINE);
@@ -1826,19 +1881,16 @@ public class CameraActivity extends AppCompatActivity implements
 
             mNativeCamera.captureHdrImage(
                 denoiseSettings.numMergeImages,
-                baseExposure.iso.getIso(),
-                baseExposure.shutterSpeed.getExposureTime(),
-                hdrExposure.iso.getIso(),
-                hdrExposure.shutterSpeed.getExposureTime(),
+                baseExposure.iso,
+                baseExposure.shutterSpeed,
+                hdrExposure.iso,
+                hdrExposure.shutterSpeed,
                 settings,
                 CameraProfile.generateCaptureFile(this).getPath());
         }
         else {
             PostProcessSettings settings = mPostProcessSettings.clone();
-
-            CameraManualControl.Exposure baseExposure = CameraManualControl.Exposure.Create(
-                    CameraManualControl.GetClosestShutterSpeed(mExposureTime),
-                    CameraManualControl.GetClosestIso(mIsoValues, mIso));
+            CameraManualControl.Exposure baseExposure = CameraManualControl.Exposure.Create(mExposureTime, mIso);
 
             DenoiseSettings denoiseSettings = new DenoiseSettings(
                     0,
@@ -2479,11 +2531,11 @@ public class CameraActivity extends AppCompatActivity implements
 
     @Override
     public void onCameraExposureStatus(int iso, long exposureTime) {
-        final CameraManualControl.ISO cameraIso = CameraManualControl.GetClosestIso(mIsoValues, iso);
+        final int cameraIso = CameraManualControl.GetClosestIso(mIsoValues, iso);
         final CameraManualControl.SHUTTER_SPEED cameraShutterSpeed = CameraManualControl.GetClosestShutterSpeed(exposureTime);
 
         runOnUiThread(() -> {
-            ((TextView) findViewById(R.id.isoBtn)).setText(cameraIso.toString());
+            ((TextView) findViewById(R.id.isoBtn)).setText(String.valueOf(cameraIso));
             ((TextView) findViewById(R.id.shutterSpeedBtn)).setText(cameraShutterSpeed.toString());
 
             mIso = iso;

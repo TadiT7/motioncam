@@ -62,7 +62,7 @@ using std::vector;
 using std::to_string;
 using std::pair;
 
-static std::vector<std::vector<float>> WEIGHTS = {
+const std::vector<std::vector<float>> WEIGHTS = {
     { 12, 4,   2,   1 },
     { 8,  4,   2,   1 },
     { 6,  4,   1,   1 },
@@ -70,6 +70,8 @@ static std::vector<std::vector<float>> WEIGHTS = {
     { 2,  1,   0.5, 0 },
     { 1,  1,   0,   0 }
 };
+
+const float TONEMAP_VARIANCE = 0.27f;
 
 extern "C" int extern_defringe(halide_buffer_t *in, int32_t width, int32_t height, halide_buffer_t *out) {
     if (in->is_bounds_query()) {
@@ -102,7 +104,7 @@ static std::vector<Halide::Runtime::Buffer<float>> createWaveletBuffers(int widt
 }
 
 namespace motioncam {
-    const float MAX_HDR_ERROR           = -0.0001f;
+    const float MAX_HDR_ERROR           = 0.0001f;
     const float SHADOW_BIAS             = 12.0f;
 
     typedef Halide::Runtime::Buffer<float> WaveletBuffer;
@@ -112,6 +114,7 @@ namespace motioncam {
         float gain;
         float error;
         Halide::Runtime::Buffer<uint16_t> hdrInput;
+        Halide::Runtime::Buffer<uint8_t> hdrMask;
     };
 
     struct PreviewMetadata {
@@ -335,25 +338,27 @@ namespace motioncam {
         getNormalisedShadingMap(metadata, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
         
         float shadows = settings.shadows * shadingMapMaxScale;
-        float tonemapVariance = 0.23f;
+        float tonemapVariance = TONEMAP_VARIANCE;
         bool useHdr = false;
         float hdrInputGain = 1.0f;
         float hdrScale = 1.0f;
 
         Halide::Runtime::Buffer<uint16_t> hdrInput;
+        Halide::Runtime::Buffer<uint8_t> hdrMask;
 
         if(hdrMetadata) {
             hdrInput = hdrMetadata->hdrInput;
+            hdrMask = hdrMetadata->hdrMask;
             hdrInputGain = hdrMetadata->gain;
             hdrScale = 1.0f / hdrMetadata->exposureScale;
             useHdr = true;
-            tonemapVariance = 0.20f;
         }
         else {
             // Don't apply underexposed image when error is too high
             logger::log("Not using HDR image");
             
-            hdrInput = Halide::Runtime::Buffer<uint16_t>(inputBuffers[0].width()*2, inputBuffers[0].height()*2, 3);
+            hdrInput = Halide::Runtime::Buffer<uint16_t>(32, 32, 3);
+            hdrMask = Halide::Runtime::Buffer<uint8_t>(32, 32);
             
             useHdr = false;
         }
@@ -364,6 +369,7 @@ namespace motioncam {
                     inputBuffers[3],
                     noiseBuffer,
                     hdrInput,
+                    hdrMask,
                     useHdr,
                     metadata.asShot[0],
                     metadata.asShot[1],
@@ -508,7 +514,7 @@ namespace motioncam {
         return std::log2(m);
     }
 
-    std::vector<float>& ImageProcessor::estimateDenoiseWeights(const float signalLevel) {
+    const std::vector<float>& ImageProcessor::estimateDenoiseWeights(const float signalLevel) {
         const float SIGNAL_MAP[] = {
             0.001f,
             0.005f,
@@ -882,7 +888,7 @@ namespace motioncam {
             static_cast<uint16_t>(cameraMetadata.whiteLevel),
             settings.shadows * shadingMapMaxScale,
             settings.whitePoint,
-            0.25f,
+            TONEMAP_VARIANCE,
             settings.blacks,
             settings.exposure,
             settings.contrast,
@@ -1290,7 +1296,7 @@ namespace motioncam {
         
         shared_ptr<HdrMetadata> hdrMetadata;
   
-        if(!underexposedImages.empty() && settings.whitePoint > 0.99f) {
+        if(!underexposedImages.empty()){//} && settings.whitePoint > 0.99f) {
             hdrMetadata = prepareHdr(rawContainer.getCameraMetadata(),
                        settings,
                        *referenceRawBuffer,
@@ -1984,31 +1990,7 @@ namespace motioncam {
                                         float exposureScale) {
         Measure measure("testAlignment()");
 
-        if(warpMatrix.empty())
-            return 1e10f;
-
-        Halide::Runtime::Buffer<uint8_t> ghostMapBuffer(refImage->rawBuffer.width(), refImage->rawBuffer.height());
-        Halide::Runtime::Buffer<float> warpBuffer = ToHalideBuffer<float>(warpMatrix);
-
-        hdr_mask(refImage->rawBuffer,
-                 underexposedImage->rawBuffer,
-                 warpBuffer,
-                 cameraMetadata.blackLevel[0],
-                 cameraMetadata.blackLevel[1],
-                 cameraMetadata.blackLevel[2],
-                 cameraMetadata.blackLevel[3],
-                 cameraMetadata.whiteLevel,
-                 1.0f,
-                 exposureScale,
-                 16.0f,
-                 ghostMapBuffer);
-
-        // Calculate error
-        cv::Mat ghostMap(ghostMapBuffer.height(), ghostMapBuffer.width(), CV_8U, ghostMapBuffer.data());
-
-        auto trimmedGhostMap = ghostMap(cv::Rect(32, 32, ghostMap.cols - 64, ghostMap.rows - 64));
-        
-        return cv::mean(trimmedGhostMap)[0];
+        return 0;
     }
 
     std::shared_ptr<HdrMetadata> ImageProcessor::prepareHdr(const RawCameraMetadata& cameraMetadata,
@@ -2041,12 +2023,47 @@ namespace motioncam {
         warpMatrix = warpMatrix.inv();
         warpMatrix.convertTo(warpMatrix, CV_32F);
 
-        float error = testAlignment(refImage, underexposedImage, cameraMetadata, warpMatrix, exposureScale);
+        //
+        // Test aligment
+        //
+        
+        if(warpMatrix.empty())
+            return nullptr;
 
+        Halide::Runtime::Buffer<uint8_t> ghostMapBuffer(refImage->rawBuffer.width(), refImage->rawBuffer.height());
+        Halide::Runtime::Buffer<uint8_t> maskBuffer(refImage->rawBuffer.width(), refImage->rawBuffer.height());
+        
+        Halide::Runtime::Buffer<float> warpBuffer = ToHalideBuffer<float>(warpMatrix);
+
+        hdr_mask(refImage->rawBuffer,
+                 underexposedImage->rawBuffer,
+                 warpBuffer,
+                 cameraMetadata.blackLevel[0],
+                 cameraMetadata.blackLevel[1],
+                 cameraMetadata.blackLevel[2],
+                 cameraMetadata.blackLevel[3],
+                 cameraMetadata.whiteLevel,
+                 1.0f,
+                 exposureScale,
+                 16.0f,
+                 ghostMapBuffer,
+                 maskBuffer);
+
+        // Calculate error
+        cv::Mat ghostMap(ghostMapBuffer.height(), ghostMapBuffer.width(), CV_8U, ghostMapBuffer.data());
+        cv::Mat mask(maskBuffer.height(), maskBuffer.width(), CV_8U, maskBuffer.data());
+        
+        auto trimmedGhostMap = ghostMap(cv::Rect(32, 32, ghostMap.cols - 64, ghostMap.rows - 64));
+        
+        float error = cv::mean(trimmedGhostMap)[0];
         logger::log("HDR error: " + std::to_string(error));
+        
         if(error > MAX_HDR_ERROR)
             return nullptr;
-                  
+
+        // Scale mask to match output
+        cv::resize(mask, mask, cv::Size(underexposedImage->rawBuffer.width()*2, underexposedImage->rawBuffer.height()*2));
+
         //
         // Create the underexposed image
         //
@@ -2075,7 +2092,6 @@ namespace motioncam {
 
         Halide::Runtime::Buffer<float> colorTransformBuffer = ToHalideBuffer<float>(cameraToSrgb);
         Halide::Runtime::Buffer<uint16_t> outputBuffer(underexposedImage->rawBuffer.width()*2, underexposedImage->rawBuffer.height()*2, 3);
-        Halide::Runtime::Buffer<float> warpBuffer = ToHalideBuffer<float>(warpMatrix);
         
         linear_image(underexposedImage->rawBuffer,
                      warpBuffer,
@@ -2128,7 +2144,7 @@ namespace motioncam {
             float sum = 0;
 
             for(int x = histogram.rows - 1; x >= 0; x--) {
-                if( sum > 0.0001f )
+                if( sum > 1e-5f )
                     break;
 
                 p[c] = x + 1;
@@ -2141,11 +2157,12 @@ namespace motioncam {
         //
         
         auto hdrMetadata = std::make_shared<HdrMetadata>();
-                
+        
         hdrMetadata->exposureScale  = exposureScale;
         hdrMetadata->hdrInput       = outputBuffer;
+        hdrMetadata->hdrMask        = ToHalideBuffer<uint8_t>(mask).copy();
         hdrMetadata->error          = 0;
-        hdrMetadata->gain           = 1024.0f / (std::max)(p[2], (std::max)(p[0], p[1]));
+        hdrMetadata->gain           = 1;//1024.0f / (std::max)(p[2], (std::max)(p[0], p[1]));
         
         return hdrMetadata;
     }

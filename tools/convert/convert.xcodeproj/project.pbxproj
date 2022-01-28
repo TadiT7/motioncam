@@ -318,7 +318,7 @@
 		45684D652720AF30004E7A12 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = x86_64;
+				ARCHS = arm64;
 				CODE_SIGN_ENTITLEMENTS = "";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
@@ -328,7 +328,7 @@
 				HEADER_SEARCH_PATHS = ../../libMotionCam/libMotioncam/include;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					/usr/local/lib,
+					/opt/homebrew/lib,
 				);
 				OTHER_LDFLAGS = (
 					"-lz",
@@ -355,7 +355,7 @@
 		45684D662720AF30004E7A12 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = x86_64;
+				ARCHS = arm64;
 				CODE_SIGN_ENTITLEMENTS = "";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
@@ -365,7 +365,7 @@
 				HEADER_SEARCH_PATHS = ../../libMotionCam/libMotioncam/include;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					/usr/local/lib,
+					/opt/homebrew/lib,
 				);
 				OTHER_LDFLAGS = (
 					"-lz",
