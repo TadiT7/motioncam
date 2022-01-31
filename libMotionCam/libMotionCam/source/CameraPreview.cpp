@@ -107,6 +107,9 @@ namespace motioncam {
         else
             return;
 
+        const auto& whiteLevel = cameraMetadata.getWhiteLevel(rawBuffer.metadata);
+        const auto& blackLevel = cameraMetadata.getBlackLevel(rawBuffer.metadata);
+        
         camera_preview(inputBuffer,
                        rawBuffer.rowStride,
                        rawBuffer.metadata.asShot[0],
@@ -118,11 +121,11 @@ namespace motioncam {
                        cameraToSrgbBuffer,
                        width,
                        height,
-                       cameraMetadata.blackLevel[0],
-                       cameraMetadata.blackLevel[1],
-                       cameraMetadata.blackLevel[2],
-                       cameraMetadata.blackLevel[3],
-                       cameraMetadata.whiteLevel,
+                       blackLevel[0],
+                       blackLevel[1],
+                       blackLevel[2],
+                       blackLevel[3],
+                       whiteLevel,
                        shadingMapBuffer[0],
                        shadingMapBuffer[1],
                        shadingMapBuffer[2],
@@ -222,6 +225,9 @@ namespace motioncam {
         else
             return;
                 
+        const auto& whiteLevel = cameraMetadata.getWhiteLevel(rawBuffer.metadata);
+        const auto& blackLevel = cameraMetadata.getBlackLevel(rawBuffer.metadata);
+
         camera_preview(inputBuffer,
                        rawBuffer.rowStride,
                        rawBuffer.metadata.asShot[0],
@@ -234,11 +240,11 @@ namespace motioncam {
                        flipped,
                        width,
                        height,
-                       cameraMetadata.blackLevel[0],
-                       cameraMetadata.blackLevel[1],
-                       cameraMetadata.blackLevel[2],
-                       cameraMetadata.blackLevel[3],
-                       cameraMetadata.whiteLevel,
+                       blackLevel[0],
+                       blackLevel[1],
+                       blackLevel[2],
+                       blackLevel[3],
+                       whiteLevel,
                        shadingMapBuffer[0],
                        shadingMapBuffer[1],
                        shadingMapBuffer[2],

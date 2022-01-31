@@ -178,6 +178,14 @@
                 android:layout_weight="1"/>
 
             <Button
+                android:id="@+id/moveVideo"
+                android:layout_width="wrap_content"
+                android:layout_height="50dp"
+                android:backgroundTint="@color/acceptAction"
+                android:text="@string/move"
+                android:layout_gravity="end"/>
+
+            <Button
                 android:id="@+id/queueVideo"
                 android:layout_width="wrap_content"
                 android:layout_height="50dp"

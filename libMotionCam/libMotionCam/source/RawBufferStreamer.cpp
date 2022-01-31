@@ -434,7 +434,7 @@ namespace motioncam {
                 }
 
                 {
-                    const uint16_t ix = x + 1;
+                    const int16_t ix = x + 1;
 
                     const int16_t ix_m2 = (std::max)(0, ix - 2);
                     const int16_t ix_p2 = (ix + 2) % buffer.width;
@@ -464,7 +464,7 @@ namespace motioncam {
                 iy = y + 1;
 
                 {
-                    const uint16_t ix = x;
+                    const int16_t ix = x;
                     
                     const int16_t ix_m2 = (std::max)(0, ix - 2);
                     const int16_t ix_p2 = (ix + 2) % buffer.width;
@@ -491,7 +491,7 @@ namespace motioncam {
                 }
                 
                 {
-                    const uint16_t ix = x + 1;
+                    const int16_t ix = x + 1;
                     
                     const int16_t ix_m2 = (std::max)(0, ix - 2);
                     const int16_t ix_p2 = (ix + 2) % buffer.width;
@@ -611,7 +611,7 @@ namespace motioncam {
                 }
 
                 {
-                    const uint16_t ix = x + 1;
+                    const int16_t ix = x + 1;
 
                     const int16_t ix_m2 = (std::max)(0, ix - 2);
                     const int16_t ix_p2 = (ix + 2) % buffer.width;
@@ -641,7 +641,7 @@ namespace motioncam {
                 iy = y + 1;
 
                 {
-                    const uint16_t ix = x;
+                    const int16_t ix = x;
                     
                     const int16_t ix_m2 = (std::max)(0, ix - 2);
                     const int16_t ix_p2 = (ix + 2) % buffer.width;
@@ -668,7 +668,7 @@ namespace motioncam {
                 }
                 
                 {
-                    const uint16_t ix = x + 1;
+                    const int16_t ix = x + 1;
                     
                     const int16_t ix_m2 = (std::max)(0, ix - 2);
                     const int16_t ix_p2 = (ix + 2) % buffer.width;

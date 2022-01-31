@@ -2,6 +2,7 @@
 #include "motioncam/Exceptions.h"
 #include "motioncam/RawImageMetadata.h"
 #include "motioncam/RawContainer.h"
+#include "motioncam/Measure.h"
 
 #include <fstream>
 #include <zstd.h>
@@ -478,6 +479,8 @@ namespace motioncam {
                       const bool saveShadingMap,
                       dng_stream& dngStream)
         {
+            //Measure m{"WriteDng"};
+            
             const int width  = rawImage.cols;
             const int height = rawImage.rows;
             
@@ -488,35 +491,42 @@ namespace motioncam {
             
             AutoPtr<dng_negative> negative(host.Make_dng_negative());
             
+            auto whiteLevel = cameraMetadata.getWhiteLevel(imageMetadata);
+            const auto& blackLevel = cameraMetadata.getBlackLevel(imageMetadata);
+            
             // Create lens shading map for each channel
             if(saveShadingMap) {
                 // Rearrange the shading map channels to match the sensor layout
-                auto shadingMap = imageMetadata.lensShadingMap;
+                const auto& rggbShadingMap = imageMetadata.shadingMap();
+                auto shadingMap = rggbShadingMap;
                 
                 switch(cameraMetadata.sensorArrangment) {
+                    // RGGB -> GRBG
                     case ColorFilterArrangment::GRBG:
-                        shadingMap[0] = imageMetadata.lensShadingMap[1];
-                        shadingMap[1] = imageMetadata.lensShadingMap[0];
-                        shadingMap[2] = imageMetadata.lensShadingMap[3];
-                        shadingMap[3] = imageMetadata.lensShadingMap[2];
+                        shadingMap[0] = rggbShadingMap[1];
+                        shadingMap[1] = rggbShadingMap[0];
+                        shadingMap[2] = rggbShadingMap[3];
+                        shadingMap[3] = rggbShadingMap[2];
                         break;
 
+                    // RGGB -> BGGR
                     case ColorFilterArrangment::BGGR:
                         std::swap(shadingMap[0], shadingMap[3]);
                         break;
-                        
+
+                    // RGGB -> GBRG
                     case ColorFilterArrangment::GBRG:
-                        shadingMap[0] = imageMetadata.lensShadingMap[2];
-                        shadingMap[1] = imageMetadata.lensShadingMap[0];
-                        shadingMap[2] = imageMetadata.lensShadingMap[3];
-                        shadingMap[3] = imageMetadata.lensShadingMap[1];
+                        shadingMap[0] = rggbShadingMap[2];
+                        shadingMap[1] = rggbShadingMap[3];
+                        shadingMap[2] = rggbShadingMap[0];
+                        shadingMap[3] = rggbShadingMap[1];
                         break;
-                        
+
                     default:
                     case ColorFilterArrangment::RGGB:
                         break;
                 }
-                
+
                 for(int c = 0; c < 4; c++) {
                     dng_point channelGainMapPoints(shadingMap[c].rows, shadingMap[c].cols);
 
@@ -589,12 +599,12 @@ namespace motioncam {
             negative->SetBayerMosaic(phase);
             negative->SetColorChannels(3);
                         
-            negative->SetQuadBlacks(cameraMetadata.blackLevel[0],
-                                    cameraMetadata.blackLevel[1],
-                                    cameraMetadata.blackLevel[2],
-                                    cameraMetadata.blackLevel[3]);
+            negative->SetQuadBlacks(blackLevel[0],
+                                    blackLevel[1],
+                                    blackLevel[2],
+                                    blackLevel[3]);
             
-            negative->SetWhiteLevel(cameraMetadata.whiteLevel);
+            negative->SetWhiteLevel(whiteLevel);
             
             // Square pixels
             negative->SetDefaultScale(dng_urational(1,1), dng_urational(1,1));
@@ -668,6 +678,23 @@ namespace motioncam {
                 
                 cameraProfile->SetForwardMatrix1(dngForward1);
                 cameraProfile->SetForwardMatrix2(dngForward2);
+            }
+
+            // Set camera calibration matrix
+            cv::Mat calibration1 = cameraMetadata.calibrationMatrix1;
+            cv::Mat calibration2 = cameraMetadata.calibrationMatrix2;
+
+            if(!calibration1.empty() && !calibration2.empty()) {
+                dng_matrix_3by3 dngCalibration1 = dng_matrix_3by3( calibration1.at<float>(0, 0), calibration1.at<float>(0, 1), calibration1.at<float>(0, 2),
+                                                                   calibration1.at<float>(1, 0), calibration1.at<float>(1, 1), calibration1.at<float>(1, 2),
+                                                                   calibration1.at<float>(2, 0), calibration1.at<float>(2, 1), calibration1.at<float>(2, 2) );
+                
+                dng_matrix_3by3 dngCalibration2 = dng_matrix_3by3( calibration2.at<float>(0, 0), calibration2.at<float>(0, 1), calibration2.at<float>(0, 2),
+                                                                   calibration2.at<float>(1, 0), calibration2.at<float>(1, 1), calibration2.at<float>(1, 2),
+                                                                   calibration2.at<float>(2, 0), calibration2.at<float>(2, 1), calibration2.at<float>(2, 2) );
+                
+                negative->SetCameraCalibration1(dngCalibration1);
+                negative->SetCameraCalibration2(dngCalibration2);
             }
             
             uint32_t illuminant1 = 0;

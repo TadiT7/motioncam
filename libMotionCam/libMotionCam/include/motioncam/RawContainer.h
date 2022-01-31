@@ -54,8 +54,6 @@ namespace motioncam {
         bool isInMemory() const { return mIsInMemory; };
         int getNumSegments() const;
         
-        const std::vector<cv::Mat>& getCachedShadingMap() const;
-        
     private:
         void initialise(const std::string& inputPath);
         void initialise(const int fd);
@@ -68,6 +66,8 @@ namespace motioncam {
         void loadContainerMetadata(const json11::Json& metadata);
         std::shared_ptr<RawImageBuffer> loadFrameMetadata(const json11::Json& obj);
 
+        void cropShadingMap(std::vector<cv::Mat>& shadingMap, int width, int height, int originalWidth, int originalHeight, bool isBinned);
+        
         static std::vector<cv::Mat> getLensShadingMap(const json11::Json& obj);
         
         static std::string toString(ColorFilterArrangment sensorArrangment);
@@ -93,7 +93,7 @@ namespace motioncam {
         int mNumSegments;
         std::vector<std::string> mFrames;
         std::map<std::string, std::shared_ptr<RawImageBuffer>> mFrameBuffers;
-        std::vector<cv::Mat> mShadingMap;
+        std::vector<cv::Mat> mContainerShadingMap;
     };
 }
 

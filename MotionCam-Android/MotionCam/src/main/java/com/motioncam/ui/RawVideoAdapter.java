@@ -34,6 +34,7 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
 
     interface OnQueueListener {
         void onQueueClicked(VideoEntry entry);
+        void onMoveClicked(VideoEntry entry);
         void onDeleteClicked(VideoEntry entry);
     }
 
@@ -63,6 +64,7 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         private final TextView totalFrames;
         private final TextView numParts;
         private final Button queueVideoBtn;
+        private final Button moveVideoBtn;
         private final ImageView deleteVideoBtn;
         private final ProgressBar progressBar;
         private final ViewGroup previewList;
@@ -74,6 +76,7 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             background = view;
             fileNameView = view.findViewById(R.id.filename);
             queueVideoBtn = view.findViewById(R.id.queueVideo);
+            moveVideoBtn = view.findViewById(R.id.moveVideo);
             deleteVideoBtn = view.findViewById(R.id.deleteVideo);
             captureTime = view.findViewById(R.id.captureTime);
             frameRate = view.findViewById(R.id.frameRate);
@@ -98,6 +101,10 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
 
         public Button getQueueVideoBtn() {
             return queueVideoBtn;
+        }
+
+        public Button getMoveVideoBtn() {
+            return moveVideoBtn;
         }
 
         public ImageView getDeleteVideoBtn() {
@@ -165,6 +172,9 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         viewHolder.getQueueVideoBtn().setOnClickListener((v) ->
                 mListener.onQueueClicked(item.entry));
 
+        viewHolder.getMoveVideoBtn().setOnClickListener((v) ->
+                mListener.onMoveClicked(item.entry));
+
         viewHolder.getDeleteVideoBtn().setOnClickListener((v) -> mListener.onDeleteClicked(item.entry));
 
         // Metadata
@@ -198,7 +208,8 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         }
 
         // Set up state
-
+//        for()
+//        item.entry.getVideoUris()
 
         // In the process of being exported?
         if(item.isQueued) {

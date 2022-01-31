@@ -51,6 +51,7 @@ namespace motioncam {
     struct RawImageMetadata
     {
         RawImageMetadata() :
+            dynamicWhiteLevel(0),
             exposureTime(0),
             iso(0),
             timestampNs(0),
@@ -62,6 +63,8 @@ namespace motioncam {
         }
 
         RawImageMetadata(const RawImageMetadata& other) :
+            dynamicBlackLevel(other.dynamicBlackLevel),
+            dynamicWhiteLevel(other.dynamicWhiteLevel),
             asShot(other.asShot),
             lensShadingMap(other.lensShadingMap),
             exposureTime(other.exposureTime),
@@ -76,6 +79,8 @@ namespace motioncam {
         }
 
         RawImageMetadata(const RawImageMetadata&& other) noexcept :
+            dynamicBlackLevel(std::move(other.dynamicBlackLevel)),
+            dynamicWhiteLevel(other.dynamicWhiteLevel),
             asShot(std::move(other.asShot)),
             lensShadingMap(std::move(other.lensShadingMap)),
             exposureTime(other.exposureTime),
@@ -90,6 +95,8 @@ namespace motioncam {
         }
 
         RawImageMetadata& operator=(const RawImageMetadata &obj) {
+            dynamicBlackLevel = obj.dynamicBlackLevel;
+            dynamicWhiteLevel = obj.dynamicWhiteLevel;
             asShot = obj.asShot;
             lensShadingMap = obj.lensShadingMap;
             exposureTime = obj.exposureTime;
@@ -104,8 +111,10 @@ namespace motioncam {
             return *this;
         }
 
+        std::vector<float> dynamicBlackLevel;
+        float dynamicWhiteLevel;
+
         cv::Vec3f asShot;
-        std::vector<cv::Mat> lensShadingMap;
 
         cv::Mat colorMatrix1;
         cv::Mat colorMatrix2;
@@ -124,6 +133,17 @@ namespace motioncam {
         ScreenOrientation screenOrientation;
         RawType rawType;
         std::vector<double> noiseProfile;
+        
+        void updateShadingMap(const std::vector<cv::Mat>& shadingMap) {
+            this->lensShadingMap = std::move(shadingMap);
+        }
+        
+        const std::vector<cv::Mat>& shadingMap() const {
+            return lensShadingMap;
+        }
+        
+    private:
+        std::vector<cv::Mat> lensShadingMap;
     };
 
     class NativeBuffer {
@@ -232,8 +252,7 @@ namespace motioncam {
         std::vector<uint8_t> data;
     };
 
-    struct RawImageBuffer {
-        
+    struct RawImageBuffer {        
         RawImageBuffer(std::unique_ptr<NativeBuffer> buffer) :
             data(std::move(buffer)),
             pixelFormat(PixelFormat::RAW10),
@@ -364,11 +383,33 @@ namespace motioncam {
         color::Illuminant colorIlluminant1;
         color::Illuminant colorIlluminant2;
       
-        int whiteLevel;
-        std::vector<int> blackLevel;
-
         std::vector<float> apertures;
         std::vector<float> focalLengths;
+        
+        const std::vector<float>& getBlackLevel(const RawImageMetadata& bufferMetadata) const {
+            return bufferMetadata.dynamicBlackLevel.empty() ? this->blackLevel : bufferMetadata.dynamicBlackLevel;
+        }
+        
+        const std::vector<float>& getBlackLevel() const {
+            return blackLevel;
+        }
+        
+        const float getWhiteLevel(const RawImageMetadata& bufferMetadata) const {
+            return bufferMetadata.dynamicWhiteLevel <= 0 ? this->whiteLevel : bufferMetadata.dynamicWhiteLevel;
+        }
+        
+        const float getWhiteLevel() const {
+            return whiteLevel;
+        }
+        
+        void updateBayerOffsets(const std::vector<float>& blackLevel, const float whiteLevel) {
+            this->blackLevel = blackLevel;
+            this->whiteLevel = whiteLevel;
+        }
+        
+    private:
+        float whiteLevel;
+        std::vector<float> blackLevel;
     };
 }
 #endif /* RawImageMetadata_hpp */

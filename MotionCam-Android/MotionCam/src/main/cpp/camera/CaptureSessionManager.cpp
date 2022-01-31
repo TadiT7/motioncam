@@ -237,17 +237,22 @@ namespace motioncam {
             }
         }
 
+        std::vector<float> blackLevel = { 0, 0, 0, 0 };
+        float whiteLevel = 1023.0f;
+
         // ACAMERA_SENSOR_BLACK_LEVEL_PATTERN
         if(ACameraMetadata_getConstEntry(cameraChars.get(), ACAMERA_SENSOR_BLACK_LEVEL_PATTERN, &entry) == ACAMERA_OK) {
             for (int i = 0; i < 4; i++) {
-                cameraDescription.metadata.blackLevel.push_back(entry.data.i32[i]);
+                blackLevel[i] = entry.data.i32[i];
             }
         }
 
         // ACAMERA_SENSOR_INFO_WHITE_LEVEL
         if(ACameraMetadata_getConstEntry(cameraChars.get(), ACAMERA_SENSOR_INFO_WHITE_LEVEL, &entry) == ACAMERA_OK) {
-            cameraDescription.metadata.whiteLevel = entry.data.i32[0];
+            whiteLevel = entry.data.i32[0];
         }
+
+        cameraDescription.metadata.updateBayerOffsets(blackLevel, whiteLevel);
 
         // ACAMERA_SENSOR_CALIBRATION_TRANSFORM1
         if(ACameraMetadata_getConstEntry(cameraChars.get(), ACAMERA_SENSOR_CALIBRATION_TRANSFORM1, &entry) == ACAMERA_OK) {
@@ -481,11 +486,11 @@ namespace motioncam {
     {
         auto outputConfigs = cameraDesc.outputConfigs;
 
-        OutputConfiguration closestConfig = { AIMAGE_FORMAT_PRIVATE, DisplayDimension() };
+        OutputConfiguration closestConfig = { AIMAGE_FORMAT_YUV_420_888, DisplayDimension() };
         bool foundConfig = false;
 
         // Find the closest preview configuration to our display resolution
-        auto yuvIt = outputConfigs.find(AIMAGE_FORMAT_PRIVATE);
+        auto yuvIt = outputConfigs.find(AIMAGE_FORMAT_YUV_420_888);
 
         if (yuvIt != outputConfigs.end()) {
             auto configurations = (*yuvIt).second;

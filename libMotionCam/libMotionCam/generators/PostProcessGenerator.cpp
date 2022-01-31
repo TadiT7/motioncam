@@ -299,8 +299,8 @@ void PostProcessBase::rearrange(Func& output, Func in0, Func in1, Func in2, Func
 
             sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
                 select( v_c == 0, in2(v_x, v_y),
-                        v_c == 1, in0(v_x, v_y),
-                        v_c == 2, in3(v_x, v_y),
+                        v_c == 1, in3(v_x, v_y),
+                        v_c == 2, in0(v_x, v_y),
                                   in1(v_x, v_y) ),
 
                 select( v_c == 0, in3(v_x, v_y),
@@ -326,8 +326,8 @@ void PostProcessBase::rearrange(Func& output, Func input, Expr sensorArrangement
 
             sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
                 select( v_c == 0, input(v_x, v_y, 2),
-                        v_c == 1, input(v_x, v_y, 0),
-                        v_c == 2, input(v_x, v_y, 3),
+                        v_c == 1, input(v_x, v_y, 3),
+                        v_c == 2, input(v_x, v_y, 0),
                                   input(v_x, v_y, 1) ),
 
                 select( v_c == 0, input(v_x, v_y, 3),
@@ -2681,8 +2681,8 @@ public:
 
     Input<int> sensorArrangement{"sensorArrangement"};
     
-    Input<int16_t[4]> blackLevel{"blackLevel"};
-    Input<int16_t> whiteLevel{"whiteLevel"};
+    Input<float[4]> blackLevel{"blackLevel"};
+    Input<float>    whiteLevel{"whiteLevel"};
 
     Input<float> shadows{"shadows"};
     Input<float> whitePoint{"whitePoint"};
@@ -2927,8 +2927,8 @@ public:
     Input<int> sx{"sx"};
     Input<int> sy{"sy"};
 
-    Input<int>    whiteLevel{"whiteLevel"};
-    Input<int[4]> blackLevel{"blackLevel"};
+    Input<float>    whiteLevel{"whiteLevel"};
+    Input<float[4]> blackLevel{"blackLevel"};
 
     Input<float[3]> asShotVector{"asShotVector"};
     Input<Buffer<float>> cameraToSrgb{"cameraToSrgb", 2};
@@ -3155,9 +3155,9 @@ public:
     Input<int> offsetX{"offsetX"};
     Input<int> offsetY{"offsetY"};
 
-    Input<int>    whiteLevel{"whiteLevel"};
-    Input<int[4]> blackLevel{"blackLevel"};
-    Input<float>  scale{"scale"};
+    Input<float>    whiteLevel{"whiteLevel"};
+    Input<float[4]> blackLevel{"blackLevel"};
+    Input<float> scale{"scale"};
 
     Output<Buffer<uint16_t>> output{"output", 3};
     Output<Buffer<uint8_t>> preview{"preview", 2};
@@ -3314,8 +3314,8 @@ public:
 
     Input<int> downscaleFactor{"downscaleFactor"};
 
-    Input<int[4]> blackLevel{"blackLevel"};
-    Input<int> whiteLevel{"whiteLevel"};
+    Input<float[4]> blackLevel{"blackLevel"};
+    Input<float> whiteLevel{"whiteLevel"};
 
     Input<float[3]> asShotVector{"asShotVector"};
     Input<Buffer<float>> cameraToSrgb{"cameraToSrgb", 2};
@@ -3451,8 +3451,8 @@ public:
 
     Input<Buffer<float>> warpMatrix{"warpMatrix", 2};
 
-    Input<int16_t[4]> blackLevel{"blackLevel"};
-    Input<uint16_t> whiteLevel{"whiteLevel"};
+    Input<float[4]> blackLevel{"blackLevel"};
+    Input<float> whiteLevel{"whiteLevel"};
 
     Input<float> scale0{"scale0"};
     Input<float> scale1{"scale1"};
@@ -3593,8 +3593,8 @@ public:
 
     Input<int> sensorArrangement{"sensorArrangement"};
     
-    Input<int16_t[4]> blackLevel{"blackLevel"};
-    Input<int16_t> whiteLevel{"whiteLevel"};
+    Input<float[4]> blackLevel{"blackLevel"};
+    Input<float> whiteLevel{"whiteLevel"};
     Input<float> range{"range"};
 
     Output<Buffer<uint16_t>> output{"output", 3};
@@ -3707,8 +3707,8 @@ public:
     Input<int> pixelFormat{"pixelFormat"};
     Input<int> sensorArrangement{"sensorArrangement"};
 
-    Input<uint16_t[4]> blackLevel{"blackLevel"};
-    Input<uint16_t> whiteLevel{"whiteLevel"};
+    Input<float[4]> blackLevel{"blackLevel"};
+    Input<float> whiteLevel{"whiteLevel"};
 
     Input<float[3]> asShot{"asShot"};
     Input<float[3]> wbOffset{"wbOffset"};
@@ -3719,6 +3719,7 @@ public:
 
     void generate() {
         Func inputDeinterleaved{"inputDeinterleaved"};
+        Func inputClamped{"inputClamped"};
         Func shadingMap0{"shadingMap0"}, shadingMap1{"shadingMap1"}, shadingMap2{"shadingMap2"}, shadingMap3{"shadingMap3"};
         Func shadingMapArranged{"shadingMapArranged"};
         Func shaded{"shaded"};
@@ -3730,6 +3731,8 @@ public:
         Func final{"final"};
 
         deinterleave(inputDeinterleaved, BoundaryConditions::repeat_edge(input), stride, pixelFormat);
+
+        inputClamped(v_x, v_y, v_c) = inputDeinterleaved(clamp(v_x, 0, width*2 - 1), clamp(v_y, 0, height*2 - 1), v_c);
 
         linearScale(shadingMap0, inShadingMap0, inShadingMap0.width(), inShadingMap0.height(), width, height);
         linearScale(shadingMap1, inShadingMap1, inShadingMap1.width(), inShadingMap1.height(), width, height);
@@ -3769,15 +3772,13 @@ public:
             blackLevel[3]
         });
 
-        linear(v_x, v_y, v_c) = (cast<float>(inputDeinterleaved(v_x, v_y, v_c)) - bl(v_c)) / cast<float>(whiteLevel - bl(v_c));
+        linear(v_x, v_y, v_c) = (cast<float>(inputClamped(v_x, v_y, v_c)) - bl(v_c)) / cast<float>(whiteLevel - bl(v_c));
 
         shaded(v_x, v_y, v_c) = shadingMapArranged(v_x, v_y, v_c) * clamp(linear(v_x, v_y, v_c), 0.0f, asShotFunc(v_c));
 
         whiteBalanced(v_x, v_y, v_c) = shaded(v_x, v_y, v_c) * wbOffsetFunc(v_c);
 
-        Expr S = outputRange - bl(v_c);
-
-        final(v_x, v_y, v_c) = cast<uint16_t>(clamp((whiteBalanced(v_x, v_y, v_c) * S + 0.5f) + bl(v_c), 0, outputRange));
+        final(v_x, v_y, v_c) = cast<uint16_t>(clamp((whiteBalanced(v_x, v_y, v_c) * outputRange + 0.5f), 0, outputRange));
 
         output(v_x, v_y) =
             select(v_y % 2 == 0,
@@ -4072,8 +4073,8 @@ public:
     Input<int> sx{"sx"};
     Input<int> sy{"sy"};
 
-    Input<int>    whiteLevel{"whiteLevel"};
-    Input<int[4]> blackLevel{"blackLevel"};
+    Input<float[4]> blackLevel{"blackLevel"};
+    Input<float>    whiteLevel{"whiteLevel"};
 
     Input<float> weight{"weight"};
 

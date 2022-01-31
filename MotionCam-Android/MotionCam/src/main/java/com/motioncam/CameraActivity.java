@@ -2065,11 +2065,11 @@ public class CameraActivity extends AppCompatActivity implements
                 focalLength = metadata.focalLength[0];
             }
 
-//            if(!seenFocalLength.contains(String.valueOf(focalLength)))
+            if(!seenFocalLength.contains(String.valueOf(focalLength)))
                 cameraMetadataMap.put(cameraInfo.cameraId, focalLength);
 
-//            if(focalLength > 0)
-//                seenFocalLength.add(String.valueOf(focalLength));
+            if(focalLength > 0)
+                seenFocalLength.add(String.valueOf(focalLength));
         }
 
         List<String> cameraList = cameraMetadataMap
@@ -2896,13 +2896,6 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void setAutoExposureState(NativeCameraSessionBridge.CameraExposureState state) {
-        boolean timePassed = System.currentTimeMillis() - mFocusRequestedTimestampMs > 3000;
-
-        if(state == NativeCameraSessionBridge.CameraExposureState.SEARCHING && timePassed)
-        {
-            setFocusState(FocusState.AUTO, null);
-        }
-
         mExposureState = state;
     }
 
@@ -2985,7 +2978,10 @@ public class CameraActivity extends AppCompatActivity implements
     public boolean onTouch(View v, MotionEvent event) {
         if(v == mTextureView) {
             if(event.getAction() == MotionEvent.ACTION_UP) {
-                onSetFocusPt(event.getX(), event.getY());
+                if(mFocusState == FocusState.FIXED)
+                    setFocusState(FocusState.AUTO, null);
+                else
+                    onSetFocusPt(event.getX(), event.getY());
             }
         }
 

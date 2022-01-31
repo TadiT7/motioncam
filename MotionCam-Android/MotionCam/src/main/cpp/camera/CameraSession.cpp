@@ -407,14 +407,15 @@ namespace motioncam {
             throw CameraSessionException("Failed to create capture request");
 
         const uint8_t tonemapMode           = ACAMERA_TONEMAP_MODE_FAST;
-        const uint8_t shadingMode           = ACAMERA_SHADING_MODE_FAST;
-        const uint8_t colorCorrectionMode   = ACAMERA_COLOR_CORRECTION_MODE_FAST;
+        const uint8_t shadingMode           = ACAMERA_SHADING_MODE_HIGH_QUALITY;
+        const uint8_t colorCorrectionMode   = ACAMERA_COLOR_CORRECTION_MODE_HIGH_QUALITY;
         const uint8_t lensShadingMapStats   = ACAMERA_STATISTICS_LENS_SHADING_MAP_MODE_ON;
         const uint8_t lensShadingMapApplied = ACAMERA_SENSOR_INFO_LENS_SHADING_APPLIED_FALSE;
         const uint8_t antiBandingMode       = ACAMERA_CONTROL_AE_ANTIBANDING_MODE_AUTO;
         const uint8_t noiseReduction        = ACAMERA_NOISE_REDUCTION_MODE_FAST;
         const uint8_t edgeMode              = ACAMERA_EDGE_MODE_FAST;
 
+        ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_TONEMAP_MODE, 1, &tonemapMode);
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_SHADING_MODE, 1, &shadingMode);
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_STATISTICS_LENS_SHADING_MAP_MODE, 1, &lensShadingMapStats);
         ACaptureRequest_setEntry_u8(captureRequest, ACAMERA_SENSOR_INFO_LENS_SHADING_APPLIED, 1, &lensShadingMapApplied);
@@ -524,7 +525,7 @@ namespace motioncam {
                         mSessionContext->previewOutputConfig.outputSize.width(),
                         mSessionContext->previewOutputConfig.outputSize.height(),
                         AIMAGE_FORMAT_YUV_420_888,
-                        2,
+                        1,
                         &imageReader);
 
         if (result != AMEDIA_OK) {
@@ -596,7 +597,7 @@ namespace motioncam {
 
         // Set up a JPEG output that we don't use. For some reason without it the camera auto
         // focus does not work properly
-//        setupJpegCaptureOutput(*mSessionContext);
+        setupJpegCaptureOutput(*mSessionContext);
 
         // Set up output for capture
         setupRawCaptureOutput(*mSessionContext);

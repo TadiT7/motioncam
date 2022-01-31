@@ -256,10 +256,11 @@ namespace motioncam {
         outShadingMapBuffer.clear();
         outShadingMapScale.clear();
                 
+        const auto& shadingMap = metadata.shadingMap();
         std::vector<float> scale;
-        
+
         for(int i = 0; i < 4; i++) {
-            cv::Mat m = metadata.lensShadingMap[i].clone();
+            cv::Mat m = shadingMap[i].clone();
             
             // Normalize shading map
             double minVal, maxVal;
@@ -569,7 +570,7 @@ namespace motioncam {
         outSettings.tint           = static_cast<float>(temperature.tint());
         outSettings.shadows        = estimateShadows(histogram, ev, keyValue);
         outSettings.exposure       = estimateExposureCompensation(histogram, 0.005f);
-
+        
         estimateHdr(histogram, outSettings.clippedLows, outSettings.clippedHighs);
     }
 
@@ -643,6 +644,9 @@ namespace motioncam {
         Halide::Runtime::Buffer<uint8_t> outputWhiteLevelClipping(height, width);
         Halide::Runtime::Buffer<uint8_t> outputBlackLevelClipping(height, width);
         
+        auto whiteLevel = cameraMetadata.getWhiteLevel(rawBuffer.metadata);
+        const auto& blackLevel = cameraMetadata.getBlackLevel(rawBuffer.metadata);
+        
         generate_stats(
             inputBufferContext.getHalideBuffer(),
             rawBuffer.rowStride,
@@ -652,11 +656,11 @@ namespace motioncam {
             height,
             sx,
             sy,
-            static_cast<uint16_t>(cameraMetadata.whiteLevel),
-            cameraMetadata.blackLevel[0],
-            cameraMetadata.blackLevel[1],
-            cameraMetadata.blackLevel[2],
-            cameraMetadata.blackLevel[3],
+            blackLevel[0],
+            blackLevel[1],
+            blackLevel[2],
+            blackLevel[3],
+            whiteLevel,
             16.0f,
             outputWhiteLevelClipping,
             outputBlackLevelClipping);
@@ -690,6 +694,9 @@ namespace motioncam {
         Halide::Runtime::Buffer<uint8_t> outputBuffer =
             Halide::Runtime::Buffer<uint8_t>::make_interleaved(width, height, 4);
         
+        auto whiteLevel = cameraMetadata.getWhiteLevel(rawBuffer.metadata);
+        const auto& blackLevel = cameraMetadata.getBlackLevel(rawBuffer.metadata);
+
         fast_preview(
             inputBufferContext.getHalideBuffer(),
             rawBuffer.rowStride,
@@ -699,11 +706,11 @@ namespace motioncam {
             height,
             sx,
             sy,
-            static_cast<uint16_t>(cameraMetadata.whiteLevel),
-            cameraMetadata.blackLevel[0],
-            cameraMetadata.blackLevel[1],
-            cameraMetadata.blackLevel[2],
-            cameraMetadata.blackLevel[3],
+            whiteLevel,
+            blackLevel[0],
+            blackLevel[1],
+            blackLevel[2],
+            blackLevel[3],
             rawBuffer.metadata.asShot[0],
             rawBuffer.metadata.asShot[1],
             rawBuffer.metadata.asShot[2],
@@ -730,12 +737,12 @@ namespace motioncam {
         cv::Mat cameraToSrgb = pcsToSrgb * cameraToPcs;
         
         Halide::Runtime::Buffer<float> cameraToSrgbBuffer = ToHalideBuffer<float>(cameraToSrgb);
-
-        Halide::Runtime::Buffer<float> shadingMapBuffer[4];
-        for(int i = 0; i < 4; i++) {
-            shadingMapBuffer[i] = ToHalideBuffer<float>(metadata.lensShadingMap[i]);
-        }
+        std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer;
+        std::vector<float> shadingMapScale;
+        float shadingMapMaxScale;
         
+        getNormalisedShadingMap(metadata, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
+
         const int width  = inputBuffers[0].width() / sx;
         const int height = inputBuffers[0].height() / sy;
 
@@ -766,7 +773,9 @@ namespace motioncam {
             metadata.asShot[0],
             metadata.asShot[1],
             metadata.asShot[2],
-            1,1,1,
+            shadingMapScale[0],
+            shadingMapScale[1],
+            shadingMapScale[2],
             cameraToSrgbBuffer,
             outputBuffer);
 
@@ -787,6 +796,9 @@ namespace motioncam {
             throw InvalidState("Invalid downscale factor");
         }
         
+        auto whiteLevel = cameraMetadata.getWhiteLevel(rawBuffer.metadata);
+        const auto& blackLevel = cameraMetadata.getBlackLevel(rawBuffer.metadata);
+
         cv::Mat cameraToPcs;
         cv::Mat pcsToSrgb;
         cv::Vec3f cameraWhite;
@@ -881,11 +893,11 @@ namespace motioncam {
             rawBuffer.rowStride,
             static_cast<int>(rawBuffer.pixelFormat),
             static_cast<int>(cameraMetadata.sensorArrangment),
-            cameraMetadata.blackLevel[0],
-            cameraMetadata.blackLevel[1],
-            cameraMetadata.blackLevel[2],
-            cameraMetadata.blackLevel[3],
-            static_cast<uint16_t>(cameraMetadata.whiteLevel),
+            blackLevel[0],
+            blackLevel[1],
+            blackLevel[2],
+            blackLevel[3],
+            whiteLevel,
             settings.shadows * shadingMapMaxScale,
             settings.whitePoint,
             TONEMAP_VARIANCE,
@@ -913,6 +925,9 @@ namespace motioncam {
                                                           const bool extendEdges,
                                                           const float scalePreview)
     {
+        auto whiteLevel = cameraMetadata.getWhiteLevel(rawBuffer.metadata);
+        const auto& blackLevel = cameraMetadata.getBlackLevel(rawBuffer.metadata);
+
         // Extend the image so it can be downscaled by 'LEVELS' for the denoising step
         int extendX = 0;
         int extendY = 0;
@@ -943,11 +958,11 @@ namespace motioncam {
                          halfHeight,
                          extendX / 2,
                          extendY / 2,
-                         cameraMetadata.whiteLevel,
-                         cameraMetadata.blackLevel[0],
-                         cameraMetadata.blackLevel[1],
-                         cameraMetadata.blackLevel[2],
-                         cameraMetadata.blackLevel[3],
+                         whiteLevel,
+                         blackLevel[0],
+                         blackLevel[1],
+                         blackLevel[2],
+                         blackLevel[3],
                          scalePreview,
                          rawData->rawBuffer,
                          rawData->previewBuffer);
@@ -968,16 +983,20 @@ namespace motioncam {
         cv::Mat cameraToSrgb = pcsToSrgb * cameraToPcs;
         
         Halide::Runtime::Buffer<float> cameraToSrgbBuffer = ToHalideBuffer<float>(cameraToSrgb);
-        Halide::Runtime::Buffer<float> shadingMapBuffer[4];
+        std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer(4);
 
+        const auto& shadingMap = rawBuffer.metadata.shadingMap();
         for(int i = 0; i < 4; i++) {
-            shadingMapBuffer[i] = ToHalideBuffer<float>(rawBuffer.metadata.lensShadingMap[i]);
+            shadingMapBuffer[i] = ToHalideBuffer<float>(shadingMap[i]);
         }
 
         int halfWidth  = rawBuffer.width / 2;
         int halfHeight = rawBuffer.height / 2;
 
         const int downscale = 4;
+
+        auto whiteLevel = cameraMetadata.getWhiteLevel(rawBuffer.metadata);
+        const auto& blackLevel = cameraMetadata.getBlackLevel(rawBuffer.metadata);
 
         NativeBufferContext inputBufferContext(*rawBuffer.data, false);
         Halide::Runtime::Buffer<uint32_t> histogramBuffer(2u << 7u);
@@ -988,11 +1007,11 @@ namespace motioncam {
                       halfWidth,
                       halfHeight,
                       downscale,
-                      cameraMetadata.blackLevel[0],
-                      cameraMetadata.blackLevel[1],
-                      cameraMetadata.blackLevel[2],
-                      cameraMetadata.blackLevel[3],
-                      cameraMetadata.whiteLevel,
+                      blackLevel[0],
+                      blackLevel[1],
+                      blackLevel[2],
+                      blackLevel[3],
+                      whiteLevel,
                       cameraWhite[0],
                       cameraWhite[1],
                       cameraWhite[2],
@@ -1153,7 +1172,6 @@ namespace motioncam {
         const int halfHeight = buffer.height / 2;
 
         NativeBufferContext inputBufferContext(*buffer.data, false);
-        Halide::Runtime::Buffer<float> shadingMapBuffer[4];
         Halide::Runtime::Buffer<uint32_t> histogramBuffer(2u << 15u);
 
         cv::Mat cameraToPcs;
@@ -1166,9 +1184,15 @@ namespace motioncam {
 
         Halide::Runtime::Buffer<float> cameraToSrgbBuffer = ToHalideBuffer<float>(cameraToSrgb);
 
+        std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer(4);
+        const auto& shadingMap = buffer.metadata.shadingMap();
+        
         for(int i = 0; i < 4; i++) {
-            shadingMapBuffer[i] = ToHalideBuffer<float>(buffer.metadata.lensShadingMap[i]);
+            shadingMapBuffer[i] = ToHalideBuffer<float>(shadingMap[i]);
         }
+
+        auto whiteLevel = cameraMetadata.getWhiteLevel(buffer.metadata);
+        const auto& blackLevel = cameraMetadata.getBlackLevel(buffer.metadata);
 
         measure_image(inputBufferContext.getHalideBuffer(),
                       buffer.rowStride,
@@ -1176,11 +1200,11 @@ namespace motioncam {
                       halfWidth,
                       halfHeight,
                       downscale,
-                      cameraMetadata.blackLevel[0],
-                      cameraMetadata.blackLevel[1],
-                      cameraMetadata.blackLevel[2],
-                      cameraMetadata.blackLevel[3],
-                      cameraMetadata.whiteLevel,
+                      blackLevel[0],
+                      blackLevel[1],
+                      blackLevel[2],
+                      blackLevel[3],
+                      whiteLevel,
                       cameraWhite[0],
                       cameraWhite[1],
                       cameraWhite[2],
@@ -1227,6 +1251,8 @@ namespace motioncam {
             progressListener.onError("Invalid reference frames");
             return;
         }
+
+        auto referenceBayer = loadRawImage(*referenceRawBuffer, rawContainer.getCameraMetadata());
 
         PostProcessSettings settings = rawContainer.getPostProcessSettings();
 
@@ -1296,7 +1322,7 @@ namespace motioncam {
         
         shared_ptr<HdrMetadata> hdrMetadata;
   
-        if(!underexposedImages.empty()){//} && settings.whitePoint > 0.99f) {
+        if(!underexposedImages.empty()){
             hdrMetadata = prepareHdr(rawContainer.getCameraMetadata(),
                        settings,
                        *referenceRawBuffer,
@@ -1304,17 +1330,6 @@ namespace motioncam {
         }
         
         underexposedImages.clear();
-          
-        //
-        // Recover highlights by moving white point
-        //
-        
-        auto referenceBayer = loadRawImage(*referenceRawBuffer, rawContainer.getCameraMetadata());
-        std::vector<cv::Mat> shadingMap(4);
-        
-        for(int c = 0; c < 4; c++) {
-            cv::resize(referenceBayer->metadata.lensShadingMap[c], shadingMap[c], cv::Size(referenceBayer->rawBuffer.width(), referenceBayer->rawBuffer.height()));
-        }
         
         //
         // Denoise
@@ -1367,26 +1382,23 @@ namespace motioncam {
             }
             
             // Update the black/white levels before writing DNG
-            RawCameraMetadata metadata = rawContainer.getCameraMetadata();
+            auto metadata = rawContainer.getCameraMetadata();
+            auto frameMetadata = referenceRawBuffer->metadata;
             
-            metadata.blackLevel[0] = 0;
-            metadata.blackLevel[1] = 0;
-            metadata.blackLevel[2] = 0;
-            metadata.blackLevel[3] = 0;
+            metadata.updateBayerOffsets( { 0, 0, 0, 0 }, EXPANDED_RANGE);
             
-            metadata.whiteLevel = EXPANDED_RANGE;
-            
+            frameMetadata.dynamicWhiteLevel = metadata.getWhiteLevel();
+            frameMetadata.dynamicBlackLevel = metadata.getBlackLevel();
+                        
             std::string dngFile = rawOutputPath + ".dng";
             
             try {
-                util::WriteDng(rawImage, metadata, referenceRawBuffer->metadata, true, true, dngFile);
+                util::WriteDng(rawImage, metadata, frameMetadata, true, true, dngFile);
             }
             catch(std::runtime_error& e) {
             }
         }
-        
-        referenceRawBuffer->metadata.lensShadingMap = shadingMap;
-                
+                        
         cv::Mat outputImage = postProcess(
             denoiseOutput,
             hdrMetadata,
@@ -1652,10 +1664,13 @@ namespace motioncam {
 
         Halide::Runtime::Buffer<uint16_t> denoiseInput(width, height, 4);
         
+        auto whiteLevel = cameraMetadata.getWhiteLevel(reference->metadata);
+        const auto& blackLevel = cameraMetadata.getBlackLevel(reference->metadata);
+
         if(buffers.empty())
             denoiseInput.for_each_element([&](int x, int y, int c) {
-                float p = reference->rawBuffer(x, y, c) - cameraMetadata.blackLevel[c];
-                float s = EXPANDED_RANGE / (float) (cameraMetadata.whiteLevel-cameraMetadata.blackLevel[c]);
+                float p = reference->rawBuffer(x, y, c) - blackLevel[c];
+                float s = EXPANDED_RANGE / (float) (whiteLevel-blackLevel[c]);
                 
                 denoiseInput(x, y, c) = static_cast<uint16_t>( (std::max)(0.0f, (std::min)(p * s + 0.5f, (float) EXPANDED_RANGE) )) ;
             });
@@ -1663,8 +1678,8 @@ namespace motioncam {
             const float n = static_cast<float>(buffers.size());
 
             denoiseInput.for_each_element([&](int x, int y, int c) {
-                float p = fuseOutput(x, y, c) / n - cameraMetadata.blackLevel[c];
-                float s = EXPANDED_RANGE / (float) (cameraMetadata.whiteLevel-cameraMetadata.blackLevel[c]);
+                float p = fuseOutput(x, y, c) / n - blackLevel[c];
+                float s = EXPANDED_RANGE / (float) (whiteLevel-blackLevel[c]);
                 
                 denoiseInput(x, y, c) = static_cast<uint16_t>( (std::max)(0.0f, (std::min)(p * s + 0.5f, (float) EXPANDED_RANGE) ) ) ;
             });
@@ -1790,6 +1805,9 @@ namespace motioncam {
     {
         Measure measure("denoise()");
         
+        auto whiteLevel = rawContainer.getCameraMetadata().getWhiteLevel(reference.metadata);
+        const auto& blackLevel = rawContainer.getCameraMetadata().getBlackLevel(reference.metadata);
+
         //
         // Measure noise
         //
@@ -1802,8 +1820,8 @@ namespace motioncam {
         measureNoise(referenceRawBuffer, noise, signal, patchSize);
         
         float signalAverage = std::accumulate(signal.begin(), signal.end(), 0.0f) / signal.size();
-        signalAverage /= rawContainer.getCameraMetadata().whiteLevel;
-                
+        signalAverage /= whiteLevel;
+        
         Halide::Runtime::Buffer<float> thresholdBuffer(&noise[0], 4);
 
         //
@@ -1896,8 +1914,8 @@ namespace motioncam {
         
         if(processFrames.size() <= 1)
             denoiseInput.for_each_element([&](int x, int y, int c) {
-                float p = reference.rawBuffer(x, y, c) - rawContainer.getCameraMetadata().blackLevel[c];
-                float s = EXPANDED_RANGE / (float) (rawContainer.getCameraMetadata().whiteLevel-rawContainer.getCameraMetadata().blackLevel[c]);
+                float p = reference.rawBuffer(x, y, c) - blackLevel[c];
+                float s = EXPANDED_RANGE / (float) (whiteLevel-blackLevel[c]);
                 
                 denoiseInput(x, y, c) = static_cast<uint16_t>( (std::max)(0.0f, (std::min)(p * s + 0.5f, (float) EXPANDED_RANGE) )) ;
             });
@@ -1905,8 +1923,8 @@ namespace motioncam {
             const float n = (float) processFrames.size() - 1;
 
             denoiseInput.for_each_element([&](int x, int y, int c) {
-                float p = fuseOutput(x, y, c) / n - rawContainer.getCameraMetadata().blackLevel[c];
-                float s = EXPANDED_RANGE / (float) (rawContainer.getCameraMetadata().whiteLevel-rawContainer.getCameraMetadata().blackLevel[c]);
+                float p = fuseOutput(x, y, c) / n - blackLevel[c];
+                float s = EXPANDED_RANGE / (float) (whiteLevel-blackLevel[c]);
                 
                 denoiseInput(x, y, c) = static_cast<uint16_t>( (std::max)(0.0f, (std::min)(p * s + 0.5f, (float) EXPANDED_RANGE) ) ) ;
             });
@@ -2007,7 +2025,10 @@ namespace motioncam {
         auto b = calcEv(cameraMetadata, underexposed.metadata);
 
         exposureScale = std::pow(2.0f, std::abs(b - a));
-                
+        
+        auto whiteLevel = cameraMetadata.getWhiteLevel(underexposed.metadata);
+        const auto& blackLevel = cameraMetadata.getBlackLevel(underexposed.metadata);
+
         //
         // Register images
         //
@@ -2020,6 +2041,9 @@ namespace motioncam {
         // Try to register the image two different ways
         auto warpMatrix = registerImage2(refImage->previewBuffer, underexposedImage->previewBuffer);
         
+        if(warpMatrix.empty())
+            return nullptr;
+
         warpMatrix = warpMatrix.inv();
         warpMatrix.convertTo(warpMatrix, CV_32F);
 
@@ -2027,9 +2051,6 @@ namespace motioncam {
         // Test aligment
         //
         
-        if(warpMatrix.empty())
-            return nullptr;
-
         Halide::Runtime::Buffer<uint8_t> ghostMapBuffer(refImage->rawBuffer.width(), refImage->rawBuffer.height());
         Halide::Runtime::Buffer<uint8_t> maskBuffer(refImage->rawBuffer.width(), refImage->rawBuffer.height());
         
@@ -2038,11 +2059,11 @@ namespace motioncam {
         hdr_mask(refImage->rawBuffer,
                  underexposedImage->rawBuffer,
                  warpBuffer,
-                 cameraMetadata.blackLevel[0],
-                 cameraMetadata.blackLevel[1],
-                 cameraMetadata.blackLevel[2],
-                 cameraMetadata.blackLevel[3],
-                 cameraMetadata.whiteLevel,
+                 blackLevel[0],
+                 blackLevel[1],
+                 blackLevel[2],
+                 blackLevel[3],
+                 whiteLevel,
                  1.0f,
                  exposureScale,
                  16.0f,
@@ -2109,11 +2130,11 @@ namespace motioncam {
                      underexposedImage->rawBuffer.width(),
                      underexposedImage->rawBuffer.height(),
                      static_cast<int>(cameraMetadata.sensorArrangment),
-                     cameraMetadata.blackLevel[0],
-                     cameraMetadata.blackLevel[1],
-                     cameraMetadata.blackLevel[2],
-                     cameraMetadata.blackLevel[3],
-                     cameraMetadata.whiteLevel,
+                     blackLevel[0],
+                     blackLevel[1],
+                     blackLevel[2],
+                     blackLevel[3],
+                     whiteLevel,
                      EXPANDED_RANGE,
                      outputBuffer);
         

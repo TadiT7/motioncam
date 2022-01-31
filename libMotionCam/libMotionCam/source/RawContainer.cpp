@@ -417,43 +417,6 @@ namespace motioncam {
         if(mReferenceImage.empty() && !mFrames.empty()) {
             mReferenceImage = *mFrames.begin();
         }
-        
-        // Set up shading map
-        if(mShadingMap.empty()) {
-            for(int i = 0; i < 4; i++) {
-                cv::Mat m(12, 9, CV_32F, cv::Scalar(1));
-                mShadingMap.push_back(m);
-            }
-        }
-
-        // Crop shading map if buffers are cropped
-        if(!mFrames.empty()) {
-            // Assume all buffers are cropped the same
-            auto frame = mFrameBuffers.begin()->second;
-            
-            for(size_t i = 0; i < mShadingMap.size(); i++) {
-                int originalWidth = frame->originalWidth;
-                int originalHeight = frame->originalHeight;
-        
-                if(frame->isBinned) {
-                    originalWidth /= 2;
-                    originalHeight /= 2;
-                }
-        
-                cv::resize(mShadingMap[i], mShadingMap[i], cv::Size(originalWidth, originalHeight), 0, 0, cv::INTER_CUBIC);
-
-                int x = (originalWidth - frame->width) / 2;
-                int y = (originalHeight - frame->height) / 2;
-
-                mShadingMap[i] = mShadingMap[i](cv::Rect(x, y, originalWidth - x*2, originalHeight - y*2)).clone();
-                
-                // Shrink the shading map back to a reasonable size
-                int shadingMapWidth = 32;
-                int shadingMapHeight = (shadingMapWidth * mShadingMap[i].rows) / mShadingMap[i].cols;
-                                
-                cv::resize(mShadingMap[i], mShadingMap[i], cv::Size(shadingMapWidth, shadingMapHeight), 0, 0, cv::INTER_CUBIC);
-            }
-        }
     }
 
     void RawContainer::loadContainerMetadata(const json11::Json& metadata) {
@@ -467,23 +430,27 @@ namespace motioncam {
         mNumSegments = util::GetOptionalSetting(metadata, "numSegments", 1);
 
         // Black/white levels
+        std::vector<float> blackLevel;
+        
         vector<Json> blackLevelValues = metadata["blackLevel"].array_items();
         for(auto& blackLevelValue : blackLevelValues) {
-            mCameraMetadata.blackLevel.push_back(blackLevelValue.number_value());
+            blackLevel.push_back(blackLevelValue.number_value());
         }
         
-        mCameraMetadata.whiteLevel = util::GetRequiredSettingAsInt(metadata, "whiteLevel");
+        int whiteLevel = util::GetRequiredSettingAsInt(metadata, "whiteLevel");
         
         // Default to 64
-        if(mCameraMetadata.blackLevel.empty()) {
+        if(blackLevel.empty()) {
             for(int i = 0; i < 4; i++)
-                mCameraMetadata.blackLevel.push_back(64);
+                blackLevel.push_back(64);
         }
 
         // Default to 1023
-        if(mCameraMetadata.whiteLevel <= 0)
-            mCameraMetadata.whiteLevel = 1023;
+        if(whiteLevel <= 0)
+            whiteLevel = 1023;
 
+        mCameraMetadata.updateBayerOffsets(blackLevel, whiteLevel);
+        
         // Color arrangement
         string colorFilterArrangment = util::GetRequiredSettingAsString(metadata, "sensorArrangment");
 
@@ -530,10 +497,18 @@ namespace motioncam {
             for(int i = 0; i < metadata["focalLengths"].array_items().size(); i++)
                 mCameraMetadata.focalLengths.push_back(metadata["focalLengths"].array_items().at(i).number_value());
         }
+
+        // Get overall shading map if present
+        mContainerShadingMap = getLensShadingMap(metadata);
         
-        // Lens shading map
-        mShadingMap = getLensShadingMap(metadata);
-        
+        // Make sure there's a valid shading map
+        if(mContainerShadingMap.empty()) {
+            for(int i = 0; i < 4; i++) {
+                cv::Mat m(12, 16, CV_32F, cv::Scalar(1.0f));
+                mContainerShadingMap.push_back(m);
+            }
+        }
+
         // Add the frames
         Json frames = metadata["frames"];
         if(!frames.is_array()) {
@@ -706,10 +681,7 @@ namespace motioncam {
         else {
             buffer->second->data->copyHostData(data);
         }
-        
-        // Use cached shading map
-        buffer->second->metadata.lensShadingMap = mShadingMap;
-        
+                
         return buffer->second;
     }
 
@@ -777,8 +749,34 @@ namespace motioncam {
                 }
             }
         }
-        
+                
         return lensShadingMap;
+    }
+
+    void RawContainer::cropShadingMap(std::vector<cv::Mat>& shadingMap, int width, int height, int originalWidth, int originalHeight, bool isBinned) {
+        if(originalWidth == width && originalHeight == height && !isBinned) {
+            return;
+        }
+        
+        if(isBinned) {
+            originalWidth /= 2;
+            originalHeight /= 2;
+        }
+
+        for(size_t i = 0; i < shadingMap.size(); i++) {
+            cv::resize(shadingMap[i], shadingMap[i], cv::Size(originalWidth, originalHeight), 0, 0, cv::INTER_LINEAR);
+
+            int x = (originalWidth - width) / 2;
+            int y = (originalHeight - height) / 2;
+
+            shadingMap[i] = shadingMap[i](cv::Rect(x, y, originalWidth - x*2, originalHeight - y*2));
+
+            // Shrink the shading map back to a reasonable size
+            int shadingMapWidth = 32;
+            int shadingMapHeight = (shadingMapWidth * shadingMap[i].rows) / shadingMap[i].cols;
+
+            cv::resize(shadingMap[i], shadingMap[i], cv::Size(shadingMapWidth, shadingMapHeight), 0, 0, cv::INTER_LINEAR);
+        }
     }
 
     shared_ptr<RawImageBuffer> RawContainer::loadFrameMetadata(const json11::Json& obj) {
@@ -792,7 +790,7 @@ namespace motioncam {
         buffer->rowStride           = util::GetRequiredSettingAsInt(obj, "rowStride");
         buffer->isCompressed        = util::GetOptionalSetting(obj, "isCompressed", false);
         buffer->compressionType     = static_cast<CompressionType>(util::GetOptionalSetting(obj, "compressionType", 0));
-        
+                
         // Default to ZSTD if no compression type specified
         if(buffer->isCompressed && buffer->compressionType == CompressionType::UNCOMPRESSED) {
             buffer->compressionType = CompressionType::ZSTD;
@@ -851,12 +849,34 @@ namespace motioncam {
         if(obj.object_items().find("forwardMatrix2") != obj.object_items().end()) {
             buffer->metadata.calibrationMatrix1 = toMat3x3((obj)["forwardMatrix2"].array_items());
         }
-  
-        // Load shading map if it has been set at the top level
-        if(mShadingMap.empty()) {
-            mShadingMap = getLensShadingMap(obj);
+
+        // Store shading map
+        auto shadingMap = getLensShadingMap(obj);
+
+        if(shadingMap.empty()) {
+            auto containerShadingMap = mContainerShadingMap;
+            cropShadingMap(containerShadingMap, buffer->width, buffer->height, buffer->originalWidth, buffer->originalHeight, buffer->isBinned);
+        
+            buffer->metadata.updateShadingMap(containerShadingMap);
         }
-                
+        else {
+            cropShadingMap(shadingMap, buffer->width, buffer->height, buffer->originalWidth, buffer->originalHeight, buffer->isBinned);
+            
+            buffer->metadata.updateShadingMap(shadingMap);
+        }
+        
+        // Dynamic black/white levels
+        buffer->metadata.dynamicWhiteLevel = util::GetOptionalSetting(obj, "dynamicWhiteLevel", 0.0f);
+        
+        if(obj["dynamicBlackLevel"].is_array()) {
+            auto arr = obj["dynamicBlackLevel"].array_items();
+            if(arr.size() == 4) {
+                buffer->metadata.dynamicBlackLevel.resize(4);
+                for(int c = 0; c < 4; c++)
+                    buffer->metadata.dynamicBlackLevel[c] = arr[c].number_value();
+            }
+        }
+        
         return buffer;
     }
 
@@ -879,43 +899,13 @@ namespace motioncam {
         metadataJson["colorMatrix2"]        = toJsonArray(mCameraMetadata.colorMatrix2);
         metadataJson["calibrationMatrix1"]  = toJsonArray(mCameraMetadata.calibrationMatrix1);
         metadataJson["calibrationMatrix2"]  = toJsonArray(mCameraMetadata.calibrationMatrix2);
-        metadataJson["blackLevel"]          = mCameraMetadata.blackLevel;
-        metadataJson["whiteLevel"]          = mCameraMetadata.whiteLevel;
+        metadataJson["blackLevel"]          = mCameraMetadata.getBlackLevel();
+        metadataJson["whiteLevel"]          = mCameraMetadata.getWhiteLevel();
         metadataJson["sensorArrangment"]    = toString(mCameraMetadata.sensorArrangment);
         metadataJson["postProcessingSettings"] = postProcessSettings;
         metadataJson["apertures"]           = mCameraMetadata.apertures;
         metadataJson["focalLengths"]        = mCameraMetadata.focalLengths;
-        
-        // Store shading map at top level
-        if(!mFrames.empty()) {
-            auto frame = mFrameBuffers.begin()->second;
-            
-            if(!frame->metadata.lensShadingMap.empty()) {
-                metadataJson["lensShadingMapWidth"]    = frame->metadata.lensShadingMap[0].cols;
-                metadataJson["lensShadingMapHeight"]   = frame->metadata.lensShadingMap[0].rows;
-            
-                vector<vector<float>> points;
                 
-                for(auto& i : frame->metadata.lensShadingMap) {
-                    vector<float> p;
-                    
-                    for(int y = 0; y < i.rows; y++) {
-                        for(int x = 0; x < i.cols; x++) {
-                            p.push_back(i.at<float>(y, x));
-                        }
-                    }
-                    
-                    points.push_back(p);
-                }
-                
-                metadataJson["lensShadingMap"] = points;
-            }
-            else {
-                metadataJson["lensShadingMapWidth"] = 0;
-                metadataJson["lensShadingMapHeight"] = 0;
-            }
-        }
-        
         json11::Json::array rawImages;
         
         // Write frames first
@@ -994,6 +984,41 @@ namespace motioncam {
         if(!frame.metadata.forwardMatrix2.empty()) {
             metadata["forwardMatrix2"]  = toJsonArray(frame.metadata.forwardMatrix2);
         }
+                
+        if(frame.metadata.dynamicWhiteLevel > 0)
+            metadata["dynamicWhiteLevel"] = frame.metadata.dynamicWhiteLevel;
+        
+        if(!frame.metadata.dynamicBlackLevel.empty()) {
+            metadata["dynamicBlackLevel"] = frame.metadata.dynamicBlackLevel;
+        }
+        
+        if(!frame.metadata.shadingMap().empty()) {
+            const auto& shadingMap = frame.metadata.shadingMap();
+            
+            metadata["lensShadingMapWidth"]    = shadingMap[0].cols;
+            metadata["lensShadingMapHeight"]   = shadingMap[0].rows;
+        
+            vector<vector<float>> points;
+            
+            for(auto& i : shadingMap) {
+                vector<float> p;
+                
+                for(int y = 0; y < i.rows; y++) {
+                    for(int x = 0; x < i.cols; x++) {
+                        p.push_back(i.at<float>(y, x));
+                    }
+                }
+                
+                points.push_back(p);
+            }
+            
+            metadata["lensShadingMap"] = points;
+        }
+        else {
+            metadata["lensShadingMapWidth"] = 0;
+            metadata["lensShadingMapHeight"] = 0;
+        }
+
     }
 
     bool RawContainer::create(const int fd) {
@@ -1079,9 +1104,5 @@ namespace motioncam {
 
     int RawContainer::getNumSegments() const {
         return mNumSegments;
-    }
-
-    const std::vector<cv::Mat>& RawContainer::getCachedShadingMap() const {
-        return mShadingMap;
     }
 }

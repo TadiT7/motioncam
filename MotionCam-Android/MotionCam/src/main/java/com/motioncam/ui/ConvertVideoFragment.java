@@ -474,6 +474,11 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
         mAdapter.update(entry.getName(), true, null, -1);
     }
 
+    @Override
+    public void onMoveClicked(VideoEntry entry) {
+
+    }
+
     private void onProgressChanged(List<WorkInfo> workInfos) {
         if(mAdapter == null)
             return;

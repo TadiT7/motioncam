@@ -420,8 +420,8 @@ namespace motioncam {
 
         // Set auto exposure region if supported
         if(mCameraExposureMode == CameraMode::AUTO && mCameraDescription.maxAeRegions > 0) {
-            int w = static_cast<int>(mCameraDescription.sensorSize.width * 0.75);
-            int h = static_cast<int>(mCameraDescription.sensorSize.height * 0.75);
+            int w = static_cast<int>(mCameraDescription.sensorSize.width * 0.8);
+            int h = static_cast<int>(mCameraDescription.sensorSize.height * 0.8);
 
             int32_t aeRegion[5] = { px - w/2, py - h/2,
                                     px + w/2, py + h/2,
@@ -440,6 +440,9 @@ namespace motioncam {
         ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_TARGET_FPS_RANGE, 2, &frameDuration[0]);
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_MODE, 1, &afMode);
         ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_EXPOSURE_COMPENSATION, 1, &mExposureCompensation);
+
+        for(int i = 0; i < 2; i++)
+            ACaptureRequest_setEntry_i32(mSessionContext.hdrCaptureRequests[i]->captureRequest, ACAMERA_CONTROL_AE_TARGET_FPS_RANGE, 2, &frameDuration[0]);
 
         LOGD("setAutoFocus(%d,%d)", startRange, endRange);
 

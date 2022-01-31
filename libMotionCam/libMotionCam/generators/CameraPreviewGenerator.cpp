@@ -32,8 +32,8 @@ public:
     Input<int> width{"width"};
     Input<int> height{"height"};
 
-    Input<int[4]> blackLevel{"blackLevel"};
-    Input<int> whiteLevel{"whiteLevel"};
+    Input<float[4]> blackLevel{"blackLevel"};
+    Input<float> whiteLevel{"whiteLevel"};
 
     Input<Buffer<float>[4]> shadingMap{"shadingMap", 2 };
     Input<int> sensorArrangement{"sensorArrangement"};
@@ -311,8 +311,8 @@ public:
     Input<int> width{"width"};
     Input<int> height{"height"};
 
-    Input<int[4]> blackLevel{"blackLevel"};
-    Input<int> whiteLevel{"whiteLevel"};
+    Input<float[4]> blackLevel{"blackLevel"};
+    Input<float> whiteLevel{"whiteLevel"};
 
     Input<Buffer<float>[4]> shadingMap{"shadingMap", 2 };
     Input<int> sensorArrangement{"sensorArrangement"};

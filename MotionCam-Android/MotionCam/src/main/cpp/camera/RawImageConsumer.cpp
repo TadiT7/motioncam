@@ -191,6 +191,19 @@ namespace motioncam {
             dst.iso = metadataEntry.data.i32[0];
         }
 
+        if(ACameraMetadata_getConstEntry(src, ACAMERA_SENSOR_DYNAMIC_BLACK_LEVEL, &metadataEntry) == ACAMERA_OK) {
+            dst.dynamicBlackLevel.resize(4);
+
+            dst.dynamicBlackLevel[0] = metadataEntry.data.f[0];
+            dst.dynamicBlackLevel[1] = metadataEntry.data.f[1];
+            dst.dynamicBlackLevel[2] = metadataEntry.data.f[2];
+            dst.dynamicBlackLevel[3] = metadataEntry.data.f[3];
+        }
+
+        if(ACameraMetadata_getConstEntry(src, ACAMERA_SENSOR_DYNAMIC_WHITE_LEVEL, &metadataEntry) == ACAMERA_OK) {
+            dst.dynamicWhiteLevel = metadataEntry.data.i32[0];
+        }
+
         if(ACameraMetadata_getConstEntry(src, ACAMERA_SENSOR_EXPOSURE_TIME, &metadataEntry) == ACAMERA_OK) {
             dst.exposureTime = metadataEntry.data.i64[0];
         }
@@ -203,13 +216,15 @@ namespace motioncam {
         int lensShadingMapWidth;
         int lensShadingMapHeight;
 
+        std::vector<cv::Mat> shadingMap;
+
         if(ACameraMetadata_getConstEntry(src, ACAMERA_LENS_INFO_SHADING_MAP_SIZE, &metadataEntry) == ACAMERA_OK) {
             lensShadingMapWidth  = metadataEntry.data.i32[0];
             lensShadingMapHeight = metadataEntry.data.i32[1];
 
             for (int i = 0; i < 4; i++) {
                 cv::Mat m(lensShadingMapHeight, lensShadingMapWidth, CV_32F, cv::Scalar(1.0f));
-                dst.lensShadingMap.push_back(m);
+                shadingMap.push_back(m);
             }
         }
         else {
@@ -222,10 +237,10 @@ namespace motioncam {
                 int i = y * lensShadingMapWidth * 4;
 
                 for (int x = 0; x < lensShadingMapWidth * 4; x += 4) {
-                    dst.lensShadingMap[0].at<float>(y, x / 4) = metadataEntry.data.f[i + x];
-                    dst.lensShadingMap[1].at<float>(y, x / 4) = metadataEntry.data.f[i + x + 1];
-                    dst.lensShadingMap[2].at<float>(y, x / 4) = metadataEntry.data.f[i + x + 2];
-                    dst.lensShadingMap[3].at<float>(y, x / 4) = metadataEntry.data.f[i + x + 3];
+                    shadingMap[0].at<float>(y, x / 4) = metadataEntry.data.f[i + x];
+                    shadingMap[1].at<float>(y, x / 4) = metadataEntry.data.f[i + x + 1];
+                    shadingMap[2].at<float>(y, x / 4) = metadataEntry.data.f[i + x + 2];
+                    shadingMap[3].at<float>(y, x / 4) = metadataEntry.data.f[i + x + 3];
                 }
             }
         }
@@ -234,13 +249,15 @@ namespace motioncam {
             return false;
         }
 
-//        // Keep Noise profile
-//        if(ACameraMetadata_getConstEntry(src, ACAMERA_SENSOR_NOISE_PROFILE, &metadataEntry) == ACAMERA_OK) {
-//            dst.noiseProfile.resize(metadataEntry.count);
-//            for(int n = 0; n < metadataEntry.count; n++) {
-//                dst.noiseProfile[n] = metadataEntry.data.d[n];
-//            }
-//        }
+        dst.updateShadingMap(std::move(shadingMap));
+
+        // Keep Noise profile
+        if(ACameraMetadata_getConstEntry(src, ACAMERA_SENSOR_NOISE_PROFILE, &metadataEntry) == ACAMERA_OK) {
+            dst.noiseProfile.resize(metadataEntry.count);
+            for(int n = 0; n < metadataEntry.count; n++) {
+                dst.noiseProfile[n] = metadataEntry.data.d[n];
+            }
+        }
 
         // If the color transform is not part of the request we won't attempt tp copy it
         if(mCopyCaptureColorTransform) {
