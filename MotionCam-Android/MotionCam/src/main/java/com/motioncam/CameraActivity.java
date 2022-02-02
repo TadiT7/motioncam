@@ -1013,6 +1013,8 @@ public class CameraActivity extends AppCompatActivity implements
 
                 mTextureView.setAlpha(1);
             }
+
+            mNativeCamera.activateCameraSettings();
         }
     }
 
@@ -1038,6 +1040,8 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.cameraSettings.findViewById(R.id.cameraPhotoSettings).setVisibility(View.VISIBLE);
 
         mBinding.previewFrame.settingsLayout.setVisibility(View.VISIBLE);
+
+        mNativeCamera.activateCameraSettings();
     }
 
     private void setCaptureMode(CaptureMode captureMode) {
