@@ -1180,8 +1180,8 @@ Java_com_motioncam_camera_NativeCameraSessionBridge_SetAWBLock(JNIEnv *env, jobj
     return JNI_TRUE;
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
-Java_com_motioncam_camera_NativeCameraSessionBridge_SetAELock(JNIEnv *env, jobject thiz, jlong handle, jboolean lock)
+extern "C"
+JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_SetAELock(JNIEnv *env, jobject thiz, jlong handle, jboolean lock)
 {
     std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
     if(!sessionManager) {
@@ -1362,4 +1362,15 @@ Java_com_motioncam_camera_NativeCameraSessionBridge_SetLensAperture(JNIEnv *env,
 
     return JNI_TRUE;
 
+}
+extern "C"
+JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCameraSessionBridge_ActivateCameraSettings(JNIEnv *env, jobject thiz, jlong handle) {
+    std::shared_ptr<CaptureSessionManager> sessionManager = getCameraSessionManager(handle);
+    if(!sessionManager) {
+        return JNI_FALSE;
+    }
+
+    sessionManager->activateCameraSettings();
+
+    return JNI_TRUE;
 }

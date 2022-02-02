@@ -27,4 +27,7 @@
 
     <color name="clipHigh">#FFC20A</color>
     <color name="clipLow">#0C7BDC</color>
+
+    <color name="focusLocked">#FFFFFF</color>
+    <color name="focusUserLocked">#FFC20A</color>
 </resources>

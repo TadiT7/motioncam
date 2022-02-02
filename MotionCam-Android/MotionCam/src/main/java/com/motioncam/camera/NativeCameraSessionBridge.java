@@ -214,12 +214,6 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         SetAutoExposure(mNativeCameraHandle);
     }
 
-    public void setAELock(boolean lock) {
-        ensureValidHandle();
-
-        SetAELock(mNativeCameraHandle, lock);
-    }
-
     public void setOIS(boolean ois) {
         ensureValidHandle();
 
@@ -242,6 +236,12 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         ensureValidHandle();
 
         SetAWBLock(mNativeCameraHandle, lock);
+    }
+
+    public void setAELock(boolean lock) {
+        ensureValidHandle();
+
+        SetAELock(mNativeCameraHandle, lock);
     }
 
     public void setManualExposureValues(int iso, long exposureValue) {
@@ -434,6 +434,12 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
         SetLensAperture(mNativeCameraHandle, aperture);
     }
 
+    public void activateCameraSettings() {
+        ensureValidHandle();
+
+        ActivateCameraSettings(mNativeCameraHandle);
+    }
+
     public void streamToFile(int[] fds, int audioFd, int audioDeviceId, boolean enableCompression, int numThreads) {
         ensureValidHandle();
 
@@ -589,17 +595,17 @@ public class NativeCameraSessionBridge implements NativeCameraSessionListener, N
     private native boolean SetAWBLock(long handle, boolean lock);
     private native boolean SetAELock(long handle, boolean lock);
     private native boolean SetOIS(long handle, boolean on);
-    private native boolean SetManualFocus(long handle, float focusDistance);
     private native boolean SetFocusForVideo(long handle, boolean focusForVideo);
     private native boolean SetLensAperture(long handle, float lensAperture);
+    private native boolean SetManualFocus(long handle, float focusDistance);
+    private native boolean SetFocusPoint(long handle, float focusX, float focusY, float exposureX, float exposureY);
+    private native boolean SetAutoFocus(long handle);
+    private native boolean ActivateCameraSettings(long handle);
 
     private native boolean EnableRawPreview(long handle, NativeCameraRawPreviewListener listener, int previewQuality, boolean overrideWb);
     private native boolean SetRawPreviewSettings(long handle, float shadows, float contrast, float saturation, float blacks, float whitePoint, float tempOffset, float tintOfset, boolean useVideoPreview);
     private native boolean DisableRawPreview(long handle);
     private native String GetRawPreviewEstimatedSettings(long handle);
-
-    private native boolean SetFocusPoint(long handle, float focusX, float focusY, float exposureX, float exposureY);
-    private native boolean SetAutoFocus(long handle);
 
     private native boolean UpdateOrientation(long handle, int orientation);
 

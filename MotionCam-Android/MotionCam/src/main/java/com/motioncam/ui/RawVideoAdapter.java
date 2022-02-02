@@ -2,6 +2,7 @@ package com.motioncam.ui;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.net.Uri;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -12,12 +13,15 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.documentfile.provider.DocumentFile;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.motioncam.R;
 import com.motioncam.camera.AsyncNativeCameraOps;
 import com.motioncam.processor.ContainerMetadata;
+import com.motioncam.worker.VideoProcessWorker;
 
+import java.io.File;
 import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -207,16 +211,13 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             statusText = mContext.getString(R.string.this_video_has_been_exported);
         }
 
-        // Set up state
-//        for()
-//        item.entry.getVideoUris()
-
         // In the process of being exported?
         if(item.isQueued) {
             viewHolder.getQueueVideoBtn().setText(R.string.queued);
 
             viewHolder.getQueueVideoBtn().setEnabled(false);
             viewHolder.getDeleteVideoBtn().setEnabled(false);
+            viewHolder.getMoveVideoBtn().setVisibility(View.GONE);
         }
         // Corrupted?
         else if(item.entry.getFrameRate() < 0 || item.entry.getNumFrames() < 0) {
@@ -242,6 +243,18 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             viewHolder.getQueueVideoBtn().setVisibility(View.VISIBLE);
             viewHolder.getQueueVideoBtn().setText(R.string.convert_to_dng);
             viewHolder.getDeleteVideoBtn().setEnabled(true);
+
+            // Show move button if stored in internal storage
+            File filesDir = mContext.getFilesDir();
+            File internalFolder = new File(filesDir, VideoProcessWorker.VIDEOS_PATH);
+
+            for(Uri uri : item.entry.getVideoUris()) {
+                File videoPath = new File(uri.getPath());
+
+                if(videoPath.getParent().equals(internalFolder.getPath())) {
+                    viewHolder.getMoveVideoBtn().setVisibility(View.VISIBLE);
+                }
+            }
         }
 
         // Update progress
@@ -305,6 +318,15 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         }
 
         return mItems.size();
+    }
+
+    public boolean isValid(String name) {
+        for(Item item : mItems) {
+            if(item.entry.getName().equals(name))
+                return true;
+        }
+
+        return false;
     }
 
     public void update(String name, Boolean optionalIsQueued, Boolean optionalIsExported, int progress) {

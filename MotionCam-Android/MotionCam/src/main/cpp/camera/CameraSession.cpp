@@ -39,6 +39,7 @@ namespace motioncam {
         ACTION_SET_FOCUS_FOR_VIDEO,
         ACTION_SET_AUTO_FOCUS,
         ACTION_SET_FOCUS_POINT,
+        ACTION_ACTIVATE_CAMERA_SETTINGS,
         ACTION_PRECAPTURE_HDR,
         ACTION_CAPTURE_HDR,
 
@@ -321,6 +322,10 @@ namespace motioncam {
     void CameraSession::setLensAperture(float lensAperture) {
         json11::Json::object data = { { "value", lensAperture } };
         pushEvent(EventAction::ACTION_SET_LENS_APERTURE, data);
+    }
+
+    void CameraSession::activateCameraSettings() {
+        pushEvent(EventAction::ACTION_ACTIVATE_CAMERA_SETTINGS);
     }
 
     void CameraSession::setFocusPoint(float focusX, float focusY, float exposureX, float exposureY) {
@@ -927,12 +932,12 @@ namespace motioncam {
         mCameraStateManager->requestFrameRate(frameRate);
     }
 
-    void CameraSession::doSetAELock(bool lock) {
-        mCameraStateManager->requestAeLock(lock);
-    }
-
     void CameraSession::doSetAWBLock(bool lock) {
         mCameraStateManager->requestAwbLock(lock);
+    }
+
+    void CameraSession::doSetAELock(bool lock) {
+        mCameraStateManager->requestAELock(lock);
     }
 
     void CameraSession::doSetOIS(bool on) {
@@ -949,6 +954,10 @@ namespace motioncam {
 
     void CameraSession::doSetLensAperture(float lensAperture) {
         mCameraStateManager->requestAperture(lensAperture);
+    }
+
+    void CameraSession::doActivateCameraSettings() {
+        mCameraStateManager->activate();
     }
 
     void CameraSession::updateOrientation(ScreenOrientation orientation) {
@@ -1261,15 +1270,15 @@ namespace motioncam {
                 break;
             }
 
-            case EventAction::ACTION_SET_AE_LOCK: {
-                bool value = eventLoopData->data["value"].bool_value();
-                doSetAELock(value);
-                break;
-            }
-
             case EventAction::ACTION_SET_AWB_LOCK: {
                 bool value = eventLoopData->data["value"].bool_value();
                 doSetAWBLock(value);
+                break;
+            }
+
+            case EventAction::ACTION_SET_AE_LOCK: {
+                bool value = eventLoopData->data["value"].bool_value();
+                doSetAELock(value);
                 break;
             }
 
@@ -1294,6 +1303,11 @@ namespace motioncam {
             case EventAction::ACTION_SET_LENS_APERTURE: {
                 float value = eventLoopData->data["value"].number_value();
                 doSetLensAperture(value);
+                break;
+            }
+
+            case EventAction::ACTION_ACTIVATE_CAMERA_SETTINGS: {
+                doActivateCameraSettings();
                 break;
             }
 

@@ -182,7 +182,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="50dp"
                 android:backgroundTint="@color/acceptAction"
-                android:text="@string/move"
+                android:text="@string/move_to_export_folder"
+                android:visibility="gone"
                 android:layout_gravity="end"/>
 
             <Button

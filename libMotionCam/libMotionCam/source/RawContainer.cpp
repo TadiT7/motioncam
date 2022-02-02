@@ -159,28 +159,28 @@ namespace motioncam {
     RawContainer::RawContainer(const int fd) :
         mReferenceTimestamp(-1),
         mIsHdr(false),
-        mIsInMemory(false),
         mFile(nullptr),
+        mIsInMemory(false),
         mNumSegments(0)
     {
         initialise(fd);
     }
 
     RawContainer::RawContainer(const string& inputPath) :
+        mFile(nullptr),
         mReferenceTimestamp(-1),
         mIsHdr(false),
         mIsInMemory(false),
-        mFile(nullptr),
         mNumSegments(0)
     {
         initialise(inputPath);
     }
 
     RawContainer::RawContainer(const RawCameraMetadata& cameraMetadata, const int numSegments) :
+        mFile(nullptr),
         mCameraMetadata(cameraMetadata),
         mIsHdr(false),
         mIsInMemory(false),
-        mFile(nullptr),
         mNumSegments(numSegments)
     {
         // Empty container for streaming
@@ -191,12 +191,12 @@ namespace motioncam {
                                const int64_t referenceTimestamp,
                                const bool isHdr,
                                const vector<shared_ptr<RawImageBuffer>>& buffers) :
+        mFile(nullptr),
         mCameraMetadata(cameraMetadata),
         mPostProcessSettings(postProcessSettings),
         mReferenceTimestamp(referenceTimestamp),
         mIsHdr(isHdr),
         mIsInMemory(true),
-        mFile(nullptr),
         mNumSegments(0)
     {
         if(buffers.empty()) {
@@ -266,9 +266,10 @@ namespace motioncam {
     }
 
     void RawContainer::loadFromBin(FILE* file) {
-        mFile = file;
-        if(!mFile)
+        if(file == nullptr)
             throw IOException("Failed to open");
+
+        mFile = file;
 
         // Verify header
         Header header;
@@ -337,7 +338,7 @@ namespace motioncam {
         if(mFrames.empty()) {
             auto& files = mZipReader->getFiles();
             
-            for(int i = 0; i < files.size(); i++) {
+            for(size_t i = 0; i < files.size(); i++) {
                 size_t p = files[i].find_last_of(".");
                 if(p == string::npos)
                     continue;
@@ -489,12 +490,12 @@ namespace motioncam {
 
         // Misc
         if(metadata["apertures"].is_array()) {
-            for(int i = 0; i < metadata["apertures"].array_items().size(); i++)
+            for(size_t i = 0; i < metadata["apertures"].array_items().size(); i++)
                 mCameraMetadata.apertures.push_back(metadata["apertures"].array_items().at(i).number_value());
         }
 
         if(metadata["focalLengths"].is_array()) {
-            for(int i = 0; i < metadata["focalLengths"].array_items().size(); i++)
+            for(size_t i = 0; i < metadata["focalLengths"].array_items().size(); i++)
                 mCameraMetadata.focalLengths.push_back(metadata["focalLengths"].array_items().at(i).number_value());
         }
 
@@ -681,7 +682,19 @@ namespace motioncam {
         else {
             buffer->second->data->copyHostData(data);
         }
-                
+        
+        // Crop the shading map at the point that it is loaded
+        auto shadingMap = buffer->second->metadata.shadingMap();
+        
+        cropShadingMap(shadingMap,
+                       buffer->second->width,
+                       buffer->second->height,
+                       buffer->second->originalWidth,
+                       buffer->second->originalHeight,
+                       buffer->second->isBinned);
+        
+        buffer->second->metadata.updateShadingMap(shadingMap);
+        
         return buffer->second;
     }
 
@@ -749,11 +762,18 @@ namespace motioncam {
                 }
             }
         }
+
+        // Fix shading map if all zeros
+        for(size_t i = 0; i < lensShadingMap.size(); i++) {
+            if(cv::sum(lensShadingMap[i])[0] < 1e-5f) {
+                lensShadingMap[i].setTo(1.0f);
+            }
+        }
                 
         return lensShadingMap;
     }
 
-    void RawContainer::cropShadingMap(std::vector<cv::Mat>& shadingMap, int width, int height, int originalWidth, int originalHeight, bool isBinned) {
+    void RawContainer::cropShadingMap(std::vector<cv::Mat>& shadingMap, int width, int height, int originalWidth, int originalHeight, bool isBinned) const {
         if(originalWidth == width && originalHeight == height && !isBinned) {
             return;
         }
@@ -763,19 +783,33 @@ namespace motioncam {
             originalHeight /= 2;
         }
 
+        const int dstOriginalWidth = 80;
+        const int dstOriginalHeight = (dstOriginalWidth * originalHeight) / originalWidth;
+        
+        const int dstWidth = width / (originalWidth / dstOriginalWidth);
+        const int dstHeight = (dstWidth * height) / width;
+        
         for(size_t i = 0; i < shadingMap.size(); i++) {
-            cv::resize(shadingMap[i], shadingMap[i], cv::Size(originalWidth, originalHeight), 0, 0, cv::INTER_LINEAR);
+            cv::resize(shadingMap[i],
+                       shadingMap[i],
+                       cv::Size(dstOriginalWidth, dstOriginalHeight),
+                       0, 0,
+                       cv::INTER_LINEAR);
 
-            int x = (originalWidth - width) / 2;
-            int y = (originalHeight - height) / 2;
+            int x = (dstOriginalWidth - dstWidth) / 2;
+            int y = (dstOriginalHeight - dstHeight) / 2;
 
-            shadingMap[i] = shadingMap[i](cv::Rect(x, y, originalWidth - x*2, originalHeight - y*2));
+            shadingMap[i] = shadingMap[i](cv::Rect(x, y, dstOriginalWidth - x*2, dstOriginalHeight - y*2));
 
             // Shrink the shading map back to a reasonable size
             int shadingMapWidth = 32;
             int shadingMapHeight = (shadingMapWidth * shadingMap[i].rows) / shadingMap[i].cols;
 
-            cv::resize(shadingMap[i], shadingMap[i], cv::Size(shadingMapWidth, shadingMapHeight), 0, 0, cv::INTER_LINEAR);
+            cv::resize(shadingMap[i],
+                       shadingMap[i],
+                       cv::Size(shadingMapWidth, shadingMapHeight),
+                       0, 0,
+                       cv::INTER_LINEAR);
         }
     }
 
@@ -855,13 +889,9 @@ namespace motioncam {
 
         if(shadingMap.empty()) {
             auto containerShadingMap = mContainerShadingMap;
-            cropShadingMap(containerShadingMap, buffer->width, buffer->height, buffer->originalWidth, buffer->originalHeight, buffer->isBinned);
-        
             buffer->metadata.updateShadingMap(containerShadingMap);
         }
         else {
-            cropShadingMap(shadingMap, buffer->width, buffer->height, buffer->originalWidth, buffer->originalHeight, buffer->isBinned);
-            
             buffer->metadata.updateShadingMap(shadingMap);
         }
         

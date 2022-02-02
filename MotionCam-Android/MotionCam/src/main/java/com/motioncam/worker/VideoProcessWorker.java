@@ -37,6 +37,12 @@ import java.util.Locale;
 public class VideoProcessWorker extends Worker implements NativeDngConverterListener {
     public static final String TAG = "MotionVideoCamWorker";
 
+    public enum WorkerMode {
+        EXPORT,
+        MOVE
+    }
+
+    public static final String INPUT_MODE_KEY = "input_mode";
     public static final String INPUT_NAME_KEY = "input_name";
     public static final String INPUT_VIDEO_URI_KEY = "input_video_uri";
     public static final String INPUT_AUDIO_URI_KEY = "input_audio_uri";
@@ -46,7 +52,7 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
 
     public static final String OUTPUT_URI_KEY = "output_uri";
 
-    public static final int NOTIFICATION_ID = 1;
+    public static final int NOTIFICATION_ID = 0x90005002;
     public static final String VIDEOS_PATH = "videos";
 
     private NativeProcessor mNativeProcessor;
@@ -74,6 +80,27 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         }
     }
 
+    private void moveVideo(List<Uri> inputUris) throws IOException {
+        ContentResolver resolver = getApplicationContext().getContentResolver();
+
+        for(Uri uri : inputUris) {
+            File videoPath = new File(uri.getPath());
+            if(!videoPath.exists())
+                continue;
+
+            DocumentFile output = mOutputDocument.createFile("application/octet-stream", videoPath.getName() + ".tmp");
+
+            try(InputStream inputStream = new FileInputStream(videoPath);
+                OutputStream outputStream = resolver.openOutputStream(output.getUri()))
+            {
+                IOUtil.copy(inputStream, outputStream);
+            }
+
+            // Rename once we have deleted the original
+            output.renameTo(videoPath.getName());
+        }
+    }
+
     private void processVideo(List<Uri> inputUris, int numFramesToMerge, boolean correctVignette) throws IOException {
         mInputUris = inputUris;
 
@@ -91,7 +118,7 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
                     fds.add(fd);
                 }
                 else {
-                    Log.e(TAG, "Failed to open " + uri.toString());
+                    Log.e(TAG, "Failed to open " + uri);
                 }
             }
         }
@@ -159,6 +186,14 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
 
         Data inputData = getInputData();
 
+        // Figure out if we are exporting or moving this video
+        String workerModeString = inputData.getString(INPUT_MODE_KEY);
+        WorkerMode workerMode = WorkerMode.EXPORT;
+
+        if(workerModeString != null) {
+            workerMode = WorkerMode.valueOf(workerModeString);
+        }
+
         int numFramesToMerge = inputData.getInt(INPUT_NUM_FRAMES_TO_MERGE, 0);
         boolean correctVignette = inputData.getBoolean(INPUT_CORRECT_VIGNETTE_KEY, true);
 
@@ -194,15 +229,20 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         if(inputAudioUriString != null)
             audioInputUri = Uri.parse(inputAudioUriString);
 
-        String finalOutputDirectoryName = name;
+        if(workerMode == WorkerMode.EXPORT) {
+            String finalOutputDirectoryName = name;
 
-        int i = 1;
-        while(output.findFile(finalOutputDirectoryName) != null) {
-            finalOutputDirectoryName = name + "-" + i;
-            ++i;
+            int i = 1;
+            while (output.findFile(finalOutputDirectoryName) != null) {
+                finalOutputDirectoryName = name + "-" + i;
+                ++i;
+            }
+
+            mOutputDocument = output.createDirectory(finalOutputDirectoryName);
         }
-
-        mOutputDocument = output.createDirectory(finalOutputDirectoryName);
+        else {
+            mOutputDocument = output;
+        }
 
         if(mOutputDocument == null || !mOutputDocument.exists() ) {
             return fail("Failed to create output directory");
@@ -216,8 +256,14 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
                 videoUris.add(Uri.parse(uri));
 
             try {
-                Log.i(TAG, "Processing video segments " + TextUtils.join(",", inputVideoUriString));
-                processVideo(videoUris, numFramesToMerge, correctVignette);
+                if(workerMode == WorkerMode.EXPORT) {
+                    Log.i(TAG, "Processing video segments " + TextUtils.join(",", inputVideoUriString));
+                    processVideo(videoUris, numFramesToMerge, correctVignette);
+                }
+                else if(workerMode == WorkerMode.MOVE) {
+                    Log.i(TAG, "Moving video segments " + TextUtils.join(",", inputVideoUriString));
+                    moveVideo(videoUris);
+                }
             }
             catch (Exception e) {
                 Log.e(TAG, "Error while processing video segments", e);
@@ -226,7 +272,7 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
 
         if(audioInputUri != null) {
             try {
-                Log.i(TAG, "Moving " + audioInputUri.toString());
+                Log.i(TAG, "Moving " + audioInputUri);
                 moveAudio(audioInputUri);
             }
             catch (Exception e) {
@@ -237,7 +283,7 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         // Remove all files
         boolean isDeleted = false;
 
-        if(deleteAfterExport) {
+        if(deleteAfterExport || workerMode == WorkerMode.MOVE) {
             for(Uri videoUri : videoUris) {
                 isDeleted |= Util.DeleteUri(getApplicationContext(), videoUri);
             }
@@ -245,9 +291,13 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
             isDeleted |= Util.DeleteUri(getApplicationContext(), audioInputUri);
         }
 
+        // Reset deleted flag when we are moving the video
+        isDeleted = workerMode == WorkerMode.MOVE ? false : isDeleted;
+
         Log.d(TAG, "Stopping video worker");
 
         Data result = new Data.Builder()
+                .putString(State.PROGRESS_MODE_KEY, workerMode.name())
                 .putInt(State.PROGRESS_STATE_KEY, State.STATE_COMPLETED)
                 .putBoolean(State.PROGRESS_DELETED, isDeleted)
                 .putString(State.PROGRESS_NAME_KEY, name)

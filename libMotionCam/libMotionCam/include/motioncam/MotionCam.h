@@ -10,7 +10,6 @@
 
 namespace motioncam {
     class RawContainer;
-    struct ContainerFrame;
     struct Impl;
 
     const std::vector<float> NO_DENOISE_WEIGHTS = { 0, 0, 0, 0, 0, 0 };

@@ -176,6 +176,9 @@ public class Settings {
     void save(SharedPreferences prefs) {
         saveCameraStartupSettings(prefs, this.cameraStartupSettings);
 
+        if(this.captureMode == null)
+            this.captureMode = CaptureMode.ZSL;
+
         prefs.edit()
                 .putBoolean(SettingsViewModel.PREFS_KEY_UI_SAVE_RAW, this.saveDng)
                 .putBoolean(SettingsViewModel.PREFS_KEY_UI_EXPOSURE_OVERLAY, this.exposureOverlay)

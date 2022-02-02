@@ -323,7 +323,10 @@ namespace motioncam {
             cameraMetadata.updateBayerOffsets(frameMetadata.dynamicBlackLevel, frameMetadata.dynamicWhiteLevel);
             
             cv::Mat bayerImage(bayerBuffer.height(), bayerBuffer.width(), CV_16U, bayerBuffer.data());
-                        
+
+            // Clone the buffer because the halide buffer will go away
+            bayerImage = bayerImage.clone();
+
             int fd = -1;
             std::string outputPath;
 

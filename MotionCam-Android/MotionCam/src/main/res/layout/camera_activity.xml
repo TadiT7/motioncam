@@ -126,20 +126,12 @@
                 android:layout_height="match_parent"
                 tools:viewBindingIgnore="true" />
 
-            <FrameLayout
+            <ImageView
                 android:id="@+id/focusLockPointFrame"
                 android:layout_width="75dp"
                 android:layout_height="75dp"
-                android:visibility="invisible">
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:layout_gravity="center"
-                    android:alpha="0.5"
-                    android:background="@drawable/focus_circle" />
-
-            </FrameLayout>
+                android:visibility="invisible"
+                android:src="@drawable/focus_circle" />
 
             <ImageView android:id="@+id/cameraOverlayClipHigh"
                 android:visibility="gone"

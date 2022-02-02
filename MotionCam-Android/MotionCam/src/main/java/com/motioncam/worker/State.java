@@ -1,6 +1,7 @@
 package com.motioncam.worker;
 
 public class State {
+    public static final String PROGRESS_MODE_KEY        = "mode";
     public static final String PROGRESS_STATE_KEY       = "state";
     public static final String PROGRESS_PROGRESS_KEY    = "progress";
     public static final String PROGRESS_DELETED         = "isDeleted";

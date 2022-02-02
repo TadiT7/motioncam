@@ -28,11 +28,13 @@
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:orientation="horizontal"
+            android:layout_weight="1"
             android:background="@drawable/manual_controls_frame_background">
 
             <FrameLayout
-                android:layout_width="70dp"
+                android:layout_width="wrap_content"
                 android:layout_height="match_parent"
+                android:layout_weight="1"
                 android:orientation="vertical">
 
                 <TextView
@@ -54,8 +56,9 @@
             </FrameLayout>
 
             <FrameLayout
-                android:layout_width="70dp"
+                android:layout_width="wrap_content"
                 android:layout_height="match_parent"
+                android:layout_weight="1"
                 android:orientation="vertical">
 
                 <TextView
@@ -77,8 +80,9 @@
             </FrameLayout>
 
             <FrameLayout
-                android:layout_width="70dp"
+                android:layout_width="wrap_content"
                 android:layout_height="match_parent"
+                android:layout_weight="1"
                 android:orientation="vertical">
 
                 <TextView
@@ -99,69 +103,38 @@
 
             </FrameLayout>
 
+            <LinearLayout
+                android:id="@+id/autoBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/autoBtnText"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="AUTO"
+                    android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"/>
+            </LinearLayout>
+
         </LinearLayout>
 
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="75dp"
             android:layout_height="match_parent"
             android:orientation="horizontal"
             android:layout_marginStart="5dp"
             android:background="@drawable/manual_controls_frame_background">
 
             <LinearLayout
-                android:id="@+id/aeLockBtn"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="horizontal">
-
-                <ImageView
-                    android:id="@+id/aeLockBtnIcon"
-                    android:layout_width="16dp"
-                    android:layout_height="match_parent"
-                    android:layout_marginEnd="5dp"
-                    android:src="@drawable/lock_open"/>
-
-                <TextView
-                    android:id="@+id/aeLockBtnText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:gravity="center_vertical"
-                    android:text="@string/ae_lock"
-                    android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"/>
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/afLockBtn"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="horizontal">
-
-                <ImageView
-                    android:id="@+id/afLockBtnIcon"
-                    android:layout_width="16dp"
-                    android:layout_height="match_parent"
-                    android:layout_marginEnd="5dp"
-                    android:src="@drawable/lock_open"/>
-
-                <TextView
-                    android:id="@+id/afLockBtnText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:gravity="center_vertical"
-                    android:text="@string/af_lock"
-                    android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"/>
-            </LinearLayout>
-
-            <LinearLayout
                 android:id="@+id/awbLockBtn"
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
-                android:layout_weight="1"
                 android:gravity="center"
+                android:layout_weight="1"
                 android:orientation="horizontal">
 
                 <ImageView

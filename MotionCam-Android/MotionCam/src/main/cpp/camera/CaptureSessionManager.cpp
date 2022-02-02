@@ -687,6 +687,11 @@ namespace motioncam {
             mCameraSession->setLensAperture(lensAperture);
     }
 
+    void CaptureSessionManager::activateCameraSettings() {
+        if(mCameraSession)
+            mCameraSession->activateCameraSettings();
+    }
+
     void CaptureSessionManager::enableRawPreview(std::shared_ptr<RawPreviewListener> listener, const int previewQuality, bool overrideWb) {
         if(mImageConsumer) {
             mImageConsumer->enableRawPreview(std::move(listener), previewQuality);

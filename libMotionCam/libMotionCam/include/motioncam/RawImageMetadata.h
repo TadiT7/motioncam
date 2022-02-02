@@ -135,7 +135,7 @@ namespace motioncam {
         std::vector<double> noiseProfile;
         
         void updateShadingMap(const std::vector<cv::Mat>& shadingMap) {
-            this->lensShadingMap = std::move(shadingMap);
+            this->lensShadingMap = shadingMap;
         }
         
         const std::vector<cv::Mat>& shadingMap() const {
@@ -387,7 +387,8 @@ namespace motioncam {
         std::vector<float> focalLengths;
         
         const std::vector<float>& getBlackLevel(const RawImageMetadata& bufferMetadata) const {
-            return bufferMetadata.dynamicBlackLevel.empty() ? this->blackLevel : bufferMetadata.dynamicBlackLevel;
+            return blackLevel; // TODO: Don't use dynamic black level. Seems broken.
+//            return bufferMetadata.dynamicBlackLevel.empty() ? this->blackLevel : bufferMetadata.dynamicBlackLevel;
         }
         
         const std::vector<float>& getBlackLevel() const {
@@ -395,7 +396,8 @@ namespace motioncam {
         }
         
         const float getWhiteLevel(const RawImageMetadata& bufferMetadata) const {
-            return bufferMetadata.dynamicWhiteLevel <= 0 ? this->whiteLevel : bufferMetadata.dynamicWhiteLevel;
+            return this->whiteLevel; // TODO: Don't use dynamic white level. Seems broken.
+            //return bufferMetadata.dynamicWhiteLevel <= 0 ? this->whiteLevel : bufferMetadata.dynamicWhiteLevel;
         }
         
         const float getWhiteLevel() const {

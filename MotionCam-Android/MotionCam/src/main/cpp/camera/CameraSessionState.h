@@ -10,6 +10,7 @@ namespace motioncam {
 
     enum class CameraMode : int {
         AUTO,
+        AUTO_USER_REGION,
         MANUAL
     };
 

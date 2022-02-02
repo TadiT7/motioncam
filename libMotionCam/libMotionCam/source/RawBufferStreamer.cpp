@@ -806,7 +806,7 @@ namespace motioncam {
     }
 
     void RawBufferStreamer::cropAndCompress(RawImageBuffer& buffer) const {
-        Measure m("crop");
+        //Measure m("crop");
 
         const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropWidth/100.0f * buffer.width)) / 4));
 

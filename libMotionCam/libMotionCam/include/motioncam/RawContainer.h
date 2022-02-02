@@ -66,7 +66,7 @@ namespace motioncam {
         void loadContainerMetadata(const json11::Json& metadata);
         std::shared_ptr<RawImageBuffer> loadFrameMetadata(const json11::Json& obj);
 
-        void cropShadingMap(std::vector<cv::Mat>& shadingMap, int width, int height, int originalWidth, int originalHeight, bool isBinned);
+        void cropShadingMap(std::vector<cv::Mat>& shadingMap, int width, int height, int originalWidth, int originalHeight, bool isBinned) const;
         
         static std::vector<cv::Mat> getLensShadingMap(const json11::Json& obj);
         

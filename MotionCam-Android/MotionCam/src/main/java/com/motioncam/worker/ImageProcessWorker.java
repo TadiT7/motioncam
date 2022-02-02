@@ -44,7 +44,7 @@ import java.util.List;
 public class ImageProcessWorker extends Worker implements NativeProcessorProgressListener {
     public static final String TAG = "MotionCamImageWorker";
 
-    public static final int NOTIFICATION_ID             = 0;
+    public static final int NOTIFICATION_ID             = 0x90005001;
     public static final String NOTIFICATION_CHANNEL_ID  = "MotionCamNotification";
 
     public static final String PREVIEW_PATH             = "preview";

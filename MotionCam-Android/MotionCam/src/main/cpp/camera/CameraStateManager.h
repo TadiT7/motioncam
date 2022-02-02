@@ -71,7 +71,7 @@ namespace motioncam {
         void requestExposureCompensation(int exposureCompensation);
         void requestFrameRate(int frameRate);
         void requestAwbLock(bool lock);
-        void requestAeLock(bool lock);
+        void requestAELock(bool lock);
         void requestOis(bool ois);
         void requestAperture(float aperture);
 
@@ -83,34 +83,23 @@ namespace motioncam {
         void onCameraCaptureSequenceCompleted(const int sequenceId);
         void onCameraSessionStateChanged(const CameraCaptureSessionState state);
 
+        bool activate();
+
     private:
-        void updateCamera();
-
-        bool setUserFocus();
-        bool setAutoFocus();
-
-        void setState(State state, int sequenceId);
-        void setNextAction(Action action);
-
-        void nextAction();
-        void nextState(CameraCaptureSessionState state);
-
+        void updateCaptureRequestFocus();
         void updateCaptureRequestExposure();
 
     private:
         const CameraCaptureSessionContext& mSessionContext;
         const CameraDescription& mCameraDescription;
 
-        CameraCaptureSessionState mCaptureSessionState;
         State mState;
-        Action mRequestedAction;
         CameraMode mCameraExposureMode;
         CameraMode mCameraFocusMode;
-        int mPendingSequenceId;
         int mExposureCompensation;
         int mFrameRate;
         bool mAwbLock;
-        bool mAeLock;
+        bool mAELock;
         bool mOis;
         bool mFocusForVideo;
 
