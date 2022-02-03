@@ -101,7 +101,7 @@
         android:layout_height="match_parent">
 
         <include
-            android:id="@+id/preview_frame"
+            android:id="@+id/previewFrame"
             layout="@layout/preview_controls"
             android:layout_width="0dp"
             android:layout_height="80dp"
@@ -118,12 +118,20 @@
             app:layout_constraintDimensionRatio="H,3:4"
             app:layout_constraintLeft_toLeftOf="parent"
             app:layout_constraintRight_toRightOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/preview_frame">
+            app:layout_constraintTop_toBottomOf="@+id/previewFrame">
+
+            <FrameLayout
+                android:id="@+id/nativeCameraPreview"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+            </FrameLayout>
 
             <com.motioncam.ui.BitmapDrawView
                 android:id="@+id/rawCameraPreview"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:visibility="invisible"
                 tools:viewBindingIgnore="true" />
 
             <ImageView
@@ -401,7 +409,7 @@
             android:layout_height="40dp"
             android:src="@drawable/chevron_down"
             android:padding="5dp"
-            app:layout_constraintBottom_toBottomOf="@+id/preview_frame"
+            app:layout_constraintBottom_toBottomOf="@+id/previewFrame"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
 

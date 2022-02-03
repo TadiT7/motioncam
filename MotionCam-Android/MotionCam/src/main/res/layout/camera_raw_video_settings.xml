@@ -176,6 +176,7 @@
             android:layout_height="wrap_content"
             android:textAppearance="@style/MotionCam.TextAppearance.Small"
             android:layout_weight="1"
+            android:background="@drawable/selectable_text"
             android:padding="5dp"
             android:gravity="center"
             android:text="4K"/>
@@ -186,6 +187,7 @@
             android:layout_height="wrap_content"
             android:textAppearance="@style/MotionCam.TextAppearance.Small"
             android:layout_weight="1"
+            android:background="@drawable/selectable_text"
             android:padding="5dp"
             android:gravity="center"
             android:text="1080P"/>

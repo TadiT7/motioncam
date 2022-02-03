@@ -493,6 +493,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDNG_SUPPORT -DqAndroid -DqDNGThreadSaf
 
 set(native-camera-cpp
         src/main/cpp/NativeCamera.cpp
+        src/main/cpp/NativeCameraManager.cpp
         src/main/cpp/Processor.cpp
         src/main/cpp/ImageProcessorListener.cpp
         src/main/cpp/DngConverterListener.cpp

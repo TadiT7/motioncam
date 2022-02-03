@@ -245,16 +245,16 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             viewHolder.getDeleteVideoBtn().setEnabled(true);
 
             // Show move button if stored in internal storage
-            File filesDir = mContext.getFilesDir();
-            File internalFolder = new File(filesDir, VideoProcessWorker.VIDEOS_PATH);
-
-            for(Uri uri : item.entry.getVideoUris()) {
-                File videoPath = new File(uri.getPath());
-
-                if(videoPath.getParent().equals(internalFolder.getPath())) {
-                    viewHolder.getMoveVideoBtn().setVisibility(View.VISIBLE);
-                }
-            }
+//            File filesDir = mContext.getFilesDir();
+//            File internalFolder = new File(filesDir, VideoProcessWorker.VIDEOS_PATH);
+//
+//            for(Uri uri : item.entry.getVideoUris()) {
+//                File videoPath = new File(uri.getPath());
+//
+//                if(videoPath.getParent().equals(internalFolder.getPath())) {
+//                    viewHolder.getMoveVideoBtn().setVisibility(View.VISIBLE);
+//                }
+//            }
         }
 
         // Update progress

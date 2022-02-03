@@ -183,19 +183,16 @@ namespace motioncam {
         }
     }
 
-    CameraSession::CameraSession(
-            std::shared_ptr<CameraSessionListener> listener,
-            std::shared_ptr<CameraDescription>  cameraDescription,
-            std::shared_ptr<RawImageConsumer> rawImageConsumer) :
+    CameraSession::CameraSession() :
             mState(CameraCaptureSessionState::CLOSED),
             mLastIso(0),
             mLastExposureTime(0),
             mLastFocusDistance(0),
             mLastFocusState(CameraFocusState::INACTIVE),
             mLastExposureState(CameraExposureState::INACTIVE),
-            mCameraDescription(std::move(cameraDescription)),
-            mImageConsumer(std::move(rawImageConsumer)),
-            mSessionListener(std::move(listener)),
+//            mCameraDescription(std::move(cameraDescription)),
+//            mImageConsumer(std::move(rawImageConsumer)),
+//            mSessionListener(std::move(listener)),
             mScreenOrientation(ScreenOrientation::PORTRAIT),
             mRequestedHdrCaptures(0),
             mRequestHdrCaptureTimestamp(-1),
@@ -209,26 +206,37 @@ namespace motioncam {
         closeCamera();
     }
 
+    std::shared_ptr<CameraDescription> CameraSession::cameraDescription() const {
+        return mCameraDescription;
+    }
+
     void CameraSession::openCamera(
+        std::shared_ptr<CameraSessionListener> sessionListener,
+        std::shared_ptr<CameraDescription> cameraDescription,
         const OutputConfiguration& rawOutputConfig,
         const OutputConfiguration& previewOutputConfig,
         std::shared_ptr<ACameraManager> cameraManager,
         std::shared_ptr<ANativeWindow> previewOutputWindow,
         bool setupForRawPreview,
-        const json11::Json& cameraStartupSettings)
+        const json11::Json& cameraStartupSettings,
+        const size_t maxMemoryUsageBytes)
     {
         if(mSessionContext) {
             LOGE("Trying to open camera while already running!");
             return;
         }
 
+        // Keep camera manager
+        mCameraManager = std::move(cameraManager);
+        mSessionListener = std::move(sessionListener);
+        mCameraDescription = std::move(cameraDescription);
+        mImageConsumer = std::make_shared<RawImageConsumer>(mCameraDescription, mSessionListener, maxMemoryUsageBytes);
+
         // Create new session context and set up callbacks
         mSessionContext = std::make_shared<CameraCaptureSessionContext>();
 
         mSessionContext->outputConfig = rawOutputConfig;
         mSessionContext->previewOutputConfig = previewOutputConfig;
-
-        mSessionContext->cameraManager = std::move(cameraManager);
         mSessionContext->nativeWindow = std::move(previewOutputWindow);
 
         setupCallbacks();
@@ -256,11 +264,39 @@ namespace motioncam {
         pushEvent(EventAction::ACTION_CLOSE_CAMERA);
         pushEvent(EventAction::STOP);
 
-        if(mEventLoopThread->joinable()) {
+        if(mEventLoopThread && mEventLoopThread->joinable()) {
             mEventLoopThread->join();
         }
 
+        mEventLoopThread = nullptr;
         mSessionContext = nullptr;
+    }
+
+    void CameraSession::getEstimatedPostProcessSettings(PostProcessSettings& outSettings) {
+        if(mImageConsumer)
+            mImageConsumer->getEstimatedSettings(outSettings);
+    }
+
+    void CameraSession::updateRawPreviewSettings(
+            float shadows, float contrast, float saturation, float blacks, float whitePoint, float tempOffset, float tintOffset, bool useVideoPreview)
+    {
+        if(mImageConsumer)
+            mImageConsumer->updateRawPreviewSettings(shadows, contrast, saturation, blacks, whitePoint, tempOffset, tintOffset, useVideoPreview);
+    }
+
+    void CameraSession::enableRawPreview(std::shared_ptr<RawPreviewListener> listener, const int previewQuality) {
+        if(mImageConsumer)
+            mImageConsumer->enableRawPreview(listener, previewQuality);
+    }
+
+    void CameraSession::disableRawPreview() {
+        if(mImageConsumer)
+            mImageConsumer->disableRawPreview();
+    }
+
+    void CameraSession::growMemory(size_t memoryBytes) {
+        if(mImageConsumer)
+            mImageConsumer->grow(memoryBytes);
     }
 
     void CameraSession::pauseCapture() {
@@ -573,7 +609,7 @@ namespace motioncam {
         ACameraDevice* device = nullptr;
 
         if (ACameraManager_openCamera(
-                mSessionContext->cameraManager.get(),
+                mCameraManager.get(),
                 mCameraDescription->id.c_str(),
                 &mSessionContext->deviceStateCallbacks,
                 &device) != ACAMERA_OK)

@@ -105,6 +105,9 @@ public class Settings {
     }
 
     private void saveCameraStartupSettings(SharedPreferences prefs, CameraStartupSettings cameraStartupSettings) {
+        if(prefs == null || cameraStartupSettings == null)
+            return;
+
         prefs.edit()
             .putBoolean(SettingsViewModel.PREFS_KEY_UI_CAMERA_STARTUP_USE_USER_EXPOSURE, cameraStartupSettings.useUserExposureSettings)
             .putInt(SettingsViewModel.PREFS_KEY_UI_CAMERA_STARTUP_USER_ISO, cameraStartupSettings.iso)

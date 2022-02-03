@@ -18,7 +18,6 @@ import android.media.AudioManager;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import android.util.Size;
@@ -34,7 +33,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.animation.BounceInterpolator;
-import android.widget.ImageView;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
@@ -61,17 +60,17 @@ import androidx.work.WorkManager;
 import com.bumptech.glide.Glide;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
-import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.jakewharton.processphoenix.ProcessPhoenix;
 import com.motioncam.Settings.CaptureMode;
 import com.motioncam.camera.AsyncNativeCameraOps;
 import com.motioncam.camera.CameraManualControl;
+import com.motioncam.camera.NativeCamera;
 import com.motioncam.camera.NativeCameraBuffer;
 import com.motioncam.camera.NativeCameraInfo;
+import com.motioncam.camera.NativeCameraManager;
 import com.motioncam.camera.NativeCameraMetadata;
-import com.motioncam.camera.NativeCameraSessionBridge;
 import com.motioncam.camera.PostProcessSettings;
 import com.motioncam.databinding.CameraActivityBinding;
 import com.motioncam.model.CameraProfile;
@@ -102,15 +101,14 @@ import java.util.stream.Collectors;
 public class CameraActivity extends AppCompatActivity implements
         SensorEventManager.SensorEventHandler,
         TextureView.SurfaceTextureListener,
-        NativeCameraSessionBridge.CameraSessionListener,
-        NativeCameraSessionBridge.CameraRawPreviewListener,
+        NativeCamera.CameraSessionListener,
+        NativeCamera.CameraRawPreviewListener,
         View.OnTouchListener,
         MotionLayout.TransitionListener,
         AsyncNativeCameraOps.CaptureImageListener {
 
     public static final String TAG = "MotionCam";
 
-    private static final int PERMISSION_REQUEST_CODE = 1;
     private static final int SETTINGS_ACTIVITY_REQUEST_CODE = 0x10;
     private static final int CONVERT_VIDEO_ACTIVITY_REQUEST_CODE = 0x20;
 
@@ -121,24 +119,15 @@ public class CameraActivity extends AppCompatActivity implements
     public static final String WORKER_IMAGE_PROCESSOR = "ImageProcessor";
     public static final String WORKER_VIDEO_PROCESSOR = "VideoProcessor";
 
-    private static final String[] MINIMUM_PERMISSIONS = {
-            Manifest.permission.CAMERA,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE
-    };
-
-    private static final String[] ADDITIONAL_PERMISSIONS = {
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.RECORD_AUDIO
-    };
+    private NativeCameraManager mNativeCameraManager;
+    private NativeCamera mNativeCamera;
 
     private Settings mSettings;
     private Settings.CameraSettings mCameraSettings;
 
-    private boolean mHavePermissions;
     private TextureView mTextureView;
     private Surface mSurface;
     private CameraActivityBinding mBinding;
-    private NativeCameraSessionBridge mNativeCamera;
     private List<NativeCameraInfo> mCameraInfos;
     private NativeCameraInfo mSelectedCamera;
     private NativeCameraMetadata mCameraMetadata;
@@ -160,7 +149,6 @@ public class CameraActivity extends AppCompatActivity implements
 
     private CameraStateManager mCameraStateManager;
 
-    private boolean mAwbLock;
     private float mShadowOffset;
     private Timer mRecordingTimer;
     private Timer mOverlayTimer;
@@ -315,6 +303,7 @@ public class CameraActivity extends AppCompatActivity implements
         findViewById(R.id.manualControlPlusBtn).setOnClickListener(v -> mCameraStateManager.onManualControlPlus());
         findViewById(R.id.manualControlMinusBtn).setOnClickListener(v -> mCameraStateManager.onManualControlMinus());
 
+        //
         mBinding.manualControlsFrame.setOnClickListener((v) -> {
         });
 
@@ -331,6 +320,10 @@ public class CameraActivity extends AppCompatActivity implements
 
         mBinding.previewFrame.previewControls.setVisibility(View.VISIBLE);
 
+        // Setup preset toggles
+        findViewById(R.id.preset4K).setOnClickListener(v -> onVideoPresetSelected(v));
+        findViewById(R.id.preset1080P).setOnClickListener(v -> onVideoPresetSelected(v));
+
         mSensorEventManager = new SensorEventManager(this, this);
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         mAudioInputId = -1;
@@ -338,8 +331,6 @@ public class CameraActivity extends AppCompatActivity implements
         WorkManager.getInstance(this)
                 .getWorkInfosForUniqueWorkLiveData(WORKER_IMAGE_PROCESSOR)
                 .observe(this, this::onProgressChanged);
-
-        requestPermissions();
     }
 
     @Override
@@ -520,16 +511,47 @@ public class CameraActivity extends AppCompatActivity implements
     protected void onResume() {
         super.onResume();
 
-        mSensorEventManager.enable();
-
-        mBinding.rawCameraPreview.setBitmap(null);
-        mBinding.main.transitionToStart();
-
-        // Load UI settings
+        // Start camera when we have all the permissions
         SharedPreferences sharedPrefs = getSharedPreferences(SettingsViewModel.CAMERA_SHARED_PREFS, Context.MODE_PRIVATE);
+        boolean isFirstRun = sharedPrefs.getBoolean(SettingsViewModel.PREFS_KEY_FIRST_RUN, true);
+
+        if(!havePermissions() || isFirstRun) {
+            Intent intent = new Intent(this, FirstTimeActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
+
+            startActivity(intent);
+            finish();
+            return;
+        }
+
+        initSelf(sharedPrefs);
+
+        initCamera();
+    }
+
+    private void initSelf(SharedPreferences sharedPrefs) {
+        // Load UI settings
         mSettings.load(sharedPrefs);
 
         Log.d(TAG, mSettings.toString());
+
+        // Load our native camera library
+        if(mSettings.useDualExposure) {
+            try {
+                System.loadLibrary("native-camera-opencl");
+            } catch (Exception e) {
+                e.printStackTrace();
+                System.loadLibrary("native-camera-host");
+            }
+        }
+        else {
+            System.loadLibrary("native-camera-host");
+        }
+
+        mSensorEventManager.enable();
+
+        //mBinding.rawCameraPreview.setBitmap(null);
+        mBinding.main.transitionToStart();
 
         // Release URIs we are not using anymore
         releasePermissions(getContentResolver());
@@ -540,27 +562,24 @@ public class CameraActivity extends AppCompatActivity implements
         // Get audio inputs
         enumerateAudioInputs();
 
-        //mBinding.focusLockPointFrame.setVisibility(View.GONE);
         mBinding.previewPager.registerOnPageChangeCallback(mCapturedPreviewPagerListener);
-
         mUserCaptureModeOverride = false;
+    }
 
-        // Start camera when we have all the permissions
-        if (mHavePermissions) {
-            initCamera();
-
-            // Request location updates
-            if (    ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                ||  ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED)
-            {
-                LocationRequest locationRequest = LocationRequest.create();
-
-                mFusedLocationClient.requestLocationUpdates(locationRequest, mLocationCallback, Looper.getMainLooper());
-            }
+    private boolean havePermissions() {
+        if(         ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+                &&  ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED)
+        {
+             return true;
         }
+
+        return false;
     }
 
     private void saveSettings() {
+        if(mSettings == null)
+            return;
+
         SharedPreferences sharedPrefs = getSharedPreferences(SettingsViewModel.CAMERA_SHARED_PREFS, Context.MODE_PRIVATE);
 
         // Update the settings
@@ -605,16 +624,13 @@ public class CameraActivity extends AppCompatActivity implements
                 finaliseRawVideo(false);
             }
 
-            mNativeCamera.stopCapture();
+            try {
+                destroyCamera();
+            }
+            catch(RuntimeException e) {
+                e.printStackTrace();
+            }
         }
-
-        if(mSurface != null) {
-            mSurface.release();
-            mSurface = null;
-        }
-
-        mBinding.cameraFrame.removeView(mTextureView);
-        mTextureView = null;
 
         mFusedLocationClient.removeLocationUpdates(mLocationCallback);
     }
@@ -623,10 +639,15 @@ public class CameraActivity extends AppCompatActivity implements
     protected void onDestroy() {
         super.onDestroy();
 
-        if(mNativeCamera != null) {
-            mNativeCamera.destroy();
-            mNativeCamera = null;
+        try {
+            if(mNativeCameraManager != null)
+                mNativeCameraManager.close();
         }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        mNativeCameraManager = null;
     }
 
     private int getInternalRecordingFd(String filename) {
@@ -819,12 +840,6 @@ public class CameraActivity extends AppCompatActivity implements
             }
         }
 
-        // Fade out current preview
-        mBinding.cameraFrame.animate()
-                .alpha(0)
-                .setDuration(250)
-                .start();
-
         // Update selection
         ViewGroup cameraSelectionFrame = findViewById(R.id.cameraSelection);
 
@@ -843,21 +858,39 @@ public class CameraActivity extends AppCompatActivity implements
             }
         }
 
+        // Disable camera selection
+        for(int i = 0; i < cameraSelectionFrame.getChildCount(); i++) {
+            cameraSelectionFrame.getChildAt(i).setEnabled(false);
+        }
+
         // Stop the camera in the background then start the new camera
         CompletableFuture
-                .runAsync(() -> mNativeCamera.stopCapture())
+                .runAsync(() -> {
+                    destroyCamera();
+                })
                 .thenRun(() -> runOnUiThread(() -> {
-                    mBinding.cameraFrame.removeView(mTextureView);
-                    mTextureView = null;
-                    ((BitmapDrawView) findViewById(R.id.rawCameraPreview)).setBitmap(null);
-
-                    if(mSurface != null) {
-                        mSurface.release();
-                        mSurface = null;
-                    }
-
                     initCamera();
                 }));
+    }
+
+    private void destroyCamera() {
+        if(mSurface != null) {
+            mSurface.release();
+            mSurface = null;
+        }
+
+        if(mNativeCamera != null) {
+            mNativeCamera.stopCapture();
+
+            try {
+                mNativeCamera.close();
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            mNativeCamera = null;
+        }
     }
 
     private void onSwitchCameraClicked() {
@@ -893,8 +926,8 @@ public class CameraActivity extends AppCompatActivity implements
     private void updateVideoUi() {
         String resText = getText(R.string.output).toString();
 
-        if(mNativeCamera != null) {
-            Size captureOutputSize = mNativeCamera.getRawConfigurationOutput(mSelectedCamera);
+        if(mNativeCameraManager != null) {
+            Size captureOutputSize = mNativeCameraManager.getRawConfigurationOutput(mSelectedCamera);
 
             int bin = mSettings.videoBin ? 2 : 1;
 
@@ -999,47 +1032,31 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.cameraSettings.findViewById(R.id.cameraPhotoSettings).setVisibility(View.GONE);
 
         if(mNativeCamera != null) {
+            setupCameraPreview(CaptureMode.RAW_VIDEO);
+
             mNativeCamera.setFrameRate(mSettings.cameraStartupSettings.frameRate);
             mNativeCamera.setVideoCropPercentage(mSettings.widthVideoCrop, mSettings.heightVideoCrop);
             mNativeCamera.setVideoBin(mSettings.videoBin);
             mNativeCamera.adjustMemory(mSettings.rawVideoMemoryUseBytes);
 
-            // Disable RAW preview
-            if(mSettings.useDualExposure) {
-                mNativeCamera.disableRawPreview();
-
-                mBinding.rawCameraPreview.setVisibility(View.GONE);
-                mBinding.shadowsLayout.setVisibility(View.GONE);
-
-                mTextureView.setAlpha(1);
-            }
-
             mNativeCamera.activateCameraSettings();
         }
     }
 
-    private void restoreFromRawVideoCapture() {
+    private void restoreFromRawVideoCapture(CaptureMode captureMode) {
         if(mNativeCamera == null) {
             return;
         }
 
-        mNativeCamera.setFrameRate(-1);
-        mNativeCamera.adjustMemory(mSettings.memoryUseBytes);
-
-        if(mSettings.useDualExposure) {
-            mBinding.rawCameraPreview.setVisibility(View.VISIBLE);
-            mBinding.shadowsLayout.setVisibility(View.VISIBLE);
-
-            if(mTextureView != null)
-                mTextureView.setAlpha(0);
-
-            mNativeCamera.enableRawPreview(this, mSettings.cameraPreviewQuality, false);
-        }
+        setupCameraPreview(captureMode);
 
         mBinding.cameraSettings.findViewById(R.id.cameraVideoSettings).setVisibility(View.GONE);
         mBinding.cameraSettings.findViewById(R.id.cameraPhotoSettings).setVisibility(View.VISIBLE);
 
         mBinding.previewFrame.settingsLayout.setVisibility(View.VISIBLE);
+
+        mNativeCamera.setFrameRate(-1);
+        mNativeCamera.adjustMemory(mSettings.memoryUseBytes);
 
         mNativeCamera.activateCameraSettings();
     }
@@ -1087,7 +1104,7 @@ public class CameraActivity extends AppCompatActivity implements
 
         // If previous capture mode was raw video, reset frame rate
         if(mCaptureMode == CaptureMode.RAW_VIDEO && captureMode != CaptureMode.RAW_VIDEO) {
-            restoreFromRawVideoCapture();
+            restoreFromRawVideoCapture(captureMode);
         }
 
         mCaptureMode = captureMode;
@@ -1302,7 +1319,6 @@ public class CameraActivity extends AppCompatActivity implements
             // Pass native camera handle
             Intent intent = new Intent(this, PostProcessActivity.class);
 
-            intent.putExtra(PostProcessActivity.INTENT_NATIVE_CAMERA_HANDLE, mNativeCamera.getHandle());
             intent.putExtra(PostProcessActivity.INTENT_NATIVE_CAMERA_ID, mSelectedCamera.cameraId);
             intent.putExtra(PostProcessActivity.INTENT_NATIVE_CAMERA_FRONT_FACING, mSelectedCamera.isFrontFacing);
 
@@ -1421,116 +1437,6 @@ public class CameraActivity extends AppCompatActivity implements
         }
     }
 
-    private void requestPermissions() {
-        ArrayList<String> needPermissions = new ArrayList<>();
-
-        for(String permission : MINIMUM_PERMISSIONS) {
-            if (ActivityCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
-                needPermissions.add(permission);
-            }
-        }
-
-        if(!needPermissions.isEmpty()) {
-            for(String permission : ADDITIONAL_PERMISSIONS) {
-                if (ActivityCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
-                    needPermissions.add(permission);
-                }
-            }
-        }
-
-        if(!needPermissions.isEmpty()) {
-            String[] permissions = needPermissions.toArray(new String[0]);
-            ActivityCompat.requestPermissions(this, permissions, PERMISSION_REQUEST_CODE);
-        }
-        else {
-            onPermissionsGranted();
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        if (PERMISSION_REQUEST_CODE != requestCode) {
-            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-            return;
-        }
-
-        // Check if camera permission has been denied
-        List<String> minimumPermissions = Arrays.asList(MINIMUM_PERMISSIONS);
-
-        for(int i = 0; i < permissions.length; i++) {
-            if(grantResults[i] == PackageManager.PERMISSION_DENIED) {
-
-                if(minimumPermissions.contains(permissions[i])) {
-                    runOnUiThread(this::onPermissionsDenied);
-                    return;
-                }
-
-            }
-        }
-
-        runOnUiThread(this::onPermissionsGranted);
-    }
-
-    private void onPermissionsGranted() {
-        mHavePermissions = true;
-
-        // Kick off image processor in case there are images we have not processed
-        startImageProcessor();
-    }
-
-    private void onPermissionsDenied() {
-        mHavePermissions = false;
-
-        AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(this, R.style.BasicDialog)
-                .setCancelable(false)
-                .setTitle(R.string.error)
-                .setMessage(R.string.permissions_error)
-                .setPositiveButton(R.string.ok, (dialog, which) -> finish());
-
-        dialogBuilder.show();
-    }
-
-    private void createCamera() {
-        // Load our native camera library
-        if(mSettings.useDualExposure) {
-            try {
-                System.loadLibrary("native-camera-opencl");
-            } catch (Exception e) {
-                e.printStackTrace();
-                System.loadLibrary("native-camera-host");
-            }
-        }
-        else {
-            System.loadLibrary("native-camera-host");
-        }
-
-        mNativeCamera = new NativeCameraSessionBridge(this, mSettings.memoryUseBytes, null);
-        mCameraInfos = Arrays.asList(mNativeCamera.getSupportedCameras());
-
-        if(mCameraInfos.isEmpty()) {
-            // Stop
-            mNativeCamera = null;
-
-            // No supported cameras. Display message to user and exist
-            AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(this, R.style.BasicDialog)
-                    .setCancelable(false)
-                    .setTitle(R.string.error)
-                    .setMessage(R.string.not_supported_error)
-                    .setPositiveButton(R.string.ok, (dialog, which) -> finish());
-
-            dialogBuilder.create().show();
-
-            return;
-        }
-
-        // Pick first camera if none selected
-        if(mSelectedCamera == null) {
-            mSelectedCamera = mCameraInfos.get(0);
-        }
-
-        Log.d(TAG, mSelectedCamera.toString());
-    }
-
     private void setupCameraSwitchButtons() {
         ViewGroup cameraSelectionFrame = findViewById(R.id.cameraSelection);
 
@@ -1538,11 +1444,13 @@ public class CameraActivity extends AppCompatActivity implements
         Set<String> seenFocalLength = new HashSet<>();
 
         // Get metadata for all available cameras
+        cameraSelectionFrame.removeAllViews();
+
         for(NativeCameraInfo cameraInfo : mCameraInfos) {
             if(cameraInfo.isFrontFacing)
                 continue;
 
-            NativeCameraMetadata metadata = mNativeCamera.getMetadata(cameraInfo);
+            NativeCameraMetadata metadata = mNativeCameraManager.getMetadata(cameraInfo);
             float focalLength = 0.0f;
 
             if(metadata.focalLength != null && metadata.focalLength.length > 0) {
@@ -1617,10 +1525,10 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void onVideoPresetSelected(View v) {
-        if(mNativeCamera == null || mSelectedCamera == null)
+        if(mNativeCameraManager == null || mSelectedCamera == null)
             return;
 
-        Size captureOutputSize = mNativeCamera.getRawConfigurationOutput(mSelectedCamera);
+        Size captureOutputSize = mNativeCameraManager.getRawConfigurationOutput(mSelectedCamera);
 
         // Only doing 4K
         int cropWidth = (int) Math.floor(100.0f - (Math.ceil(3840.0f / captureOutputSize.getWidth() * 100.0f)));
@@ -1707,11 +1615,45 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void initCamera() {
-        if (mNativeCamera == null) {
-            createCamera();
+        // Create camera manager and get supported cameras
+        if(mNativeCameraManager == null) {
+            mNativeCameraManager = new NativeCameraManager();
+        }
+
+        if(mCameraInfos == null) {
+            mCameraInfos = Arrays.asList(
+                    mNativeCameraManager.getSupportedCameras());
+
             setupCameraSwitchButtons();
         }
 
+        if(mCameraInfos.isEmpty()) {
+            // No supported cameras. Display message to user and exist
+            AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(this, R.style.BasicDialog)
+                    .setCancelable(false)
+                    .setTitle(R.string.error)
+                    .setMessage(R.string.not_supported_error)
+                    .setPositiveButton(R.string.ok, (dialog, which) -> finish());
+
+            dialogBuilder.create().show();
+
+            return;
+        }
+
+        // Destroy previous camera
+        destroyCamera();
+
+        // Remove the previous preview here because onSurfaceTextureDestroyed() will be called.
+        mBinding.nativeCameraPreview.removeAllViews();
+
+        mNativeCamera = new NativeCamera(this);
+
+        // Pick first camera if none selected
+        if(mSelectedCamera == null) {
+            mSelectedCamera = mCameraInfos.get(0);
+        }
+
+        Log.d(TAG, mSelectedCamera.toString());
         if(mSelectedCamera == null) {
             Log.e(TAG, "No cameras found");
             return;
@@ -1722,14 +1664,8 @@ public class CameraActivity extends AppCompatActivity implements
 
         mCameraSettings.load(sharedPrefs, mSelectedCamera.cameraId);
 
-        setPostProcessingDefaults();
-        updateCameraSettingsUi();
-
-        // Exposure compensation frame
-        findViewById(R.id.exposureCompFrame).setVisibility(View.VISIBLE);
-
         // Set up camera manual controls
-        mCameraMetadata = mNativeCamera.getMetadata(mSelectedCamera);
+        mCameraMetadata = mNativeCameraManager.getMetadata(mSelectedCamera);
         Log.d(TAG, "Selected camera metadata: " + mCameraMetadata.toString());
 
         if(mCameraMetadata.oisSupport) {
@@ -1749,20 +1685,31 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.exposureSeekBar.setProgress(numEvSteps / 2);
         mBinding.shadowsSeekBar.setProgress(50);
 
+        // Exposure compensation frame
+        findViewById(R.id.exposureCompFrame).setVisibility(View.VISIBLE);
+
+        mCameraStateManager = new CameraStateManager(mNativeCamera, mCameraMetadata, this, mBinding, mSettings);
+        mGestureDetector = new GestureDetector(this, mCameraStateManager);
+
+        setPostProcessingDefaults();
+
+        updateCameraSettingsUi();
+
         setupApertures();
 
         setupFpsSelection();
 
-        // Setup preset toggles
-        findViewById(R.id.preset4K).setOnClickListener(v -> onVideoPresetSelected(v));
-        findViewById(R.id.preset1080P).setOnClickListener(v -> onVideoPresetSelected(v));
+        updateVideoUi();
 
-        // Create texture view for camera preview
+        updateCameraSettingsUi();
+
+        // Create texture view for camera preview and add it
         mTextureView = new TextureView(this);
-        mBinding.cameraFrame.addView(
-                mTextureView,
-                0,
-                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        mTextureView.setLayoutParams(
+                new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // Re-create the native camera view
+        mBinding.nativeCameraPreview.addView(mTextureView);
 
         mTextureView.setSurfaceTextureListener(this);
         mTextureView.setOnTouchListener(this);
@@ -1773,12 +1720,6 @@ public class CameraActivity extends AppCompatActivity implements
                     mTextureView.getWidth(),
                     mTextureView.getHeight());
         }
-
-        mCameraStateManager = new CameraStateManager(mNativeCamera, mCameraMetadata, this, mBinding, mSettings);
-        mGestureDetector = new GestureDetector(this, mCameraStateManager);
-
-        updateVideoUi();
-        updateCameraSettingsUi();
     }
 
     /**
@@ -1826,73 +1767,23 @@ public class CameraActivity extends AppCompatActivity implements
     public void onSurfaceTextureAvailable(@NonNull SurfaceTexture surfaceTexture, int width, int height) {
         Log.d(TAG, "onSurfaceTextureAvailable() w: " + width + " h: " + height);
 
-        if(mNativeCamera == null || mSelectedCamera == null) {
-            Log.e(TAG, "Native camera not available");
-            return;
-        }
-
-        if(mSurface != null) {
-            Log.w(TAG, "Surface still exists, releasing");
-            mSurface.release();
-            mSurface = null;
-        }
-
         startCamera(surfaceTexture, width, height);
     }
 
-    private void startCamera(SurfaceTexture surfaceTexture, int width, int height) {
-        int displayWidth;
-        int displayHeight;
-
-        if(mSettings.useDualExposure) {
-            // Use small preview window since we're not using the camera preview.
-            displayWidth = 640;
-            displayHeight = 480;
-        }
-        else {
-            // Get display size
-            Display display = getWindowManager().getDefaultDisplay();
-
-            displayWidth = display.getMode().getPhysicalWidth();
-            displayHeight = display.getMode().getPhysicalHeight();
-        }
-
-        // Get capture size so we can figure out the correct aspect ratio
-        Size captureOutputSize = mNativeCamera.getRawConfigurationOutput(mSelectedCamera);
-
-        // If we couldn't find any RAW outputs, this camera doesn't actually support RAW10
-        if(captureOutputSize == null) {
-            displayUnsupportedCameraError();
-            return;
-        }
-
-        Size previewOutputSize =
-                mNativeCamera.getPreviewConfigurationOutput(mSelectedCamera, captureOutputSize, new Size(displayWidth, displayHeight));
-        surfaceTexture.setDefaultBufferSize(previewOutputSize.getWidth(), previewOutputSize.getHeight());
-
-        mSurface = new Surface(surfaceTexture);
-
-        // Enable focus for video when in RAW_VIDEO mode
-        mSettings.cameraStartupSettings.focusForVideo = mSettings.captureMode == CaptureMode.RAW_VIDEO;
-
-        mNativeCamera.startCapture(
-                mSelectedCamera,
-                mSurface,
-                false,
-                mSettings.rawMode == SettingsViewModel.RawMode.RAW12,
-                mSettings.rawMode == SettingsViewModel.RawMode.RAW16,
-                mSettings.cameraStartupSettings);
-
+    private void setupCameraPreview(CaptureMode captureMode) {
         // Update orientation in case we've switched front/back cameras
         NativeCameraBuffer.ScreenOrientation orientation = mSensorEventManager.getOrientation();
         if(orientation != null)
             onOrientationChanged(orientation);
 
-        if(mSettings.useDualExposure && mCaptureMode != CaptureMode.RAW_VIDEO) {
+        if(mNativeCamera != null
+                && mSettings.useDualExposure
+                && captureMode != CaptureMode.RAW_VIDEO)
+        {
             mBinding.rawCameraPreview.setVisibility(View.VISIBLE);
             mBinding.shadowsLayout.setVisibility(View.VISIBLE);
 
-            mTextureView.setAlpha(0);
+            mBinding.nativeCameraPreview.setAlpha(0);
 
             mNativeCamera.enableRawPreview(this, mSettings.cameraPreviewQuality, false);
         }
@@ -1900,19 +1791,67 @@ public class CameraActivity extends AppCompatActivity implements
             mBinding.rawCameraPreview.setVisibility(View.GONE);
             mBinding.shadowsLayout.setVisibility(View.GONE);
 
-            mTextureView.setAlpha(1);
+            mBinding.nativeCameraPreview.setAlpha(1);
+            mNativeCamera.disableRawPreview();
         }
-
-        mBinding.cameraFrame
-                .animate()
-                .cancel();
-
-        mBinding.cameraFrame.setAlpha(1.0f);
 
         // Start overlay if configured
         setExposureOverlay(mSettings.exposureOverlay);
+    }
+
+    private void startCamera(SurfaceTexture surfaceTexture, int width, int height) {
+        // Sanity check
+        if(mNativeCamera == null || mNativeCameraManager == null) {
+            return;
+        }
+
+        // Get display size
+        Display display = getWindowManager().getDefaultDisplay();
+
+        int displayWidth = display.getMode().getPhysicalWidth();
+        int displayHeight = display.getMode().getPhysicalHeight();
+
+        // Get capture size so we can figure out the correct aspect ratio
+        Size captureOutputSize = mNativeCameraManager.getRawConfigurationOutput(mSelectedCamera);
+
+        // If we couldn't find any RAW outputs, this camera doesn't actually support RAW10
+        if(captureOutputSize == null) {
+            displayUnsupportedCameraError();
+            return;
+        }
+
+        Size previewOutputSize = mNativeCameraManager.getPreviewConfigurationOutput(
+                mSelectedCamera, captureOutputSize, new Size(displayWidth, displayHeight));
+
+        surfaceTexture.setDefaultBufferSize(previewOutputSize.getWidth(), previewOutputSize.getHeight());
 
         configureTransform(width, height, previewOutputSize);
+
+        // Enable focus for video when in RAW_VIDEO mode
+        int frameRate = mSettings.cameraStartupSettings.frameRate;
+
+        if(mSettings.captureMode == CaptureMode.RAW_VIDEO) {
+            mSettings.cameraStartupSettings.focusForVideo = true;
+        }
+        else {
+            // Don't use RAW_VIDEO frame rate for other modes
+            mSettings.cameraStartupSettings.frameRate = -1;
+        }
+
+        mNativeCamera.startCapture(
+                mSelectedCamera,
+                new Surface(surfaceTexture),
+                false,
+                mSettings.rawMode == SettingsViewModel.RawMode.RAW12,
+                mSettings.rawMode == SettingsViewModel.RawMode.RAW16,
+                mSettings.cameraStartupSettings,
+                mSettings.memoryUseBytes);
+
+        // Set up preview view
+        setupCameraPreview(mCaptureMode);
+
+        // Restore frame rate
+        mSettings.cameraStartupSettings.frameRate = frameRate;
     }
 
     @Override
@@ -1924,16 +1863,7 @@ public class CameraActivity extends AppCompatActivity implements
     public boolean onSurfaceTextureDestroyed(@NonNull SurfaceTexture surface) {
         Log.d(TAG, "onSurfaceTextureDestroyed()");
 
-        // Release camera
-        if(mNativeCamera != null) {
-            mNativeCamera.disableRawPreview();
-            mNativeCamera.stopCapture();
-        }
-
-        if(mSurface != null) {
-            mSurface.release();
-            mSurface = null;
-        }
+        destroyCamera();
 
         return true;
     }
@@ -1972,6 +1902,12 @@ public class CameraActivity extends AppCompatActivity implements
             // Set up startup stuff
             mBinding.switchCameraBtn.setEnabled(true);
 
+            // Enable camera switcher
+            ViewGroup cameraSelectionFrame = findViewById(R.id.cameraSelection);
+            for(int i = 0; i < cameraSelectionFrame.getChildCount(); i++) {
+                cameraSelectionFrame.getChildAt(i).setEnabled(true);
+            }
+
             setCaptureMode(mSettings.captureMode, true);
             setSaveRaw(mSettings.saveDng);
             setHdr(mSettings.hdr);
@@ -2005,7 +1941,7 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     @Override
-    public void onCameraSessionStateChanged(NativeCameraSessionBridge.CameraState cameraState) {
+    public void onCameraSessionStateChanged(NativeCamera.CameraState cameraState) {
         Log.i(TAG, "Camera state changed " + cameraState.name());
     }
 
@@ -2027,12 +1963,12 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     @Override
-    public void onCameraAutoFocusStateChanged(NativeCameraSessionBridge.CameraFocusState state, float focusDistance) {
+    public void onCameraAutoFocusStateChanged(NativeCamera.CameraFocusState state, float focusDistance) {
         runOnUiThread(() -> mCameraStateManager.onCameraAutoFocusStateChanged(state, focusDistance));
     }
 
     @Override
-    public void onCameraAutoExposureStateChanged(NativeCameraSessionBridge.CameraExposureState state) {
+    public void onCameraAutoExposureStateChanged(NativeCamera.CameraExposureState state) {
         runOnUiThread(() -> mCameraStateManager.onCameraAutoExposureStateChanged(state));
     }
 
@@ -2437,7 +2373,7 @@ public class CameraActivity extends AppCompatActivity implements
 
     @Override
     public boolean onTouch(View view, MotionEvent motionEvent) {
-        if(mGestureDetector == null || view != mTextureView)
+        if(mGestureDetector == null)
             return false;
 
         if(mCameraStateManager != null)

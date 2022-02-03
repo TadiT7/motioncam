@@ -3,7 +3,7 @@ package com.motioncam;
 import android.app.Activity;
 import android.os.StatFs;
 
-import com.motioncam.camera.NativeCameraSessionBridge;
+import com.motioncam.camera.NativeCamera;
 import com.motioncam.camera.VideoRecordingStats;
 import com.motioncam.databinding.CameraActivityBinding;
 
@@ -13,11 +13,11 @@ import java.util.TimerTask;
 class RawVideoRecordingTask extends TimerTask {
     private static final int DELAY_OUTPUT_FPS_MS = 3000;
     private final CameraActivityBinding mBinding;
-    private final NativeCameraSessionBridge mNativeCamera;
+    private final NativeCamera mNativeCamera;
     private final Activity mActivity;
     private final long mRecordStartTime;
 
-    RawVideoRecordingTask(NativeCameraSessionBridge nativeCamera, Activity activity, CameraActivityBinding binding) {
+    RawVideoRecordingTask(NativeCamera nativeCamera, Activity activity, CameraActivityBinding binding) {
         mNativeCamera = nativeCamera;
         mActivity = activity;
         mBinding = binding;

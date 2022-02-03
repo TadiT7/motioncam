@@ -10,7 +10,7 @@
         android:id="@+id/apertures"
         android:layout_width="wrap_content"
         android:layout_height="40dp"
-        android:background="@drawable/manual_controls_frame_background"
+        android:background="@drawable/selected_text_background"
         android:gravity="center"
         android:visibility="gone"
         android:layout_marginBottom="10dp"
@@ -29,12 +29,14 @@
             android:layout_height="match_parent"
             android:orientation="horizontal"
             android:layout_weight="1"
-            android:background="@drawable/manual_controls_frame_background">
+            android:background="@drawable/selected_text_background">
 
             <FrameLayout
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
+                android:background="@drawable/selectable_text"
+                android:clickable="true"
                 android:orientation="vertical">
 
                 <TextView
@@ -43,6 +45,7 @@
                     android:layout_height="match_parent"
                     android:gravity="center"
                     android:text="1/8000"
+                    android:background="@drawable/selectable_text"
                     android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold" />
 
                 <ImageView
@@ -67,6 +70,7 @@
                     android:layout_height="match_parent"
                     android:gravity="center"
                     android:text="3200"
+                    android:background="@drawable/selectable_text"
                     android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"/>
 
                 <ImageView
@@ -91,6 +95,7 @@
                     android:layout_height="match_parent"
                     android:gravity="center"
                     android:text="0 M"
+                    android:background="@drawable/selectable_text"
                     android:textAppearance="@style/MotionCam.TextAppearance.VerySmall.Bold"/>
 
                 <ImageView
@@ -109,6 +114,8 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:gravity="center"
+                android:background="@drawable/selectable_text"
+                android:clickable="true"
                 android:orientation="horizontal">
 
                 <TextView
@@ -127,7 +134,7 @@
             android:layout_height="match_parent"
             android:orientation="horizontal"
             android:layout_marginStart="5dp"
-            android:background="@drawable/manual_controls_frame_background">
+            android:background="@drawable/selected_text_background">
 
             <LinearLayout
                 android:id="@+id/awbLockBtn"
@@ -135,6 +142,8 @@
                 android:layout_height="match_parent"
                 android:gravity="center"
                 android:layout_weight="1"
+                android:clickable="true"
+                android:background="@drawable/selectable_text"
                 android:orientation="horizontal">
 
                 <ImageView
@@ -163,7 +172,7 @@
         android:layout_height="40dp"
         android:visibility="gone"
         android:layout_marginTop="10dp"
-        android:background="@drawable/manual_controls_frame_background"
+        android:background="@drawable/selected_text_background"
         android:orientation="horizontal">
 
         <TextView
@@ -201,7 +210,7 @@
         android:layout_height="40dp"
         android:visibility="gone"
         android:layout_marginTop="10dp"
-        android:background="@drawable/manual_controls_frame_background"
+        android:background="@drawable/selected_text_background"
         android:orientation="horizontal">
 
         <SeekBar

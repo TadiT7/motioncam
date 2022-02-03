@@ -40,7 +40,7 @@ public class AsyncNativeCameraOps implements Closeable {
     }
 
     private final ThreadPoolExecutor mBackgroundProcessor = new ThreadPoolExecutor( 1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>() );
-    private final NativeCameraSessionBridge mCameraSessionBridge;
+    private final NativeCamera mCameraSessionBridge;
     private final Handler mMainHandler;
     private Size mUnscaledSize;
 
@@ -69,7 +69,7 @@ public class AsyncNativeCameraOps implements Closeable {
         void onExposureMap(Bitmap bitmap);
     }
 
-    public AsyncNativeCameraOps(NativeCameraSessionBridge cameraSessionBridge) {
+    public AsyncNativeCameraOps(NativeCamera cameraSessionBridge) {
         mCameraSessionBridge = cameraSessionBridge;
         mMainHandler = new Handler(Looper.getMainLooper());
     }

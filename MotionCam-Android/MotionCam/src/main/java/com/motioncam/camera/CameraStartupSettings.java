@@ -5,8 +5,6 @@ public class CameraStartupSettings {
     public int iso;
     public long exposureTime;
     public int frameRate;
-    public boolean awbLock;
-    public boolean aeLock;
     public boolean ois;
     public boolean focusForVideo;
 

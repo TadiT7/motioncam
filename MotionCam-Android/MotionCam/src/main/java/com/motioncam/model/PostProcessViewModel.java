@@ -10,10 +10,9 @@ import androidx.lifecycle.ViewModel;
 import com.motioncam.DenoiseSettings;
 import com.motioncam.camera.AsyncNativeCameraOps;
 import com.motioncam.camera.CameraManualControl;
+import com.motioncam.camera.NativeCamera;
 import com.motioncam.camera.NativeCameraBuffer;
 import com.motioncam.camera.NativeCameraInfo;
-import com.motioncam.camera.NativeCameraMetadata;
-import com.motioncam.camera.NativeCameraSessionBridge;
 import com.motioncam.camera.PostProcessSettings;
 
 import java.util.ArrayList;
@@ -46,7 +45,7 @@ public class PostProcessViewModel extends ViewModel {
 
     final private MutableLiveData<Integer> jpegQuality = new MutableLiveData<>();
 
-    public List<NativeCameraBuffer> getAvailableImages(NativeCameraSessionBridge cameraSessionBridge) {
+    public List<NativeCameraBuffer> getAvailableImages(NativeCamera cameraSessionBridge) {
         if(mAvailableImages != null)
             return mAvailableImages;
 
@@ -150,25 +149,19 @@ public class PostProcessViewModel extends ViewModel {
     }
 
     public LiveData<PostProcessSettings> estimateSettings(
-            Context context, NativeCameraSessionBridge cameraSessionBridge, NativeCameraInfo cameraInfo, AsyncNativeCameraOps asyncNativeCameraOps) {
+            Context context, NativeCamera cameraSessionBridge, NativeCameraInfo cameraInfo, AsyncNativeCameraOps asyncNativeCameraOps) {
         // Return existing value if set
         if(mEstimatedSettings.getValue() != null)
             return mEstimatedSettings;
-
-        NativeCameraMetadata metadata = cameraSessionBridge.getMetadata(cameraInfo);
-        if(metadata == null) {
-            return mPostProcessSettings;
-        }
-
-        final float[] cameraApertures = metadata.cameraApertures;
 
         // Estimate settings from first image in list
         List<NativeCameraBuffer> images = getAvailableImages(cameraSessionBridge);
 
         if(images.isEmpty()) {
-            mPostProcessSettings.setValue(new PostProcessSettings());
+            PostProcessSettings settings = new PostProcessSettings();
+            mPostProcessSettings.setValue(settings);
 
-            update(cameraApertures,10000000, 100, mPostProcessSettings.getValue());
+            update(10000000, 100, settings);
 
             return mPostProcessSettings;
         }
@@ -203,13 +196,13 @@ public class PostProcessViewModel extends ViewModel {
 
             mPostProcessSettings.setValue(postProcessSettings);
 
-            update(cameraApertures, shutterSpeed, iso, postProcessSettings);
+            update(shutterSpeed, iso, postProcessSettings);
         });
 
         return mPostProcessSettings;
     }
 
-    private void update(float[] cameraApertures, long shutterSpeed, int iso, PostProcessSettings settings) {
+    private void update(long shutterSpeed, int iso, PostProcessSettings settings) {
         // Light
         shadows.setValue((int)Math.ceil(Math.log(settings.shadows)/Math.log(1.85f) / 6.0f * 100.0f));
         whitePoint.setValue(Math.round(-200.0f * settings.whitePoint + 250.0f));
@@ -242,8 +235,6 @@ public class PostProcessViewModel extends ViewModel {
                 CameraManualControl.GetClosestIso(CameraManualControl.GetIsoValuesInRange(100, 6400), iso));
 
         float a = 1.6f;
-        if(cameraApertures == null || cameraApertures.length == 0)
-            a = cameraApertures[0];
 
         DenoiseSettings denoiseSettings = new DenoiseSettings(0, (float) exposure.getEv(a), settings.shadows);
 

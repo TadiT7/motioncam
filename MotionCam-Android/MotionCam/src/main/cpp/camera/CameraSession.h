@@ -26,31 +26,40 @@ namespace motioncam {
     struct CaptureCallbackContext;
     struct EventLoopData;
     class CameraStateManager;
+    class RawPreviewListener;
     enum class EventAction : int;
 
     typedef std::shared_ptr<EventLoopData> EventLoopDataPtr;
 
     class CameraSession {
     public:
-        CameraSession(
-                std::shared_ptr<CameraSessionListener> listener,
-                std::shared_ptr<CameraDescription> cameraDescription,
-                std::shared_ptr<RawImageConsumer> rawImageConsumer);
-
+        CameraSession();
         ~CameraSession();
 
+        std::shared_ptr<CameraDescription> cameraDescription() const;
+
         void openCamera(
-            const OutputConfiguration& rawOutputConfig,
-            const OutputConfiguration& previewOutputConfig,
-            std::shared_ptr<ACameraManager> cameraManager,
-            std::shared_ptr<ANativeWindow> previewOutputWindow,
-            bool setupForRawPreview,
-            const json11::Json& cameraStartupSettings);
+                std::shared_ptr<CameraSessionListener> sessionListener,
+                std::shared_ptr<CameraDescription> cameraDescription,
+                const OutputConfiguration& rawOutputConfig,
+                const OutputConfiguration& previewOutputConfig,
+                std::shared_ptr<ACameraManager> cameraManager,
+                std::shared_ptr<ANativeWindow> previewOutputWindow,
+                bool setupForRawPreview,
+                const json11::Json& cameraStartupSettings,
+                const size_t maxMemoryUsageBytes);
 
         void closeCamera();
 
         void pauseCapture();
         void resumeCapture();
+
+        void updateRawPreviewSettings(
+                float shadows, float contrast, float saturation, float blacks, float whitePoint, float tempOffset, float tintOffset, bool useVideoPreview);
+        void enableRawPreview(std::shared_ptr<RawPreviewListener> listener, const int previewQuality);
+        void disableRawPreview();
+        void growMemory(size_t memoryBytes);
+        void getEstimatedPostProcessSettings(PostProcessSettings& outSettings);
 
         void setAutoExposure();
         void setManualExposure(int32_t iso, int64_t exposureTime);
@@ -81,9 +90,6 @@ namespace motioncam {
         void setFocusPoint(float focusX, float focusY, float exposureX, float exposureY);
         void setAutoFocus();
 
-        void pushEvent(const EventAction event, const json11::Json& data);
-        void pushEvent(const EventAction event);
-
     public:
         // Callbacks
         void onCameraError(int error);
@@ -104,6 +110,9 @@ namespace motioncam {
         void onRawImageAvailable(AImageReader* imageReader);
 
     private:
+        void pushEvent(const EventAction event, const json11::Json& data);
+        void pushEvent(const EventAction event);
+
         void doEventLoop();
         void doProcessEvent(const EventLoopDataPtr& eventLoopData);
 
@@ -150,6 +159,7 @@ namespace motioncam {
         void setupPreviewCaptureOutput(CameraCaptureSessionContext& state, bool enableCameraPreview);
 
     private:
+        std::shared_ptr<ACameraManager> mCameraManager;
         CameraCaptureSessionState mState;
         std::atomic<int32_t> mLastIso;
         std::atomic<int64_t> mLastExposureTime;

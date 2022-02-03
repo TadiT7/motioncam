@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.content.Context;
 import android.graphics.Matrix;
 import android.graphics.PointF;
-import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.util.Log;
 import android.view.GestureDetector;
@@ -21,13 +20,13 @@ import androidx.appcompat.content.res.AppCompatResources;
 import com.motioncam.camera.CameraManualControl;
 import com.motioncam.camera.NativeCameraBuffer;
 import com.motioncam.camera.NativeCameraMetadata;
-import com.motioncam.camera.NativeCameraSessionBridge;
+import com.motioncam.camera.NativeCamera;
 import com.motioncam.databinding.CameraActivityBinding;
 
 import java.util.List;
 import java.util.Locale;
 
-class CameraStateManager implements NativeCameraSessionBridge.CameraSessionListener, GestureDetector.OnGestureListener
+class CameraStateManager implements NativeCamera.CameraSessionListener, GestureDetector.OnGestureListener
 {
     public static final String TAG = "CameraStateManager";
 
@@ -52,7 +51,7 @@ class CameraStateManager implements NativeCameraSessionBridge.CameraSessionListe
 
     public static final int USER_SELECTED_FOCUS_CANCEL_TIME_MS = 1000;
 
-    private final NativeCameraSessionBridge mActiveCamera;
+    private final NativeCamera mActiveCamera;
     private final NativeCameraMetadata mActiveCameraMetadata;
 
     private final Activity mActivity;
@@ -62,8 +61,8 @@ class CameraStateManager implements NativeCameraSessionBridge.CameraSessionListe
     private final List<Integer> mIsoValues;
     private final List<CameraManualControl.SHUTTER_SPEED> mExposureValues;
 
-    private NativeCameraSessionBridge.CameraExposureState mExposureState;
-    private NativeCameraSessionBridge.CameraFocusState mCameraFocusState;
+    private NativeCamera.CameraExposureState mExposureState;
+    private NativeCamera.CameraFocusState mCameraFocusState;
 
     private boolean mAWBLock;
     private float mFocusDistance = -1;
@@ -74,7 +73,7 @@ class CameraStateManager implements NativeCameraSessionBridge.CameraSessionListe
     private boolean mUserRequestedAeAfLock = false;
     private NativeCameraBuffer.ScreenOrientation mOrientation = NativeCameraBuffer.ScreenOrientation.PORTRAIT;
 
-    CameraStateManager(NativeCameraSessionBridge activeCamera,
+    CameraStateManager(NativeCamera activeCamera,
                        NativeCameraMetadata cameraMetadata,
                        Activity activity,
                        CameraActivityBinding binding,
@@ -164,6 +163,9 @@ class CameraStateManager implements NativeCameraSessionBridge.CameraSessionListe
         mSettings.cameraStartupSettings.useUserExposureSettings = false;
         mSettings.cameraStartupSettings.exposureTime = 0;
         mSettings.cameraStartupSettings.iso = 0;
+
+        mBinding.focusLockPointFrame.getDrawable().setTint(mActivity.getColor(R.color.white));
+        mBinding.focusLockPointFrame.setVisibility(View.INVISIBLE);
 
         mActiveCamera.setAELock(false);
         mActiveCamera.setAutoExposure();
@@ -469,10 +471,14 @@ class CameraStateManager implements NativeCameraSessionBridge.CameraSessionListe
 
         if(mode == FocusMode.USER_SELECTED) {
             mUserFocusRequestedTimestampMs = System.currentTimeMillis();
+            mSettings.cameraStartupSettings.useUserExposureSettings = false;
+
             mActiveCamera.setFocusPoint(focusPt, focusPt);
         }
         else if(mode == FocusMode.CONTINUOUS) {
             mUserFocusRequestedTimestampMs = -1;
+            mSettings.cameraStartupSettings.useUserExposureSettings = false;
+
             mActiveCamera.setAutoFocus();
         }
         else if(mode == FocusMode.MANUAL) {
@@ -483,7 +489,6 @@ class CameraStateManager implements NativeCameraSessionBridge.CameraSessionListe
         mUserFocusPt = focusPt;
         mUserRequestedAeAfLock = false;
         mFocusMode = mode;
-        mSettings.cameraStartupSettings.useUserExposureSettings = false;
         mActiveCamera.setAELock(false);
 
         mActiveCamera.activateCameraSettings();
@@ -558,7 +563,7 @@ class CameraStateManager implements NativeCameraSessionBridge.CameraSessionListe
     }
 
     @Override
-    public void onCameraSessionStateChanged(NativeCameraSessionBridge.CameraState state) {
+    public void onCameraSessionStateChanged(NativeCamera.CameraState state) {
     }
 
     @Override
@@ -583,12 +588,12 @@ class CameraStateManager implements NativeCameraSessionBridge.CameraSessionListe
     }
 
     @Override
-    public void onCameraAutoFocusStateChanged(NativeCameraSessionBridge.CameraFocusState state, float focusDistance) {
+    public void onCameraAutoFocusStateChanged(NativeCamera.CameraFocusState state, float focusDistance) {
         Log.i(TAG, "Focus state: " + state.name());
 
         // Focus circle
-        if( state == NativeCameraSessionBridge.CameraFocusState.PASSIVE_SCAN ||
-            state == NativeCameraSessionBridge.CameraFocusState.ACTIVE_SCAN)
+        if( state == NativeCamera.CameraFocusState.PASSIVE_SCAN ||
+            state == NativeCamera.CameraFocusState.ACTIVE_SCAN)
         {
             mBinding.focusLockPointFrame.setVisibility(View.VISIBLE);
             mBinding.focusLockPointFrame.setAlpha(1.0f);
@@ -607,8 +612,8 @@ class CameraStateManager implements NativeCameraSessionBridge.CameraSessionListe
                 mBinding.focusLockPointFrame.setLayoutParams(layoutParams);
             }
         }
-        else if(state == NativeCameraSessionBridge.CameraFocusState.PASSIVE_FOCUSED ||
-                state == NativeCameraSessionBridge.CameraFocusState.FOCUS_LOCKED)
+        else if(state == NativeCamera.CameraFocusState.PASSIVE_FOCUSED ||
+                state == NativeCamera.CameraFocusState.FOCUS_LOCKED)
         {
             float alpha = mFocusMode == FocusMode.CONTINUOUS ? 0.0f : 0.5f;
 
@@ -657,13 +662,13 @@ class CameraStateManager implements NativeCameraSessionBridge.CameraSessionListe
             return;
 
         boolean aeLocked = (
-                mExposureState == NativeCameraSessionBridge.CameraExposureState.CONVERGED
-            ||  mExposureState == NativeCameraSessionBridge.CameraExposureState.LOCKED
-            ||  (mExposureState == NativeCameraSessionBridge.CameraExposureState.INACTIVE && mExposureMode == ExposureMode.MANUAL) );
+                mExposureState == NativeCamera.CameraExposureState.CONVERGED
+            ||  mExposureState == NativeCamera.CameraExposureState.LOCKED
+            ||  (mExposureState == NativeCamera.CameraExposureState.INACTIVE && mExposureMode == ExposureMode.MANUAL) );
 
         boolean focusLocked = (
-                mCameraFocusState == NativeCameraSessionBridge.CameraFocusState.FOCUS_LOCKED
-            ||  mCameraFocusState == NativeCameraSessionBridge.CameraFocusState.PASSIVE_FOCUSED );
+                mCameraFocusState == NativeCamera.CameraFocusState.FOCUS_LOCKED
+            ||  mCameraFocusState == NativeCamera.CameraFocusState.PASSIVE_FOCUSED );
 
         if(mUserRequestedAeAfLock && focusLocked && aeLocked) {
             mFocusMode = FocusMode.USER_LOCKED;
@@ -757,13 +762,13 @@ class CameraStateManager implements NativeCameraSessionBridge.CameraSessionListe
     }
 
     @Override
-    public void onCameraAutoExposureStateChanged(NativeCameraSessionBridge.CameraExposureState state) {
+    public void onCameraAutoExposureStateChanged(NativeCamera.CameraExposureState state) {
         Log.i(TAG, "Exposure state: " + state.name());
 
         boolean timePassed = (System.currentTimeMillis() - mUserFocusRequestedTimestampMs) > USER_SELECTED_FOCUS_CANCEL_TIME_MS;
 
         // Reset back to continuous focus mode if the the exposure has changed after a while
-        if(state == NativeCameraSessionBridge.CameraExposureState.SEARCHING
+        if(state == NativeCamera.CameraExposureState.SEARCHING
                 && timePassed
                 && mFocusMode == FocusMode.USER_SELECTED)
         {

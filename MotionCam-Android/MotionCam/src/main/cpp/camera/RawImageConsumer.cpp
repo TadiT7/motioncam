@@ -46,7 +46,7 @@ namespace motioncam {
             std::shared_ptr<CameraDescription> cameraDescription,
             std::shared_ptr<CameraSessionListener> listener,
             const size_t maxMemoryUsageBytes) :
-        mListener(listener),
+        mListener(std::move(listener)),
         mMaximumMemoryUsageBytes(maxMemoryUsageBytes),
         mRunning(false),
         mEnableRawPreview(false),
@@ -101,14 +101,15 @@ namespace motioncam {
 
         LOGD("Stopping buffers thread");
 
-        if(mSetupBuffersThread)
+        if(mSetupBuffersThread && mSetupBuffersThread->joinable())
             mSetupBuffersThread->join();
         mSetupBuffersThread = nullptr;
 
         LOGD("Stopping consumer threads thread");
 
         for(auto& mConsumerThread : mConsumerThreads) {
-            mConsumerThread->join();
+            if(mConsumerThread->joinable())
+                mConsumerThread->join();
         }
 
         mConsumerThreads.clear();
@@ -667,11 +668,11 @@ namespace motioncam {
         LOGI("Disabling RAW preview mode");
 
         mEnableRawPreview = false;
-        if(mPreprocessThread)
+        if(mPreprocessThread && mPreprocessThread->joinable())
             mPreprocessThread->join();
 
         mPreprocessThread = nullptr;
-        mPreviewListener.reset();
+        mPreviewListener = nullptr;
     }
 
     void RawImageConsumer::setWhiteBalanceOverride(bool override) {

@@ -29,7 +29,7 @@ namespace motioncam {
 
     void CameraStateManager::start(const CameraStartupSettings& startupSettings) {
         mFocusForVideo = startupSettings.focusForVideo;
-        //mFrameRate = startupSettings.frameRate; // Don't restore frame rate
+        mFrameRate = startupSettings.frameRate;
         mUserIso = startupSettings.iso;
         mUserExposureTime = startupSettings.exposureTime;
         mOis = startupSettings.ois;

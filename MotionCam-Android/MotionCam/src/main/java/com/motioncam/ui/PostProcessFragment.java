@@ -34,7 +34,7 @@ import com.motioncam.camera.AsyncNativeCameraOps;
 import com.motioncam.camera.CameraManualControl;
 import com.motioncam.camera.NativeCameraBuffer;
 import com.motioncam.camera.NativeCameraInfo;
-import com.motioncam.camera.NativeCameraSessionBridge;
+import com.motioncam.camera.NativeCamera;
 import com.motioncam.camera.PostProcessSettings;
 import com.motioncam.databinding.PreviewSettingsBinding;
 import com.motioncam.model.CameraProfile;
@@ -43,13 +43,13 @@ import com.motioncam.model.SettingsViewModel;
 import com.motioncam.worker.ImageProcessWorker;
 import com.motioncam.worker.State;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 
 public class PostProcessFragment extends Fragment implements
         AsyncNativeCameraOps.CaptureImageListener, AsyncNativeCameraOps.SharpnessMeasuredListener {
 
-    public static final String ARGUMENT_NATIVE_CAMERA_HANDLE            = "nativeCameraHandle";
     public static final String ARGUMENT_NATIVE_CAMERA_ID                = "nativeCameraId";
     public static final String ARGUMENT_NATIVE_CAMERA_IS_FRONT_FACING   = "isCameraFrontFacing";
 
@@ -59,7 +59,7 @@ public class PostProcessFragment extends Fragment implements
     private ViewPager2 mPreviewPager;
     private RecyclerView mSmallPreviewList;
     private AsyncNativeCameraOps mAsyncNativeCameraOps;
-    private NativeCameraSessionBridge mNativeCamera;
+    private NativeCamera mNativeCamera;
     private NativeCameraInfo mSelectedCamera;
 
     private ViewPager2.OnPageChangeCallback mPreviewPageChanged = new ViewPager2.OnPageChangeCallback() {
@@ -257,18 +257,13 @@ public class PostProcessFragment extends Fragment implements
         }
 
         // Create native camera from handle
-        long nativeCameraHandle = getArguments()
-                .getLong(ARGUMENT_NATIVE_CAMERA_HANDLE, NativeCameraSessionBridge.INVALID_NATIVE_HANDLE);
-
         String cameraId = getArguments().getString(ARGUMENT_NATIVE_CAMERA_ID);
         boolean cameraFrontFacing = getArguments().getBoolean(ARGUMENT_NATIVE_CAMERA_IS_FRONT_FACING, false);
 
         mViewModel.isFlipped.setValue(cameraFrontFacing);
 
-        mNativeCamera = new NativeCameraSessionBridge(nativeCameraHandle);
+        mNativeCamera = new NativeCamera();
         mSelectedCamera = new NativeCameraInfo(cameraId, cameraFrontFacing, 0, 0, 0, 0, new int[0]);
-
-        mNativeCamera.initImageProcessor();
 
         // Create preview generator
         mAsyncNativeCameraOps = new AsyncNativeCameraOps(mNativeCamera);
@@ -448,7 +443,11 @@ public class PostProcessFragment extends Fragment implements
             mAsyncNativeCameraOps.close();
 
         if(mNativeCamera != null) {
-            mNativeCamera.destroy();
+            try {
+                mNativeCamera.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 

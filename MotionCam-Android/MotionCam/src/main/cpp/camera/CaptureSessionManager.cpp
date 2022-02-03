@@ -87,9 +87,8 @@ namespace motioncam {
         }
     }
 
-    CaptureSessionManager::CaptureSessionManager(size_t maxMemoryUsageBytes) :
-        mCameraManager(std::shared_ptr<ACameraManager>(ACameraManager_create(), ACameraManager_delete)),
-        mMaxMemoryUsageBytes(maxMemoryUsageBytes)
+    CaptureSessionManager::CaptureSessionManager() :
+        mCameraManager(std::shared_ptr<ACameraManager>(ACameraManager_create(), ACameraManager_delete))
     {
         // Get list of cameras on the device
         enumerateCameras();
@@ -516,6 +515,10 @@ namespace motioncam {
         return false;
     }
 
+    std::shared_ptr<ACameraManager> CaptureSessionManager::cameraManager() const {
+        return mCameraManager;
+    }
+
     std::vector<std::string> CaptureSessionManager::getSupportedCameras() const {
         std::vector<std::string> cameraIds;
 
@@ -529,10 +532,6 @@ namespace motioncam {
         return cameraIds;
     }
 
-    std::string CaptureSessionManager::getSelectedCameraId() const {
-        return mSelectedCameraId;
-    }
-
     std::shared_ptr<CameraDescription> CaptureSessionManager::getCameraDescription(const std::string& cameraId) const {
         auto it = mSupportedCameras.find(cameraId);
         if(it != mSupportedCameras.end())
@@ -541,197 +540,197 @@ namespace motioncam {
         return nullptr;
     }
 
-    void CaptureSessionManager::startCamera(
-            const std::string& cameraId,
-            std::shared_ptr<CameraSessionListener> listener,
-            std::shared_ptr<ANativeWindow> previewOutputWindow,
-            bool setupForRawPreview,
-            bool preferRaw12,
-            bool preferRaw16,
-            const json11::Json& cameraStartupSettings)
-    {
-        OutputConfiguration outputConfig, previewOutputConfig;
-
-        if(mCameraSession != nullptr) {
-            throw CameraSessionException("Camera session is already open");
-        }
-
-        auto cameraDesc = getCameraDescription(cameraId);
-        if(!cameraDesc)
-            throw CameraSessionException("Invalid camera");
-
-        if(!getRawConfiguration(*cameraDesc, preferRaw12, preferRaw16, outputConfig)) {
-            throw CameraSessionException("Failed to get output configuration");
-        }
-
-        LOGD("RAW output %dx%d format: %d",
-             outputConfig.outputSize.width(), outputConfig.outputSize.height(), outputConfig.format);
-
-        if(!getPreviewConfiguration(*cameraDesc, outputConfig.outputSize, outputConfig.outputSize, previewOutputConfig)) {
-            throw CameraSessionException("Failed to get preview configuration");
-        }
-
-        LOGD("Preview output %dx%d format: %d",
-             previewOutputConfig.outputSize.width(), previewOutputConfig.outputSize.height(), outputConfig.format);
-
-        // Create image consumer if we have not done so
-        if(!mImageConsumer || cameraId != mSelectedCameraId)
-            mImageConsumer = std::make_shared<RawImageConsumer>(cameraDesc, listener, mMaxMemoryUsageBytes);
-
-        // Create the camera session and open the camera
-        mSelectedCameraId = cameraId;
-
-        LOGI("Opening camera %s", cameraId.c_str());
-
-        mCameraSession = std::make_shared<CameraSession>(listener, cameraDesc, mImageConsumer);
-        mCameraSession->openCamera(
-                outputConfig,
-                previewOutputConfig,
-                mCameraManager,
-                std::move(previewOutputWindow),
-                setupForRawPreview,
-                cameraStartupSettings);
-    }
-
-    void CaptureSessionManager::stopCamera() {
-        mCameraSession = nullptr;
-    }
-
-    void CaptureSessionManager::pauseCamera(bool pause) {
-        if(!mCameraSession)
-            return;
-
-        if(pause) {
-            mCameraSession->pauseCapture();
-        }
-        else {
-            mCameraSession->resumeCapture();
-        }
-    }
-
-    void CaptureSessionManager::captureHdrImage(
-            const int numImages,
-            const int baseIso,
-            const int64_t baseExposure,
-            const int hdrIso,
-            const int64_t hdrExposure,
-            const motioncam::PostProcessSettings& settings,
-            const std::string& outputPath)
-    {
-        if(mCameraSession)
-            mCameraSession->captureHdr(numImages, baseIso, baseExposure, hdrIso, hdrExposure, settings, outputPath);
-    }
-
-    void CaptureSessionManager::captureHdrImage(
-            const int numImages,
-            const motioncam::PostProcessSettings& settings,
-            const std::string& outputPath)
-    {
-        if(mCameraSession)
-            mCameraSession->captureHdr(numImages, settings, outputPath);
-    }
-
-    void CaptureSessionManager::prepareHdrCapture(const int iso, const int64_t exposure)
-    {
-        if(mCameraSession)
-            mCameraSession->prepareHdr(iso, exposure);
-    }
-
-    void CaptureSessionManager::setManualExposure(int32_t iso, int64_t exposureTime) {
-        if(mCameraSession)
-            mCameraSession->setManualExposure(iso, exposureTime);
-    }
-
-    void CaptureSessionManager::setAutoExposure() {
-        if(mCameraSession)
-            mCameraSession->setAutoExposure();
-    }
-
-    void CaptureSessionManager::setExposureCompensation(float value) {
-        if(mCameraSession)
-            mCameraSession->setExposureCompensation(value);
-    }
-
-    void CaptureSessionManager::setFrameRate(int frameRate) {
-        if(mCameraSession)
-            mCameraSession->setFrameRate(frameRate);
-    }
-
-    void CaptureSessionManager::setAWBLock(bool lock) {
-        if(mCameraSession)
-            mCameraSession->setAWBLock(lock);
-    }
-
-    void CaptureSessionManager::setAELock(bool lock) {
-        if(mCameraSession)
-            mCameraSession->setAELock(lock);
-    }
-
-    void CaptureSessionManager::setOIS(bool on) {
-        if(mCameraSession)
-            mCameraSession->setOIS(on);
-    }
-
-    void CaptureSessionManager::setFocusDistance(float focusDistance) {
-        if(mCameraSession)
-            mCameraSession->setFocusDistance(focusDistance);
-    }
-
-    void CaptureSessionManager::setFocusForVideo(bool focusForVideo) {
-        if(mCameraSession)
-            mCameraSession->setFocusForVideo(focusForVideo);
-    }
-
-    void CaptureSessionManager::setLensAperture(float lensAperture) {
-        if(mCameraSession)
-            mCameraSession->setLensAperture(lensAperture);
-    }
-
-    void CaptureSessionManager::activateCameraSettings() {
-        if(mCameraSession)
-            mCameraSession->activateCameraSettings();
-    }
-
-    void CaptureSessionManager::enableRawPreview(std::shared_ptr<RawPreviewListener> listener, const int previewQuality, bool overrideWb) {
-        if(mImageConsumer) {
-            mImageConsumer->enableRawPreview(std::move(listener), previewQuality);
-        }
-    }
-
-    void CaptureSessionManager::updateRawPreviewSettings(
-            float shadows, float contrast, float saturation, float blacks, float whitePoint, float tempOffset, float tintOffset, bool useVideoPreview)
-    {
-        if(mImageConsumer)
-            mImageConsumer->updateRawPreviewSettings(shadows, contrast, saturation, blacks, whitePoint, tempOffset, tintOffset, useVideoPreview);
-    }
-
-    void CaptureSessionManager::getEstimatedPostProcessSettings(PostProcessSettings& outSettings) {
-        if(mImageConsumer)
-            mImageConsumer->getEstimatedSettings(outSettings);
-    }
-
-    void CaptureSessionManager::disableRawPreview() {
-        if(mImageConsumer)
-            mImageConsumer->disableRawPreview();
-    }
-
-    void CaptureSessionManager::updateOrientation(ScreenOrientation orientation) {
-        if(mCameraSession)
-            mCameraSession->updateOrientation(orientation);
-    }
-
-    void CaptureSessionManager::setFocusPoint(float focusX, float focusY, float exposureX, float exposureY) {
-        if(mCameraSession)
-            mCameraSession->setFocusPoint(focusX, focusY, exposureX, exposureY);
-    }
-
-    void CaptureSessionManager::setAutoFocus() {
-        if(mCameraSession)
-            mCameraSession->setAutoFocus();
-    }
-
-    void CaptureSessionManager::grow(size_t maxMemoryBytes) {
-        if(mImageConsumer)
-            mImageConsumer->grow(maxMemoryBytes);
-    }
+//    void CaptureSessionManager::startCamera(
+//            const std::string& cameraId,
+//            std::shared_ptr<CameraSessionListener> listener,
+//            std::shared_ptr<ANativeWindow> previewOutputWindow,
+//            bool setupForRawPreview,
+//            bool preferRaw12,
+//            bool preferRaw16,
+//            const json11::Json& cameraStartupSettings)
+//    {
+//        OutputConfiguration outputConfig, previewOutputConfig;
+//
+//        if(mCameraSession != nullptr) {
+//            throw CameraSessionException("Camera session is already open");
+//        }
+//
+//        auto cameraDesc = getCameraDescription(cameraId);
+//        if(!cameraDesc)
+//            throw CameraSessionException("Invalid camera");
+//
+//        if(!getRawConfiguration(*cameraDesc, preferRaw12, preferRaw16, outputConfig)) {
+//            throw CameraSessionException("Failed to get output configuration");
+//        }
+//
+//        LOGD("RAW output %dx%d format: %d",
+//             outputConfig.outputSize.width(), outputConfig.outputSize.height(), outputConfig.format);
+//
+//        if(!getPreviewConfiguration(*cameraDesc, outputConfig.outputSize, outputConfig.outputSize, previewOutputConfig)) {
+//            throw CameraSessionException("Failed to get preview configuration");
+//        }
+//
+//        LOGD("Preview output %dx%d format: %d",
+//             previewOutputConfig.outputSize.width(), previewOutputConfig.outputSize.height(), outputConfig.format);
+//
+//        // Create image consumer if we have not done so
+//        if(!mImageConsumer || cameraId != mSelectedCameraId)
+//            mImageConsumer = std::make_shared<RawImageConsumer>(cameraDesc, listener, mMaxMemoryUsageBytes);
+//
+//        // Create the camera session and open the camera
+//        mSelectedCameraId = cameraId;
+//
+//        LOGI("Opening camera %s", cameraId.c_str());
+//
+//        mCameraSession = std::make_shared<CameraSession>(listener, cameraDesc, mImageConsumer);
+//        mCameraSession->openCamera(
+//                outputConfig,
+//                previewOutputConfig,
+//                mCameraManager,
+//                std::move(previewOutputWindow),
+//                setupForRawPreview,
+//                cameraStartupSettings);
+//    }
+//
+//    void CaptureSessionManager::stopCamera() {
+//        mCameraSession = nullptr;
+//    }
+//
+//    void CaptureSessionManager::pauseCamera(bool pause) {
+//        if(!mCameraSession)
+//            return;
+//
+//        if(pause) {
+//            mCameraSession->pauseCapture();
+//        }
+//        else {
+//            mCameraSession->resumeCapture();
+//        }
+//    }
+//
+//    void CaptureSessionManager::captureHdrImage(
+//            const int numImages,
+//            const int baseIso,
+//            const int64_t baseExposure,
+//            const int hdrIso,
+//            const int64_t hdrExposure,
+//            const motioncam::PostProcessSettings& settings,
+//            const std::string& outputPath)
+//    {
+//        if(mCameraSession)
+//            mCameraSession->captureHdr(numImages, baseIso, baseExposure, hdrIso, hdrExposure, settings, outputPath);
+//    }
+//
+//    void CaptureSessionManager::captureHdrImage(
+//            const int numImages,
+//            const motioncam::PostProcessSettings& settings,
+//            const std::string& outputPath)
+//    {
+//        if(mCameraSession)
+//            mCameraSession->captureHdr(numImages, settings, outputPath);
+//    }
+//
+//    void CaptureSessionManager::prepareHdrCapture(const int iso, const int64_t exposure)
+//    {
+//        if(mCameraSession)
+//            mCameraSession->prepareHdr(iso, exposure);
+//    }
+//
+//    void CaptureSessionManager::setManualExposure(int32_t iso, int64_t exposureTime) {
+//        if(mCameraSession)
+//            mCameraSession->setManualExposure(iso, exposureTime);
+//    }
+//
+//    void CaptureSessionManager::setAutoExposure() {
+//        if(mCameraSession)
+//            mCameraSession->setAutoExposure();
+//    }
+//
+//    void CaptureSessionManager::setExposureCompensation(float value) {
+//        if(mCameraSession)
+//            mCameraSession->setExposureCompensation(value);
+//    }
+//
+//    void CaptureSessionManager::setFrameRate(int frameRate) {
+//        if(mCameraSession)
+//            mCameraSession->setFrameRate(frameRate);
+//    }
+//
+//    void CaptureSessionManager::setAWBLock(bool lock) {
+//        if(mCameraSession)
+//            mCameraSession->setAWBLock(lock);
+//    }
+//
+//    void CaptureSessionManager::setAELock(bool lock) {
+//        if(mCameraSession)
+//            mCameraSession->setAELock(lock);
+//    }
+//
+//    void CaptureSessionManager::setOIS(bool on) {
+//        if(mCameraSession)
+//            mCameraSession->setOIS(on);
+//    }
+//
+//    void CaptureSessionManager::setFocusDistance(float focusDistance) {
+//        if(mCameraSession)
+//            mCameraSession->setFocusDistance(focusDistance);
+//    }
+//
+//    void CaptureSessionManager::setFocusForVideo(bool focusForVideo) {
+//        if(mCameraSession)
+//            mCameraSession->setFocusForVideo(focusForVideo);
+//    }
+//
+//    void CaptureSessionManager::setLensAperture(float lensAperture) {
+//        if(mCameraSession)
+//            mCameraSession->setLensAperture(lensAperture);
+//    }
+//
+//    void CaptureSessionManager::activateCameraSettings() {
+//        if(mCameraSession)
+//            mCameraSession->activateCameraSettings();
+//    }
+//
+//    void CaptureSessionManager::enableRawPreview(std::shared_ptr<RawPreviewListener> listener, const int previewQuality, bool overrideWb) {
+//        if(mImageConsumer) {
+//            mImageConsumer->enableRawPreview(std::move(listener), previewQuality);
+//        }
+//    }
+//
+//    void CaptureSessionManager::updateRawPreviewSettings(
+//            float shadows, float contrast, float saturation, float blacks, float whitePoint, float tempOffset, float tintOffset, bool useVideoPreview)
+//    {
+//        if(mImageConsumer)
+//            mImageConsumer->updateRawPreviewSettings(shadows, contrast, saturation, blacks, whitePoint, tempOffset, tintOffset, useVideoPreview);
+//    }
+//
+//    void CaptureSessionManager::getEstimatedPostProcessSettings(PostProcessSettings& outSettings) {
+//        if(mImageConsumer)
+//            mImageConsumer->getEstimatedSettings(outSettings);
+//    }
+//
+//    void CaptureSessionManager::disableRawPreview() {
+//        if(mImageConsumer)
+//            mImageConsumer->disableRawPreview();
+//    }
+//
+//    void CaptureSessionManager::updateOrientation(ScreenOrientation orientation) {
+//        if(mCameraSession)
+//            mCameraSession->updateOrientation(orientation);
+//    }
+//
+//    void CaptureSessionManager::setFocusPoint(float focusX, float focusY, float exposureX, float exposureY) {
+//        if(mCameraSession)
+//            mCameraSession->setFocusPoint(focusX, focusY, exposureX, exposureY);
+//    }
+//
+//    void CaptureSessionManager::setAutoFocus() {
+//        if(mCameraSession)
+//            mCameraSession->setAutoFocus();
+//    }
+//
+//    void CaptureSessionManager::grow(size_t maxMemoryBytes) {
+//        if(mImageConsumer)
+//            mImageConsumer->grow(maxMemoryBytes);
+//    }
 }

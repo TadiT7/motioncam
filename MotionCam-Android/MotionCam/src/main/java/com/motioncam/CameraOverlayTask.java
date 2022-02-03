@@ -3,14 +3,14 @@ package com.motioncam;
 import android.app.Activity;
 import android.graphics.Bitmap;
 
-import com.motioncam.camera.NativeCameraSessionBridge;
+import com.motioncam.camera.NativeCamera;
 import com.motioncam.databinding.CameraActivityBinding;
 
 import java.util.TimerTask;
 
 class CameraOverlayTask extends TimerTask {
     private final CameraActivityBinding mBinding;
-    private final NativeCameraSessionBridge mNativeCamera;
+    private final NativeCamera mNativeCamera;
     private final Activity mActivity;
 
     private Bitmap mWhiteLevel = null;
@@ -20,7 +20,7 @@ class CameraOverlayTask extends TimerTask {
     final int TYPE_WHITE_LEVEL = 1;
     final int TYPE_BLACK_LEVEL = 2;
 
-    public CameraOverlayTask(NativeCameraSessionBridge nativeCamera, CameraActivityBinding binding, Activity activity) {
+    public CameraOverlayTask(NativeCamera nativeCamera, CameraActivityBinding binding, Activity activity) {
         mNativeCamera = nativeCamera;
         mBinding = binding;
         mActivity = activity;
