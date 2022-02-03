@@ -57,7 +57,7 @@ android {
         viewBinding true
         prefab true
     }
-    buildToolsVersion '31.0.0'
+    buildToolsVersion '32.0.0'
     ndkVersion '23.1.7779620'
 }
 
