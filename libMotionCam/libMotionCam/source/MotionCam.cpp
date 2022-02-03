@@ -337,7 +337,7 @@ namespace motioncam {
                 break;
             }
 #elif defined(_WIN32)
-            outputPath = progress.onNeedFd(i);
+            outputPath = progress.onNeedFd(frameIdx);
 #endif
 
             auto newJob = std::make_shared<Job>(std::move(bayerImage),
