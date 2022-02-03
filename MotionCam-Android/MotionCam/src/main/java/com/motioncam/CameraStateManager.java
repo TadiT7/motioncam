@@ -23,6 +23,7 @@ import com.motioncam.camera.NativeCameraMetadata;
 import com.motioncam.camera.NativeCamera;
 import com.motioncam.databinding.CameraActivityBinding;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
@@ -87,10 +88,7 @@ class CameraStateManager implements NativeCamera.CameraSessionListener, GestureD
         mAWBLock = false;
 
         mIsoValues = CameraManualControl.GetIsoValuesInRange(mActiveCameraMetadata.isoMin, mActiveCameraMetadata.isoMax);
-
-        mExposureValues = CameraManualControl.GetExposureValuesInRange(
-                mActiveCameraMetadata.exposureTimeMin,
-                Math.min(MAX_EXPOSURE_TIME.getExposureTime(), mActiveCameraMetadata.exposureTimeMax));
+        mExposureValues = Arrays.asList(CameraManualControl.SHUTTER_SPEED.values());
     }
 
     public long getExposureTime() {
