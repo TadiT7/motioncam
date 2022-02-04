@@ -189,8 +189,10 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                                         .putString(SettingsViewModel.PREFS_KEY_RAW_VIDEO_EXPORT_URI, uri.toString())
                                         .apply();
 
-                                if(mSelectedVideo != null)
+                                if(mSelectedVideo != null) {
                                     startWorker(mSelectedVideo, uri, mNumFramesToMerge, mWorkerMode);
+                                    mAdapter.update(mSelectedVideo.getName(), true, null, -1);
+                                }
                             }
                         }
 
@@ -200,7 +202,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                 });
     }
 
-    private void addVideoEntries(Map<String, VideoEntry> entries, DocumentFile root) {
+    private void addVideoEntries(Map<String, VideoEntry> entries, DocumentFile root, boolean isInternal) {
         if(root == null || !root.exists()) {
             return;
         }
@@ -235,6 +237,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                 entry = new VideoEntry(name);
                 entries.put(name, entry);
 
+                entry.setIsInternal(isInternal);
                 entry.setAlreadyExported(
                         exportDocumentFile != null && exportDocumentFile.findFile(name) != null);
             }
@@ -262,7 +265,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
             Uri tempVideosUri = Uri.parse(tempVideosUriString);
             DocumentFile root = DocumentFile.fromTreeUri(requireContext(), tempVideosUri);
 
-            addVideoEntries(entries, root);
+            addVideoEntries(entries, root, false);
         }
 
         // Get second storage location
@@ -271,7 +274,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
             Uri tempVideosUri = Uri.parse(tempVideosUriString);
             DocumentFile root = DocumentFile.fromTreeUri(requireContext(), tempVideosUri);
 
-            addVideoEntries(entries, root);
+            addVideoEntries(entries, root, false);
         }
 
         // Get internal storage videos
@@ -281,7 +284,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
 
             DocumentFile root = DocumentFile.fromFile(outputDirectory);
 
-            addVideoEntries(entries, root);
+            addVideoEntries(entries, root, true);
         }
 
         // Finally add the export folder since we can move videos there from internal storage
@@ -290,7 +293,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
             Uri exportUri = Uri.parse(exportUriString);
             DocumentFile root = DocumentFile.fromTreeUri(requireContext(), exportUri);
 
-            addVideoEntries(entries, root);
+            addVideoEntries(entries, root, false);
         }
 
         // Sort the videos by creation time
@@ -616,7 +619,9 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
 
                 // If we moved a video, refresh the list
                 if(workerMode == VideoProcessWorker.WorkerMode.MOVE) {
-                    //refresh();
+                    VideoEntry entry = mAdapter.getItemFromName(name);
+                    if(entry != null && entry.isInternal())
+                        refresh();
                 }
                 else {
                     if (isDeleted)

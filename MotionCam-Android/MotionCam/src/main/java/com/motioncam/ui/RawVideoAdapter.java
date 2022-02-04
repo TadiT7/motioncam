@@ -2,7 +2,6 @@ package com.motioncam.ui;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.net.Uri;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -13,15 +12,12 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.documentfile.provider.DocumentFile;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.motioncam.R;
 import com.motioncam.camera.AsyncNativeCameraOps;
 import com.motioncam.processor.ContainerMetadata;
-import com.motioncam.worker.VideoProcessWorker;
 
-import java.io.File;
 import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -244,17 +240,12 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             viewHolder.getQueueVideoBtn().setText(R.string.convert_to_dng);
             viewHolder.getDeleteVideoBtn().setEnabled(true);
 
-            // Show move button if stored in internal storage
-//            File filesDir = mContext.getFilesDir();
-//            File internalFolder = new File(filesDir, VideoProcessWorker.VIDEOS_PATH);
-//
-//            for(Uri uri : item.entry.getVideoUris()) {
-//                File videoPath = new File(uri.getPath());
-//
-//                if(videoPath.getParent().equals(internalFolder.getPath())) {
-//                    viewHolder.getMoveVideoBtn().setVisibility(View.VISIBLE);
-//                }
-//            }
+            if(item.entry.isInternal()) {
+                viewHolder.getMoveVideoBtn().setVisibility(View.VISIBLE);
+            }
+            else {
+                viewHolder.getMoveVideoBtn().setVisibility(View.GONE);
+            }
         }
 
         // Update progress
@@ -327,6 +318,15 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         }
 
         return false;
+    }
+
+    public VideoEntry getItemFromName(String name) {
+        for(Item item : mItems) {
+            if(item.entry.getName().equals(name))
+                return item.entry;
+        }
+
+        return null;
     }
 
     public void update(String name, Boolean optionalIsQueued, Boolean optionalIsExported, int progress) {

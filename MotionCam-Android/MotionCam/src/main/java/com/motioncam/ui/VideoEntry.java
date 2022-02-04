@@ -14,6 +14,7 @@ public class VideoEntry implements Cloneable {
     private Uri audioUri;
     private boolean alreadyExported;
     private long createdAt;
+    private boolean isInternal;
 
     public VideoEntry(String name)
     {
@@ -111,6 +112,14 @@ public class VideoEntry implements Cloneable {
         return entry.getName().equals(this.name);
     }
 
+    public boolean isInternal() {
+        return this.isInternal;
+    }
+
+    public void setIsInternal(boolean isInternal) {
+        this.isInternal = isInternal;
+    }
+
     @Override
     public VideoEntry clone() {
         VideoEntry entry = new VideoEntry(this.name);
@@ -120,6 +129,7 @@ public class VideoEntry implements Cloneable {
         entry.audioUri = this.audioUri;
         entry.alreadyExported = this.alreadyExported;
         entry.createdAt = this.createdAt;
+        entry.isInternal = this.isInternal;
 
         return entry;
     }

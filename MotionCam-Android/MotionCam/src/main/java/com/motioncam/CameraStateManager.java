@@ -18,9 +18,9 @@ import android.widget.TextView;
 import androidx.appcompat.content.res.AppCompatResources;
 
 import com.motioncam.camera.CameraManualControl;
+import com.motioncam.camera.NativeCamera;
 import com.motioncam.camera.NativeCameraBuffer;
 import com.motioncam.camera.NativeCameraMetadata;
-import com.motioncam.camera.NativeCamera;
 import com.motioncam.databinding.CameraActivityBinding;
 
 import java.util.Arrays;
@@ -46,9 +46,6 @@ class CameraStateManager implements NativeCamera.CameraSessionListener, GestureD
         AUTO,
         MANUAL
     }
-
-    private static final CameraManualControl.SHUTTER_SPEED MAX_EXPOSURE_TIME =
-            CameraManualControl.SHUTTER_SPEED.EXPOSURE_2__0;
 
     public static final int USER_SELECTED_FOCUS_CANCEL_TIME_MS = 1000;
 
@@ -87,7 +84,10 @@ class CameraStateManager implements NativeCamera.CameraSessionListener, GestureD
         mSettings = settings;
         mAWBLock = false;
 
-        mIsoValues = CameraManualControl.GetIsoValuesInRange(mActiveCameraMetadata.isoMin, mActiveCameraMetadata.isoMax);
+        mIsoValues = CameraManualControl.GetIsoValuesInRange(
+                mActiveCameraMetadata.isoMin,
+                Math.max(CameraManualControl.ISO.ISO_3200.getIso(), mActiveCameraMetadata.isoMax));
+
         mExposureValues = Arrays.asList(CameraManualControl.SHUTTER_SPEED.values());
     }
 
@@ -116,13 +116,6 @@ class CameraStateManager implements NativeCamera.CameraSessionListener, GestureD
         }
     }
 
-    private double getFocusValue(double in) {
-        return Math.exp(
-                in * (Math.log(mActiveCameraMetadata.minFocusDistance) - Math.log(mActiveCameraMetadata.hyperFocalDistance))
-                        + Math.log(mActiveCameraMetadata.hyperFocalDistance));
-
-    }
-
     public void onManualControlSettingsChanged(int progress, boolean fromUser) {
         if(mActiveCamera != null && fromUser) {
             int selectionMode = (int) mActivity.findViewById(R.id.manualControlFocus).getTag(R.id.manual_control_tag);
@@ -132,7 +125,7 @@ class CameraStateManager implements NativeCamera.CameraSessionListener, GestureD
 
                 if(progress < 100) {
                     double in = (100.0f - progress) / 100.0f;
-                    p = getFocusValue(in);
+                    p = focusToLinear(in, mActiveCameraMetadata.maxFocusDistance, mActiveCameraMetadata.minFocusDistance);
                 }
                 else {
                     p = 0.0;
@@ -175,6 +168,22 @@ class CameraStateManager implements NativeCamera.CameraSessionListener, GestureD
         hideFocusControls();
     }
 
+    private double mapFunc(double x) {
+        return Math.log(x);
+    }
+
+    private double inverseMapFunc(double x) {
+        return Math.exp(x);
+    }
+
+    private double mapLinearFocus(double x, double min, double max) {
+        return (mapFunc(x) - mapFunc(min)) / (mapFunc(max) - mapFunc(min));
+    }
+
+    private double focusToLinear(double x, double min, double max) {
+        return inverseMapFunc(x * (mapFunc(max) - mapFunc(min)) + mapFunc(min));
+    }
+
     public void toggleFocus() {
         // Hide if shown
         if(mActivity.findViewById(R.id.manualControlFocus).getVisibility() == View.VISIBLE) {
@@ -186,9 +195,7 @@ class CameraStateManager implements NativeCamera.CameraSessionListener, GestureD
             }
         }
 
-        double progress = 100.0 * (
-                (Math.log(mFocusDistance) - Math.log(mActiveCameraMetadata.hyperFocalDistance)) /
-                        (Math.log(mActiveCameraMetadata.minFocusDistance) - Math.log(mActiveCameraMetadata.hyperFocalDistance)));
+        double progress = 100.0 * mapLinearFocus(mFocusDistance, mActiveCameraMetadata.maxFocusDistance, mActiveCameraMetadata.minFocusDistance);
 
         ((SeekBar) mActivity.findViewById(R.id.manualControlSeekBar)).setMax(100);
         ((SeekBar) mActivity.findViewById(R.id.manualControlSeekBar)).setProgress((int)Math.round(100 - progress));
@@ -452,6 +459,17 @@ class CameraStateManager implements NativeCamera.CameraSessionListener, GestureD
         ((TextView) mActivity.findViewById(R.id.awbLockBtnText)).setTextColor(mActivity.getColor(color));
     }
 
+    public void toggleAE() {
+        if(mActiveCamera == null) {
+            return;
+        }
+
+        boolean lock = !(mExposureState == NativeCamera.CameraExposureState.LOCKED);
+
+        mActiveCamera.setAELock(lock);
+        mActiveCamera.activateCameraSettings();
+    }
+
     private void setFocusMode(FocusMode mode, PointF focusPt) {
         if(mActiveCamera == null)
             return;
@@ -467,7 +485,7 @@ class CameraStateManager implements NativeCamera.CameraSessionListener, GestureD
             }
         }
 
-        if(mode == FocusMode.USER_SELECTED) {
+        if(mode == FocusMode.USER_SELECTED && focusPt != null) {
             mUserFocusRequestedTimestampMs = System.currentTimeMillis();
             mSettings.cameraStartupSettings.useUserExposureSettings = false;
 
@@ -772,6 +790,15 @@ class CameraStateManager implements NativeCamera.CameraSessionListener, GestureD
         {
             setFocusMode(FocusMode.CONTINUOUS, null);
         }
+
+        // AE lock indicator
+        boolean aeLocked = state == NativeCamera.CameraExposureState.LOCKED;
+
+        int color = aeLocked ? R.color.colorAccent : R.color.white;
+        int drawable = aeLocked ? R.drawable.lock : R.drawable.lock_open;
+
+        ((ImageView) mActivity.findViewById(R.id.aeLockBtnIcon)).setImageDrawable(AppCompatResources.getDrawable(mActivity, drawable));
+        ((TextView) mActivity.findViewById(R.id.aeLockBtnText)).setTextColor(mActivity.getColor(color));
 
         mExposureState = state;
 

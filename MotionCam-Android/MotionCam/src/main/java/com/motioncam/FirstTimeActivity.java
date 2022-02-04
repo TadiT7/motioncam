@@ -7,6 +7,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -23,12 +25,24 @@ public class FirstTimeActivity extends Activity {
 
     private static final String[] MINIMUM_PERMISSIONS = {
             Manifest.permission.CAMERA,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE
     };
 
     private static final String[] ADDITIONAL_PERMISSIONS = {
             Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.RECORD_AUDIO
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+    };
+
+    private static String[] SUPPORTED_PHONE_LIST = {
+            "OnePlus 7/8/9 Pro",
+            "Samsung S20 FE (Snapdragon)",
+            "Xiaomi Mi 10 Ultra",
+            "Xiaomi Mi 11 Ultra",
+            "Motorola Edge Plus",
+            "Asus ZenFone 7 Pro",
+            "Samsung Galaxy Note 9",
+            "LG V40",
+            "ZTE Axon 30 Ultra",
     };
 
     @Override
@@ -38,6 +52,9 @@ public class FirstTimeActivity extends Activity {
         setContentView(R.layout.first_time_activity);
 
         findViewById(R.id.startBtn).setOnClickListener((v) -> requestPermissions());
+
+        ListView supportedPhones = findViewById(R.id.supportedPhoneList);
+        supportedPhones.setAdapter(new ArrayAdapter<>(this, R.layout.simple_list_item, SUPPORTED_PHONE_LIST));
     }
 
     private void requestPermissions() {

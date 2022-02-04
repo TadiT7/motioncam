@@ -296,6 +296,7 @@ public class CameraActivity extends AppCompatActivity implements
                 .setOnClickListener(v -> mCameraStateManager.toggleOIS());
 
         findViewById(R.id.awbLockBtn).setOnClickListener(v -> mCameraStateManager.toggleAWB());
+        findViewById(R.id.aeLockBtn).setOnClickListener(v -> mCameraStateManager.toggleAE());
         findViewById(R.id.isoBtn).setOnClickListener(v -> mCameraStateManager.toggleIso());
         findViewById(R.id.focusBtn).setOnClickListener(v -> mCameraStateManager.toggleFocus());
         findViewById(R.id.autoBtn).setOnClickListener(v -> mCameraStateManager.setAuto());
@@ -567,9 +568,7 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private boolean havePermissions() {
-        if(         ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-                &&  ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED)
-        {
+        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
              return true;
         }
 

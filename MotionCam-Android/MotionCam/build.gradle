@@ -9,13 +9,13 @@ android {
             storePassword 'android'
         }
     }
-    compileSdkVersion 32
+    compileSdk 31
     defaultConfig {
         applicationId "com.motioncam"
         minSdkVersion 24
-        targetSdkVersion 32
-        versionCode 118
-        versionName "8.0.8-beta2"
+        targetSdkVersion 31
+        versionCode 120
+        versionName "8.0.8"
         externalNativeBuild {
             cmake {
                 version "3.10.3"
@@ -46,8 +46,6 @@ android {
             path "CMakeLists.txt"
         }
     }
-    productFlavors {
-    }
     compileOptions {
         sourceCompatibility = 1.8
         targetCompatibility = 1.8
@@ -57,8 +55,9 @@ android {
         viewBinding true
         prefab true
     }
-    buildToolsVersion '32.0.0'
+    buildToolsVersion '31.0.0'
     ndkVersion '23.1.7779620'
+    flavorDimensions
 }
 
 dependencies {

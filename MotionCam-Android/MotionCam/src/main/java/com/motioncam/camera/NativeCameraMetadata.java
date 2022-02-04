@@ -13,6 +13,7 @@ public class NativeCameraMetadata {
     public final float[] cameraApertures;
     public final float[] focalLength;
     public final float minFocusDistance;
+    public final float maxFocusDistance;
     public final float hyperFocalDistance;
     public final boolean oisSupport;
 
@@ -39,6 +40,7 @@ public class NativeCameraMetadata {
         this.cameraApertures = cameraApertures;
         this.focalLength = focalLength;
         this.minFocusDistance = minFocusDistance;
+        this.maxFocusDistance = hyperFocalDistance;//Math.min(hyperFocalDistance, 0.2f);
         this.hyperFocalDistance = hyperFocalDistance;
         this.oisSupport = oisSupport;
     }
@@ -56,6 +58,7 @@ public class NativeCameraMetadata {
                 ", cameraApertures=" + Arrays.toString(cameraApertures) +
                 ", focalLength=" + Arrays.toString(focalLength) +
                 ", minFocusDistance=" + minFocusDistance +
+                ", maxFocusDistance=" + maxFocusDistance +
                 ", hyperFocalDistance=" + hyperFocalDistance +
                 ", oisSupport=" + oisSupport +
                 '}';
