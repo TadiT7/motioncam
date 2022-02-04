@@ -7,9 +7,9 @@ or a slightly out of date version from the [Play Store](https://play.google.com/
 
 # RAW video capture
 
-Capture RAW video up to 30 FPS and convert to a sequence of DNGs.
+Capture RAW video up to 60 FPS on supported devices.
 
-![Latest beta build](https://github.com/mirsadm/motioncam/releases/download/8.0.8-beta1/MotionCam.8.0.8-beta1.apk)
+![Latest beta build](https://github.com/mirsadm/motioncam/releases/download/8.0.8-beta2/MotionCam.8.0.8-beta2.apk)
 
 ### Get Help / Join a discussion about the app
 
@@ -21,11 +21,11 @@ For bug reports, discussions and feature requests/ideas join us on Slack:
 
 Download tools to convert the recorded videos to DNG on your PC:
 
-![Windows](https://github.com/mirsadm/motioncam/releases/download/8.0.8-beta1/motioncam-tools-win-0.1.2.zip)
+![Windows](https://github.com/mirsadm/motioncam/releases/download/8.0.8-beta2/motioncam-tools-win-0.13.zip)
 
 ![Mac Intel](https://github.com/mirsadm/motioncam/releases/download/8.0.7-beta5/motioncam-tools-mac-intel-0.1.1.dmg)
 
-![Mac M1](https://github.com/mirsadm/motioncam/releases/download/8.0.7-beta5/motioncam-tools-mac-m1-0.1.1.dmg)
+![Mac M1](https://github.com/mirsadm/motioncam/releases/download/8.0.8-beta2/motioncam-tools-macos-m1-0.13.zip)
 
 ### Tutorials
 
