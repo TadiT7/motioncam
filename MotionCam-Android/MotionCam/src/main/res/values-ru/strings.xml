@@ -154,4 +154,7 @@
     <string name="number_of_compression_threads">Количество потоков сжатия</string>
     <string name="clear">Очистить</string>
     <string name="correct_vignette">Исправить виньетку</string>
+    <string name="move_to_export_folder">ПЕРЕМЕСТИТЬ В ПАПКУ ЭКСПОРТА</string>
+    <string name="intro">Для MotionCam требуется устройство высокого класса с полной поддержкой захвата RAW. Этот режим не поддерживается многими устройствами.\n\nДля получения поддержки посетите:\n\n https://github.com/mirsadm/motioncam\n\nБыли протестированы следующие телефоны:</string>
+    <string name="start">СТАРТ</string>    
 </resources>
