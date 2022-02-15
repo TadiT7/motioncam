@@ -1,6 +1,8 @@
 #include "motioncam/Util.h"
 #include "motioncam/Exceptions.h"
 #include "motioncam/RawImageMetadata.h"
+#include "motioncam/RawImageBuffer.h"
+#include "motioncam/RawCameraMetadata.h"
 #include "motioncam/RawContainer.h"
 #include "motioncam/Measure.h"
 
@@ -195,7 +197,7 @@ namespace motioncam {
         ZipReader::ZipReader(FILE* file) : mZip{ 0 }, mFile(file)
         {
             if(!mz_zip_reader_init_cfile(&mZip, mFile, 0, 0)) {
-                throw IOException("Can't read from fd");
+                throw IOException("Can't read from file");
             }
             
             auto numFiles = mz_zip_reader_get_num_files(&mZip);
@@ -475,6 +477,7 @@ namespace motioncam {
         void WriteDng(cv::Mat rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
+                      const ScreenOrientation orientation,
                       const bool enableCompression,
                       const bool saveShadingMap,
                       dng_stream& dngStream)
@@ -621,29 +624,29 @@ namespace motioncam {
             exif->fISOSpeedRatings[2] = imageMetadata.iso;
             exif->SetApertureValue(cameraMetadata.apertures[0]);
                         
-            dng_orientation orientation;
+            dng_orientation dngOrientation;
             
-            switch(imageMetadata.screenOrientation)
+            switch(orientation)
             {
                 default:
                 case ScreenOrientation::PORTRAIT:
-                    orientation = dng_orientation::Rotate90CW();
+                    dngOrientation = dng_orientation::Rotate90CW();
                     break;
                 
                 case ScreenOrientation::REVERSE_PORTRAIT:
-                    orientation = dng_orientation::Rotate90CCW();
+                    dngOrientation = dng_orientation::Rotate90CCW();
                     break;
                     
                 case ScreenOrientation::LANDSCAPE:
-                    orientation = dng_orientation::Normal();
+                    dngOrientation = dng_orientation::Normal();
                     break;
                     
                 case ScreenOrientation::REVERSE_LANDSCAPE:
-                    orientation = dng_orientation::Rotate180();
+                    dngOrientation = dng_orientation::Rotate180();
                     break;
             }
             
-            negative->SetBaseOrientation(orientation);
+            negative->SetBaseOrientation(dngOrientation);
 
             // Set up camera profile
             AutoPtr<dng_camera_profile> cameraProfile(new dng_camera_profile());
@@ -793,13 +796,14 @@ namespace motioncam {
         void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
+                      const ScreenOrientation orientation,
                       const bool enableCompression,
                       const bool saveShadingMap,
                       const std::string& outputPath)
         {
             dng_file_stream stream(outputPath.c_str(), true);
             
-            WriteDng(rawImage, cameraMetadata, imageMetadata, enableCompression, saveShadingMap, stream);
+            WriteDng(rawImage, cameraMetadata, imageMetadata, orientation, enableCompression, saveShadingMap, stream);
             
             stream.Flush();
         }
@@ -807,6 +811,7 @@ namespace motioncam {
         void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
+                      const ScreenOrientation orientation,
                       const bool enableCompression,
                       const bool saveShadingMap,
                       const int fd)
@@ -814,7 +819,7 @@ namespace motioncam {
             #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
                 dng_fd_stream stream(fd, true);
 
-                WriteDng(rawImage, cameraMetadata, imageMetadata, enableCompression, saveShadingMap, stream);
+                WriteDng(rawImage, cameraMetadata, imageMetadata, orientation, enableCompression, saveShadingMap, stream);
 
                 stream.Flush();
             #endif
@@ -823,6 +828,7 @@ namespace motioncam {
         void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
+                      const ScreenOrientation orientation,
                       const bool enableCompression,
                       const bool saveShadingMap,
                       ZipWriter& zipWriter,
@@ -830,7 +836,7 @@ namespace motioncam {
         {
             dng_memory_stream stream(gDefaultDNGMemoryAllocator);
             
-            WriteDng(rawImage, cameraMetadata, imageMetadata, enableCompression, saveShadingMap, stream);
+            WriteDng(rawImage, cameraMetadata, imageMetadata, orientation, enableCompression, saveShadingMap, stream);
             
             stream.Flush();
             
@@ -977,8 +983,8 @@ namespace motioncam {
                 auto& container = containers[i];
                 
                 for(auto& frameName : container->getFrames()) {
-                    auto frame = container->getFrame(frameName);
-                    outOrderedFrames.push_back({ frameName, frame->metadata.timestampNs, i} );
+                    auto timestamp = container->getFrameTimestamp(frameName);
+                    outOrderedFrames.push_back({ frameName, timestamp, i} );
                 }
             }
             
@@ -986,5 +992,155 @@ namespace motioncam {
                 return a.timestamp < b.timestamp;
             });
         }
-    }
-}
+    
+        json11::Json::array toJsonArray(const cv::Mat& m) {
+            assert(m.type() == CV_32F);
+
+            json11::Json::array result;
+
+            for(int y = 0; y < m.rows; y++) {
+                for(int x = 0; x< m.cols; x++) {
+                    result.push_back(m.at<float>(y, x));
+                }
+            }
+
+            return result;
+        }
+
+        cv::Vec3f toVec3f(const vector<json11::Json>& array) {
+            if(array.size() != 3) {
+                throw InvalidState("Can't convert to vector. Invalid number of items.");
+            }
+
+            cv::Vec3f result;
+
+            result[0] = array[0].number_value();
+            result[1] = array[1].number_value();
+            result[2] = array[2].number_value();
+
+            return result;
+        }
+
+        cv::Mat toMat3x3(const vector<json11::Json>& array) {
+            if(array.size() < 9)
+                return cv::Mat();
+            
+            cv::Mat mat(3, 3, CV_32F);
+            cv::setIdentity(mat);
+
+            auto* data = mat.ptr<float>(0);
+
+            data[0] = array[0].number_value();
+            data[1] = array[1].number_value();
+            data[2] = array[2].number_value();
+
+            data[3] = array[3].number_value();
+            data[4] = array[4].number_value();
+            data[5] = array[5].number_value();
+
+            data[6] = array[6].number_value();
+            data[7] = array[7].number_value();
+            data[8] = array[8].number_value();
+
+            return mat;
+        }
+
+        string toString(const RawType& rawType) {
+            switch (rawType) {
+                case RawType::HDR:
+                    return "HDR";
+
+                default:
+                case RawType::ZSL:
+                    return "ZSL";
+            }
+        }
+
+        string toString(const PixelFormat& format) {
+            switch(format) {
+                case PixelFormat::RAW12:
+                    return "raw12";
+                
+                case PixelFormat::RAW16:
+                    return "raw16";
+
+                case PixelFormat::YUV_420_888:
+                    return "yuv_420_888";
+
+                default:
+                case PixelFormat::RAW10:
+                    return "raw10";
+            }
+        }
+
+        string toString(const ColorFilterArrangment& sensorArrangment) {
+            switch(sensorArrangment) {
+                case ColorFilterArrangment::GRBG:
+                    return "grbg";
+
+                case ColorFilterArrangment::GBRG:
+                    return "gbrg";
+
+                case ColorFilterArrangment::BGGR:
+                    return "bggr";
+
+                case ColorFilterArrangment::RGB:
+                    return "rgb";
+
+                case ColorFilterArrangment::MONO:
+                    return "mono";
+
+                default:
+                case ColorFilterArrangment::RGGB:
+                    return "rggb";
+            }
+        }
+    
+        void CropShadingMap(std::vector<cv::Mat>& shadingMap,
+                            int width,
+                            int height,
+                            int originalWidth,
+                            int originalHeight,
+                            bool isBinned)
+        {
+            if(originalWidth == width && originalHeight == height && !isBinned) {
+                return;
+            }
+            
+            if(isBinned) {
+                originalWidth /= 2;
+                originalHeight /= 2;
+            }
+
+            const int dstOriginalWidth = 80;
+            const int dstOriginalHeight = (dstOriginalWidth * originalHeight) / originalWidth;
+            
+            const int dstWidth = width / (originalWidth / dstOriginalWidth);
+            const int dstHeight = (dstWidth * height) / width;
+            
+            for(size_t i = 0; i < shadingMap.size(); i++) {
+                cv::resize(shadingMap[i],
+                           shadingMap[i],
+                           cv::Size(dstOriginalWidth, dstOriginalHeight),
+                           0, 0,
+                           cv::INTER_LINEAR);
+
+                int x = (dstOriginalWidth - dstWidth) / 2;
+                int y = (dstOriginalHeight - dstHeight) / 2;
+
+                shadingMap[i] = shadingMap[i](cv::Rect(x, y, dstOriginalWidth - x*2, dstOriginalHeight - y*2));
+
+                // Shrink the shading map back to a reasonable size
+                int shadingMapWidth = 32;
+                int shadingMapHeight = (shadingMapWidth * shadingMap[i].rows) / shadingMap[i].cols;
+
+                cv::resize(shadingMap[i],
+                           shadingMap[i],
+                           cv::Size(shadingMapWidth, shadingMapHeight),
+                           0, 0,
+                           cv::INTER_LINEAR);
+            }
+        }
+    
+    } // namespace util
+} // namespace motioncam

@@ -3,7 +3,7 @@
 
 #ifdef GPU_CAMERA_PREVIEW
 
-#include <motioncam/RawImageMetadata.h>
+#include <motioncam/NativeBuffer.h>
 
 #ifdef __ANDROID__
     #define CL_TARGET_OPENCL_VERSION 120

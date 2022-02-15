@@ -270,6 +270,10 @@ namespace motioncam {
 
         mEventLoopThread = nullptr;
         mSessionContext = nullptr;
+        mCameraDescription = nullptr;
+        mImageConsumer = nullptr;
+        mSessionListener = nullptr;
+        mCameraStateManager = nullptr;
     }
 
     void CameraSession::getEstimatedPostProcessSettings(PostProcessSettings& outSettings) {
@@ -558,46 +562,6 @@ namespace motioncam {
                 throw CameraSessionException("Failed to add HDR RAW output target");
     }
 
-    void CameraSession::setupJpegCaptureOutput(CameraCaptureSessionContext& state) {
-        AImageReader* imageReader = nullptr;
-
-        media_status_t result =
-                AImageReader_new(
-                        mSessionContext->previewOutputConfig.outputSize.width(),
-                        mSessionContext->previewOutputConfig.outputSize.height(),
-                        AIMAGE_FORMAT_YUV_420_888,
-                        1,
-                        &imageReader);
-
-        if (result != AMEDIA_OK) {
-            throw CameraSessionException(std::string("Failed to create JPEG image reader") + " (" + std::to_string(result) + ")");
-        }
-
-        state.jpegImageReader = std::shared_ptr<AImageReader>(imageReader, AImageReader_delete);
-
-        // Set up RAW output
-        ANativeWindow* nativeWindow = nullptr;
-        ACaptureSessionOutput* sessionOutput = nullptr;
-        ACameraOutputTarget* outputTarget = nullptr;
-
-        AImageReader_getWindow(imageReader, &nativeWindow);
-
-        if (ACaptureSessionOutput_create(nativeWindow, &sessionOutput) != ACAMERA_OK)
-            throw CameraSessionException("Failed to create JPEG image reader capture session output");
-
-        state.jpegSessionOutput = std::shared_ptr<ACaptureSessionOutput>(sessionOutput, ACaptureSessionOutput_free);
-
-        if (ACameraOutputTarget_create(nativeWindow, &outputTarget) != ACAMERA_OK)
-            throw CameraSessionException("Failed to create JPEG target");
-
-        state.jpegOutputTarget = std::shared_ptr<ACameraOutputTarget>(outputTarget, ACameraOutputTarget_free);
-
-        if (ACaptureSessionOutputContainer_add(state.captureSessionContainer.get(), sessionOutput) != ACAMERA_OK)
-            throw CameraSessionException("Failed to add JPEG session output to container");
-
-        // Don't add any capture requests since we are not needing this output
-    }
-
     void CameraSession::doOpenCamera(bool setupForRawPreview, const json11::Json& startupSettings) {
         if(mState != CameraCaptureSessionState::CLOSED) {
             LOGE("Trying to open camera that isn't closed");
@@ -690,11 +654,13 @@ namespace motioncam {
         LOGD("Closing camera device");
         mSessionContext->activeCamera = nullptr;
 
+        // Stop image consumer before closing RAW image reader
+        LOGD("Stopping image consumer");
+        mImageConsumer->stop();
+        mImageConsumer = nullptr;
+
         LOGD("Closing RAW image reader");
         mSessionContext->rawImageReader = nullptr;
-
-        LOGD("Closing JPEG image reader");
-        mSessionContext->jpegImageReader = nullptr;
 
         // Free capture request
         if(mSessionContext->previewOutputTarget && mSessionContext->repeatCaptureRequest->isPreviewOutput)
@@ -705,7 +671,6 @@ namespace motioncam {
 
         mSessionContext->previewOutputTarget    = nullptr;
         mSessionContext->rawOutputTarget        = nullptr;
-        mSessionContext->jpegOutputTarget       = nullptr;
 
         // Clear session container
         if(mSessionContext->captureSessionContainer) {
@@ -714,20 +679,12 @@ namespace motioncam {
 
             if(mSessionContext->rawSessionOutput)
                 ACaptureSessionOutputContainer_remove(mSessionContext->captureSessionContainer.get(), mSessionContext->rawSessionOutput.get());
-
-            if(mSessionContext->jpegSessionOutput)
-                ACaptureSessionOutputContainer_remove(mSessionContext->captureSessionContainer.get(), mSessionContext->jpegSessionOutput.get());
         }
 
         mSessionContext->captureSessionContainer    = nullptr;
         mSessionContext->previewSessionOutput       = nullptr;
         mSessionContext->rawSessionOutput           = nullptr;
-        mSessionContext->jpegSessionOutput          = nullptr;
         mSessionContext->nativeWindow               = nullptr;
-
-        // Stop image consumer
-        LOGD("Stopping image consumer");
-        mImageConsumer->stop();
 
         LOGD("Camera closed");
     }

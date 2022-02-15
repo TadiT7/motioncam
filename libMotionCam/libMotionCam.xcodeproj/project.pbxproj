@@ -56,6 +56,12 @@
 		4521E0452732E69900DEBD25 /* preview_reverse_landscape8.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFFF2732E69700DEBD25 /* preview_reverse_landscape8.h */; };
 		4521E0462732E69900DEBD25 /* preview_reverse_portrait2.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521E0002732E69700DEBD25 /* preview_reverse_portrait2.h */; };
 		4521E0482732E69900DEBD25 /* preview_reverse_landscape4.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521E0022732E69700DEBD25 /* preview_reverse_landscape4.a */; };
+		4537C37827B9BD4B0098333D /* RawContainerImpl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4537C37627B9BD4B0098333D /* RawContainerImpl.cpp */; };
+		4537C37B27B9BD810098333D /* RawContainerImpl.h in Headers */ = {isa = PBXBuildFile; fileRef = 4537C37A27B9BD810098333D /* RawContainerImpl.h */; };
+		4537C38127BA6D670098333D /* RawContainerImpl_Legacy.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4537C37F27BA6D670098333D /* RawContainerImpl_Legacy.cpp */; };
+		4537C38427BA75D30098333D /* RawCameraMetadata.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4537C38327BA75D30098333D /* RawCameraMetadata.cpp */; };
+		4537C38627BA7A2D0098333D /* RawImageBuffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4537C38527BA7A2D0098333D /* RawImageBuffer.cpp */; };
+		4537C38827BA908C0098333D /* RawContainerImpl_Legacy.h in Headers */ = {isa = PBXBuildFile; fileRef = 4537C38727BA908C0098333D /* RawContainerImpl_Legacy.h */; };
 		45448525278ED44D0034AD17 /* fast_preview2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45448523278ED44D0034AD17 /* fast_preview2.a */; };
 		45448526278ED44D0034AD17 /* fast_preview2.h in Headers */ = {isa = PBXBuildFile; fileRef = 45448524278ED44D0034AD17 /* fast_preview2.h */; };
 		455C31342775E70D006F41A7 /* generate_stats.h in Headers */ = {isa = PBXBuildFile; fileRef = 455C31322775E70D006F41A7 /* generate_stats.h */; };
@@ -274,6 +280,15 @@
 		4521E0002732E69700DEBD25 /* preview_reverse_portrait2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = preview_reverse_portrait2.h; sourceTree = "<group>"; };
 		4521E0022732E69700DEBD25 /* preview_reverse_landscape4.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = preview_reverse_landscape4.a; sourceTree = "<group>"; };
 		452B6CC126A02FD100992FB4 /* BlueNoiseLUT.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BlueNoiseLUT.h; sourceTree = "<group>"; };
+		4537C37627B9BD4B0098333D /* RawContainerImpl.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RawContainerImpl.cpp; sourceTree = "<group>"; };
+		4537C37A27B9BD810098333D /* RawContainerImpl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RawContainerImpl.h; sourceTree = "<group>"; };
+		4537C37C27BA65F70098333D /* RawImageBuffer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RawImageBuffer.h; sourceTree = "<group>"; };
+		4537C37D27BA66FA0098333D /* RawCameraMetadata.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RawCameraMetadata.h; sourceTree = "<group>"; };
+		4537C37E27BA69380098333D /* NativeBuffer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NativeBuffer.h; sourceTree = "<group>"; };
+		4537C37F27BA6D670098333D /* RawContainerImpl_Legacy.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RawContainerImpl_Legacy.cpp; sourceTree = "<group>"; };
+		4537C38327BA75D30098333D /* RawCameraMetadata.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RawCameraMetadata.cpp; sourceTree = "<group>"; };
+		4537C38527BA7A2D0098333D /* RawImageBuffer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RawImageBuffer.cpp; sourceTree = "<group>"; };
+		4537C38727BA908C0098333D /* RawContainerImpl_Legacy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RawContainerImpl_Legacy.h; sourceTree = "<group>"; };
 		453ACCA120E431320083620E /* OpenCL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenCL.framework; path = System/Library/Frameworks/OpenCL.framework; sourceTree = SDKROOT; };
 		4541C94D27031D610067BED9 /* Lock.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Lock.h; sourceTree = "<group>"; };
 		45448523278ED44D0034AD17 /* fast_preview2.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = fast_preview2.a; sourceTree = "<group>"; };
@@ -671,9 +686,14 @@
 				450E1E58214D290200C1B27A /* Math.h */,
 				450E1E6C214D290300C1B27A /* Measure.h */,
 				45684C36271F62E3004E7A12 /* MotionCam.h */,
+				4537C37E27BA69380098333D /* NativeBuffer.h */,
 				4502C00E23377A610027EBF2 /* RawBufferManager.h */,
 				45684C32271ED699004E7A12 /* RawBufferStreamer.h */,
+				4537C37D27BA66FA0098333D /* RawCameraMetadata.h */,
 				45565E2F246592590021A442 /* RawContainer.h */,
+				4537C38727BA908C0098333D /* RawContainerImpl_Legacy.h */,
+				4537C37A27B9BD810098333D /* RawContainerImpl.h */,
+				4537C37C27BA65F70098333D /* RawImageBuffer.h */,
 				450E1E57214D290200C1B27A /* RawImageMetadata.h */,
 				450E1E67214D290300C1B27A /* Settings.h */,
 				450E1E65214D290300C1B27A /* Temperature.h */,
@@ -1034,10 +1054,14 @@
 				45AD8088230DCFA800D6AA04 /* ImageProcessor.cpp */,
 				45FA2E831FF96A3000BE34C3 /* Logger.cpp */,
 				45FA2E801FF9687300BE34C3 /* Measure.cpp */,
+				45684C33271F62B5004E7A12 /* MotionCam.cpp */,
 				4502C00F23377A610027EBF2 /* RawBufferManager.cpp */,
 				45684C2F271ED63F004E7A12 /* RawBufferStreamer.cpp */,
+				4537C38327BA75D30098333D /* RawCameraMetadata.cpp */,
 				45565E2E246592590021A442 /* RawContainer.cpp */,
-				45684C33271F62B5004E7A12 /* MotionCam.cpp */,
+				4537C37F27BA6D670098333D /* RawContainerImpl_Legacy.cpp */,
+				4537C37627B9BD4B0098333D /* RawContainerImpl.cpp */,
+				4537C38527BA7A2D0098333D /* RawImageBuffer.cpp */,
 				45936A2B23BA979C00CC85D4 /* Settings.cpp */,
 				45FA2E731FF82F6200BE34C3 /* Temperature.cpp */,
 				45FA2E7D1FF8EA8000BE34C3 /* Util.cpp */,
@@ -1172,6 +1196,7 @@
 				4576A64A273E910400657DFC /* fuse_denoise_3x3.h in Headers */,
 				4521E0172732E69800DEBD25 /* preview_portrait2.h in Headers */,
 				45DFA085276FE7A80068AFA6 /* camera_preview3_raw16.h in Headers */,
+				4537C37B27B9BD810098333D /* RawContainerImpl.h in Headers */,
 				45A2A50F2781059E00D5D6F0 /* vint.h in Headers */,
 				4521E0292732E69900DEBD25 /* preview_reverse_landscape2.h in Headers */,
 				45DFA088276FE7A80068AFA6 /* camera_video_preview2_raw16.h in Headers */,
@@ -1207,6 +1232,7 @@
 				4521E0132732E69800DEBD25 /* preview_landscape8.h in Headers */,
 				4521E0462732E69900DEBD25 /* preview_reverse_portrait2.h in Headers */,
 				45DFA089276FE7A80068AFA6 /* camera_video_preview3_raw16.h in Headers */,
+				4537C38827BA908C0098333D /* RawContainerImpl_Legacy.h in Headers */,
 				4521E02E2732E69900DEBD25 /* preview_reverse_portrait8.h in Headers */,
 				4576A64C273E910400657DFC /* fuse_denoise_5x5.h in Headers */,
 				4521DFBC2732B1C600DEBD25 /* DngProcessorProgress.h in Headers */,
@@ -1276,6 +1302,7 @@
 				45684CC52720AC3B004E7A12 /* dng_1d_table.cpp in Sources */,
 				45684CC72720AC3B004E7A12 /* dng_abort_sniffer.cpp in Sources */,
 				45684CC92720AC3B004E7A12 /* dng_area_task.cpp in Sources */,
+				4537C38627BA7A2D0098333D /* RawImageBuffer.cpp in Sources */,
 				45684CCD2720AC3B004E7A12 /* dng_bad_pixels.cpp in Sources */,
 				45684CCF2720AC3B004E7A12 /* dng_bottlenecks.cpp in Sources */,
 				45684CD12720AC3B004E7A12 /* dng_camera_profile.cpp in Sources */,
@@ -1286,6 +1313,7 @@
 				45684CDD2720AC3B004E7A12 /* dng_exif.cpp in Sources */,
 				45684CE02720AC3B004E7A12 /* dng_file_stream.cpp in Sources */,
 				45684CE22720AC3B004E7A12 /* dng_filter_task.cpp in Sources */,
+				4537C38427BA75D30098333D /* RawCameraMetadata.cpp in Sources */,
 				45684CE42720AC3B004E7A12 /* dng_fingerprint.cpp in Sources */,
 				45684CE72720AC3B004E7A12 /* dng_gain_map.cpp in Sources */,
 				45684CE92720AC3B004E7A12 /* dng_globals.cpp in Sources */,
@@ -1319,6 +1347,7 @@
 				45684D222720AC3B004E7A12 /* dng_rational.cpp in Sources */,
 				45684D242720AC3B004E7A12 /* dng_read_image.cpp in Sources */,
 				45684D262720AC3B004E7A12 /* dng_rect.cpp in Sources */,
+				4537C38127BA6D670098333D /* RawContainerImpl_Legacy.cpp in Sources */,
 				45684D282720AC3B004E7A12 /* dng_ref_counted_block.cpp in Sources */,
 				45684D2A2720AC3B004E7A12 /* dng_reference.cpp in Sources */,
 				45684D2C2720AC3B004E7A12 /* dng_render.cpp in Sources */,
@@ -1351,6 +1380,7 @@
 				45C6A3E2276B438200042058 /* tinywav.c in Sources */,
 				45684CBA2720AC24004E7A12 /* Logger.cpp in Sources */,
 				45684CBB2720AC24004E7A12 /* Measure.cpp in Sources */,
+				4537C37827B9BD4B0098333D /* RawContainerImpl.cpp in Sources */,
 				45684CBC2720AC24004E7A12 /* RawBufferManager.cpp in Sources */,
 				45684CBD2720AC24004E7A12 /* RawBufferStreamer.cpp in Sources */,
 				45684CBE2720AC24004E7A12 /* RawContainer.cpp in Sources */,

@@ -5,6 +5,8 @@
 #include "motioncam/Util.h"
 #include "motioncam/Measure.h"
 #include "motioncam/AudioInterface.h"
+#include "motioncam/RawImageBuffer.h"
+#include "motioncam/RawCameraMetadata.h"
 
 #include <zstd.h>
 #include <zstd_errors.h>
@@ -28,11 +30,11 @@ namespace motioncam {
 #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
     static inline __attribute__((always_inline))
 #endif
-    uint16_t RAW10(uint8_t* data, int16_t x, int16_t y, const uint16_t stride) {
-        const uint16_t X = (x >> 2) << 2;
-        const uint32_t xoffset = (y * stride) + ((10*X) >> 3);
-        
-        uint16_t p = x - X;
+    uint16_t RAW10(const uint8_t* data, const int x, const int y, const int stride) {
+        const int X = (x >> 2) << 2;
+        const int xoffset = (y * stride) + ((10*X) >> 3);
+
+        int p = x - X;
         uint8_t shift = p << 1;
         
         return (((uint16_t) data[xoffset + p]) << 2) | ((((uint16_t) data[xoffset + 4]) >> shift) & 0x03);
@@ -41,11 +43,11 @@ namespace motioncam {
 #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
     static inline __attribute__((always_inline))
 #endif
-    uint16_t RAW12(uint8_t* data, int16_t x, int16_t y, const uint16_t stride) {
-        const uint16_t X = (x >> 1) << 1;
-        const uint32_t xoffset = (y * stride) + ((12*X) >> 3);
-        
-        uint16_t p = x - X;
+    uint16_t RAW12(const uint8_t* data, const int x, const int y, const int stride) {
+        const int X = (x >> 1) << 1;
+        const int xoffset = (y * stride) + ((12*X) >> 3);
+
+        int p = x - X;
         uint8_t shift = p << 2;
         
         return (((uint16_t) data[xoffset + p]) << 4) | ((((uint16_t) data[xoffset + 2]) >> shift) & 0x0F);
@@ -54,8 +56,8 @@ namespace motioncam {
 #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
     static inline __attribute__((always_inline))
 #endif
-    uint16_t RAW16(uint8_t* data, int16_t x, int16_t y, const uint16_t stride) {
-        const uint32_t offset = (y*stride) + (x*2);
+    uint16_t RAW16(const uint8_t* data, const int x, const int y, const int stride) {
+        const int offset = (y*stride) + (x*2);
         
         return ((uint16_t) data[offset]) | (((uint16_t)data[offset+1]) << 8);
     }
@@ -65,7 +67,11 @@ namespace motioncam {
         mAudioFd(-1),
         mCropHeight(0),
         mCropWidth(0),
-        mBin(false)
+        mBin(false),
+        mEnableCompression(false),
+        mWrittenFrames(0),
+        mAcceptedFrames(0),
+        mWrittenBytes(0)
     {
     }
 
@@ -75,7 +81,7 @@ namespace motioncam {
 
     void RawBufferStreamer::start(const std::vector<int>& fds,
                                   const int& audioFd,
-                                  const std::shared_ptr<AudioInterface> audioInterface,
+                                  const std::shared_ptr<AudioInterface>& audioInterface,
                                   const bool enableCompression,
                                   const int numThreads,
                                   const RawCameraMetadata& cameraMetadata) {
@@ -144,7 +150,7 @@ namespace motioncam {
 
             FILE* audioFile = fdopen(mAudioFd, "w");
             if(audioFile != nullptr) {
-                TinyWav tw = {0};
+                TinyWav tw = {nullptr};
 
                 if(tinywav_open_write_f(
                     &tw,
@@ -196,11 +202,11 @@ namespace motioncam {
 
     size_t RawBufferStreamer::cropAndBin_RAW10(RawImageBuffer& buffer,
                                                uint8_t* data,
-                                               const int16_t ystart,
-                                               const int16_t yend,
-                                               const int16_t xstart,
-                                               const int16_t xend,
-                                               const int16_t binnedWidth,
+                                               const int ystart,
+                                               const int yend,
+                                               const int xstart,
+                                               const int xend,
+                                               const int binnedWidth,
                                                const bool doCompress) const
     {
         std::vector<uint16_t> row0(binnedWidth);
@@ -209,20 +215,20 @@ namespace motioncam {
 
         auto* encodeFunc = &bitnzpack16;
 
-        for(int16_t y = ystart; y < yend; y+=4) {
-            for(int16_t x = xstart; x < xend; x+=4) {
-                uint16_t iy = y;
+        for(int y = ystart; y < yend; y+=4) {
+            for(int x = xstart; x < xend; x+=4) {
+                int iy = y;
 
                 // Unroll inner loops
                 
                 {
-                    const int16_t ix = x;
+                    const int ix = x;
                     
-                    const int16_t ix_m2 = (std::max)(0, ix - 2);
-                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    const int ix_m2 = (std::max)(0, ix - 2);
+                    const int ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = (std::max)(0, iy - 2);
-                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+                    const int iy_m2 = (std::max)(0, iy - 2);
+                    const int iy_p2 = (iy + 2) % buffer.height;
                     
                     const uint16_t p0 = RAW10(data, ix_m2, iy_m2,  buffer.rowStride);
                     const uint16_t p1 = RAW10(data, ix,    iy_m2,  buffer.rowStride) << 1;
@@ -243,13 +249,13 @@ namespace motioncam {
                 }
 
                 {
-                    const uint16_t ix = x + 1;
+                    const int ix = x + 1;
 
-                    const int16_t ix_m2 = (std::max)(0, ix - 2);
-                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    const int ix_m2 = (std::max)(0, ix - 2);
+                    const int ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = (std::max)(0, iy - 2);
-                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+                    const int iy_m2 = (std::max)(0, iy - 2);
+                    const int iy_p2 = (iy + 2) % buffer.height;
 
                     const uint16_t p0 = RAW10(data, ix_m2, iy_m2,  buffer.rowStride);
                     const uint16_t p1 = RAW10(data, ix,    iy_m2,  buffer.rowStride) << 1;
@@ -273,13 +279,13 @@ namespace motioncam {
                 iy = y + 1;
 
                 {
-                    const uint16_t ix = x;
+                    const int ix = x;
                     
-                    const int16_t ix_m2 = (std::max)(0, ix - 2);
-                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    const int ix_m2 = (std::max)(0, ix - 2);
+                    const int ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = (std::max)(0, iy - 2);
-                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+                    const int iy_m2 = (std::max)(0, iy - 2);
+                    const int iy_p2 = (iy + 2) % buffer.height;
 
                     const uint16_t p0 = RAW10(data, ix_m2, iy_m2,  buffer.rowStride);
                     const uint16_t p1 = RAW10(data, ix,    iy_m2,  buffer.rowStride) << 1;
@@ -295,18 +301,18 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                    const uint16_t X = ((x - xstart) >> 2);
+                    const int X = ((x - xstart) >> 2);
                     row1[X] = out;
                 }
                 
                 {
-                    const uint16_t ix = x + 1;
+                    const int ix = x + 1;
                     
-                    const int16_t ix_m2 = (std::max)(0, ix - 2);
-                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    const int ix_m2 = (std::max)(0, ix - 2);
+                    const int ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = (std::max)(0, iy - 2);
-                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+                    const int iy_m2 = (std::max)(0, iy - 2);
+                    const int iy_p2 = (iy + 2) % buffer.height;
 
                     const uint16_t p0 = RAW10(data, ix_m2, iy_m2,  buffer.rowStride);
                     const uint16_t p1 = RAW10(data, ix,    iy_m2,  buffer.rowStride) << 1;
@@ -322,7 +328,8 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                    const uint16_t X = ((x - xstart) >> 2) + (binnedWidth >> 1);
+                    const int X = ((x - xstart) >> 2) + (binnedWidth >> 1);
+
                     row1[X] = out;
                 }
             }
@@ -337,13 +344,13 @@ namespace motioncam {
             }
             else {
                 // Pack into RAW10
-                const uint16_t rowSize_2 = row0.size()/2;
+                const int rowSize_2 = row0.size()/2;
                 
-                for(uint16_t i = 0; i < rowSize_2; i+=2) {
-                    const uint8_t p0 = static_cast<uint8_t>( row0[i                 ] >> 2 );
-                    const uint8_t p1 = static_cast<uint8_t>( row0[i+rowSize_2       ] >> 2 );
-                    const uint8_t p2 = static_cast<uint8_t>( row0[i             + 1 ] >> 2 );
-                    const uint8_t p3 = static_cast<uint8_t>( row0[i+rowSize_2   + 1 ] >> 2 );
+                for(int i = 0; i < rowSize_2; i+=2) {
+                    const auto p0 = static_cast<uint8_t>( row0[i                 ] >> 2 );
+                    const auto p1 = static_cast<uint8_t>( row0[i+rowSize_2       ] >> 2 );
+                    const auto p2 = static_cast<uint8_t>( row0[i             + 1 ] >> 2 );
+                    const auto p3 = static_cast<uint8_t>( row0[i+rowSize_2   + 1 ] >> 2 );
                     
                     const uint8_t upper =
                         static_cast<uint8_t>( (row0[i]     & 0x03))         |
@@ -360,11 +367,11 @@ namespace motioncam {
                     offset += 5;
                 }
 
-                for(uint16_t i = 0; i < rowSize_2; i+=2) {
-                    const uint8_t p0 = static_cast<uint8_t>( row1[i                 ] >> 2 );
-                    const uint8_t p1 = static_cast<uint8_t>( row1[i+rowSize_2       ] >> 2 );
-                    const uint8_t p2 = static_cast<uint8_t>( row1[i             + 1 ] >> 2 );
-                    const uint8_t p3 = static_cast<uint8_t>( row1[i+rowSize_2   + 1 ] >> 2 );
+                for(int i = 0; i < rowSize_2; i+=2) {
+                    const auto p0 = static_cast<uint8_t>( row1[i                 ] >> 2 );
+                    const auto p1 = static_cast<uint8_t>( row1[i+rowSize_2       ] >> 2 );
+                    const auto p2 = static_cast<uint8_t>( row1[i             + 1 ] >> 2 );
+                    const auto p3 = static_cast<uint8_t>( row1[i+rowSize_2   + 1 ] >> 2 );
 
                     const uint8_t upper =
                         static_cast<uint8_t>( (row1[i]     & 0x03))         |
@@ -388,11 +395,11 @@ namespace motioncam {
 
     size_t RawBufferStreamer::cropAndBin_RAW12(RawImageBuffer& buffer,
                                                uint8_t* data,
-                                               const int16_t ystart,
-                                               const int16_t yend,
-                                               const int16_t xstart,
-                                               const int16_t xend,
-                                               const int16_t binnedWidth,
+                                               const int ystart,
+                                               const int yend,
+                                               const int xstart,
+                                               const int xend,
+                                               const int binnedWidth,
                                                const bool doCompress) const
     {
         std::vector<uint16_t> row0(binnedWidth);
@@ -400,20 +407,20 @@ namespace motioncam {
         uint32_t offset = 0;
         auto* encodeFunc = &bitnzpack16;
 
-        for(int16_t y = ystart; y < yend; y+=4) {
-            for(int16_t x = xstart; x < xend; x+=4) {
-                uint16_t iy = y;
+        for(int y = ystart; y < yend; y+=4) {
+            for(int x = xstart; x < xend; x+=4) {
+                int iy = y;
 
                 // Unroll inner loops
                 
                 {
-                    const int16_t ix = x;
+                    const int ix = x;
                     
-                    const int16_t ix_m2 = (std::max)(0, ix - 2);
-                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    const int ix_m2 = (std::max)(0, ix - 2);
+                    const int ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = (std::max)(0, iy - 2);
-                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+                    const int iy_m2 = (std::max)(0, iy - 2);
+                    const int iy_p2 = (iy + 2) % buffer.height;
                     
                     const uint16_t p0 = RAW12(data, ix_m2, iy_m2,  buffer.rowStride);
                     const uint16_t p1 = RAW12(data, ix,    iy_m2,  buffer.rowStride) << 1;
@@ -429,18 +436,18 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
                     
-                    const uint16_t X = ((x - xstart) >> 2);
+                    const int X = ((x - xstart) >> 2);
                     row0[X] = out;
                 }
 
                 {
-                    const int16_t ix = x + 1;
+                    const int ix = x + 1;
 
-                    const int16_t ix_m2 = (std::max)(0, ix - 2);
-                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    const int ix_m2 = (std::max)(0, ix - 2);
+                    const int ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = (std::max)(0, iy - 2);
-                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+                    const int iy_m2 = (std::max)(0, iy - 2);
+                    const int iy_p2 = (iy + 2) % buffer.height;
 
                     const uint16_t p0 = RAW12(data, ix_m2, iy_m2,  buffer.rowStride);
                     const uint16_t p1 = RAW12(data, ix,    iy_m2,  buffer.rowStride) << 1;
@@ -456,7 +463,7 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                    const uint16_t X = ((x - xstart) >> 2) + (binnedWidth >> 1);
+                    const int X = ((x - xstart) >> 2) + (binnedWidth >> 1);
                     row0[X] = out;
                 }
 
@@ -464,13 +471,13 @@ namespace motioncam {
                 iy = y + 1;
 
                 {
-                    const int16_t ix = x;
+                    const int ix = x;
                     
-                    const int16_t ix_m2 = (std::max)(0, ix - 2);
-                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    const int ix_m2 = (std::max)(0, ix - 2);
+                    const int ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = (std::max)(0, iy - 2);
-                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+                    const int iy_m2 = (std::max)(0, iy - 2);
+                    const int iy_p2 = (iy + 2) % buffer.height;
 
                     const uint16_t p0 = RAW12(data, ix_m2, iy_m2,  buffer.rowStride);
                     const uint16_t p1 = RAW12(data, ix,    iy_m2,  buffer.rowStride) << 1;
@@ -486,18 +493,18 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                    const uint16_t X = ((x - xstart) >> 2);
+                    const int X = ((x - xstart) >> 2);
                     row1[X] = out;
                 }
                 
                 {
-                    const int16_t ix = x + 1;
+                    const int ix = x + 1;
                     
-                    const int16_t ix_m2 = (std::max)(0, ix - 2);
-                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    const int ix_m2 = (std::max)(0, ix - 2);
+                    const int ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = (std::max)(0, iy - 2);
-                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+                    const int iy_m2 = (std::max)(0, iy - 2);
+                    const int iy_p2 = (iy + 2) % buffer.height;
 
                     const uint16_t p0 = RAW12(data, ix_m2, iy_m2,  buffer.rowStride);
                     const uint16_t p1 = RAW12(data, ix,    iy_m2,  buffer.rowStride) << 1;
@@ -513,7 +520,7 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                    const uint16_t X = ((x - xstart) >> 2) + (binnedWidth >> 1);
+                    const int X = ((x - xstart) >> 2) + (binnedWidth >> 1);
                     row1[X] = out;
                 }
             }
@@ -527,9 +534,9 @@ namespace motioncam {
             }
             else {
                 // Pack into RAW12
-                const uint16_t rowSize_2 = row0.size()/2;
+                const int rowSize_2 = static_cast<int>(row0.size())/2;
                 
-                for(uint16_t i = 0; i < rowSize_2; i++) {
+                for(int i = 0; i < rowSize_2; i++) {
                     const uint16_t p0 = row0[i             ];
                     const uint16_t p1 = row0[i + rowSize_2 ];
                     
@@ -544,7 +551,7 @@ namespace motioncam {
                     offset += 3;
                 }
 
-                for(uint16_t i = 0; i < rowSize_2; i++) {
+                for(int i = 0; i < rowSize_2; i++) {
                     const uint16_t p0 = row1[i             ];
                     const uint16_t p1 = row1[i + rowSize_2 ];
 
@@ -566,11 +573,11 @@ namespace motioncam {
 
     size_t RawBufferStreamer::cropAndBin_RAW16(RawImageBuffer& buffer,
                                                uint8_t* data,
-                                               const int16_t ystart,
-                                               const int16_t yend,
-                                               const int16_t xstart,
-                                               const int16_t xend,
-                                               const int16_t binnedWidth,
+                                               const int ystart,
+                                               const int yend,
+                                               const int xstart,
+                                               const int xend,
+                                               const int binnedWidth,
                                                const bool doCompress) const
     {
         std::vector<uint16_t> row0(binnedWidth);
@@ -578,19 +585,19 @@ namespace motioncam {
         uint32_t offset = 0;
         auto* encodeFunc = &bitnzpack16;
 
-        for(int16_t y = ystart; y < yend; y+=4) {
-            for(int16_t x = xstart; x < xend; x+=4) {
-                uint16_t iy = y;
+        for(int y = ystart; y < yend; y+=4) {
+            for(int x = xstart; x < xend; x+=4) {
+                int iy = y;
 
                 // Unroll inner loops
                 {
-                    const int16_t ix = x;
+                    const int ix = x;
                     
-                    const int16_t ix_m2 = (std::max)(0, ix - 2);
-                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    const int ix_m2 = (std::max)(0, ix - 2);
+                    const int ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = (std::max)(0, iy - 2);
-                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+                    const int iy_m2 = (std::max)(0, iy - 2);
+                    const int iy_p2 = (iy + 2) % buffer.height;
                     
                     const uint16_t p0 = RAW16(data, ix_m2, iy_m2,  buffer.rowStride);
                     const uint16_t p1 = RAW16(data, ix,    iy_m2,  buffer.rowStride) << 1;
@@ -606,18 +613,18 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
                     
-                    const uint16_t X = ((x - xstart) >> 2);
+                    const int X = ((x - xstart) >> 2);
                     row0[X] = out;
                 }
 
                 {
-                    const int16_t ix = x + 1;
+                    const int ix = x + 1;
 
-                    const int16_t ix_m2 = (std::max)(0, ix - 2);
-                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    const int ix_m2 = (std::max)(0, ix - 2);
+                    const int ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = (std::max)(0, iy - 2);
-                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+                    const int iy_m2 = (std::max)(0, iy - 2);
+                    const int iy_p2 = (iy + 2) % buffer.height;
 
                     const uint16_t p0 = RAW16(data, ix_m2, iy_m2,  buffer.rowStride);
                     const uint16_t p1 = RAW16(data, ix,    iy_m2,  buffer.rowStride) << 1;
@@ -633,7 +640,7 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                    const uint16_t X = ((x - xstart) >> 2) + (binnedWidth >> 1);
+                    const int X = ((x - xstart) >> 2) + (binnedWidth >> 1);
                     row0[X] = out;
                 }
 
@@ -641,13 +648,13 @@ namespace motioncam {
                 iy = y + 1;
 
                 {
-                    const int16_t ix = x;
+                    const int ix = x;
                     
-                    const int16_t ix_m2 = (std::max)(0, ix - 2);
-                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    const int ix_m2 = (std::max)(0, ix - 2);
+                    const int ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = (std::max)(0, iy - 2);
-                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+                    const int iy_m2 = (std::max)(0, iy - 2);
+                    const int iy_p2 = (iy + 2) % buffer.height;
 
                     const uint16_t p0 = RAW16(data, ix_m2, iy_m2,  buffer.rowStride);
                     const uint16_t p1 = RAW16(data, ix,    iy_m2,  buffer.rowStride) << 1;
@@ -663,18 +670,18 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                    const uint16_t X = ((x - xstart) >> 2);
+                    const int X = ((x - xstart) >> 2);
                     row1[X] = out;
                 }
                 
                 {
-                    const int16_t ix = x + 1;
+                    const int ix = x + 1;
                     
-                    const int16_t ix_m2 = (std::max)(0, ix - 2);
-                    const int16_t ix_p2 = (ix + 2) % buffer.width;
+                    const int ix_m2 = (std::max)(0, ix - 2);
+                    const int ix_p2 = (ix + 2) % buffer.width;
                     
-                    const int16_t iy_m2 = (std::max)(0, iy - 2);
-                    const int16_t iy_p2 = (iy + 2) % buffer.height;
+                    const int iy_m2 = (std::max)(0, iy - 2);
+                    const int iy_p2 = (iy + 2) % buffer.height;
 
                     const uint16_t p0 = RAW16(data, ix_m2, iy_m2,  buffer.rowStride);
                     const uint16_t p1 = RAW16(data, ix,    iy_m2,  buffer.rowStride) << 1;
@@ -690,7 +697,7 @@ namespace motioncam {
 
                     const uint16_t out = (p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8) >> 4;
 
-                    const uint16_t X = ((x - xstart) >> 2) + (binnedWidth >> 1);
+                    const int X = ((x - xstart) >> 2) + (binnedWidth >> 1);
                     row1[X] = out;
                 }
             }
@@ -704,9 +711,9 @@ namespace motioncam {
             }
             else {
                 // Pack into RAW12
-                const uint16_t rowSize_2 = row0.size()/2;
+                const int rowSize_2 = static_cast<int>(row0.size())/2;
                                 
-                for(uint16_t i = 0; i < rowSize_2; i++) {
+                for(int i = 0; i < rowSize_2; i++) {
                     const uint16_t p0 = row0[i             ];
                     const uint16_t p1 = row0[i + rowSize_2 ];
                     
@@ -721,7 +728,7 @@ namespace motioncam {
                     offset += 3;
                 }
 
-                for(uint16_t i = 0; i < rowSize_2; i++) {
+                for(int i = 0; i < rowSize_2; i++) {
                     const uint16_t p0 = row1[i             ];
                     const uint16_t p1 = row1[i + rowSize_2 ];
 
@@ -744,25 +751,25 @@ namespace motioncam {
     void RawBufferStreamer::cropAndBin(RawImageBuffer& buffer) const {
 //        Measure m("cropAndBin");
         
-        const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropWidth/100.0f * buffer.width)) / 4));
+        const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropWidth/100.0 * buffer.width)) / 4));
 
         // Even vertical crop to match bayer pattern
-        const int verticalCrop   = static_cast<const int>(2 * (lround(0.5f * (mCropHeight/100.0f * buffer.height)) / 2));
+        const int verticalCrop   = static_cast<const int>(2 * (lround(0.5f * (mCropHeight/100.0 * buffer.height)) / 2));
 
-        uint32_t croppedWidth  = static_cast<const int>(buffer.width - horizontalCrop*2);
-        uint32_t croppedHeight = static_cast<const int>(buffer.height - verticalCrop*2);
+        const int croppedWidth  = static_cast<const int>(buffer.width - horizontalCrop*2);
+        const int croppedHeight = static_cast<const int>(buffer.height - verticalCrop*2);
         
         const int ystart = verticalCrop;
         const int yend = buffer.height - ystart;
 
-        const uint32_t xstart = horizontalCrop;
-        const uint32_t xend = buffer.width - horizontalCrop;
+        const int xstart = horizontalCrop;
+        const int xend = buffer.width - horizontalCrop;
 
         std::vector<uint16_t> row0(croppedWidth / 2);
         std::vector<uint16_t> row1(croppedWidth / 2);
 
         auto data = buffer.data->lock(true);
-        size_t end = 0;
+        size_t end;
 
         if(buffer.pixelFormat == PixelFormat::RAW10) {
             end = cropAndBin_RAW10(buffer, data, ystart, yend, xstart, xend, croppedWidth / 2, mEnableCompression);
@@ -808,13 +815,13 @@ namespace motioncam {
     void RawBufferStreamer::cropAndCompress(RawImageBuffer& buffer) const {
         //Measure m("crop");
 
-        const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropWidth/100.0f * buffer.width)) / 4));
+        const int horizontalCrop = static_cast<const int>(4 * (lround(0.5 * (mCropWidth/100.0 * buffer.width)) / 4));
 
         // Even vertical crop to match bayer pattern
-        const int verticalCrop   = static_cast<const int>(2 * (lround(0.5f * (mCropHeight/100.0f * buffer.height)) / 2));
+        const int verticalCrop   = static_cast<const int>(2 * (lround(0.5 * (mCropHeight/100.0 * buffer.height)) / 2));
 
-        uint32_t croppedWidth  = static_cast<const int>(buffer.width - horizontalCrop*2);
-        uint32_t croppedHeight = static_cast<const int>(buffer.height - verticalCrop*2);
+        const int croppedWidth  = static_cast<const int>(buffer.width - horizontalCrop*2);
+        const int croppedHeight = static_cast<const int>(buffer.height - verticalCrop*2);
         
         auto data = buffer.data->lock(true);
 
@@ -824,7 +831,7 @@ namespace motioncam {
         const int ystart = verticalCrop;
         const int yend = buffer.height - ystart;
 
-        const uint16_t croppedWidth_2 = croppedWidth>>1;
+        const int croppedWidth_2 = croppedWidth>>1;
 
         std::vector<uint16_t> row(croppedWidth);
         size_t offset = 0;
@@ -834,6 +841,8 @@ namespace motioncam {
 
         // TODO: Unsafely assuming here that the compressed size is always smaller than the input.
 
+        
+        
         if(buffer.pixelFormat == PixelFormat::RAW10) {
             for(int y = ystart; y < yend; y++) {
                 for(int x = xstart; x < xend; x+=2) {
@@ -910,20 +919,20 @@ namespace motioncam {
             return;
         }
         
-        const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropWidth/100.0f * buffer.width)) / 4));
+        const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropWidth/100.0 * buffer.width)) / 4));
 
         // Even vertical crop to match bayer pattern
-        const int verticalCrop   = static_cast<const int>(2 * (lround(0.5f * (mCropHeight/100.0f * buffer.height)) / 2));
+        const int verticalCrop   = static_cast<const int>(2 * (lround(0.5f * (mCropHeight/100.0 * buffer.height)) / 2));
 
-        uint32_t croppedWidth  = static_cast<const int>(buffer.width - horizontalCrop*2);
-        uint32_t croppedHeight = static_cast<const int>(buffer.height - verticalCrop*2);
+        const int croppedWidth  = static_cast<const int>(buffer.width - horizontalCrop*2);
+        const int croppedHeight = static_cast<const int>(buffer.height - verticalCrop*2);
         
         auto data = buffer.data->lock(true);
 
         const int ystart = verticalCrop;
         const int yend = buffer.height - ystart;
 
-        uint32_t croppedRowStride;
+        int croppedRowStride = 0;
 
         if(buffer.pixelFormat == PixelFormat::RAW10) {
             croppedRowStride = 10*croppedWidth/8;
@@ -991,7 +1000,7 @@ namespace motioncam {
         buffer.data->setValidRange(0, buffer.rowStride * buffer.height);
     }
 
-    void RawBufferStreamer::processBuffer(std::shared_ptr<RawImageBuffer> buffer) {
+    void RawBufferStreamer::processBuffer(const std::shared_ptr<RawImageBuffer>& buffer) const {
         if(mBin)
             cropAndBin(*buffer);
         else {
@@ -1019,28 +1028,17 @@ namespace motioncam {
     }
 
     void RawBufferStreamer::doStream(const int fd, const RawCameraMetadata& cameraMetadata, const int numContainers) {
-        util::CloseableFd fdContext(fd);
-        
         std::shared_ptr<RawImageBuffer> buffer;
-        RawContainer container(cameraMetadata, numContainers);
         size_t start, end;
 
-        if(!container.create(fd)) {
-            logger::log("Failed to create container");
-            // TODO: report back error
-            return;
-        }
+        auto container = RawContainer::Create(fd, cameraMetadata, numContainers);
 
         while(mRunning) {
             if(!mReadyBuffers.wait_dequeue_timed(buffer, std::chrono::milliseconds(100))) {
                 continue;
             }
 
-            if(!container.append(fd, *buffer)) {
-                logger::log("Failed to append buffer");
-                RawBufferManager::get().discardBuffer(buffer);
-                return;
-            }
+            container->add(*buffer, true);
 
             start = end = 0;
             buffer->data->getValidRange(start, end);
@@ -1058,12 +1056,8 @@ namespace motioncam {
 
         // Ready buffers
         while(mReadyBuffers.try_dequeue(buffer)) {
-            if(!container.append(fd, *buffer)) {
-                logger::log("Failed to flush ready buffer");
-                RawBufferManager::get().discardBuffer(buffer);
-                return;
-            }
-
+            container->add(*buffer, true);
+            
             buffer->data->getValidRange(start, end);
             mWrittenBytes += (end - start);
             mWrittenFrames++;
@@ -1075,11 +1069,7 @@ namespace motioncam {
         while(mUnprocessedBuffers.try_dequeue(buffer)) {
             processBuffer(buffer);
             
-            if(!container.append(fd, *buffer)) {
-                logger::log("Failed to flush unprocessed buffer");
-                RawBufferManager::get().discardBuffer(buffer);
-                return;
-            }
+            container->add(*buffer, true);
 
             buffer->data->getValidRange(start, end);
             mWrittenBytes += (end - start);
@@ -1088,7 +1078,7 @@ namespace motioncam {
             RawBufferManager::get().discardBuffer(buffer);
         }
 
-        container.commit(fd);
+        container->commit();
     }
 
     bool RawBufferStreamer::isRunning() const {

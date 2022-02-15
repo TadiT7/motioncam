@@ -6,7 +6,7 @@
 #include <string>
 
 #include <camera/NdkCameraMetadataTags.h>
-#include <motioncam/RawImageMetadata.h>
+#include <motioncam/RawCameraMetadata.h>
 
 #include "DisplayDimension.h"
 

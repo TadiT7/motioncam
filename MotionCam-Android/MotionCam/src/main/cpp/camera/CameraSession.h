@@ -155,7 +155,6 @@ namespace motioncam {
         ACaptureRequest* createCaptureRequest(const ACameraDevice_request_template requestTemplate);
 
         void setupRawCaptureOutput(CameraCaptureSessionContext& state);
-        void setupJpegCaptureOutput(CameraCaptureSessionContext& state);
         void setupPreviewCaptureOutput(CameraCaptureSessionContext& state, bool enableCameraPreview);
 
     private:

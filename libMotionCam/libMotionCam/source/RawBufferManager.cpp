@@ -1,15 +1,15 @@
 #include "motioncam/RawBufferManager.h"
-
-#include <utility>
-
+#include "motioncam/RawImageBuffer.h"
 #include "motioncam/RawContainer.h"
 #include "motioncam/Util.h"
 #include "motioncam/Logger.h"
 #include "motioncam/Measure.h"
 #include "motioncam/Lock.h"
 
+#include <utility>
+
 namespace motioncam {
-    static const bool AlwaysSaveToDisk = false;
+    static const bool AlwaysSaveToDisk = true;
     static const int NumContainersToKeepInMemory = 2;
 
     RawBufferManager::RawBufferManager() :
@@ -97,9 +97,10 @@ namespace motioncam {
                 }
             }
             else {
+                // TODO: Probably not the best place to do this
                 // Shrink memory
                 while(true) {
-                    if(mReadyBuffers.size() > 0 && mMemoryUseBytes > mMemoryTargetBytes) {
+                    if(!mReadyBuffers.empty() && mMemoryUseBytes > mMemoryTargetBytes) {
                         buffer = mReadyBuffers.front();
                         mReadyBuffers.erase(mReadyBuffers.begin());
 
@@ -117,8 +118,6 @@ namespace motioncam {
                         }
                     }
                 }
-                
-                return buffer;
             }
         }
                 
@@ -240,14 +239,20 @@ namespace motioncam {
                 mReadyBuffers.end());
         }
 
-        // Copy the buffers
-        auto rawContainer = std::make_shared<RawContainer>(
-                metadata,
-                settings,
-                referenceTimestampNs,
-                true,
-                buffers);
-
+        // Create container
+        json11::Json::object postProcessSettings;
+        settings.toJson(postProcessSettings);
+        
+        json11::Json::object extraData = {
+            { "referenceTimestamp", std::to_string(referenceTimestampNs) },
+            { "isHdr",  true },
+            { "postProcessSettings", postProcessSettings }
+        };
+        
+        auto container = RawContainer::Create(metadata, 1, extraData);
+        
+        container->add(buffers, false);
+        
         // Return buffers
         auto it = buffers.begin();
         while(it != buffers.end()) {
@@ -257,10 +262,10 @@ namespace motioncam {
 
         // Save the container
         if(AlwaysSaveToDisk || mPendingContainers.size_approx() > NumContainersToKeepInMemory) {
-            rawContainer->save(outputPath);
+            container->commit(outputPath);
         }
         else {
-            mPendingContainers.enqueue(rawContainer);
+            mPendingContainers.enqueue(std::move(container));
         }
     }
 
@@ -344,13 +349,19 @@ namespace motioncam {
             }
         }
 
-        // Copy the buffers
-        auto rawContainer = std::make_shared<RawContainer>(
-                metadata,
-                settings,
-                referenceTimestampNs,
-                false,
-                buffers);
+        // Create container
+        json11::Json::object postProcessSettings;
+        settings.toJson(postProcessSettings);
+        
+        json11::Json::object extraData = {
+            { "referenceTimestamp", std::to_string(referenceTimestampNs) },
+            { "isHdr",  false },
+            { "postProcessSettings", postProcessSettings }
+        };
+        
+        auto container = RawContainer::Create(metadata, 1, extraData);
+        
+        container->add(buffers, false);
 
         // Return buffers
         {
@@ -360,10 +371,10 @@ namespace motioncam {
 
         // Save container
         if(AlwaysSaveToDisk || mPendingContainers.size_approx() > NumContainersToKeepInMemory) {
-            rawContainer->save(outputPath);
+            container->commit(outputPath);
         }
         else {
-            mPendingContainers.enqueue(rawContainer);
+            mPendingContainers.enqueue(std::move(container));
         }
     }
 

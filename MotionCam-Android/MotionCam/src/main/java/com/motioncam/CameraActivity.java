@@ -13,11 +13,13 @@ import android.graphics.Bitmap;
 import android.graphics.Matrix;
 import android.graphics.SurfaceTexture;
 import android.location.Location;
+import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import android.util.Size;
@@ -83,6 +85,8 @@ import com.motioncam.worker.VideoProcessWorker;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -95,6 +99,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
@@ -121,6 +126,7 @@ public class CameraActivity extends AppCompatActivity implements
 
     private NativeCameraManager mNativeCameraManager;
     private NativeCamera mNativeCamera;
+    private CompletableFuture<Void> mActivatingCameraTask;
 
     private Settings mSettings;
     private Settings.CameraSettings mCameraSettings;
@@ -154,6 +160,7 @@ public class CameraActivity extends AppCompatActivity implements
     private Timer mOverlayTimer;
     private boolean mUnsupportedFrameRate;
     private GestureDetector mGestureDetector;
+    private Handler mMainHandler;
 
     private AtomicBoolean mImageCaptureInProgress = new AtomicBoolean(false);
 
@@ -220,6 +227,24 @@ public class CameraActivity extends AppCompatActivity implements
 
         @Override
         public void onStopTrackingTouch(SeekBar seekBar) {
+        }
+    };
+
+    private final AudioDeviceCallback mAudioDeviceChangedCallback = new AudioDeviceCallback() {
+        @Override
+        public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
+            super.onAudioDevicesAdded(addedDevices);
+            AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+
+            enumerateAudioInputs(audioManager);
+        }
+
+        @Override
+        public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
+            super.onAudioDevicesRemoved(removedDevices);
+            AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+
+            enumerateAudioInputs(audioManager);
         }
     };
 
@@ -328,6 +353,7 @@ public class CameraActivity extends AppCompatActivity implements
         mSensorEventManager = new SensorEventManager(this, this);
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         mAudioInputId = -1;
+        mMainHandler = new Handler();
 
         WorkManager.getInstance(this)
                 .getWorkInfosForUniqueWorkLiveData(WORKER_IMAGE_PROCESSOR)
@@ -561,7 +587,13 @@ public class CameraActivity extends AppCompatActivity implements
         toggleCameraSettings(false);
 
         // Get audio inputs
-        enumerateAudioInputs();
+        AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+
+        // Get all devices
+        enumerateAudioInputs(audioManager);
+
+        // Register to receive events
+        audioManager.registerAudioDeviceCallback(mAudioDeviceChangedCallback, mMainHandler);
 
         mBinding.previewPager.registerOnPageChangeCallback(mCapturedPreviewPagerListener);
         mUserCaptureModeOverride = false;
@@ -824,8 +856,12 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void activateCamera(String cameraId) {
-        if(cameraId == null || cameraId.equals(mSelectedCamera.cameraId))
+        if(mActivatingCameraTask != null ||
+                cameraId == null ||
+                cameraId.equals(mSelectedCamera.cameraId))
+        {
             return;
+        }
 
         Log.d(TAG, "Activating camera " + cameraId);
 
@@ -863,11 +899,29 @@ public class CameraActivity extends AppCompatActivity implements
         }
 
         // Stop the camera in the background then start the new camera
-        CompletableFuture
+        mActivatingCameraTask = CompletableFuture
                 .runAsync(() -> {
-                    destroyCamera();
-                })
+                    if(mNativeCamera != null) {
+                        mNativeCamera.stopCapture();
+                        try {
+                            mNativeCamera.close();
+                        }
+                        catch (IOException e) {
+                            e.printStackTrace();
+                        }
+
+                        mNativeCamera = null;
+                    }
+                    })
                 .thenRun(() -> runOnUiThread(() -> {
+                    if(mSurface != null) {
+                        mSurface.release();
+                        mSurface = null;
+                    }
+
+                    // Remove the previous preview here because onSurfaceTextureDestroyed() will be called.
+                    mBinding.nativeCameraPreview.removeAllViews();
+
                     initCamera();
                 }));
     }
@@ -897,6 +951,11 @@ public class CameraActivity extends AppCompatActivity implements
             return;
         }
 
+        if(mActivatingCameraTask != null) {
+            Log.w(TAG, "Attempting to activate camera while camera switch in progress");
+            return;
+        }
+
         boolean currentFrontFacing = mSelectedCamera != null && mSelectedCamera.isFrontFacing;
 
         // Rotate switch camera button
@@ -917,6 +976,7 @@ public class CameraActivity extends AppCompatActivity implements
             for (int i = 0; i < mCameraInfos.size(); i++) {
                 if (mCameraInfos.get(i).isFrontFacing) {
                     activateCamera(mCameraInfos.get(i).cameraId);
+                    break;
                 }
             }
         }
@@ -1639,12 +1699,6 @@ public class CameraActivity extends AppCompatActivity implements
             return;
         }
 
-        // Destroy previous camera
-        destroyCamera();
-
-        // Remove the previous preview here because onSurfaceTextureDestroyed() will be called.
-        mBinding.nativeCameraPreview.removeAllViews();
-
         mNativeCamera = new NativeCamera(this);
 
         // Pick first camera if none selected
@@ -1718,6 +1772,17 @@ public class CameraActivity extends AppCompatActivity implements
                     mTextureView.getSurfaceTexture(),
                     mTextureView.getWidth(),
                     mTextureView.getHeight());
+        }
+
+        if(mActivatingCameraTask != null) {
+            try {
+                mActivatingCameraTask.get();
+            } catch (ExecutionException e) {
+                e.printStackTrace();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            mActivatingCameraTask = null;
         }
     }
 
@@ -1862,7 +1927,8 @@ public class CameraActivity extends AppCompatActivity implements
     public boolean onSurfaceTextureDestroyed(@NonNull SurfaceTexture surface) {
         Log.d(TAG, "onSurfaceTextureDestroyed()");
 
-        destroyCamera();
+        if(mTextureView != null && mTextureView.getSurfaceTexture() == surface)
+            destroyCamera();
 
         return true;
     }
@@ -2316,38 +2382,26 @@ public class CameraActivity extends AppCompatActivity implements
         }
     }
 
-    void enumerateAudioInputs() {
-        AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+    void enumerateAudioInputs(AudioManager audioManager) {
         AudioDeviceInfo[] deviceInfoList = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS);
         RadioGroup audioInputsLayout = mBinding.cameraSettings.findViewById(R.id.audioInputGroup);
 
         audioInputsLayout.removeAllViews();
 
-        // Add default device
-        RadioButton internalMicBtn = new RadioButton(this);
-
-        internalMicBtn.setId(View.generateViewId());
-        internalMicBtn.setText(getString(R.string.internal_mic));
-        internalMicBtn.setTextColor(getColor(R.color.white));
-        internalMicBtn.setTag(-1);
-        internalMicBtn.setChecked(true);
-        internalMicBtn.setOnClickListener(v -> onAudioInputChanged(v));
-
-        internalMicBtn.setLayoutParams(
-                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        audioInputsLayout.addView(internalMicBtn);
-
         for(int i = 0; i < deviceInfoList.length; i++) {
             AudioDeviceInfo deviceInfo = deviceInfoList[i];
 
             // Pick a few types that'll probably work
-            if( deviceInfo.getType() == AudioDeviceInfo.TYPE_USB_HEADSET    ||
+            if( deviceInfo.getType() == AudioDeviceInfo.TYPE_BUILTIN_MIC    ||
+                deviceInfo.getType() == AudioDeviceInfo.TYPE_USB_HEADSET    ||
                 deviceInfo.getType() == AudioDeviceInfo.TYPE_WIRED_HEADSET  ||
                 deviceInfo.getType() == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
                 deviceInfo.getType() == AudioDeviceInfo.TYPE_USB_ACCESSORY)
             {
                 RadioButton audioDeviceBtn = new RadioButton(this);
+
+                CharSequence name =
+                        deviceInfo.getType() == AudioDeviceInfo.TYPE_BUILTIN_MIC ? "Internal Mic" : deviceInfo.getProductName();
 
                 audioDeviceBtn.setId(View.generateViewId());
                 audioDeviceBtn.setText(deviceInfo.getProductName());

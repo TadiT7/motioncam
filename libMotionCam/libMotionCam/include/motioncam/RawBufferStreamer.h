@@ -22,7 +22,7 @@ namespace motioncam {
         
         void start(const std::vector<int>& fds,
                    const int& audioFd,
-                   const std::shared_ptr<AudioInterface> audioInterface,
+                   const std::shared_ptr<AudioInterface>& audioInterface,
                    const bool enableCompression,
                    const int numThreads,
                    const RawCameraMetadata& cameraMetadata);
@@ -38,29 +38,29 @@ namespace motioncam {
 
         size_t cropAndBin_RAW10(RawImageBuffer& buffer,
                                 uint8_t* data,
-                                const int16_t ystart,
-                                const int16_t yend,
-                                const int16_t xstart,
-                                const int16_t xend,
-                                const int16_t binnedWidth,
+                                const int ystart,
+                                const int yend,
+                                const int xstart,
+                                const int xend,
+                                const int binnedWidth,
                                 const bool doCompress) const;
 
         size_t cropAndBin_RAW12(RawImageBuffer& buffer,
                                 uint8_t* data,
-                                const int16_t ystart,
-                                const int16_t yend,
-                                const int16_t xstart,
-                                const int16_t xend,
-                                const int16_t binnedWidth,
+                                const int ystart,
+                                const int yend,
+                                const int xstart,
+                                const int xend,
+                                const int binnedWidth,
                                 const bool doCompress) const;
 
         size_t cropAndBin_RAW16(RawImageBuffer& buffer,
                                 uint8_t* data,
-                                const int16_t ystart,
-                                const int16_t yend,
-                                const int16_t xstart,
-                                const int16_t xend,
-                                const int16_t binnedWidth,
+                                const int ystart,
+                                const int yend,
+                                const int xstart,
+                                const int xend,
+                                const int binnedWidth,
                                 const bool doCompress) const;
 
         void cropAndBin(RawImageBuffer& buffer) const;
@@ -72,7 +72,7 @@ namespace motioncam {
         void doProcess();
         void doStream(const int fd, const RawCameraMetadata& cameraMetadata, const int numContainers);
         
-        void processBuffer(std::shared_ptr<RawImageBuffer> buffer);
+        void processBuffer(const std::shared_ptr<RawImageBuffer>& buffer) const;
         
     private:
         std::shared_ptr<AudioInterface> mAudioInterface;
@@ -80,8 +80,7 @@ namespace motioncam {
         
         std::vector<std::unique_ptr<std::thread>> mIoThreads;
         std::vector<std::unique_ptr<std::thread>> mProcessThreads;
-        std::vector<std::unique_ptr<std::thread>> mCompressThreads;
-        
+
         int mCropHeight;
         int mCropWidth;
         bool mBin;

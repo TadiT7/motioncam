@@ -11,6 +11,8 @@
 #include "motioncam/BlueNoiseLUT.h"
 #include "motioncam/FaceClassifier.h"
 #include "motioncam/RawBufferStreamer.h"
+#include "motioncam/RawImageBuffer.h"
+#include "motioncam/RawCameraMetadata.h"
 
 // Halide
 #include "generate_stats.h"
@@ -71,7 +73,7 @@ const std::vector<std::vector<float>> WEIGHTS = {
     { 1,  1,   0,   0 }
 };
 
-const float TONEMAP_VARIANCE = 0.27f;
+const float TONEMAP_VARIANCE = 0.2f;
 
 extern "C" int extern_defringe(halide_buffer_t *in, int32_t width, int32_t height, halide_buffer_t *out) {
     if (in->is_bounds_query()) {
@@ -84,7 +86,7 @@ extern "C" int extern_defringe(halide_buffer_t *in, int32_t width, int32_t heigh
         outBuf.copy_from(inBuf);
 
         // Disable for now. Causes too many artifacts.
-//        motioncam::defringe(outBuf, inBuf);
+        motioncam::defringe(outBuf, inBuf);
     }
     
     return 0;
@@ -105,7 +107,7 @@ static std::vector<Halide::Runtime::Buffer<float>> createWaveletBuffers(int widt
 
 namespace motioncam {
     const float MAX_HDR_ERROR           = 0.0001f;
-    const float SHADOW_BIAS             = 12.0f;
+    const float SHADOW_BIAS             = 8.0f;
 
     typedef Halide::Runtime::Buffer<float> WaveletBuffer;
 
@@ -145,6 +147,12 @@ namespace motioncam {
                 }
             }
         }
+    };
+
+    struct RawData {
+        Halide::Runtime::Buffer<uint16_t> rawBuffer;
+        Halide::Runtime::Buffer<uint8_t> previewBuffer;
+        RawImageMetadata metadata;
     };
 
     // https://exiv2.org/doc/geotag_8cpp-example.html
@@ -249,6 +257,7 @@ namespace motioncam {
 
 
     void ImageProcessor::getNormalisedShadingMap(const RawImageMetadata& metadata,
+                                                 const float shadingMapCorrection,
                                                  std::vector<Halide::Runtime::Buffer<float>>& outShadingMapBuffer,
                                                  std::vector<float>& outShadingMapScale,
                                                  float& outShadingMapMaxScale) {
@@ -285,6 +294,7 @@ namespace motioncam {
         
         for(size_t i = 0; i < outShadingMapScale.size(); i++) {
             outShadingMapScale[i] /= outShadingMapMaxScale;
+            outShadingMapScale[i] *= shadingMapCorrection;
         }
     }
 
@@ -292,6 +302,7 @@ namespace motioncam {
                                         const shared_ptr<HdrMetadata>& hdrMetadata,
                                         int offsetX,
                                         int offsetY,
+                                        const float shadingMapOffset,
                                         const float noiseEstimate,
                                         const RawImageMetadata& metadata,
                                         const RawCameraMetadata& cameraMetadata,
@@ -302,7 +313,7 @@ namespace motioncam {
         cv::Mat cameraToPcs;
         cv::Mat pcsToSrgb;
         cv::Vec3f cameraWhite;
-
+        
         if(settings.temperature > 0 || settings.tint > 0) {
             Temperature t(settings.temperature, settings.tint);
 
@@ -314,7 +325,7 @@ namespace motioncam {
 
         // Get blue noise buffer
         auto noise = cv::imdecode(BLUE_NOISE_PNG, cv::IMREAD_UNCHANGED);
-                
+        
         Halide::Runtime::Buffer<uint8_t> noiseBuffer =
             Halide::Runtime::Buffer<uint8_t>::make_interleaved((uint8_t*) noise.data, noise.cols, noise.rows, 4);
         
@@ -335,10 +346,14 @@ namespace motioncam {
         std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer;
         std::vector<float> shadingMapScale;
         float shadingMapMaxScale;
+                
+        getNormalisedShadingMap(metadata,
+                                shadingMapOffset,
+                                shadingMapBuffer,
+                                shadingMapScale,
+                                shadingMapMaxScale);
         
-        getNormalisedShadingMap(metadata, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
-        
-        float shadows = settings.shadows * shadingMapMaxScale;
+        float shadows = settings.shadows;
         float tonemapVariance = TONEMAP_VARIANCE;
         bool useHdr = false;
         float hdrInputGain = 1.0f;
@@ -392,14 +407,14 @@ namespace motioncam {
                     settings.blacks,
                     settings.exposure,
                     settings.whitePoint,
-                    settings.contrast,
+                    0.25,//settings.contrast,
                     settings.brightness,
                     settings.blues,
                     settings.greens,
                     settings.saturation,
-                    settings.sharpen0,
-                    settings.sharpen1,
-                    settings.pop,
+                    2,//settings.sharpen0,
+                    2,//settings.sharpen1,
+                    1,//settings.pop,
                     128.0f,
                     7.0f,
                     (std::min)(0.015f, (std::max)(0.005f, noiseEstimate / 2.0f)),
@@ -471,28 +486,25 @@ namespace motioncam {
         outWhitePoint = static_cast<float>(endBin + 1) / ((float) histogram.rows);
     }
 
-    float ImageProcessor::estimateShadows(const cv::Mat& histogram, float ev, float keyValue) {
+    float ImageProcessor::estimateShadows(const cv::Mat& histogram, float keyValue) {
         float avgLuminance = 0.0f;
         float totalPixels = 0;
         
         float ignorePixels = 0.005f;
 
         int lowerBound = (int) (0.5f + histogram.cols * ignorePixels);
-        int upperBound = histogram.cols;
+        int upperBound = histogram.cols - lowerBound;
         
         for(int i = lowerBound; i < upperBound; i++) {
-            avgLuminance += histogram.at<float>(i) * log(1e-5 + i / 65535.0f);
+            avgLuminance += histogram.at<float>(i) * log(1e-5 + i / (float)histogram.cols);
             totalPixels += histogram.at<float>(i);
         }
 
         avgLuminance = exp(avgLuminance / (totalPixels + 1e-5f));
-        
-        return (std::max)(1.0f, (std::min)(keyValue / avgLuminance, 32.0f));
-    }
 
-    void ImageProcessor::estimateHdr(const cv::Mat& histogram, float& outLows, float& outHighs) {
-        outLows = histogram.at<float>(0);
-        outHighs = histogram.at<float>(histogram.cols - 1);
+        float shadows = pow(2.0f, keyValue / avgLuminance);
+                
+        return (std::max)(1.0f, (std::min)(shadows, 32.0f));
     }
 
     float ImageProcessor::estimateExposureCompensation(const cv::Mat& histogram, float threshold) {
@@ -551,9 +563,10 @@ namespace motioncam {
 
     void ImageProcessor::estimateSettings(const RawImageBuffer& rawBuffer,
                                           const RawCameraMetadata& cameraMetadata,
-                                          PostProcessSettings& outSettings)
+                                          PostProcessSettings& outSettings,
+                                          float& outShiftAmount)
     {
-//        Measure measure("estimateSettings()");
+        //Measure measure("estimateSettings()");
         
         float ev = calcEv(cameraMetadata, rawBuffer.metadata);
         float keyValue = getShadowKeyValue(ev, false);
@@ -564,14 +577,15 @@ namespace motioncam {
 
         cameraProfile.temperatureFromVector(rawBuffer.metadata.asShot, temperature);
 
-        cv::Mat histogram = calcHistogram(cameraMetadata, rawBuffer, false, 4);
+        cv::Mat histogram = calcHistogram(cameraMetadata, rawBuffer, false, 8, outShiftAmount);
 
         outSettings.temperature    = static_cast<float>(temperature.temperature());
         outSettings.tint           = static_cast<float>(temperature.tint());
-        outSettings.shadows        = estimateShadows(histogram, ev, keyValue);
-        outSettings.exposure       = estimateExposureCompensation(histogram, 0.005f);
-        
-        estimateHdr(histogram, outSettings.clippedLows, outSettings.clippedHighs);
+        outSettings.shadows        = estimateShadows(histogram, keyValue);
+        outSettings.exposure       = estimateExposureCompensation(histogram, 0.0005f);
+
+        outSettings.clippedLows = histogram.at<float>(0);
+        outSettings.clippedHighs = histogram.at<float>(histogram.cols - 1);
     }
 
     void ImageProcessor::createSrgbMatrix(const RawCameraMetadata& cameraMetadata,
@@ -652,8 +666,8 @@ namespace motioncam {
             rawBuffer.rowStride,
             static_cast<int>(rawBuffer.pixelFormat),
             static_cast<int>(cameraMetadata.sensorArrangment),
-            width,
-            height,
+            rawBuffer.width,
+            rawBuffer.height,
             sx,
             sy,
             blackLevel[0],
@@ -702,8 +716,8 @@ namespace motioncam {
             rawBuffer.rowStride,
             static_cast<int>(rawBuffer.pixelFormat),
             static_cast<int>(cameraMetadata.sensorArrangment),
-            width,
-            height,
+            rawBuffer.width,
+            rawBuffer.height,
             sx,
             sy,
             whiteLevel,
@@ -741,7 +755,7 @@ namespace motioncam {
         std::vector<float> shadingMapScale;
         float shadingMapMaxScale;
         
-        getNormalisedShadingMap(metadata, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
+        getNormalisedShadingMap(metadata, 1.0f, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
 
         const int width  = inputBuffers[0].width() / sx;
         const int height = inputBuffers[0].height() / sy;
@@ -817,9 +831,12 @@ namespace motioncam {
         Halide::Runtime::Buffer<float> cameraToSrgbBuffer = ToHalideBuffer<float>(cameraToSrgb);
         std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer;
         std::vector<float> shadingMapScale;
-        float shadingMapMaxScale;
+        float shadingMapMaxScale, shadingMapOffset;
         
-        getNormalisedShadingMap(rawBuffer.metadata, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
+        // Get shading map offset
+        calcHistogram(cameraMetadata, rawBuffer, false, 4, shadingMapOffset);
+
+        getNormalisedShadingMap(rawBuffer.metadata, shadingMapOffset, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
 
         NativeBufferContext inputBufferContext(*rawBuffer.data, false);
 
@@ -888,8 +905,8 @@ namespace motioncam {
             shadingMapScale[1],
             shadingMapScale[2],
             cameraToSrgbBuffer,
-            rawBuffer.width / 2 / downscaleFactor,
-            rawBuffer.height / 2 / downscaleFactor,
+            rawBuffer.width,
+            rawBuffer.height,
             rawBuffer.rowStride,
             static_cast<int>(rawBuffer.pixelFormat),
             static_cast<int>(cameraMetadata.sensorArrangment),
@@ -898,7 +915,7 @@ namespace motioncam {
             blackLevel[2],
             blackLevel[3],
             whiteLevel,
-            settings.shadows * shadingMapMaxScale,
+            settings.shadows,
             settings.whitePoint,
             TONEMAP_VARIANCE,
             settings.blacks,
@@ -954,8 +971,8 @@ namespace motioncam {
                          rawBuffer.rowStride,
                          static_cast<int>(rawBuffer.pixelFormat),
                          static_cast<int>(cameraMetadata.sensorArrangment),
-                         halfWidth,
-                         halfHeight,
+                         rawBuffer.width,
+                         rawBuffer.height,
                          extendX / 2,
                          extendY / 2,
                          whiteLevel,
@@ -970,81 +987,23 @@ namespace motioncam {
         return rawData;
     }
 
-    void ImageProcessor::measureImage(RawImageBuffer& rawBuffer, const RawCameraMetadata& cameraMetadata, float& outSceneLuminosity)
+    void ImageProcessor::measureNoise(const RawCameraMetadata& cameraMetadata,
+                                      const RawImageBuffer& rawBuffer,
+                                      std::vector<float>& outNoise,
+                                      std::vector<float>& outSignal,
+                                      const int patchSize)
     {
-//        Measure measure("measureImage");
-
-        cv::Mat cameraToPcs;
-        cv::Mat pcsToSrgb;
-        cv::Vec3f cameraWhite;
-        
-        createSrgbMatrix(cameraMetadata, rawBuffer.metadata, rawBuffer.metadata.asShot, cameraWhite, cameraToPcs, pcsToSrgb);
-
-        cv::Mat cameraToSrgb = pcsToSrgb * cameraToPcs;
-        
-        Halide::Runtime::Buffer<float> cameraToSrgbBuffer = ToHalideBuffer<float>(cameraToSrgb);
-        std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer(4);
-
-        const auto& shadingMap = rawBuffer.metadata.shadingMap();
-        for(int i = 0; i < 4; i++) {
-            shadingMapBuffer[i] = ToHalideBuffer<float>(shadingMap[i]);
-        }
-
-        int halfWidth  = rawBuffer.width / 2;
-        int halfHeight = rawBuffer.height / 2;
-
-        const int downscale = 4;
-
-        auto whiteLevel = cameraMetadata.getWhiteLevel(rawBuffer.metadata);
-        const auto& blackLevel = cameraMetadata.getBlackLevel(rawBuffer.metadata);
-
-        NativeBufferContext inputBufferContext(*rawBuffer.data, false);
-        Halide::Runtime::Buffer<uint32_t> histogramBuffer(2u << 7u);
-
-        measure_image(inputBufferContext.getHalideBuffer(),
-                      rawBuffer.rowStride,
-                      static_cast<int>(rawBuffer.pixelFormat),
-                      halfWidth,
-                      halfHeight,
-                      downscale,
-                      blackLevel[0],
-                      blackLevel[1],
-                      blackLevel[2],
-                      blackLevel[3],
-                      whiteLevel,
-                      cameraWhite[0],
-                      cameraWhite[1],
-                      cameraWhite[2],
-                      cameraToSrgbBuffer,
-                      shadingMapBuffer[0],
-                      shadingMapBuffer[1],
-                      shadingMapBuffer[2],
-                      shadingMapBuffer[3],
-                      static_cast<int>(cameraMetadata.sensorArrangment),
-                      histogramBuffer);
-
-        histogramBuffer.device_sync();
-        histogramBuffer.copy_to_host();
-
-        cv::Mat histogram(histogramBuffer.height(), histogramBuffer.width(), CV_32S, histogramBuffer.data());
-
-        // Normalize
-        histogram.convertTo(histogram, CV_32F, 1.0 / (halfWidth/downscale * halfHeight/downscale));
-
-        outSceneLuminosity = 0;
-    }
-
-    void ImageProcessor::measureNoise(const RawImageBuffer& rawBuffer, std::vector<float>& outNoise, std::vector<float>& outSignal, const int patchSize) {
         NativeBufferContext context(*rawBuffer.data, false);
 
         Halide::Runtime::Buffer<float> noiseBuffer(rawBuffer.width / 2 / patchSize, rawBuffer.height / 2 / patchSize, 4);
         Halide::Runtime::Buffer<float> signalBuffer(rawBuffer.width / 2 / patchSize, rawBuffer.height / 2 / patchSize, 4);
         
         measure_noise(context.getHalideBuffer(),
-                      rawBuffer.width/2,
-                      rawBuffer.height/2,
+                      rawBuffer.width,
+                      rawBuffer.height,
                       rawBuffer.rowStride,
                       static_cast<int>(rawBuffer.pixelFormat),
+                      static_cast<int>(cameraMetadata.sensorArrangment),
                       patchSize,
                       noiseBuffer,
                       signalBuffer);
@@ -1165,57 +1124,68 @@ namespace motioncam {
     cv::Mat ImageProcessor::calcHistogram(const RawCameraMetadata& cameraMetadata,
                                           const RawImageBuffer& buffer,
                                           const bool cumulative,
-                                          const int downscale)
+                                          const int downscale,
+                                          float& outShiftAmount)
     {
         //Measure measure("calcHistogram()");
-        const int halfWidth  = buffer.width / 2;
-        const int halfHeight = buffer.height / 2;
+        const int SCALE = downscale;
+        const int width = buffer.width/2/SCALE;
+        const int height = buffer.height/2/SCALE;
 
-        NativeBufferContext inputBufferContext(*buffer.data, false);
-        Halide::Runtime::Buffer<uint32_t> histogramBuffer(2u << 15u);
-
+        std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer;
+        std::vector<float> shadingMapScale;
+        float shadingMapMaxScale;
+        
+        ImageProcessor::getNormalisedShadingMap(buffer.metadata, 1.0f, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
+        
         cv::Mat cameraToPcs;
         cv::Mat pcsToSrgb;
         cv::Vec3f cameraWhite;
         
-        createSrgbMatrix(cameraMetadata, buffer.metadata, buffer.metadata.asShot, cameraWhite, cameraToPcs, pcsToSrgb);
+        ImageProcessor::createSrgbMatrix(cameraMetadata,
+                                         buffer.metadata,
+                                         buffer.metadata.asShot,
+                                         cameraWhite,
+                                         cameraToPcs,
+                                         pcsToSrgb);
 
         cv::Mat cameraToSrgb = pcsToSrgb * cameraToPcs;
+        Halide::Runtime::Buffer<float> cameraToSrgbBuffer =
+            Halide::Runtime::Buffer<float>((float*)cameraToSrgb.data, cameraToSrgb.rows, cameraToSrgb.cols);
 
-        Halide::Runtime::Buffer<float> cameraToSrgbBuffer = ToHalideBuffer<float>(cameraToSrgb);
-
-        std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer(4);
-        const auto& shadingMap = buffer.metadata.shadingMap();
-        
-        for(int i = 0; i < 4; i++) {
-            shadingMapBuffer[i] = ToHalideBuffer<float>(shadingMap[i]);
-        }
-
-        auto whiteLevel = cameraMetadata.getWhiteLevel(buffer.metadata);
-        const auto& blackLevel = cameraMetadata.getBlackLevel(buffer.metadata);
-
+        NativeBufferContext inputBufferContext(*buffer.data, false);
+        Halide::Runtime::Buffer<uint32_t> histogramBuffer(2u << 7u);
+        Halide::Runtime::Buffer<float> scaleBuffer(4);
+                
         measure_image(inputBufferContext.getHalideBuffer(),
                       buffer.rowStride,
-                      static_cast<int>(buffer.pixelFormat),
-                      halfWidth,
-                      halfHeight,
-                      downscale,
-                      blackLevel[0],
-                      blackLevel[1],
-                      blackLevel[2],
-                      blackLevel[3],
-                      whiteLevel,
-                      cameraWhite[0],
-                      cameraWhite[1],
-                      cameraWhite[2],
-                      cameraToSrgbBuffer,
+                      (int)buffer.pixelFormat,
+                      (int)cameraMetadata.sensorArrangment,
                       shadingMapBuffer[0],
                       shadingMapBuffer[1],
                       shadingMapBuffer[2],
                       shadingMapBuffer[3],
-                      static_cast<int>(cameraMetadata.sensorArrangment),
+                      SCALE,
+                      SCALE,
+                      width,
+                      height,
+                      cameraMetadata.getBlackLevel()[0],
+                      cameraMetadata.getBlackLevel()[1],
+                      cameraMetadata.getBlackLevel()[2],
+                      cameraMetadata.getBlackLevel()[3],
+                      cameraMetadata.getWhiteLevel(),
+                      buffer.metadata.asShot[0],
+                      buffer.metadata.asShot[1],
+                      buffer.metadata.asShot[2],
+                      shadingMapScale[0],
+                      shadingMapScale[1],
+                      shadingMapScale[2],
+                      cameraToSrgbBuffer,
+                      scaleBuffer,
                       histogramBuffer);
         
+        //
+
         cv::Mat histogram(histogramBuffer.height(), histogramBuffer.width(), CV_32S, histogramBuffer.data());
         
         histogram.convertTo(histogram, CV_32F);
@@ -1229,10 +1199,16 @@ namespace motioncam {
         }
         else {
             for(int i = 0; i < histogram.cols; i++) {
-                histogram.at<float>(i) /= (halfWidth/downscale * halfHeight/downscale);
+                histogram.at<float>(i) /= (width*height);
             }
         }
-                
+
+        float R = scaleBuffer.data()[0];
+        float G = 0.5f*(scaleBuffer.data()[1] + scaleBuffer.data()[2]);
+        float B = scaleBuffer.data()[3];
+                            
+        outShiftAmount = std::min(std::min(R, G), B);
+                    
         return histogram;
     }
 
@@ -1245,16 +1221,26 @@ namespace motioncam {
         
         // Started
         progressListener.onProgressUpdate(0);
-        
-        auto referenceRawBuffer = rawContainer.loadFrame(rawContainer.getReferenceImage());
-        if(!referenceRawBuffer) {
-            progressListener.onError("Invalid reference frames");
+
+        // Load reference image.
+        if(rawContainer.getFrames().empty()) {
+            progressListener.onError("No frames found");
+            progressListener.onCompleted();
             return;
         }
-
-        auto referenceBayer = loadRawImage(*referenceRawBuffer, rawContainer.getCameraMetadata());
-
-        PostProcessSettings settings = rawContainer.getPostProcessSettings();
+        
+        // Use oldest frame as reference (TODO: Pick sharpest)
+        auto referenceFrame = rawContainer.getFrames()[0];
+        auto referenceRawBuffer = rawContainer.loadFrame(referenceFrame);
+        
+        if(!referenceRawBuffer) {
+            progressListener.onError("Invalid reference frames");
+            progressListener.onCompleted();
+            return;
+        }
+        
+        // Remove the reference
+        rawContainer.removeFrame(referenceFrame);
 
         // Remove all underexposed images
         if(rawContainer.isHdr()) {
@@ -1278,21 +1264,30 @@ namespace motioncam {
                 }
             }
         }
-                        
+        
+        auto referenceBayer = loadRawImage(*referenceRawBuffer, rawContainer.getCameraMetadata());
+        PostProcessSettings settings = rawContainer.getPostProcessSettings();
+        
         // Estimate shadows if not set
         if(settings.shadows < 0) {
             float ev = calcEv(rawContainer.getCameraMetadata(), referenceRawBuffer->metadata);
             float keyValue = getShadowKeyValue(ev, settings.captureMode == "NIGHT");
+            float shiftAmount;
             
-            cv::Mat histogram = calcHistogram(rawContainer.getCameraMetadata(), *referenceRawBuffer, false, 4);
-            
-            settings.shadows = estimateShadows(histogram, ev, keyValue);
+            cv::Mat histogram = calcHistogram(rawContainer.getCameraMetadata(), *referenceRawBuffer, false, 4, shiftAmount);
+                        
+            settings.shadows = estimateShadows(histogram, keyValue);
         }
         
         if(settings.blacks < 0 || settings.whitePoint < 0) {
             estimateBlackWhitePoint(*referenceRawBuffer, rawContainer.getCameraMetadata(), settings, settings.blacks, settings.whitePoint);
         }
         
+        // Calculate shading map offset
+        float shadingMapOffset;
+        
+        calcHistogram(rawContainer.getCameraMetadata(), *referenceRawBuffer, false, 4, shadingMapOffset);
+
         //
         // Save preview
         //
@@ -1393,17 +1388,18 @@ namespace motioncam {
             std::string dngFile = rawOutputPath + ".dng";
             
             try {
-                util::WriteDng(rawImage, metadata, frameMetadata, true, true, dngFile);
+                util::WriteDng(rawImage, metadata, frameMetadata, frameMetadata.screenOrientation, true, true, dngFile);
             }
             catch(std::runtime_error& e) {
             }
         }
-                        
+        
         cv::Mat outputImage = postProcess(
             denoiseOutput,
             hdrMetadata,
             offsetX,
             offsetY,
+            shadingMapOffset,
             noise,
             referenceRawBuffer->metadata,
             rawContainer.getCameraMetadata(),
@@ -1442,14 +1438,14 @@ namespace motioncam {
         Measure measure("process()");
 
         // Open RAW container
-        RawContainer rawContainer(inputPath);
+        auto container = RawContainer::Open(inputPath);
 
-        if(rawContainer.getFrames().empty()) {
+        if(container->getFrames().empty()) {
             progressListener.onError("No frames found");
             return;
         }
         
-        process(rawContainer, outputPath, progressListener);
+        process(*container, outputPath, progressListener);
     }
 
     float ImageProcessor::adjustShadowsForFaces(cv::Mat input, PreviewMetadata& metadata) {
@@ -1569,7 +1565,7 @@ namespace motioncam {
         image->writeMetadata();
     }
 
-    double ImageProcessor::measureSharpness(const RawImageBuffer& rawBuffer) {
+    double ImageProcessor::measureSharpness(const RawCameraMetadata& cameraMetadata, const RawImageBuffer& rawBuffer) {
         //Measure measure("measureSharpness()");
         
         int halfWidth  = rawBuffer.width / 2;
@@ -1581,8 +1577,9 @@ namespace motioncam {
         generate_edges(inputBufferContext.getHalideBuffer(),
                        rawBuffer.rowStride,
                        static_cast<int>(rawBuffer.pixelFormat),
-                       halfWidth,
-                       halfHeight,
+                       static_cast<int>(cameraMetadata.sensorArrangment),
+                       rawBuffer.width,
+                       rawBuffer.height,
                        outputBuffer);
         
         outputBuffer.device_sync();
@@ -1606,7 +1603,7 @@ namespace motioncam {
         std::vector<float> noise, signal;
 
         // Measure noise in reference
-        measureNoise(*referenceRawBuffer, noise, signal, patchSize);
+        measureNoise(cameraMetadata, *referenceRawBuffer, noise, signal, patchSize);
 
         auto reference = loadRawImage(*referenceRawBuffer, cameraMetadata, true);
                 
@@ -1740,7 +1737,7 @@ namespace motioncam {
         std::vector<float> noise, signal;
 
         // Measure noise in reference
-        measureNoise(*referenceRawBuffer, noise, signal, patchSize);
+        measureNoise(cameraMetadata, *referenceRawBuffer, noise, signal, patchSize);
 
         auto reference = loadRawImage(*referenceRawBuffer, cameraMetadata, true);
                 
@@ -1817,7 +1814,7 @@ namespace motioncam {
         
         std::vector<float> noise, signal;
         
-        measureNoise(referenceRawBuffer, noise, signal, patchSize);
+        measureNoise(rawContainer.getCameraMetadata(), referenceRawBuffer, noise, signal, patchSize);
         
         float signalAverage = std::accumulate(signal.begin(), signal.end(), 0.0f) / signal.size();
         signalAverage /= whiteLevel;
@@ -1856,11 +1853,6 @@ namespace motioncam {
         //
         
         while(it != processFrames.end()) {
-            if(rawContainer.getReferenceImage() == *it) {
-                ++it;
-                continue;
-            }
-            
             auto frame = rawContainer.loadFrame(*it);
             auto current = loadRawImage(*frame, rawContainer.getCameraMetadata());
             
@@ -1920,7 +1912,7 @@ namespace motioncam {
                 denoiseInput(x, y, c) = static_cast<uint16_t>( (std::max)(0.0f, (std::min)(p * s + 0.5f, (float) EXPANDED_RANGE) )) ;
             });
         else {
-            const float n = (float) processFrames.size() - 1;
+            const float n = (float) processFrames.size();
 
             denoiseInput.for_each_element([&](int x, int y, int c) {
                 float p = fuseOutput(x, y, c) / n - blackLevel[c];
@@ -2107,9 +2099,11 @@ namespace motioncam {
         // Get shading map
         std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer;
         std::vector<float> shadingMapScale;
-        float shadingMapMaxScale;
+        float shadingMapMaxScale, shadingMapOffset;
         
-        getNormalisedShadingMap(underexposed.metadata, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
+        calcHistogram(cameraMetadata, underexposed, false, 4, shadingMapOffset);
+        
+        getNormalisedShadingMap(underexposed.metadata, shadingMapOffset, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
 
         Halide::Runtime::Buffer<float> colorTransformBuffer = ToHalideBuffer<float>(cameraToSrgb);
         Halide::Runtime::Buffer<uint16_t> outputBuffer(underexposedImage->rawBuffer.width()*2, underexposedImage->rawBuffer.height()*2, 3);

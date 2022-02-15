@@ -180,16 +180,16 @@ JNIEXPORT jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_Generate
         return JNI_FALSE;
 
     try {
-        motioncam::RawContainer container(fd);
+        auto container = motioncam::RawContainer::Open(fd);
         motioncam::PostProcessSettings settings;
 
-        auto& cameraMetadata = container.getCameraMetadata();
-        auto frames = container.getFrames();
+        auto& cameraMetadata = container->getCameraMetadata();
+        auto frames = container->getFrames();
 
         int step = std::max(1, (int) frames.size() / numPreviews);
 
         for(int i = 0; i < frames.size(); i+=step) {
-            auto frame = container.loadFrame(frames[i]);
+            auto frame = container->loadFrame(frames[i]);
             if(!frame)
                 continue;
 

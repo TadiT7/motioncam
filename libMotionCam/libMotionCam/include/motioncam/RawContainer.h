@@ -8,92 +8,53 @@
 #include <opencv2/opencv.hpp>
 #include <json11/json11.hpp>
 
-#include "motioncam/RawImageMetadata.h"
-
 namespace motioncam {
-    namespace util {
-        class ZipWriter;
-        class ZipReader;
-    }
+    struct RawImageBuffer;
+    struct RawCameraMetadata;
+    struct PostProcessSettings;
+
+    const uint8_t CONTAINER_VERSION = 2;
+    const uint8_t CONTAINER_ID[7] = {'M', 'O', 'T', 'I', 'O', 'N', ' '};
+
+    struct Header {
+        uint8_t ident[7];
+        uint8_t version;
+    };
 
     class RawContainer {
     public:
-        RawContainer(const int fd);
-        RawContainer(const std::string& inputPath);
-        RawContainer(const RawCameraMetadata& cameraMetadata, const int numSegments=1);
-
-        RawContainer(const RawCameraMetadata& cameraMetadata,
-                     const PostProcessSettings& postProcessSettings,
-                     const int64_t referenceTimestamp,
-                     const bool isHdr,
-                     const std::vector<std::shared_ptr<RawImageBuffer>>& buffers);
-
-        ~RawContainer();
+        virtual ~RawContainer() = default;
         
-        const RawCameraMetadata& getCameraMetadata() const;
-        const PostProcessSettings& getPostProcessSettings() const;
-
-        std::string getReferenceImage() const;
-        void updateReferenceImage(const std::string& referenceName);
-        
-        bool isHdr() const;
-        std::vector<std::string> getFrames() const;
-        
-        std::shared_ptr<RawImageBuffer> getFrame(const std::string& frame) const;
-        std::shared_ptr<RawImageBuffer> loadFrame(const std::string& frame) const;
-        void removeFrame(const std::string& frame);
-        
-        bool create(const int fd);
-        bool append(const int fd, const RawImageBuffer& frame);
-        bool commit(const int fd);
-        
-        void save(const int fd);
-        void save(const std::string& outputPath);
-        void save(util::ZipWriter& writer);
+        virtual const RawCameraMetadata& getCameraMetadata() const = 0;
+        virtual const PostProcessSettings& getPostProcessSettings() const = 0;
                 
-        bool isInMemory() const { return mIsInMemory; };
-        int getNumSegments() const;
+        virtual bool isHdr() const = 0;
+        virtual std::vector<std::string> getFrames() const = 0;
         
-    private:
-        void initialise(const std::string& inputPath);
-        void initialise(const int fd);
-        void ensureValid();
+        virtual std::shared_ptr<RawImageBuffer> getFrame(const std::string& frame) = 0;
+        virtual int64_t getFrameTimestamp(const std::string& frame) const = 0;
+        virtual std::shared_ptr<RawImageBuffer> loadFrame(const std::string& frame) = 0;
+        virtual void removeFrame(const std::string& frame) = 0;
         
-        void loadFromBin(FILE* file);
-        void loadFromZip(std::unique_ptr<util::ZipReader> zipReader);
+        virtual bool isInMemory() const = 0;
+        virtual int getNumSegments() const = 0;
         
-        void generateContainerMetadata(json11::Json::object& metadataJson);
-        void loadContainerMetadata(const json11::Json& metadata);
-        std::shared_ptr<RawImageBuffer> loadFrameMetadata(const json11::Json& obj);
+        virtual void add(const RawImageBuffer& frame, bool flush) = 0;
+        virtual void add(const std::vector<std::shared_ptr<RawImageBuffer>>& buffers, bool flush) = 0;
+        virtual void commit() = 0;
+        virtual void commit(const std::string& outputPath) = 0;
+        
+        static std::unique_ptr<RawContainer> Open(const int fd);
+        static std::unique_ptr<RawContainer> Open(const std::string& inputPath);
+        
+        static std::unique_ptr<RawContainer> Create(const RawCameraMetadata& cameraMetadata,
+                                                    const int numSegments=1,
+                                                    const json11::Json& extraData=json11::Json());
 
-        void cropShadingMap(std::vector<cv::Mat>& shadingMap, int width, int height, int originalWidth, int originalHeight, bool isBinned) const;
-        
-        static std::vector<cv::Mat> getLensShadingMap(const json11::Json& obj);
-        
-        static std::string toString(ColorFilterArrangment sensorArrangment);
-        static std::string toString(PixelFormat format);
-        static std::string toString(RawType rawType);
-        
-        static cv::Mat toMat3x3(const std::vector<json11::Json>& array);
-        static cv::Vec3f toVec3f(const std::vector<json11::Json>& array);
-        static json11::Json::array toJsonArray(cv::Mat m);
-
-        static void generateMetadata(const RawImageBuffer& frame, json11::Json::object& metadata, const std::string& filename);
-
-    private:
-        std::unique_ptr<util::ZipReader> mZipReader;
-        FILE* mFile;
-        
-        RawCameraMetadata mCameraMetadata;
-        PostProcessSettings mPostProcessSettings;
-        int64_t mReferenceTimestamp;
-        std::string mReferenceImage;
-        bool mIsHdr;
-        bool mIsInMemory;
-        int mNumSegments;
-        std::vector<std::string> mFrames;
-        std::map<std::string, std::shared_ptr<RawImageBuffer>> mFrameBuffers;
-        std::vector<cv::Mat> mContainerShadingMap;
+        static std::unique_ptr<RawContainer> Create(const int fd,
+                                                    const RawCameraMetadata& cameraMetadata,
+                                                    const int numSegments=1,
+                                                    const json11::Json& extraData=json11::Json());
     };
 }
 

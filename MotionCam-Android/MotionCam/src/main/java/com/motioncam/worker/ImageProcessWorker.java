@@ -120,7 +120,7 @@ public class ImageProcessWorker extends Worker implements NativeProcessorProgres
             Log.d(TAG, "Writing to " + outputPath.getPath());
 
             if(!filesPath.exists() && !filesPath.mkdirs()) {
-                Log.e(TAG, "Failed to create " + filesPath.toString());
+                Log.e(TAG, "Failed to create " + filesPath);
                 return;
             }
 
@@ -168,7 +168,7 @@ public class ImageProcessWorker extends Worker implements NativeProcessorProgres
             File outputPath = new File(dcimPath, inputFile.getName());
 
             if(!dcimPath.exists() && !dcimPath.mkdirs()) {
-                Log.e(TAG, "Failed to create " + dcimPath.toString());
+                Log.e(TAG, "Failed to create " + dcimPath);
                 return null;
             }
 
@@ -204,14 +204,14 @@ public class ImageProcessWorker extends Worker implements NativeProcessorProgres
         // Copy to media store
         Uri uri = null;
 
-        if (BuildConfig.DEBUG && !inMemory)
-            saveToFiles(containerPath, "application/zip", Environment.DIRECTORY_DOCUMENTS);
+        if (!inMemory)
+            saveToFiles(containerPath, "application/octet-stream", Environment.DIRECTORY_DOCUMENTS);
 
         if (tempFileDng.exists()) {
             saveToMediaStore(tempFileDng, "image/x-adobe-dng", Environment.DIRECTORY_DCIM + File.separator + "Camera");
 
             if (!tempFileDng.delete()) {
-                Log.w(TAG, "Failed to delete " + tempFileDng.toString());
+                Log.w(TAG, "Failed to delete " + tempFileDng);
             }
         }
 
@@ -221,7 +221,7 @@ public class ImageProcessWorker extends Worker implements NativeProcessorProgres
 
         if (!inMemory) {
             if(!containerPath.delete()) {
-                Log.w(TAG, "Failed to delete " + containerPath.toString());
+                Log.w(TAG, "Failed to delete " + containerPath);
             }
         }
 
@@ -262,7 +262,7 @@ public class ImageProcessWorker extends Worker implements NativeProcessorProgres
         File root = new File(metadataPath);
 
         // Find all pending files and process them
-        File[] pendingFiles = root.listFiles((dir, name) -> name.toLowerCase().endsWith("zip"));
+        File[] pendingFiles = root.listFiles((dir, name) -> name.toLowerCase().endsWith("container"));
         if(pendingFiles == null)
             return completedFiles;
 
@@ -279,7 +279,7 @@ public class ImageProcessWorker extends Worker implements NativeProcessorProgres
             catch (Exception e) {
                 Log.e(TAG, "Failed to process " + file.getPath(), e);
                 if(!file.delete()) {
-                    Log.w(TAG, "Failed to delete " + file.toString());
+                    Log.w(TAG, "Failed to delete " + file);
                 }
             }
         }

@@ -9,10 +9,15 @@
 #include <opencv2/opencv.hpp>
 
 namespace motioncam {
+    class RawContainer;
+
     struct RawImageMetadata;
     struct RawCameraMetadata;
     struct RawImageBuffer;
-    class RawContainer;
+    enum class ScreenOrientation : int;
+    enum class ColorFilterArrangment : int;
+    enum class PixelFormat : int;
+    enum class RawType : int;
 
     namespace util {
         struct ContainerFrame {
@@ -78,6 +83,7 @@ namespace motioncam {
         void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
+                      const ScreenOrientation orientation,
                       const bool enableCompression,
                       const bool saveShadingMap,
                       const std::string& outputPath);
@@ -85,6 +91,7 @@ namespace motioncam {
         void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
+                      const ScreenOrientation orientation,
                       const bool enableCompression,
                       const bool saveShadingMap,
                       const int fd);
@@ -92,6 +99,7 @@ namespace motioncam {
         void WriteDng(const cv::Mat& rawImage,
                       const RawCameraMetadata& cameraMetadata,
                       const RawImageMetadata& imageMetadata,
+                      const ScreenOrientation orientation,
                       const bool enableCompression,
                       const bool saveShadingMap,
                       ZipWriter& zipWriter,
@@ -114,6 +122,22 @@ namespace motioncam {
         void GetOrderedFrames(
             const std::vector<std::unique_ptr<RawContainer>>& containers,
             std::vector<ContainerFrame>& outOrderedFrames);
+    
+        std::string toString(const ColorFilterArrangment& sensorArrangment);
+        std::string toString(const PixelFormat& format);
+        std::string toString(const RawType& rawType);
+    
+        cv::Mat toMat3x3(const std::vector<json11::Json>& array);
+        cv::Vec3f toVec3f(const std::vector<json11::Json>& array);
+        json11::Json::array toJsonArray(const cv::Mat& m);
+    
+        void CropShadingMap(std::vector<cv::Mat>& shadingMap,
+                            int width,
+                            int height,
+                            int originalWidth,
+                            int originalHeight,
+                            bool isBinned);
+
     }
 }
 

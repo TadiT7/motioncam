@@ -101,7 +101,7 @@ namespace motioncam {
         std::vector<std::shared_ptr<RawImageBuffer>> mReadyBuffers;
 
         moodycamel::ConcurrentQueue<std::shared_ptr<RawImageBuffer>> mUnusedBuffers;
-        moodycamel::ConcurrentQueue<std::shared_ptr<RawContainer>> mPendingContainers;
+        moodycamel::ConcurrentQueue<std::unique_ptr<RawContainer>> mPendingContainers;
         
         std::shared_ptr<RawBufferStreamer> mStreamer;
     };

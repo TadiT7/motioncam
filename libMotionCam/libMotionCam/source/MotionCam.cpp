@@ -3,6 +3,8 @@
 #include "motioncam/Util.h"
 #include "motioncam/ImageProcessor.h"
 #include "motioncam/Logger.h"
+#include "motioncam/RawImageBuffer.h"
+#include "motioncam/RawCameraMetadata.h"
 
 #include "build_bayer.h"
 #include "build_bayer2.h"
@@ -20,6 +22,7 @@ namespace motioncam {
         Job(const cv::Mat&& bayerImage,
             const RawCameraMetadata&& cameraMetadata,
             const RawImageMetadata&& frameMetadata,
+            const ScreenOrientation orientation,
             const bool enableCompression,
             const bool saveShadingMap,
             const int fd,
@@ -27,6 +30,7 @@ namespace motioncam {
         bayerImage(bayerImage),
         cameraMetadata(cameraMetadata),
         frameMetadata(frameMetadata),
+        orientation(orientation),
         enableCompression(enableCompression),
         saveShadingMap(saveShadingMap),
         fd(fd),
@@ -37,6 +41,7 @@ namespace motioncam {
         cv::Mat bayerImage;
         const RawCameraMetadata cameraMetadata;
         const RawImageMetadata frameMetadata;
+        const ScreenOrientation orientation;
         const bool enableCompression;
         const bool saveShadingMap;
         const int fd;
@@ -68,9 +73,21 @@ namespace motioncam {
             
             try {
 #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
-                util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, job->saveShadingMap, job->enableCompression, job->fd);
+                util::WriteDng(job->bayerImage,
+                               job->cameraMetadata,
+                               job->frameMetadata,
+                               job->orientation,
+                               job->saveShadingMap,
+                               job->enableCompression,
+                               job->fd);
 #elif defined(_WIN32)
-                util::WriteDng(job->bayerImage, job->cameraMetadata, job->frameMetadata, job->saveShadingMap, job->enableCompression, job->outputPath);
+                util::WriteDng(job->bayerImage,
+                               job->cameraMetadata,
+                               job->frameMetadata,
+                               job->orientation,
+                               job->saveShadingMap,
+                               job->enableCompression,
+                               job->outputPath);
 #endif
             }
             catch(std::runtime_error& e) {
@@ -93,7 +110,7 @@ namespace motioncam {
         std::vector<std::unique_ptr<RawContainer>> c;
         
         for(auto& inputPath : inputPaths) {
-            c.push_back( std::unique_ptr<RawContainer>( new RawContainer(inputPath) ) );
+            c.push_back( RawContainer::Open(inputPath) );
         }
 
         convertVideoToDNG(c, progress, denoiseWeights, numThreads, mergeFrames, enableCompression, applyShadingMap, fromFrameNumber, toFrameNumber);
@@ -112,7 +129,7 @@ namespace motioncam {
         std::vector<std::unique_ptr<RawContainer>> c;
         
         for(auto fd : fds) {
-            c.push_back( std::unique_ptr<RawContainer>( new RawContainer(fd) ) );
+            c.push_back( RawContainer::Open(fd) );
         }
         
         convertVideoToDNG(c, progress, denoiseWeights, numThreads, mergeFrames, enableCompression, applyShadingMap, fromFrameNumber, toFrameNumber);
@@ -141,9 +158,12 @@ namespace motioncam {
 
         // Get a list of all frames, ordered by timestamp
         std::vector<util::ContainerFrame> orderedFrames;
-        
         util::GetOrderedFrames(containers, orderedFrames);
-                
+        
+        // If no frames found. return
+        if(orderedFrames.empty())
+            return;;
+        
         // Create processing threads
         mImpl->running = true;
         
@@ -155,9 +175,7 @@ namespace motioncam {
             
             threads.push_back(std::move(t));
         }
-        
-        //RawCameraMetadata metadata = containers[0]->getCameraMetadata();
-                
+                        
         int startIdx = fromFrameNumber;
         int endIdx = toFrameNumber;
         
@@ -172,11 +190,13 @@ namespace motioncam {
 
         startIdx = std::min((int)orderedFrames.size() - 1, std::max(0, startIdx));
         endIdx = std::min((int)orderedFrames.size() - 1, std::max(0, endIdx));
-                
+        
+        ScreenOrientation orientation = ScreenOrientation::INVALID;
+        
         for(int frameIdx = startIdx; frameIdx <= endIdx; frameIdx++) {
             auto& container = containers[orderedFrames[frameIdx].containerIndex];
             auto frame = container->loadFrame(orderedFrames[frameIdx].frameName);
-            
+                                    
             if(!frame) {
                 continue;
             }
@@ -185,6 +205,10 @@ namespace motioncam {
                 continue;
             }
 
+            // Lock orientation to first frame
+            if(orientation == ScreenOrientation::INVALID)
+                orientation = frame->metadata.screenOrientation;
+            
             auto cameraMetadata = containers[0]->getCameraMetadata();
 
             auto originalWhiteLevel = containers[0]->getCameraMetadata().getWhiteLevel(frame->metadata);
@@ -195,9 +219,15 @@ namespace motioncam {
             std::vector<float> shadingMapScale;
 
             if(applyShadingMap) {
-                float shadingMapMaxScale;
+                float shadingMapMaxScale, shadingMapShift;
 
-                ImageProcessor::getNormalisedShadingMap(frame->metadata, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
+                ImageProcessor::calcHistogram(cameraMetadata, *frame, false, 4, shadingMapShift);
+                
+                ImageProcessor::getNormalisedShadingMap(frame->metadata,
+                                                        shadingMapShift,
+                                                        shadingMapBuffer,
+                                                        shadingMapScale,
+                                                        shadingMapMaxScale);
             }
             else {
                 auto shadingMap = frame->metadata.shadingMap();
@@ -212,8 +242,9 @@ namespace motioncam {
             }
 
             std::vector<std::shared_ptr<RawImageBuffer>> nearestBuffers;
-            Halide::Runtime::Buffer<uint16_t> bayerBuffer(frame->width, frame->height);
-
+            Halide::Runtime::Buffer<uint16_t> bayerBuffer;
+            cv::Mat bayerImage;
+            
             if(mergeFrames == 0) {
                 auto data = frame->data->lock(false);
                 auto inputBuffer = Halide::Runtime::Buffer<uint8_t>(data, (int) frame->data->len());
@@ -228,7 +259,8 @@ namespace motioncam {
                 
                 if(weightSum > 1e-5f) {
                     auto denoiseBuffers = ImageProcessor::denoise(frame, nearestBuffers, denoiseWeights, container->getCameraMetadata());
-                    
+                    bayerBuffer = Halide::Runtime::Buffer<uint16_t>(denoiseBuffers[0].width() * 2, denoiseBuffers[0].height() * 2);
+
                     build_bayer2(denoiseBuffers[0],
                                  denoiseBuffers[1],
                                  denoiseBuffers[2],
@@ -237,8 +269,6 @@ namespace motioncam {
                                  shadingMapBuffer[1],
                                  shadingMapBuffer[2],
                                  shadingMapBuffer[3],
-                                 frame->width / 2,
-                                 frame->height / 2,
                                  static_cast<int>(cameraMetadata.sensorArrangment),
                                  EXPANDED_RANGE,
                                  frame->metadata.asShot[0],
@@ -248,15 +278,24 @@ namespace motioncam {
                                  shadingMapScale[1],
                                  shadingMapScale[2],
                                  bayerBuffer);
+                    
+                    // Crop buffer to original size
+                    int x = bayerBuffer.width() - frame->width;
+                    int y = bayerBuffer.height() - frame->height;
+                    
+                    bayerImage = cv::Mat(bayerBuffer.height(), bayerBuffer.width(), CV_16U, bayerBuffer.data());
+                    bayerImage = bayerImage(cv::Rect(x / 2, y / 2, frame->width, frame->height));
                 }
                 else {
+                    bayerBuffer = Halide::Runtime::Buffer<uint16_t>(frame->width, frame->height);
+                    
                     build_bayer(inputBuffer,
                                 shadingMapBuffer[0],
                                 shadingMapBuffer[1],
                                 shadingMapBuffer[2],
                                 shadingMapBuffer[3],
-                                frame->width / 2,
-                                frame->height / 2,
+                                frame->width,
+                                frame->height,
                                 frame->rowStride,
                                 static_cast<int>(frame->pixelFormat),
                                 static_cast<int>(cameraMetadata.sensorArrangment),
@@ -273,6 +312,8 @@ namespace motioncam {
                                 shadingMapScale[2],
                                 EXPANDED_RANGE,
                                 bayerBuffer);
+                    
+                    bayerImage = cv::Mat(bayerBuffer.height(), bayerBuffer.width(), CV_16U, bayerBuffer.data());
                 }
             }
             else {
@@ -280,7 +321,8 @@ namespace motioncam {
                 util::GetNearestBuffers(containers, orderedFrames, frameIdx, mergeFrames, nearestBuffers);
                 
                 auto denoiseBuffers = ImageProcessor::denoise(frame, nearestBuffers, denoiseWeights, container->getCameraMetadata());
-                                
+                bayerBuffer = Halide::Runtime::Buffer<uint16_t>(denoiseBuffers[0].width() * 2, denoiseBuffers[0].height() * 2);
+                
                 build_bayer2(denoiseBuffers[0],
                              denoiseBuffers[1],
                              denoiseBuffers[2],
@@ -289,8 +331,6 @@ namespace motioncam {
                              shadingMapBuffer[1],
                              shadingMapBuffer[2],
                              shadingMapBuffer[3],
-                             frame->width / 2,
-                             frame->height / 2,
                              static_cast<int>(cameraMetadata.sensorArrangment),
                              EXPANDED_RANGE,
                              frame->metadata.asShot[0],
@@ -300,7 +340,17 @@ namespace motioncam {
                              shadingMapScale[1],
                              shadingMapScale[2],
                              bayerBuffer);
+                
+                // Crop buffer to original size
+                int x = bayerBuffer.width() - frame->width;
+                int y = bayerBuffer.height() - frame->height;
+                
+                bayerImage = cv::Mat(bayerBuffer.height(), bayerBuffer.width(), CV_16U, bayerBuffer.data());
+                bayerImage = bayerImage(cv::Rect(x / 2, y / 2, frame->width, frame->height));
             }
+
+            // Clone the buffer because the halide buffer will go away
+            bayerImage = bayerImage.clone();
 
             // Release previous frames
             int m = frameIdx - mergeFrames;
@@ -322,11 +372,6 @@ namespace motioncam {
             
             cameraMetadata.updateBayerOffsets(frameMetadata.dynamicBlackLevel, frameMetadata.dynamicWhiteLevel);
             
-            cv::Mat bayerImage(bayerBuffer.height(), bayerBuffer.width(), CV_16U, bayerBuffer.data());
-
-            // Clone the buffer because the halide buffer will go away
-            bayerImage = bayerImage.clone();
-
             int fd = -1;
             std::string outputPath;
 
@@ -339,10 +384,11 @@ namespace motioncam {
 #elif defined(_WIN32)
             outputPath = progress.onNeedFd(frameIdx);
 #endif
-
+                        
             auto newJob = std::make_shared<Job>(std::move(bayerImage),
                                                 std::move(cameraMetadata),
                                                 std::move(frameMetadata),
+                                                orientation,
                                                 !applyShadingMap,
                                                 enableCompression,
                                                 fd,
@@ -405,7 +451,7 @@ namespace motioncam {
         std::vector<std::unique_ptr<RawContainer>> containers;
         
         try {
-            containers.push_back( std::unique_ptr<RawContainer>( new RawContainer(filename) ) );
+            containers.push_back( RawContainer::Open(filename) );
         }
         catch(std::exception& e) {
             outFrameRate = - 1;
@@ -424,7 +470,7 @@ namespace motioncam {
 
         try {
             for(size_t i = 0; i < paths.size(); i++)
-                containers.push_back( std::unique_ptr<RawContainer>( new RawContainer(paths[i]) ) );
+                containers.push_back( RawContainer::Open(paths[i]) );
         }
         catch(std::exception& e) {
             outFrameRate = - 1;
@@ -444,7 +490,7 @@ namespace motioncam {
         
         for(const int fd : fds) {
             try {
-                containers.push_back( std::unique_ptr<RawContainer>( new RawContainer(fd) ) );
+                containers.push_back( RawContainer::Open(fd) );
             }
             catch(std::exception& e) {
                 outFrameRate = - 1;

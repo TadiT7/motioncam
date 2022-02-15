@@ -81,9 +81,9 @@ namespace motioncam {
     private:
         std::shared_ptr<CameraSessionListener> mListener;
         size_t mMaximumMemoryUsageBytes;
-        std::vector<std::shared_ptr<std::thread>> mConsumerThreads;
-        std::shared_ptr<std::thread> mSetupBuffersThread;
-        std::shared_ptr<std::thread> mPreprocessThread;
+        std::unique_ptr<std::thread> mConsumerThread;
+        std::unique_ptr<std::thread> mSetupBuffersThread;
+        std::unique_ptr<std::thread> mPreprocessThread;
         std::atomic<bool> mRunning;
         std::atomic<bool> mEnableRawPreview;
 
@@ -97,8 +97,10 @@ namespace motioncam {
         std::atomic<size_t> mBufferSize;
 
         PostProcessSettings mEstimatedSettings;
-        float mPreviewShadows;
         float mPreviewShadowStep;
+
+        std::atomic<float> mPreviewShadows;
+        std::atomic<float> mShadingMapCorrection;
 
         std::shared_ptr<CameraDescription> mCameraDesc;
         int mRawPreviewQuality;

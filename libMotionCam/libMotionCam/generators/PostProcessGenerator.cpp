@@ -17,11 +17,8 @@ using std::pair;
 
 class PostProcessBase {
 protected:
-    void deinterleave(Func& result, Func in, Expr stride, Expr rawFormat);
+    void deinterleave(Func& result, Func in, Expr stride, Expr rawFormat, Expr width, Expr height, Expr sensorArrangement);
     void transform(Func& output, Func input, Func matrixSrgb);
-
-    void rearrange(Func& output, Func input, Expr sensorArrangement);
-    void rearrange(Func& output, Func in0, Func in1, Func in2, Func in3, Expr sensorArrangement);
 
     void blur(Func& output, Func& outputTmp, Func input);
     void blur2(Func& output, Func& outputTmp, Func input);
@@ -94,8 +91,10 @@ void PostProcessBase::warp(Func& output, const Func& in, const Func& m, const Ex
     output(v_x, v_y, v_c) = saturating_cast<uint16_t>(lerp(p0, p1, b) + 0.5f);
 }
 
-void PostProcessBase::deinterleave(Func& result, Func in, Expr stride, Expr rawFormat) {
+void PostProcessBase::deinterleave(Func& result, Func in, Expr stride, Expr rawFormat, Expr width, Expr height, Expr sensorArrangement) {
     Func bayer{"bayer"};
+    Func rggb{"rggb"};
+    Func clamped{"clamped"};
 
     bayer(v_x, v_y) =
         select( rawFormat == static_cast<int>(RawFormat::RAW10), cast<uint16_t>(deinterleaveRaw10(in, stride)(v_x, v_y)),
@@ -103,11 +102,19 @@ void PostProcessBase::deinterleave(Func& result, Func in, Expr stride, Expr rawF
                 rawFormat == static_cast<int>(RawFormat::RAW16), cast<uint16_t>(deinterleaveRaw16(in, stride)(v_x, v_y)),
                 cast<uint16_t>(0));
 
-    result(v_x, v_y, v_c) = select(
-        v_c == 0, bayer(v_x*2,      v_y*2),
-        v_c == 1, bayer(v_x*2 + 1,  v_y*2),
-        v_c == 2, bayer(v_x*2,      v_y*2 + 1),
-                  bayer(v_x*2 + 1,  v_y*2 + 1));
+    rggb(v_x, v_y) =
+        select( sensorArrangement == static_cast<int>(SensorArrangement::RGGB), bayer(v_x,   v_y),
+                sensorArrangement == static_cast<int>(SensorArrangement::GRBG), bayer(v_x+1, v_y),
+                sensorArrangement == static_cast<int>(SensorArrangement::GBRG), bayer(v_x,   v_y+1),
+                                                                                bayer(v_x+1, v_y+1)); // BGGR
+
+    clamped(v_x, v_y, v_c) = select(
+        v_c == 0, rggb(v_x*2,      v_y*2),
+        v_c == 1, rggb(v_x*2 + 1,  v_y*2),
+        v_c == 2, rggb(v_x*2,      v_y*2 + 1),
+                  rggb(v_x*2 + 1,  v_y*2 + 1));
+
+    result = BoundaryConditions::mirror_image(clamped, {{ 0, width / 2 - 1 }, { 0, height / 2 - 1 }});
 }
 
 Func PostProcessBase::deinterleaveRaw10(Func in, Expr stride) {
@@ -281,60 +288,6 @@ void PostProcessBase::transform(Func& output, Func input, Func m) {
     output(v_x, v_y, v_c) = select(v_c == 0, r,
                                    v_c == 1, g,
                                              b);
-}
-
-void PostProcessBase::rearrange(Func& output, Func in0, Func in1, Func in2, Func in3, Expr sensorArrangement) {
-    output(v_x, v_y, v_c) =
-        select(sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
-                select( v_c == 0, in0(v_x, v_y),
-                        v_c == 1, in1(v_x, v_y),
-                        v_c == 2, in2(v_x, v_y),
-                                  in3(v_x, v_y) ),
-
-            sensorArrangement == static_cast<int>(SensorArrangement::GRBG),
-                select( v_c == 0, in1(v_x, v_y),
-                        v_c == 1, in0(v_x, v_y),
-                        v_c == 2, in3(v_x, v_y),
-                                  in2(v_x, v_y) ),
-
-            sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
-                select( v_c == 0, in2(v_x, v_y),
-                        v_c == 1, in3(v_x, v_y),
-                        v_c == 2, in0(v_x, v_y),
-                                  in1(v_x, v_y) ),
-
-                select( v_c == 0, in3(v_x, v_y),
-                        v_c == 1, in1(v_x, v_y),
-                        v_c == 2, in2(v_x, v_y),
-                                  in0(v_x, v_y) ) );
-
-}
-
-void PostProcessBase::rearrange(Func& output, Func input, Expr sensorArrangement) {
-    output(v_x, v_y, v_c) =
-        select(sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
-                select( v_c == 0, input(v_x, v_y, 0),
-                        v_c == 1, input(v_x, v_y, 1),
-                        v_c == 2, input(v_x, v_y, 2),
-                                  input(v_x, v_y, 3) ),
-
-            sensorArrangement == static_cast<int>(SensorArrangement::GRBG),
-                select( v_c == 0, input(v_x, v_y, 1),
-                        v_c == 1, input(v_x, v_y, 0),
-                        v_c == 2, input(v_x, v_y, 3),
-                                  input(v_x, v_y, 2) ),
-
-            sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
-                select( v_c == 0, input(v_x, v_y, 2),
-                        v_c == 1, input(v_x, v_y, 3),
-                        v_c == 2, input(v_x, v_y, 0),
-                                  input(v_x, v_y, 1) ),
-
-                select( v_c == 0, input(v_x, v_y, 3),
-                        v_c == 1, input(v_x, v_y, 1),
-                        v_c == 2, input(v_x, v_y, 2),
-                                  input(v_x, v_y, 0) ) );
-
 }
 
 void PostProcessBase::RGBToYCbCr(Func& output, Func input) {
@@ -1303,29 +1256,24 @@ void Demosaic::generate() {
     Func asShotFunc{"asShotFunc"};
     Func hotPixel{"hotPixel"};
 
+    asShotFunc(v_c) = mux(v_c, { asShot[0], asShot[1], asShot[1], asShot[2] });
+
     clamped0(v_x, v_y) = in0(clamp(v_x, 0, width - 1), clamp(v_y, 0, height - 1));
     clamped1(v_x, v_y) = in1(clamp(v_x, 0, width - 1), clamp(v_y, 0, height - 1));
     clamped2(v_x, v_y) = in2(clamp(v_x, 0, width - 1), clamp(v_y, 0, height - 1));
     clamped3(v_x, v_y) = in3(clamp(v_x, 0, width - 1), clamp(v_y, 0, height - 1));
-
-    asShotFunc(v_c) =
-        select(
-            sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
-                mux(v_c, { asShot[0], asShot[1], asShot[1], asShot[2] } ),
-            sensorArrangement == static_cast<int>(SensorArrangement::GRBG),
-                mux(v_c, { asShot[1], asShot[0], asShot[2], asShot[1] } ),
-            sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
-                mux(v_c, { asShot[1], asShot[2], asShot[0], asShot[1] } ),
-                // BGGR
-                mux(v_c, { asShot[2], asShot[1], asShot[1], asShot[0] } )
-    );
 
     linearScale(shadingMap0, inShadingMap0, shadingMapWidth, shadingMapHeight, width, height);
     linearScale(shadingMap1, inShadingMap1, shadingMapWidth, shadingMapHeight, width, height);
     linearScale(shadingMap2, inShadingMap2, shadingMapWidth, shadingMapHeight, width, height);
     linearScale(shadingMap3, inShadingMap3, shadingMapWidth, shadingMapHeight, width, height);
 
-    rearrange(shadingMapArranged, shadingMap0, shadingMap1, shadingMap2, shadingMap3, sensorArrangement);
+    shadingMapArranged(v_x, v_y, v_c) =
+        mux(v_c,
+            {   shadingMap0(v_x, v_y),
+                shadingMap1(v_x, v_y),
+                shadingMap2(v_x, v_y),
+                shadingMap3(v_x, v_y) });
 
     input(v_x, v_y, v_c) =
         mux(v_c,
@@ -1359,22 +1307,9 @@ void Demosaic::generate() {
                select(v_x % 2 == 0, whiteBalanced(v_x/2, v_y/2, 0), whiteBalanced(v_x/2, v_y/2, 1)),
                select(v_x % 2 == 0, whiteBalanced(v_x/2, v_y/2, 2), whiteBalanced(v_x/2, v_y/2, 3)));
 
-    bayerInput(v_x, v_y) =
-        select(sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
-                combinedInput(v_x, v_y),
-
-            sensorArrangement == static_cast<int>(SensorArrangement::GRBG),
-                combinedInput(v_x - 1, v_y),
-
-            sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
-                combinedInput(v_x, v_y - 1),
-
-                // BGGR
-                combinedInput(v_x - 1, v_y - 1));
-
-    calculateGreen(green, bayerInput);
-    calculateRed(red, bayerInput, green);
-    calculateBlue(blue, bayerInput, green);
+    calculateGreen(green, combinedInput);
+    calculateRed(red, combinedInput, green);
+    calculateBlue(blue, combinedInput, green);
 
     demosaicOutput(v_x, v_y, v_c) = saturating_cast<uint16_t>(
         select( v_c == 0, wbOffset[0]*red(v_x, v_y),
@@ -1563,18 +1498,18 @@ void Demosaic::apply_auto_schedule() {
         .vectorize(xi)
         .compute_at(green, x)
         .reorder({xi, x, y});
-    bayerInput
-        .split(y, y, yi, 8, TailStrategy::RoundUp)
-        .split(x, x, xi, 16, TailStrategy::RoundUp)
-        .vectorize(xi)
-        .compute_at(output, x)
-        .reorder({xi, x, yi, y});
-    combinedInput
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 16, TailStrategy::RoundUp)
-        .vectorize(xi)
-        .compute_at(bayerInput, y)
-        .reorder({xi, x, y});
+    // bayerInput
+    //     .split(y, y, yi, 8, TailStrategy::RoundUp)
+    //     .split(x, x, xi, 16, TailStrategy::RoundUp)
+    //     .vectorize(xi)
+    //     .compute_at(output, x)
+    //     .reorder({xi, x, yi, y});
+    // combinedInput
+    //     .store_in(MemoryType::Stack)
+    //     .split(x, x, xi, 16, TailStrategy::RoundUp)
+    //     .vectorize(xi)
+    //     .compute_at(bayerInput, y)
+    //     .reorder({xi, x, y});
     whiteBalanced
         .split(x, x, xi, 32, TailStrategy::ShiftInwards)
         .split(xi, xi, xii, 16, TailStrategy::ShiftInwards)
@@ -1710,17 +1645,21 @@ void TonemapGenerator::pyramidUp(Func& output, Type outputType, Func& intermedia
 
     blurX(v_x, v_y, v_c, _) =
          (
-          1 * expanded(v_x - 1, v_y, v_c, _) +
-          2 * expanded(v_x,     v_y, v_c, _) +
-          1 * expanded(v_x + 1, v_y, v_c, _)
-          ) >> 2;
+          1 * expanded(v_x - 2, v_y, v_c, _) +
+          4 * expanded(v_x - 1, v_y, v_c, _) +
+          6 * expanded(v_x    , v_y, v_c, _) +
+          4 * expanded(v_x + 1, v_y, v_c, _) +
+          1 * expanded(v_x + 2, v_y, v_c, _)
+          ) >> 4;
 
     blurY(v_x, v_y, v_c, _) =
          (
-          1 * blurX(v_x, v_y - 1, v_c, _) +
-          2 * blurX(v_x, v_y,     v_c, _) +
-          1 * blurX(v_x, v_y + 1, v_c, _)
-          ) >> 2;
+          1 * blurX(v_x, v_y - 2, v_c, _) +
+          4 * blurX(v_x, v_y - 1, v_c, _) +
+          6 * blurX(v_x, v_y   ,  v_c, _) +
+          4 * blurX(v_x, v_y + 1, v_c, _) +
+          1 * blurX(v_x, v_y + 2, v_c, _)
+          ) >> 4;
 
     intermediate = blurX;
     output(v_x, v_y, v_c, _) = cast(outputType, 4 * blurY(v_x, v_y, v_c, _));
@@ -1733,17 +1672,21 @@ void TonemapGenerator::pyramidDown(Func& output, Type outputType, Func& intermed
 
     blurX(v_x, v_y, v_c, _) =
          (
-          1 * cast<int32_t>(input(v_x - 1, v_y, v_c, _)) +
-          2 * cast<int32_t>(input(v_x,     v_y, v_c, _)) +
-          1 * cast<int32_t>(input(v_x + 1, v_y, v_c, _))
-          ) >> 2;
+          1 * cast<int32_t>(input(v_x - 2, v_y, v_c, _)) +
+          4 * cast<int32_t>(input(v_x - 1, v_y, v_c, _)) +
+          6 * cast<int32_t>(input(v_x,     v_y, v_c, _)) +
+          4 * cast<int32_t>(input(v_x + 1, v_y, v_c, _)) +
+          1 * cast<int32_t>(input(v_x + 2, v_y, v_c, _))
+          ) >> 4;
 
     blurY(v_x, v_y, v_c, _) = 
          (
-          1 * blurX(v_x, v_y - 1, v_c, _) +
-          2 * blurX(v_x, v_y,     v_c, _) +
-          1 * blurX(v_x, v_y + 1, v_c, _)
-          ) >> 2;
+          1 * blurX(v_x, v_y - 2, v_c, _) +
+          4 * blurX(v_x, v_y - 1, v_c, _) +
+          6 * blurX(v_x, v_y,     v_c, _) +
+          4 * blurX(v_x, v_y + 1, v_c, _) +
+          1 * blurX(v_x, v_y + 2, v_c, _)
+          ) >> 4;
 
     intermediate = blurX;
     output(v_x, v_y, v_c, _) = cast(outputType, blurY(v_x * 2, v_y * 2, v_c, _));
@@ -2398,10 +2341,10 @@ public:
     Func Lmap{"Lmap"};
     Func LmapTmp0{"LmapTmp0"}, LmapTmp1{"LmapTmp1"}, LmapTmp2{"LmapTmp2"}, LmapTmp3{"LmapTmp3"};
 
-    // Func defringeVertical{"defringeVertical"};
-    // Func defringeVerticalTransposed{"defringeVerticalTransposed"};
-    // Func defringeHorizontal{"defringeHorizontal"};
-    // Func defringe{"defringe"};
+    Func defringeVertical{"defringeVertical"};
+    Func defringeVerticalTransposed{"defringeVerticalTransposed"};
+    Func defringeHorizontal{"defringeHorizontal"};
+    Func defringe{"defringe"};
 
     Func colorCorrected{"colorCorrected"};
     Func hdrTonemapInput{"hdrTonemapInput"};
@@ -2489,15 +2432,15 @@ void PostProcessGenerator::generate()
     tonemap->tonemap_levels.set(TONEMAP_LEVELS);
     tonemap->apply(tonemapInput, hdrTonemapInput, WIDTH * 2, HEIGHT * 2, tonemapVariance, shadows);
 
-    // defringeVertical.define_extern("extern_defringe", { (Func) tonemap->output, WIDTH*2, HEIGHT*2 }, UInt(16), 3);
-    // defringeVertical.compute_root();
+    defringeVertical.define_extern("extern_defringe", { (Func) tonemap->output, WIDTH*2, HEIGHT*2 }, UInt(16), 3);
+    defringeVertical.compute_root();
 
-    // defringeVerticalTransposed(v_x, v_y, v_c) = defringeVertical(v_y, v_x, v_c);
+    defringeVerticalTransposed(v_x, v_y, v_c) = defringeVertical(v_y, v_x, v_c);
 
-    // defringeHorizontal.define_extern("extern_defringe", { defringeVerticalTransposed, HEIGHT*2, WIDTH*2 }, UInt(16), 3);
-    // defringeHorizontal.compute_root();
+    defringeHorizontal.define_extern("extern_defringe", { defringeVerticalTransposed, HEIGHT*2, WIDTH*2 }, UInt(16), 3);
+    defringeHorizontal.compute_root();
 
-    // defringe(v_x, v_y, v_c) = defringeHorizontal(v_y, v_x, v_c);
+    defringe(v_x, v_y, v_c) = defringeHorizontal(v_y, v_x, v_c);
     
     // Finalize output
     enhance = create<EnhanceGenerator>();
@@ -2507,7 +2450,7 @@ void PostProcessGenerator::generate()
     enhance->popRadius.set(25);
 
     enhance->apply(
-        (Func) tonemap->output,
+        defringe,
         chromaEps,
         WIDTH*2,
         HEIGHT*2,
@@ -2621,19 +2564,19 @@ void PostProcessGenerator::schedule_for_cpu() {
         .vectorize(v_y, 12)
         .parallel(v_y);
 
-    // defringeVerticalTransposed
-    //     .compute_root()
-    //     .tile(v_x, v_y, v_xo, v_yo, v_x, v_y, 8, 8)
-    //     .vectorize(v_x)
-    //     .parallel(v_yo)
-    //     .parallel(v_c);
+    defringeVerticalTransposed
+        .compute_root()
+        .tile(v_x, v_y, v_xo, v_yo, v_x, v_y, 8, 8)
+        .vectorize(v_x)
+        .parallel(v_yo)
+        .parallel(v_c);
 
-    // defringe
-    //     .compute_root()
-    //     .tile(v_x, v_y, v_xo, v_yo, v_x, v_y, 8, 8)
-    //     .vectorize(v_x)
-    //     .parallel(v_yo)
-    //     .parallel(v_c);
+    defringe
+        .compute_root()
+        .tile(v_x, v_y, v_xo, v_yo, v_x, v_y, 8, 8)
+        .vectorize(v_x)
+        .parallel(v_yo)
+        .parallel(v_c);
 
     hdrTonemapInput
         .compute_root()
@@ -2674,8 +2617,8 @@ public:
     Input<float[3]> wbOffsetVector{"wbOffsetVector"};
     Input<Buffer<float>> cameraToSrgb{"cameraToSrgb", 2};
 
-    Input<int> width{"width"};
-    Input<int> height{"height"};
+    Input<int> bufferWidth{"bufferWidth"};
+    Input<int> bufferHeight{"bufferHeight"};
     Input<int> stride{"stride"};
     Input<int> pixelFormat{"pixelFormat"};
 
@@ -2742,15 +2685,12 @@ Func PreviewGenerator::downscale(Func f, Func& downx) {
 }
 
 void PreviewGenerator::generate() {
-    deinterleave(inMuxed, input, stride, pixelFormat);
+    deinterleave(inMuxed, input, stride, pixelFormat, bufferWidth, bufferHeight, sensorArrangement);
     
-    Func inDownscale = Halide::BoundaryConditions::repeat_edge(inMuxed, { { 0, width * downscaleFactor - 1 }, { 0, height * downscaleFactor - 1 } } );
-
     int iterations = (int) (std::log((float)downscaleFactor) / std::log(2.0f));
-
     std::vector<Func> d;
 
-    d.push_back(inDownscale);
+    d.push_back(inMuxed);
 
     for(int i = 0; i < iterations; i++) {
         Func downscaledTemp{"downscaledTemp" + std::to_string(i)};
@@ -2758,6 +2698,9 @@ void PreviewGenerator::generate() {
 
         d.push_back(downscaled);
     }
+
+    Expr width = bufferWidth / 2 / downscaleFactor;
+    Expr height = bufferHeight / 2 / downscaleFactor;
 
     // Shading map
     linearScale(shadingMap[0], inShadingMap0, inShadingMap0.width(), inShadingMap0.height(), width, height);
@@ -2786,12 +2729,10 @@ void PreviewGenerator::generate() {
             .vectorize(v_x, 8);
     }
 
-    rearrange(demosaicInput, downscaledInput, sensorArrangement);
-
-    Expr c0 = (demosaicInput(v_x, v_y, 0) - blackLevel[0]) / (cast<float>(whiteLevel - blackLevel[0]));
-    Expr c1 = (demosaicInput(v_x, v_y, 1) - blackLevel[1]) / (cast<float>(whiteLevel - blackLevel[1]));
-    Expr c2 = (demosaicInput(v_x, v_y, 2) - blackLevel[2]) / (cast<float>(whiteLevel - blackLevel[2]));
-    Expr c3 = (demosaicInput(v_x, v_y, 3) - blackLevel[3]) / (cast<float>(whiteLevel - blackLevel[3]));
+    Expr c0 = (downscaledInput(v_x, v_y, 0) - blackLevel[0]) / (cast<float>(whiteLevel - blackLevel[0]));
+    Expr c1 = (downscaledInput(v_x, v_y, 1) - blackLevel[1]) / (cast<float>(whiteLevel - blackLevel[1]));
+    Expr c2 = (downscaledInput(v_x, v_y, 2) - blackLevel[2]) / (cast<float>(whiteLevel - blackLevel[2]));
+    Expr c3 = (downscaledInput(v_x, v_y, 3) - blackLevel[3]) / (cast<float>(whiteLevel - blackLevel[3]));
     
     srgbInput(v_x, v_y, v_c) = select(v_c == 0,  clamp( c0,               0.0f, asShotVector[0] ),
                                       v_c == 1,  clamp( (c1 + c2) / 2,    0.0f, asShotVector[1] ),
@@ -2921,8 +2862,8 @@ public:
     Input<int> pixelFormat{"pixelFormat"};
     Input<int> sensorArrangement{"sensorArrangement"};
     
-    Input<int> width{"width"};
-    Input<int> height{"height"};
+    Input<int> bufferWidth{"bufferWidth"};
+    Input<int> bufferHeight{"bufferHeight"};
 
     Input<int> sx{"sx"};
     Input<int> sy{"sy"};
@@ -2950,9 +2891,7 @@ void FastPreviewGenerator::generate() {
     Func bl{"bl"};
 
     // Deinterleave
-    clamped = BoundaryConditions::repeat_edge(input);
-
-    deinterleave(bayer, clamped, stride, pixelFormat);
+    deinterleave(bayer, input, stride, pixelFormat, bufferWidth, bufferHeight, sensorArrangement);
 
     toLinear(v_c) = select(
         v_c == 0, 1.0f / cast<float>(whiteLevel - blackLevel[0]),
@@ -3017,8 +2956,8 @@ void FastPreviewGenerator::generate() {
         .dim(2).set_stride(1);
     
     input.set_estimates({ {0, 18000000} });
-    width.set_estimate(4000);
-    height.set_estimate(3000);
+    bufferWidth.set_estimate(4000);
+    bufferHeight.set_estimate(3000);
     blackLevel.set_estimate(0, 64);
     blackLevel.set_estimate(1, 64);
     blackLevel.set_estimate(2, 64);
@@ -3134,8 +3073,9 @@ void FastPreviewGenerator2::generate() {
 
 void FastPreviewGenerator2::schedule_for_cpu() {
     output.compute_root()
-        .vectorize(v_x, 16)
-        .parallel(v_c)
+        .vectorize(v_x, 8)
+        .bound(v_c, 0, 4)
+        .unroll(v_c)
         .parallel(v_y);
 }
 
@@ -3233,14 +3173,11 @@ void DeinterleaveRawGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, 
 
 void DeinterleaveRawGenerator::generate() {
     Func bayer{"bayer"};
+    Func gammaLut{"gammaLut"};
 
-    deinterleave(bayer, input, stride, pixelFormat);
+    deinterleave(bayer, input, stride, pixelFormat, width, height, sensorArrangement);
 
-    Func clamped = BoundaryConditions::mirror_image(bayer, { { 0, width - 1}, { 0, height - 1 } });
-    
-    // Gamma correct preview
-    Func gammaLut;
-    
+    // Gamma correct preview    
     gammaLut(v_i) = cast<uint8_t>(clamp(pow(v_i / 255.0f, 1.0f / 2.2f) * 255, 0, 255));    
 
     if(!get_auto_schedule())
@@ -3249,12 +3186,12 @@ void DeinterleaveRawGenerator::generate() {
     Expr x = v_x - offsetX;
     Expr y = v_y - offsetY;
 
-    output(v_x, v_y, v_c) = clamped(x, y, v_c);
+    output(v_x, v_y, v_c) = bayer(x, y, v_c);
 
-    Expr P = 0.25f * (clamped(x, y, 0) +
-                      clamped(x, y, 1) +
-                      clamped(x, y, 2) +
-                      clamped(x, y, 3));
+    Expr P = 0.25f * (bayer(x, y, 0) +
+                      bayer(x, y, 1) +
+                      bayer(x, y, 2) +
+                      bayer(x, y, 3));
 
     Expr S = (P - blackLevel[0]) / (whiteLevel - blackLevel[0]);
 
@@ -3300,96 +3237,6 @@ void DeinterleaveRawGenerator::schedule_for_cpu() {
         .parallel(v_yo);
 }
 
-
-//
-
-class MeasureImageGenerator : public Halide::Generator<MeasureImageGenerator>, public PostProcessBase {
-public:
-    Input<Buffer<uint8_t>> input{"input", 1};
-    Input<int> stride{"stride"};
-    Input<int> pixelFormat{"pixelFormat"};
-    
-    Input<int> width{"width"};
-    Input<int> height{"height"};
-
-    Input<int> downscaleFactor{"downscaleFactor"};
-
-    Input<float[4]> blackLevel{"blackLevel"};
-    Input<float> whiteLevel{"whiteLevel"};
-
-    Input<float[3]> asShotVector{"asShotVector"};
-    Input<Buffer<float>> cameraToSrgb{"cameraToSrgb", 2};
-
-    Input<Buffer<float>[4]> inShadingMap{"shadingMap", 2};
-
-    Input<int> sensorArrangement{"sensorArrangement"};
-
-    Output<Buffer<uint32_t>> histogram{"histogram", 1};
-
-    void generate();
-};
-
-void MeasureImageGenerator::generate() {
-    Func shadingMap[4];
-    Func inputRepeated{"inputRepeated"};
-    Func bayer{"bayer"};
-    Func downscaled{"downscaled"};
-    Func result16u{"result16u"};
-    Func colorCorrected{"colorCorrected"};
-    Func downscaledInput{"downscaledInput"};
-    Func demosaicInput{"demosaicInput"};
-
-    // Deinterleave
-    inputRepeated = BoundaryConditions::repeat_edge(input);
-
-    // Deinterleave
-    deinterleave(bayer, inputRepeated, stride, pixelFormat);
-
-    Expr w = width / downscaleFactor;
-    Expr h = height / downscaleFactor;
-    
-    downscaled(v_x, v_y, v_c) = bayer(v_x*downscaleFactor, v_y*downscaleFactor, v_c);
-
-    // Shading map
-    linearScale(shadingMap[0], inShadingMap[0], inShadingMap[0].width(), inShadingMap[0].height(), w, h);
-    linearScale(shadingMap[1], inShadingMap[1], inShadingMap[1].width(), inShadingMap[1].height(), w, h);
-    linearScale(shadingMap[2], inShadingMap[2], inShadingMap[2].width(), inShadingMap[2].height(), w, h);
-    linearScale(shadingMap[3], inShadingMap[3], inShadingMap[3].width(), inShadingMap[3].height(), w, h);
-
-    rearrange(demosaicInput, downscaled, sensorArrangement);
-
-    Expr c0 = (demosaicInput(v_x, v_y, 0) - blackLevel[0]) / (cast<float>(whiteLevel - blackLevel[0])) * shadingMap[0](v_x, v_y);
-    Expr c1 = (demosaicInput(v_x, v_y, 1) - blackLevel[1]) / (cast<float>(whiteLevel - blackLevel[1])) * shadingMap[1](v_x, v_y);
-    Expr c2 = (demosaicInput(v_x, v_y, 2) - blackLevel[2]) / (cast<float>(whiteLevel - blackLevel[2])) * shadingMap[2](v_x, v_y);
-    Expr c3 = (demosaicInput(v_x, v_y, 3) - blackLevel[3]) / (cast<float>(whiteLevel - blackLevel[3])) * shadingMap[3](v_x, v_y);
-    
-    downscaledInput(v_x, v_y, v_c) = select(v_c == 0,  clamp( c0,               0.0f, asShotVector[0] ),
-                                            v_c == 1,  clamp( (c1 + c2) / 2,    0.0f, asShotVector[1] ),
-                                                       clamp( c3,               0.0f, asShotVector[2] ));
-    // Transform to SRGB space
-    transform(colorCorrected, downscaledInput, cameraToSrgb);
-
-    Expr L = 0.2989f*colorCorrected(v_x, v_y, 0) + 0.5870f*colorCorrected(v_x, v_y, 1) + 0.1140f*colorCorrected(v_x, v_y, 2);
-
-    result16u(v_x, v_y) = saturating_cast<uint16_t>(L * 65535.0f + 0.5f);
-
-    RDom r(0, w, 0, h);
-
-    histogram(v_i) = cast<uint32_t>(0);
-    histogram(result16u(r.x, r.y)) += cast<uint32_t>(1);
-
-    // Schedule
-    result16u
-        .compute_root()
-        .reorder(v_x, v_y)
-        .parallel(v_y)
-        .vectorize(v_x, 8);
-
-    histogram
-        .compute_root()
-        .vectorize(v_i, 32);
-}
-
 //////////////
 
 class GenerateEdgesGenerator : public Halide::Generator<GenerateEdgesGenerator>, public PostProcessBase {
@@ -3397,9 +3244,10 @@ public:
     Input<Buffer<uint8_t>> input{"input", 1};
     Input<int> stride{"stride"};
     Input<int> pixelFormat{"pixelFormat"};
+    Input<int> sensorArrangement{"sensorArrangement"};
     
-    Input<int> width{"width"};
-    Input<int> height{"height"};
+    Input<int> bufferWidth{"bufferWidth"};
+    Input<int> bufferHeight{"bufferHeight"};
 
     Output<Buffer<uint16_t>> output{"output", 2};
 
@@ -3410,7 +3258,7 @@ void GenerateEdgesGenerator::generate() {
     Func bayer{"bayer"};
     Func sum{"sum"};
 
-    deinterleave(bayer, input, stride, pixelFormat);
+    deinterleave(bayer, input, stride, pixelFormat, bufferWidth, bufferHeight, sensorArrangement);
     
     sum(v_x, v_y) =
         cast<int32_t>(bayer(v_x, v_y, 0)) +
@@ -3418,15 +3266,13 @@ void GenerateEdgesGenerator::generate() {
         cast<int32_t>(bayer(v_x, v_y, 2)) +
         cast<int32_t>(bayer(v_x, v_y, 3));
 
-    Func bounded = BoundaryConditions::repeat_edge(sum, { { 0, width - 1}, {0, height - 1} });
-
     Func sobel_x_avg{"sobel_x_avg"}, sobel_y_avg{"sobel_y_avg"};
     Func sobel_x{"sobel_x"}, sobel_y{"sobel_y"};
 
-    sobel_x_avg(v_x, v_y) = bounded(v_x - 1, v_y) + 2 * bounded(v_x, v_y) + bounded(v_x + 1, v_y);
+    sobel_x_avg(v_x, v_y) = sum(v_x - 1, v_y) + 2 * sum(v_x, v_y) + sum(v_x + 1, v_y);
     sobel_x(v_x, v_y) = absd(sobel_x_avg(v_x, v_y - 1), sobel_x_avg(v_x, v_y + 1));
 
-    sobel_y_avg(v_x, v_y) = bounded(v_x, v_y - 1) + 2 * bounded(v_x, v_y) + bounded(v_x, v_y + 1);
+    sobel_y_avg(v_x, v_y) = sum(v_x, v_y - 1) + 2 * sum(v_x, v_y) + sum(v_x, v_y + 1);
     sobel_y(v_x, v_y) = absd(sobel_y_avg(v_x - 1, v_y), sobel_y_avg(v_x + 1, v_y));
     
     output(v_x, v_y) = cast<uint16_t>(clamp(sobel_x(v_x, v_y) + sobel_y(v_x, v_y), 0, 65535));
@@ -3700,8 +3546,8 @@ public:
     Input<Buffer<float>> inShadingMap2{"inShadingMap2", 2 };
     Input<Buffer<float>> inShadingMap3{"inShadingMap3", 2 };
 
-    Input<int> width{"width"};
-    Input<int> height{"height"};
+    Input<int> bufferWidth{"bufferWidth"};
+    Input<int> bufferHeight{"bufferHeight"};
 
     Input<int> stride{"stride"};
     Input<int> pixelFormat{"pixelFormat"};
@@ -3719,7 +3565,6 @@ public:
 
     void generate() {
         Func inputDeinterleaved{"inputDeinterleaved"};
-        Func inputClamped{"inputClamped"};
         Func shadingMap0{"shadingMap0"}, shadingMap1{"shadingMap1"}, shadingMap2{"shadingMap2"}, shadingMap3{"shadingMap3"};
         Func shadingMapArranged{"shadingMapArranged"};
         Func shaded{"shaded"};
@@ -3730,49 +3575,30 @@ public:
         Func linear{"linear"};
         Func final{"final"};
 
-        deinterleave(inputDeinterleaved, BoundaryConditions::repeat_edge(input), stride, pixelFormat);
+        deinterleave(inputDeinterleaved, input, stride, pixelFormat, bufferWidth, bufferHeight, sensorArrangement);
 
-        inputClamped(v_x, v_y, v_c) = inputDeinterleaved(clamp(v_x, 0, width*2 - 1), clamp(v_y, 0, height*2 - 1), v_c);
+        Expr width = bufferWidth / 2;
+        Expr height = bufferHeight / 2;
 
         linearScale(shadingMap0, inShadingMap0, inShadingMap0.width(), inShadingMap0.height(), width, height);
         linearScale(shadingMap1, inShadingMap1, inShadingMap1.width(), inShadingMap1.height(), width, height);
         linearScale(shadingMap2, inShadingMap2, inShadingMap2.width(), inShadingMap2.height(), width, height);
         linearScale(shadingMap3, inShadingMap3, inShadingMap3.width(), inShadingMap3.height(), width, height);
 
-        rearrange(shadingMapArranged, shadingMap0, shadingMap1, shadingMap2, shadingMap3, sensorArrangement);
-
-        asShotFunc(v_c) =
-            select(
-                sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
-                    mux(v_c, { asShot[0], asShot[1], asShot[1], asShot[2] } ),
-                sensorArrangement == static_cast<int>(SensorArrangement::GRBG),
-                    mux(v_c, { asShot[1], asShot[0], asShot[2], asShot[1] } ),
-                sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
-                    mux(v_c, { asShot[1], asShot[2], asShot[0], asShot[1] } ),
-                    // BGGR
-                    mux(v_c, { asShot[2], asShot[1], asShot[1], asShot[0] } )
-        );
-
-        wbOffsetFunc(v_c) =
-            select(
-                sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
-                    mux(v_c, { wbOffset[0], wbOffset[1], wbOffset[1], wbOffset[2] } ),
-                sensorArrangement == static_cast<int>(SensorArrangement::GRBG),
-                    mux(v_c, { wbOffset[1], wbOffset[0], wbOffset[2], wbOffset[1] } ),
-                sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
-                    mux(v_c, { wbOffset[1], wbOffset[2], wbOffset[0], wbOffset[1] } ),
-                    // BGGR
-                    mux(v_c, { wbOffset[2], wbOffset[1], wbOffset[1], wbOffset[0] } )
-        );
-
-        bl(v_c) = mux(v_c, {
-            blackLevel[0],
-            blackLevel[1],
-            blackLevel[2],
-            blackLevel[3]
+        shadingMapArranged(v_x, v_y, v_c) = mux(v_c, {
+            shadingMap0(v_x, v_y),
+            shadingMap1(v_x, v_y),
+            shadingMap2(v_x, v_y),
+            shadingMap3(v_x, v_y)
         });
 
-        linear(v_x, v_y, v_c) = (cast<float>(inputClamped(v_x, v_y, v_c)) - bl(v_c)) / cast<float>(whiteLevel - bl(v_c));
+        asShotFunc(v_c) = mux(v_c, { asShot[0], asShot[1], asShot[1], asShot[2] } );
+        
+        wbOffsetFunc(v_c) = mux(v_c, { wbOffset[0], wbOffset[1], wbOffset[1], wbOffset[2] } );
+
+        bl(v_c) = mux(v_c, { blackLevel[0], blackLevel[1], blackLevel[2], blackLevel[3] });
+
+        linear(v_x, v_y, v_c) = (cast<float>(inputDeinterleaved(v_x, v_y, v_c)) - bl(v_c)) / cast<float>(whiteLevel - bl(v_c));
 
         shaded(v_x, v_y, v_c) = shadingMapArranged(v_x, v_y, v_c) * clamp(linear(v_x, v_y, v_c), 0.0f, asShotFunc(v_c));
 
@@ -3803,9 +3629,6 @@ public:
     Input<Buffer<float>> inShadingMap2{"inShadingMap2", 2 };
     Input<Buffer<float>> inShadingMap3{"inShadingMap3", 2 };
 
-    Input<int> width{"width"};
-    Input<int> height{"height"};
-
     Input<int> sensorArrangement{"sensorArrangement"};
     Input<uint16_t> range{"range"};
 
@@ -3828,42 +3651,30 @@ void BuildBayerGenerator2::generate() {
     Func whiteBalanced{"whiteBalanced"};
     Func final{"final"};
 
+    Expr width = in0.width();
+    Expr height = in0.height();
+
     linearScale(shadingMap0, inShadingMap0, inShadingMap0.width(), inShadingMap0.height(), width, height);
     linearScale(shadingMap1, inShadingMap1, inShadingMap1.width(), inShadingMap1.height(), width, height);
     linearScale(shadingMap2, inShadingMap2, inShadingMap2.width(), inShadingMap2.height(), width, height);
     linearScale(shadingMap3, inShadingMap3, inShadingMap3.width(), inShadingMap3.height(), width, height);
 
-    rearrange(shadingMapArranged, shadingMap0, shadingMap1, shadingMap2, shadingMap3, sensorArrangement);
+    shadingMapArranged(v_x, v_y, v_c) = mux(v_c, {
+        shadingMap0(v_x, v_y),
+        shadingMap1(v_x, v_y),
+        shadingMap2(v_x, v_y),
+        shadingMap3(v_x, v_y)
+    });
 
-    asShotFunc(v_c) =
-        select(
-            sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
-                mux(v_c, { asShot[0], asShot[1], asShot[1], asShot[2] } ),
-            sensorArrangement == static_cast<int>(SensorArrangement::GRBG),
-                mux(v_c, { asShot[1], asShot[0], asShot[2], asShot[1] } ),
-            sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
-                mux(v_c, { asShot[1], asShot[2], asShot[0], asShot[1] } ),
-                // BGGR
-                mux(v_c, { asShot[2], asShot[1], asShot[1], asShot[0] } )
-    );
+    asShotFunc(v_c) = mux(v_c, { asShot[0], asShot[1], asShot[1], asShot[2] } );
 
-    wbOffsetFunc(v_c) =
-        select(
-            sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
-                mux(v_c, { wbOffset[0], wbOffset[1], wbOffset[1], wbOffset[2] } ),
-            sensorArrangement == static_cast<int>(SensorArrangement::GRBG),
-                mux(v_c, { wbOffset[1], wbOffset[0], wbOffset[2], wbOffset[1] } ),
-            sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
-                mux(v_c, { wbOffset[1], wbOffset[2], wbOffset[0], wbOffset[1] } ),
-                // BGGR
-                mux(v_c, { wbOffset[2], wbOffset[1], wbOffset[1], wbOffset[0] } )
-    );
+    wbOffsetFunc(v_c) = mux(v_c, { wbOffset[0], wbOffset[1], wbOffset[1], wbOffset[2] } );
 
     bayerInput(v_x, v_y, v_c) = mux(v_c, {
-        in0(clamp(v_x, 0, in0.width() - 1), clamp(v_y, 0, in0.height() - 1)),
-        in1(clamp(v_x, 0, in1.width() - 1), clamp(v_y, 0, in1.height() - 1)),
-        in2(clamp(v_x, 0, in2.width() - 1), clamp(v_y, 0, in2.height() - 1)),
-        in3(clamp(v_x, 0, in3.width() - 1), clamp(v_y, 0, in3.height() - 1))
+        in0(clamp(v_x, 0, width - 1), clamp(v_y, 0, height - 1)),
+        in1(clamp(v_x, 0, width - 1), clamp(v_y, 0, height - 1)),
+        in2(clamp(v_x, 0, width - 1), clamp(v_y, 0, height - 1)),
+        in3(clamp(v_x, 0, width - 1), clamp(v_y, 0, height - 1))
     });
 
     linear(v_x, v_y, v_c) = bayerInput(v_x, v_y, v_c) / cast<float>(range);
@@ -3892,11 +3703,12 @@ public:
     Output<Buffer<float>> output{"output", 3};
     Output<Buffer<float>> snr{"snr", 3};
 
-    Input<int> width{"width"};
-    Input<int> height{"height"};
+    Input<int> bufferWidth{"bufferWidth"};
+    Input<int> bufferHeight{"bufferHeight"};
 
     Input<int> stride{"stride"};
     Input<int> pixelFormat{"pixelFormat"};
+    Input<int> sensorArrangement{"sensorArrangement"};    
     Input<int> blockSize{"blockSize"};
 
     void generate();
@@ -3912,12 +3724,9 @@ void MeasureNoiseGenerator::generate() {
     Func mean{"mean"};
     Func noise{"noise"};
     Func deinterleaved{"deinterleaved"};
-    Func clamped{"clamped"};
 
     // Deinterleave
-    clamped(v_x) = input(clamp(v_x, 0, input.width() - 1));
-
-    deinterleave(deinterleaved, clamped, stride, pixelFormat);
+    deinterleave(deinterleaved, input, stride, pixelFormat, bufferWidth, bufferHeight, sensorArrangement);
 
     RDom r(0, blockSize, 0, blockSize);
 
@@ -3936,125 +3745,14 @@ void MeasureNoiseGenerator::generate() {
     snr.set_estimates({{0, 128}, {0, 96}, {0, 4}});
 
     if (!auto_schedule) {
-        apply_auto_schedule(get_pipeline(), get_target());
+        // TODO
+        mean.compute_root().vectorize(v_x, 8).parallel(v_y);
+        output.compute_root().vectorize(v_x, 8).parallel(v_y);
     }
 }
 
 void MeasureNoiseGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::Halide::Target target)
 {
-    using ::Halide::Func;
-    using ::Halide::MemoryType;
-    using ::Halide::RVar;
-    using ::Halide::TailStrategy;
-    using ::Halide::Var;
-    Var x_i("x_i");
-    Var x_i_vi("x_i_vi");
-    Var x_i_vo("x_i_vo");
-    Var x_o("x_o");
-    Var x_vi("x_vi");
-    Var x_vo("x_vo");
-    Var y_i("y_i");
-    Var y_o("y_o");
-
-    Func bayer = pipeline.get_func(5);
-    Func deinterleaved = pipeline.get_func(6);
-    Func mean = pipeline.get_func(9);
-    Func output = pipeline.get_func(12);
-    Func snr = pipeline.get_func(13);
-    Func sum = pipeline.get_func(8);
-    Func sum_1 = pipeline.get_func(11);
-
-    {
-        Var x = bayer.args()[0];
-        bayer
-            .compute_at(deinterleaved, x_o)
-            .split(x, x_vo, x_vi, 16)
-            .vectorize(x_vi);
-    }
-    {
-        Var x = deinterleaved.args()[0];
-        Var y = deinterleaved.args()[1];
-        Var c = deinterleaved.args()[2];
-        deinterleaved
-            .compute_root()
-            .split(x, x_o, x_i, 64)
-            .split(y, y_o, y_i, 4)
-            .reorder(x_i, y_i, c, x_o, y_o)
-            .split(x_i, x_i_vo, x_i_vi, 16)
-            .vectorize(x_i_vi)
-            .parallel(y_o);
-    }
-    {
-        Var x = mean.args()[0];
-        Var y = mean.args()[1];
-        Var c = mean.args()[2];
-        mean
-            .compute_root()
-            .split(x, x_vo, x_vi, 8)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-    }
-    {
-        Var x = output.args()[0];
-        Var y = output.args()[1];
-        Var c = output.args()[2];
-        output
-            .compute_root()
-            .split(x, x_vo, x_vi, 8)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-    }
-    {
-        Var x = snr.args()[0];
-        Var y = snr.args()[1];
-        Var c = snr.args()[2];
-        snr
-            .compute_root()
-            .split(x, x_vo, x_vi, 8)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-    }
-    {
-        Var x = sum.args()[0];
-        Var y = sum.args()[1];
-        Var c = sum.args()[2];
-        RVar r17$x(sum.update(0).get_schedule().rvars()[0].var);
-        RVar r17$y(sum.update(0).get_schedule().rvars()[1].var);
-        sum
-            .compute_root()
-            .split(x, x_vo, x_vi, 8)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-        sum.update(0)
-            .reorder(r17$x, x, r17$y, y, c)
-            .split(x, x_vo, x_vi, 8, TailStrategy::GuardWithIf)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-    }
-    {
-        Var x = sum_1.args()[0];
-        Var y = sum_1.args()[1];
-        Var c = sum_1.args()[2];
-        RVar r17$x(sum_1.update(0).get_schedule().rvars()[0].var);
-        RVar r17$y(sum_1.update(0).get_schedule().rvars()[1].var);
-        sum_1
-            .compute_root()
-            .split(x, x_vo, x_vi, 8)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-        sum_1.update(0)
-            .reorder(r17$x, x, r17$y, y, c)
-            .split(x, x_vo, x_vi, 8, TailStrategy::GuardWithIf)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-    }
 }
 
 ///////////////
@@ -4067,8 +3765,8 @@ public:
     Input<int> pixelFormat{"pixelFormat"};
     Input<int> sensorArrangement{"sensorArrangement"};
     
-    Input<int> width{"width"};
-    Input<int> height{"height"};
+    Input<int> bufferWidth{"bufferWidth"};
+    Input<int> bufferHeight{"bufferHeight"};
 
     Input<int> sx{"sx"};
     Input<int> sy{"sy"};
@@ -4082,20 +3780,19 @@ public:
     Output<Buffer<uint8_t>> blackLevelClipping{"blackLevelClipping", 2};
 
     void generate();
-    void apply_auto_schedule(::Halide::Pipeline pipeline, ::Halide::Target target);
 };
 
 void StatsGenerator::generate() {
-    Func clamped{"clamped"};
     Func bayer{"bayer"};
     Func bl{"bl"};
     Func peakWhite{"peakWhite"};
     Func peakBlack{"peakBlack"};
+    Func scaled{"scaled"};
+    Func maxChannel{"maxChannel"};
+    Func minChannel{"minChannel"};
 
     // Deinterleave
-    clamped = BoundaryConditions::repeat_edge(input);
-
-    deinterleave(bayer, clamped, stride, pixelFormat);
+    deinterleave(bayer, input, stride, pixelFormat, bufferWidth, bufferHeight, sensorArrangement);
 
     bl(v_c) = mux(v_c, {
         blackLevel[0],
@@ -4104,9 +3801,8 @@ void StatsGenerator::generate() {
         blackLevel[3]
     });
 
-    Func scaled{"scaled"};
-    Func maxChannel{"maxChannel"};
-    Func minChannel{"minChannel"};
+    Expr width = bufferWidth / sx;
+    Expr height = bufferHeight / sy;
 
     scaled(v_x, v_y, v_c) = cast<int16_t>(bayer(v_x * sx, v_y * sy, v_c));
 
@@ -4142,8 +3838,8 @@ void StatsGenerator::generate() {
     blackLevelClipping(v_x, v_y) = saturating_cast<uint8_t>(255 * cast<uint8_t>(blackClipped <= 0));
 
     input.set_estimates({ {0, 18000000} });
-    width.set_estimate(4000);
-    height.set_estimate(3000);
+    bufferWidth.set_estimate(4000);
+    bufferHeight.set_estimate(3000);
     blackLevel.set_estimate(0, 64);
     blackLevel.set_estimate(1, 64);
     blackLevel.set_estimate(2, 64);
@@ -4159,65 +3855,194 @@ void StatsGenerator::generate() {
     blackLevelClipping.set_estimates({{0, 250}, {0, 150} });
 
     if(!get_auto_schedule()) {
-        apply_auto_schedule(get_pipeline(), get_target());
-    }
-}
-
-void StatsGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::Halide::Target target) {
-    using ::Halide::Func;
-    using ::Halide::MemoryType;
-    using ::Halide::RVar;
-    using ::Halide::TailStrategy;
-    using ::Halide::Var;
-    Var x_vi("x_vi");
-    Var x_vo("x_vo");
-    Var y_vi("y_vi");
-    Var y_vo("y_vo");
-
-    Func blackLevelClipping = pipeline.get_func(13);
-    Func maxChannel = pipeline.get_func(9);
-    Func minChannel = pipeline.get_func(12);
-    Func whiteLevelClipping = pipeline.get_func(10);
-
-    {
-        Var x = blackLevelClipping.args()[0];
-        Var y = blackLevelClipping.args()[1];
         blackLevelClipping
             .compute_root()
-            .reorder(y, x)
-            .split(y, y_vo, y_vi, 32)
-            .vectorize(y_vi)
-            .parallel(x);
-    }
-    {
-        Var x = maxChannel.args()[0];
-        Var y = maxChannel.args()[1];
+            .reorder(v_y, v_x)
+            .split(v_y, v_yo, v_yi, 32)
+            .vectorize(v_yi)
+            .parallel(v_x);
+
         maxChannel
             .compute_root()
-            .split(x, x_vo, x_vi, 16)
-            .vectorize(x_vi)
-            .parallel(y);
-    }
-    {
-        Var x = minChannel.args()[0];
-        Var y = minChannel.args()[1];
+            .split(v_x, v_xo, v_xi, 16)
+            .vectorize(v_xi)
+            .parallel(v_y);
+
         minChannel
             .compute_root()
-            .split(x, x_vo, x_vi, 8)
-            .vectorize(x_vi)
-            .parallel(y);
-    }
-    {
-        Var x = whiteLevelClipping.args()[0];
-        Var y = whiteLevelClipping.args()[1];
+            .split(v_x, v_xo, v_xi, 8)
+            .vectorize(v_xi)
+            .parallel(v_y);
+
         whiteLevelClipping
             .compute_root()
-            .reorder(y, x)
-            .split(y, y_vo, y_vi, 32)
-            .vectorize(y_vi)
-            .parallel(x);
+            .reorder(v_y, v_x)
+            .split(v_y, v_yo, v_yi, 32)
+            .vectorize(v_yi)
+            .parallel(v_x);
     }
 }
+
+
+///////////////
+
+class MeasureImageGenerator : public Halide::Generator<MeasureImageGenerator>, public PostProcessBase {
+public:
+    Input<Buffer<uint8_t>> input{"input", 1};
+
+    Input<int> stride{"stride"};
+    Input<int> pixelFormat{"pixelFormat"};
+    Input<int> sensorArrangement{"sensorArrangement"};
+
+    Input<Buffer<float>> inShadingMap0{"inShadingMap0", 2 };
+    Input<Buffer<float>> inShadingMap1{"inShadingMap1", 2 };
+    Input<Buffer<float>> inShadingMap2{"inShadingMap2", 2 };
+    Input<Buffer<float>> inShadingMap3{"inShadingMap3", 2 };
+    
+    Input<int> sx{"sx"};
+    Input<int> sy{"sy"};
+
+    Input<int> bufferWidth{"bufferWidth"};
+    Input<int> bufferHeight{"bufferHeight"};
+
+    Input<float[4]> blackLevel{"blackLevel"};
+    Input<float>    whiteLevel{"whiteLevel"};
+
+    Input<float[3]> asShot{"asShot"};
+    Input<float[3]> wbOffset{"wbOffset"};
+
+    Input<Func> cameraToSrgb{"cameraToSrgb", Float(32), 2 };
+
+    Output<Buffer<float>> outputScale{"outputScale", 1};
+    Output<Buffer<uint32_t>> histogram{"histogram", 1};
+
+    void generate();
+    void applySchedule(::Halide::Pipeline pipeline, ::Halide::Target target);
+};
+
+void MeasureImageGenerator::generate() {
+    Func clamped{"clamped"};
+    Func bayer{"bayer"};
+    Func bl{"bl"};
+    Func originalMaxValues{"maxValues"};
+    Func shadedMaxValues{"originalMaxValues"};
+    Func shadingMap0{"shadingMap0"}, shadingMap1{"shadingMap1"}, shadingMap2{"shadingMap2"}, shadingMap3{"shadingMap3"};
+    Func shadingMapArranged{"shadingMapArranged"};
+    Func linear{"linear"};
+    Func shaded{"shaded"};
+    Func whiteBalanced{"whiteBalanced"};
+    Func wbOffsetFunc{"wbOffsetFunc"};
+    Func asShotFunc{"asShotFunc"};
+    Func shifted{"shifted"};
+    Func colorCorrected{"colorCorrected"};
+    Func colorCorrectInput{"colorCorrectInput"};    
+    Func gammaLut{"gammaLut"};
+    Func result16u{"result8u"};
+
+    bl(v_c) = mux(v_c, { blackLevel[0], blackLevel[1], blackLevel[2], blackLevel[3] });
+    
+    asShotFunc(v_c) = mux(v_c, { asShot[0], asShot[1], asShot[1], asShot[2] } );
+
+    wbOffsetFunc(v_c) = mux(v_c, { wbOffset[0], wbOffset[1], wbOffset[1], wbOffset[2] } );
+
+    Expr width = bufferWidth / sx;
+    Expr height = bufferHeight / sy;
+
+    RDom r(0, width, 0, height);
+
+    // Deinterleave
+    deinterleave(bayer, input, stride, pixelFormat, bufferWidth, bufferHeight, sensorArrangement);
+    
+    // Generate shading map
+    linearScale(shadingMap0, inShadingMap0, inShadingMap0.width(), inShadingMap0.height(), width, height);
+    linearScale(shadingMap1, inShadingMap1, inShadingMap1.width(), inShadingMap1.height(), width, height);
+    linearScale(shadingMap2, inShadingMap2, inShadingMap2.width(), inShadingMap2.height(), width, height);
+    linearScale(shadingMap3, inShadingMap3, inShadingMap3.width(), inShadingMap3.height(), width, height);
+
+    shadingMapArranged(v_x, v_y, v_c) = mux(v_c, { shadingMap0(v_x, v_y), shadingMap1(v_x, v_y), shadingMap2(v_x, v_y), shadingMap3(v_x, v_y) } );
+
+    // Linearise
+    linear(v_x, v_y, v_c) = clamp((bayer(v_x * sx, v_y * sy, v_c) - bl(v_c)) / cast<float>(whiteLevel - bl(v_c)), 0.0f, asShotFunc(v_c));
+
+    // Find the maximum before applying the shading map
+    originalMaxValues(v_c) = sum(linear(r.x, r.y, v_c));
+
+    // Apply shading map and correct colour shift
+    shaded(v_x, v_y, v_c) = shadingMapArranged(v_x, v_y, v_c) * linear(v_x, v_y, v_c);
+    whiteBalanced(v_x, v_y, v_c) = shaded(v_x, v_y, v_c) * wbOffsetFunc(v_c);
+
+    // Fix new maximum
+    shadedMaxValues(v_c) = sum(whiteBalanced(r.x, r.y, v_c));
+
+    // Get scale to shift back the image to its original maximum
+    outputScale(v_c) = originalMaxValues(v_c) / shadedMaxValues(v_c);
+
+    // Shift the image and transform to sRGB
+    Expr minShift = min(outputScale(0), 0.5f * (outputScale(1) + outputScale(2)), outputScale(3));
+
+    shifted(v_x, v_y, v_c) = whiteBalanced(v_x, v_y, v_c) * minShift;
+
+    colorCorrectInput(v_x, v_y, v_c) =
+            select( v_c == 0, clamp( shifted(v_x, v_y, 0), 0.0f, 1.0f ),
+                    v_c == 1, clamp( 0.5f * (shifted(v_x, v_y, 1) + shifted(v_x, v_y, 2)), 0.0f, 1.0f ),
+                              clamp( shifted(v_x, v_y, 3), 0.0f, 1.0f ));
+
+    // to sRGB
+    transform(colorCorrected, colorCorrectInput, cameraToSrgb);
+
+    // Calculate histogram using the luminance
+    Expr L = clamp(0.2989f*colorCorrected(v_x, v_y, 0) + 0.5870f*colorCorrected(v_x, v_y, 1) + 0.1140f*colorCorrected(v_x, v_y, 2), 0.0f, 1.0f);
+
+    Expr h = v_x / 255.0f;
+    gammaLut(v_x) = saturating_cast<uint8_t>(select(h < 0.0031308f, h * 12.92f, pow(h, 1.0f / 2.4f) * 1.055f - 0.055f) * 255);
+
+    result16u(v_x, v_y) = gammaLut(saturating_cast<uint8_t>(0.5f + 255*L));
+
+    histogram(v_i) = cast<uint32_t>(0);
+    histogram(result16u(r.x, r.y)) += cast<uint32_t>(1);
+
+    if(!auto_schedule) {
+        // TODO
+        result16u
+            .compute_root()
+            .split(v_x, v_xo, v_xi, 16)
+            .vectorize(v_xi)
+            .parallel(v_y);
+    }
+
+    input.set_estimates({ {0, 18000000} });
+    bufferWidth.set_estimate(4000);
+    bufferHeight.set_estimate(3000);
+    blackLevel.set_estimate(0, 64);
+    blackLevel.set_estimate(1, 64);
+    blackLevel.set_estimate(2, 64);
+    blackLevel.set_estimate(3, 64);
+    whiteLevel.set_estimate(1023);
+    stride.set_estimate(4000);
+    sensorArrangement.set_estimate(0);
+    pixelFormat.set_estimate(0);
+    sx.set_estimate(4);
+    sy.set_estimate(4);
+    inShadingMap0.set_estimates({{0, 17}, {0, 13}});
+    inShadingMap1.set_estimates({{0, 17}, {0, 13}});
+    inShadingMap2.set_estimates({{0, 17}, {0, 13}});
+    inShadingMap3.set_estimates({{0, 17}, {0, 13}});
+    asShot.set_estimate(0, 1.0f);
+    asShot.set_estimate(1, 1.0f);
+    asShot.set_estimate(2, 1.0f);
+    wbOffset.set_estimate(0, 1.0f);
+    wbOffset.set_estimate(1, 1.0f);
+    wbOffset.set_estimate(2, 1.0f);    
+    cameraToSrgb.set_estimates({{0, 3}, {0, 3}});
+
+    histogram.set_estimates({{0, 255}});
+    result16u.set_estimates({{0, 2000}, {0, 1500} });
+    outputScale.set_estimates({{0, 4}});
+}
+
+void MeasureImageGenerator::applySchedule(::Halide::Pipeline pipeline, ::Halide::Target target) {
+}
+
 
 HALIDE_REGISTER_GENERATOR(StatsGenerator, stats_generator)
 HALIDE_REGISTER_GENERATOR(GenerateEdgesGenerator, generate_edges_generator)

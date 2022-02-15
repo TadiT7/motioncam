@@ -4,6 +4,7 @@
 #include "motioncam/Temperature.h"
 #include "motioncam/Color.h"
 #include "motioncam/RawImageMetadata.h"
+#include "motioncam/RawCameraMetadata.h"
 
 #include <json11/json11.hpp>
 #include <vector>

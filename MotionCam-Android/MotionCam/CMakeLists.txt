@@ -464,8 +464,12 @@ add_library( # Sets the name of the library.
         ${libmotioncam-src}/source/Measure.cpp
         ${libmotioncam-src}/source/RawBufferManager.cpp
         ${libmotioncam-src}/source/RawBufferStreamer.cpp
+        ${libmotioncam-src}/source/RawImageBuffer.cpp
+        ${libmotioncam-src}/source/RawCameraMetadata.cpp
         ${libmotioncam-src}/source/MotionCam.cpp
         ${libmotioncam-src}/source/RawContainer.cpp
+        ${libmotioncam-src}/source/RawContainerImpl.cpp
+        ${libmotioncam-src}/source/RawContainerImpl_Legacy.cpp
         ${libmotioncam-src}/source/Temperature.cpp
         ${libmotioncam-src}/source/Settings.cpp
         ${libmotioncam-src}/source/Util.cpp)
@@ -624,7 +628,6 @@ set(native-camera-libs
         ${log}
         ${z}
 )
-
 
 target_link_libraries(native-camera-host
         halide_runtime_host

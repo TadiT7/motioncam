@@ -61,12 +61,8 @@ namespace motioncam {
         std::shared_ptr<ACaptureSessionOutput> rawSessionOutput;
         std::shared_ptr<ACameraOutputTarget> rawOutputTarget;
 
-        std::shared_ptr<ACaptureSessionOutput> jpegSessionOutput;
-        std::shared_ptr<ACameraOutputTarget> jpegOutputTarget;
-
         // Image reader
         std::shared_ptr<AImageReader> rawImageReader;
-        std::shared_ptr<AImageReader> jpegImageReader;
 
         AImageReader_ImageListener rawImageListener;
     };

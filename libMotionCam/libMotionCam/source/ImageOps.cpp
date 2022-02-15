@@ -47,14 +47,14 @@ namespace motioncam {
 
     void defringeInternal(Halide::Runtime::Buffer<uint16_t>& out, Halide::Runtime::Buffer<uint16_t>& in, const int threshold)
     {
-        cv::parallel_for_(cv::Range(0, 4), [&](const cv::Range& range)
-        {
-            int S = (int) std::ceil(in.height() / 4.0f);
-            
-            int y0 = range.start * S;
-            int y1 = std::min(range.end * S, in.height() - 1);
-            
-            for(int y = y0; y < y1; y++) {
+//        cv::parallel_for_(cv::Range(0, 4), [&](const cv::Range& range)
+//        {
+//            int S = (int) std::ceil(in.height() / 4.0f);
+//
+//            int y0 = range.start * S;
+//            int y1 = std::min(range.end * S, in.height() - 1);
+//
+            for(int y = 0; y < in.height(); y++) {
                 uint16_t* inR = in.begin() + y*in.stride(1) + 0*in.stride(2);
                 uint16_t* inG = in.begin() + y*in.stride(1) + 1*in.stride(2);
                 uint16_t* inB = in.begin() + y*in.stride(1) + 2*in.stride(2);
@@ -68,7 +68,7 @@ namespace motioncam {
                 for(int x = 1; x < in.width() - 1; x++)
                 {
                     int32_t Ggrad = inG[x + 1] - inG[x - 1];
-
+                    
                     outR[x] = inR[x];
                     outB[x] = inB[x];
 
@@ -105,11 +105,20 @@ namespace motioncam {
 
                     rpos += 1;
 
-                    int32_t bgMax = std::max((int32_t) inB[lpos] - inG[lpos], (int32_t) inB[rpos] - inG[rpos]);
-                    int32_t bgMin = std::min((int32_t) inB[lpos] - inG[lpos], (int32_t) inB[rpos] - inG[rpos]);
+                    int32_t Rleft = inR[lpos];
+                    int32_t Rright = inR[rpos];
+
+                    int32_t Bleft = inB[lpos];
+                    int32_t Bright = inB[rpos];
+
+                    int32_t Gleft = inG[lpos];
+                    int32_t Gright = inG[rpos];
+
+                    int32_t bgMax = std::max(Bleft - Gleft, Bright - Gright);
+                    int32_t bgMin = std::min(Bleft - Gleft, Bright - Gright);
                     
-                    int32_t rgMax = std::max((int32_t) inR[lpos] - inG[lpos], (int32_t) inR[rpos] - inG[rpos]);
-                    int32_t rgMin = std::min((int32_t) inR[lpos] - inG[lpos], (int32_t) inR[rpos] - inG[rpos]);
+                    int32_t rgMax = std::max(Rleft - Gleft, Rright - Gright);
+                    int32_t rgMin = std::min(Rleft - Gleft, Rright - Gright);
 
                     for (int k = lpos; k <= rpos; ++k)
                     {
@@ -123,7 +132,7 @@ namespace motioncam {
                             outB[k] = cv::saturate_cast<uint16_t>(bgMin + inG[k]);
                         else
                             outB[k] = inB[k];
-                        
+
                         if(Rdiff > rgMax)
                             outR[k] = cv::saturate_cast<uint16_t>(rgMax + inG[k]);
                         else if(Rdiff < rgMin)
@@ -135,11 +144,11 @@ namespace motioncam {
                     x = rpos - 2;
                 }
             }
-        });
+//        });
     }
 
     void defringe(Halide::Runtime::Buffer<uint16_t>& output, Halide::Runtime::Buffer<uint16_t>& input) {
-        const int threshold = 8000;
+        const int threshold = 1000000;
 
         defringeInternal(output, input, threshold);
     }

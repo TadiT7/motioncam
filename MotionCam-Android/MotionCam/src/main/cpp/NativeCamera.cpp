@@ -6,6 +6,7 @@
 #include <motioncam/Settings.h>
 #include <motioncam/ImageProcessor.h>
 #include <motioncam/RawBufferManager.h>
+#include <motioncam/RawImageBuffer.h>
 #include <json11/json11.hpp>
 
 #include "NativeCameraBridgeListener.h"
@@ -185,7 +186,10 @@ JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCamera_StopCapture(JN
         return JNI_FALSE;
     }
 
-    LOGD("Stop capture compled");
+    LOGD("Clearing camera session");
+    gCameraSession = nullptr;
+
+    LOGD("Stop capture completed");
 
     return JNI_TRUE;
 }
@@ -488,8 +492,9 @@ JNIEXPORT jstring JNICALL Java_com_motioncam_camera_NativeCamera_EstimatePostPro
         return nullptr;
 
     auto imageBuffer = lockedBuffer->getBuffers().front();
+    float shadingMapCorrection;
 
-    ImageProcessor::estimateSettings(*imageBuffer, gActiveCameraDescription->metadata, settings);
+    ImageProcessor::estimateSettings(*imageBuffer, gActiveCameraDescription->metadata, settings, shadingMapCorrection);
 
     json11::Json::object settingsJson;
 
@@ -521,8 +526,9 @@ jfloat JNICALL Java_com_motioncam_camera_NativeCamera_EstimateShadows(JNIEnv *en
         return -1;
 
     auto imageBuffer = lockedBuffer->getBuffers().front();
+    float shiftAmount;
 
-    cv::Mat histogram = motioncam::ImageProcessor::calcHistogram(gActiveCameraDescription->metadata, *imageBuffer, false, 4);
+    cv::Mat histogram = motioncam::ImageProcessor::calcHistogram(gActiveCameraDescription->metadata, *imageBuffer, false, 4, shiftAmount);
 
     float ev = motioncam::ImageProcessor::calcEv(gActiveCameraDescription->metadata, imageBuffer->metadata);
     float keyValue = 1.03f - bias / (bias + std::log10(std::pow(10.0f, ev) + 1));

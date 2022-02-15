@@ -24,13 +24,14 @@
 #include "motioncam/CameraProfile.h"
 #include "motioncam/Temperature.h"
 #include <motioncam/ImageProcessor.h>
+#include <motioncam/RawImageBuffer.h>
 
 #include <camera/NdkCameraMetadata.h>
+#include <motioncam/Logger.h>
 
 namespace motioncam {
-    static const int COPY_THREADS = 1; // More than one copy thread breaks RAW preview
     static const int MINIMUM_BUFFERS = 16;
-    static const int ESTIMATE_SHADOWS_FRAME_INTERVAL = 4;
+    static const int ESTIMATE_SHADOWS_FRAME_INTERVAL = 6;
 
 #ifdef GPU_CAMERA_PREVIEW
     void VERIFY_RESULT(int32_t errCode, const std::string& errString)
@@ -46,21 +47,22 @@ namespace motioncam {
             std::shared_ptr<CameraDescription> cameraDescription,
             std::shared_ptr<CameraSessionListener> listener,
             const size_t maxMemoryUsageBytes) :
-        mListener(std::move(listener)),
-        mMaximumMemoryUsageBytes(maxMemoryUsageBytes),
-        mRunning(false),
-        mEnableRawPreview(false),
-        mRawPreviewQuality(4),
-        mCopyCaptureColorTransform(true),
-        mShadowBoost(0.0f),
-        mTempOffset(0.0f),
-        mTintOffset(0.0f),
-        mUseVideoPreview(false),
-        mPreviewShadows(4.0f),
-        mPreviewShadowStep(0.0f),
-        mBufferSize(0),
-        mFramesSinceEstimatedSettings(0),
-        mCameraDesc(std::move(cameraDescription))
+            mListener(std::move(listener)),
+            mMaximumMemoryUsageBytes(maxMemoryUsageBytes),
+            mRunning(false),
+            mEnableRawPreview(false),
+            mRawPreviewQuality(4),
+            mCopyCaptureColorTransform(true),
+            mShadowBoost(0.0f),
+            mTempOffset(0.0f),
+            mTintOffset(0.0f),
+            mUseVideoPreview(false),
+            mPreviewShadows(4.0f),
+            mPreviewShadowStep(0.0f),
+            mShadingMapCorrection(1.0f),
+            mBufferSize(0),
+            mFramesSinceEstimatedSettings(0),
+            mCameraDesc(std::move(cameraDescription))
     {
     }
 
@@ -79,12 +81,9 @@ namespace motioncam {
         mRunning = true;
         mBufferSize = 0;
 
-        // Start consumer threads
-        for(int i = 0; i < COPY_THREADS; i++) {
-            mConsumerThreads.push_back(std::make_shared<std::thread>(&RawImageConsumer::doCopyImage, this));
-        }
-
-        mSetupBuffersThread = std::make_shared<std::thread>(&RawImageConsumer::doSetupBuffers, this);
+        // Start threads
+        mConsumerThread = std::make_unique<std::thread>(&RawImageConsumer::doCopyImage, this);
+        mSetupBuffersThread = std::make_unique<std::thread>(&RawImageConsumer::doSetupBuffers, this);
     }
 
     void RawImageConsumer::stop() {
@@ -107,12 +106,9 @@ namespace motioncam {
 
         LOGD("Stopping consumer threads thread");
 
-        for(auto& mConsumerThread : mConsumerThreads) {
-            if(mConsumerThread->joinable())
-                mConsumerThread->join();
-        }
-
-        mConsumerThreads.clear();
+        if(mConsumerThread && mConsumerThread->joinable())
+            mConsumerThread->join();
+        mConsumerThread = nullptr;
 
         LOGD("Raw image consumer has stopped");
     }
@@ -316,7 +312,9 @@ namespace motioncam {
             // Keep previous value
             mPreviewShadows = mEstimatedSettings.shadows;
 
-            motioncam::ImageProcessor::estimateSettings(*buffer, mCameraDesc->metadata, mEstimatedSettings);
+            float shiftAmount;
+
+            motioncam::ImageProcessor::estimateSettings(*buffer, mCameraDesc->metadata, mEstimatedSettings, shiftAmount);
 
             // Update shadows to include user selected boost
             float shadowBoost = 0.0f;
@@ -333,12 +331,13 @@ namespace motioncam {
 
             mPreviewShadowStep = (1.0f / ESTIMATE_SHADOWS_FRAME_INTERVAL) * (mEstimatedSettings.shadows - mPreviewShadows);
             mFramesSinceEstimatedSettings = 0;
+            mShadingMapCorrection = shiftAmount;
         }
         else {
             ++mFramesSinceEstimatedSettings;
 
             // Interpolate shadows to make transition smoother
-            mPreviewShadows += mPreviewShadowStep;
+            mPreviewShadows = mPreviewShadows + mPreviewShadowStep;
         }
 
         RawBufferManager::get().enqueueReadyBuffer(buffer);
@@ -550,13 +549,14 @@ namespace motioncam {
             previewTimestamp = std::chrono::steady_clock::now();
 
             if(mUseVideoPreview) {
-                motioncam::CameraPreview::generate(*buffer, mCameraDesc->metadata, downscaleFactor, inputBuffer, outputBuffer);
+                motioncam::CameraPreview::generate(*buffer, mCameraDesc->metadata, downscaleFactor, mShadingMapCorrection, inputBuffer, outputBuffer);
             }
             else {
                 motioncam::CameraPreview::generate(
                         *buffer,
                         mCameraDesc->metadata,
                         downscaleFactor,
+                        mShadingMapCorrection,
                         mCameraDesc->lensFacing == ACAMERA_LENS_FACING_FRONT,
                         mPreviewShadows,
                         mEstimatedSettings.contrast,
@@ -633,7 +633,7 @@ namespace motioncam {
         mPreviewListener  = std::move(listener);
         mEnableRawPreview = true;
         mRawPreviewQuality = previewQuality;
-        mPreprocessThread = std::make_shared<std::thread>(&RawImageConsumer::doPreprocess, this);
+        mPreprocessThread = std::make_unique<std::thread>(&RawImageConsumer::doPreprocess, this);
         mEstimatedSettings = PostProcessSettings();
     }
 

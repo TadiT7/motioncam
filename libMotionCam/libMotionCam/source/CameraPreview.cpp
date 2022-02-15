@@ -1,5 +1,9 @@
 #include "motioncam/CameraPreview.h"
+#include "motioncam/RawCameraMetadata.h"
 #include "motioncam/RawImageMetadata.h"
+#include "motioncam/RawImageBuffer.h"
+
+
 #include "motioncam/CameraProfile.h"
 #include "motioncam/Temperature.h"
 #include "motioncam/ImageProcessor.h"
@@ -33,6 +37,7 @@ namespace motioncam {
     void CameraPreview::generate(const RawImageBuffer& rawBuffer,
                                  const RawCameraMetadata& cameraMetadata,
                                  const int downscaleFactor,
+                                 const float shadingMapCorrection,
                                  Halide::Runtime::Buffer<uint8_t>& inputBuffer,
                                  Halide::Runtime::Buffer<uint8_t>& outputBuffer)
     {
@@ -44,7 +49,11 @@ namespace motioncam {
         std::vector<float> shadingMapScale;
         float shadingMapMaxScale;
         
-        ImageProcessor::getNormalisedShadingMap(rawBuffer.metadata, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
+        ImageProcessor::getNormalisedShadingMap(rawBuffer.metadata,
+                                                shadingMapCorrection,
+                                                shadingMapBuffer,
+                                                shadingMapScale,
+                                                shadingMapMaxScale);
 
         for(int i = 0; i < 4; i++) {
             shadingMapBuffer[i].set_host_dirty();
@@ -140,6 +149,7 @@ namespace motioncam {
     void CameraPreview::generate(const RawImageBuffer& rawBuffer,
                                  const RawCameraMetadata& cameraMetadata,
                                  const int downscaleFactor,
+                                 const float shadingMapCorrection,
                                  const bool flipped,
                                  const float shadows,
                                  const float contrast,
@@ -162,7 +172,11 @@ namespace motioncam {
         std::vector<float> shadingMapScale;
         float shadingMapMaxScale;
         
-        ImageProcessor::getNormalisedShadingMap(rawBuffer.metadata, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
+        ImageProcessor::getNormalisedShadingMap(rawBuffer.metadata,
+                                                shadingMapCorrection,
+                                                shadingMapBuffer,
+                                                shadingMapScale,
+                                                shadingMapMaxScale);
 
         for(int i = 0; i < 4; i++) {
             shadingMapBuffer[i].set_host_dirty();
@@ -252,7 +266,7 @@ namespace motioncam {
                        static_cast<int>(cameraMetadata.sensorArrangment),
                        tonemapVariance,
                        2.2f,
-                       shadows * shadingMapMaxScale,
+                       shadows,
                        blacks,
                        whitePoint,
                        contrast,

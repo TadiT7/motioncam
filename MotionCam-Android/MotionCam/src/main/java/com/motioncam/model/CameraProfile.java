@@ -13,7 +13,7 @@ public class CameraProfile {
     private static final SimpleDateFormat OUTPUT_DATE_FORMAT = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.forLanguageTag("en-US"));
 
     static public String generateFilename() {
-        return generateFilename("IMG", ".zip");
+        return generateFilename("IMG", ".container");
     }
 
     static public String generateFilename(String prefix, String extension) {
