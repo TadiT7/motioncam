@@ -1,8 +1,10 @@
 package com.motioncam.worker;
 
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
@@ -15,6 +17,7 @@ import androidx.core.app.NotificationCompat;
 import androidx.documentfile.provider.DocumentFile;
 import androidx.work.Data;
 import androidx.work.ForegroundInfo;
+import androidx.work.WorkManager;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
@@ -22,6 +25,7 @@ import com.motioncam.R;
 import com.motioncam.processor.NativeDngConverterListener;
 import com.motioncam.processor.NativeProcessor;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtil;
 
 import java.io.File;
@@ -35,7 +39,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class VideoProcessWorker extends Worker implements NativeDngConverterListener {
-    public static final String TAG = "MotionVideoCamWorker";
+    public static final String TAG = "MotionCam";
 
     public enum WorkerMode {
         EXPORT,
@@ -64,11 +68,6 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
 
     public VideoProcessWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
-    }
-
-    private static String getNameWithoutExtension(String filename) {
-        int idx = filename.lastIndexOf('.');
-        return (idx == -1) ? filename : filename.substring(0, idx);
     }
 
     private String getName(Uri uri) {
@@ -146,12 +145,16 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
             ImageProcessWorker.createChannel(mNotifyManager);
         }
 
+        PendingIntent cancelIntent = WorkManager.getInstance(getApplicationContext()).
+                createCancelPendingIntent(getId());
+
         mNotificationBuilder = new NotificationCompat.Builder(context, ImageProcessWorker.NOTIFICATION_CHANNEL_ID)
                 .setContentTitle(context.getString(R.string.please_wait))
                 .setContentText(context.getString(R.string.processing_video))
                 .setTicker(context.getString(R.string.app_name))
                 .setLargeIcon(BitmapFactory.decodeResource(context.getResources(), R.mipmap.icon))
                 .setSmallIcon(R.drawable.ic_processing_notification)
+                .addAction(R.drawable.baseline_cancel_24, "Cancel", cancelIntent)
                 .setOngoing(true);
 
         mNativeProcessor = new NativeProcessor();
@@ -171,6 +174,11 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
         Log.e(TAG, "Failed: " + reason);
 
         return Result.failure();
+    }
+
+    @Override
+    public void onStopped() {
+        super.onStopped();
     }
 
     @NonNull
@@ -270,40 +278,44 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
             }
         }
 
-        if(audioInputUri != null) {
-            try {
-                Log.i(TAG, "Moving " + audioInputUri);
-                moveAudio(audioInputUri);
+        if(!isStopped()) {
+            if (audioInputUri != null) {
+                try {
+                    Log.i(TAG, "Moving " + audioInputUri);
+                    moveAudio(audioInputUri);
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to move audio from " + inputAudioUriString, e);
+                }
             }
-            catch (Exception e) {
-                Log.e(TAG, "Failed to move audio from " + inputAudioUriString, e);
+
+            // Remove all files
+            boolean isDeleted = false;
+
+            if (deleteAfterExport || workerMode == WorkerMode.MOVE) {
+                for (Uri videoUri : videoUris) {
+                    isDeleted |= Util.DeleteUri(getApplicationContext(), videoUri);
+                }
+
+                isDeleted |= Util.DeleteUri(getApplicationContext(), audioInputUri);
             }
+
+            // Reset deleted flag when we are moving the video
+            isDeleted = workerMode == WorkerMode.MOVE ? false : isDeleted;
+
+            Log.i(TAG, "Stopping video worker");
+
+            Data result = new Data.Builder()
+                    .putString(State.PROGRESS_MODE_KEY, workerMode.name())
+                    .putInt(State.PROGRESS_STATE_KEY, State.STATE_COMPLETED)
+                    .putBoolean(State.PROGRESS_DELETED, isDeleted)
+                    .putString(State.PROGRESS_NAME_KEY, name)
+                    .build();
+
+            return succeed(result);
         }
 
-        // Remove all files
-        boolean isDeleted = false;
-
-        if(deleteAfterExport || workerMode == WorkerMode.MOVE) {
-            for(Uri videoUri : videoUris) {
-                isDeleted |= Util.DeleteUri(getApplicationContext(), videoUri);
-            }
-
-            isDeleted |= Util.DeleteUri(getApplicationContext(), audioInputUri);
-        }
-
-        // Reset deleted flag when we are moving the video
-        isDeleted = workerMode == WorkerMode.MOVE ? false : isDeleted;
-
-        Log.d(TAG, "Stopping video worker");
-
-        Data result = new Data.Builder()
-                .putString(State.PROGRESS_MODE_KEY, workerMode.name())
-                .putInt(State.PROGRESS_STATE_KEY, State.STATE_COMPLETED)
-                .putBoolean(State.PROGRESS_DELETED, isDeleted)
-                .putString(State.PROGRESS_NAME_KEY, name)
-                .build();
-
-        return succeed(result);
+        Log.i(TAG, "Video export has been cancelled");
+        return Result.failure();
     }
 
     private void moveAudio(Uri audioInputUri) throws IOException {
@@ -336,6 +348,9 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
     @Override
     public int onNeedFd(int frameNumber) {
         if(mInputUris == null)
+            return -1;
+
+        if(isStopped())
             return -1;
 
         String dngOutputName = String.format(Locale.US, "frame-%06d.dng", frameNumber);

@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -48,6 +49,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -372,23 +374,26 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
     }
 
     private void refresh() {
-        Collection<VideoEntry> videoFiles = getVideos();
+        CompletableFuture
+                .supplyAsync(() -> getVideos())
+                .thenAccept((videoFiles) -> requireActivity().runOnUiThread(() ->
+                {
+                    if(videoFiles.size() == 0) {
+                        mNoFiles.setVisibility(View.VISIBLE);
+                        mFileList.setVisibility(View.GONE);
+                        mConvertSettings.setVisibility(View.GONE);
+                    }
+                    else {
+                        mFileList.setVisibility(View.VISIBLE);
+                        mConvertSettings.setVisibility(View.VISIBLE);
+                        mNoFiles.setVisibility(View.GONE);
 
-        if(videoFiles.size() == 0) {
-            mNoFiles.setVisibility(View.VISIBLE);
-            mFileList.setVisibility(View.GONE);
-            mConvertSettings.setVisibility(View.GONE);
-        }
-        else {
-            mFileList.setVisibility(View.VISIBLE);
-            mConvertSettings.setVisibility(View.VISIBLE);
-            mNoFiles.setVisibility(View.GONE);
+                        mAdapter = new RawVideoAdapter(requireContext(), videoFiles, this);
 
-            mAdapter = new RawVideoAdapter(requireContext(), videoFiles, this);
-
-            mFileList.setLayoutManager(new LinearLayoutManager(getActivity()));
-            mFileList.setAdapter(mAdapter);
-        }
+                        mFileList.setLayoutManager(new LinearLayoutManager(getActivity()));
+                        mFileList.setAdapter(mAdapter);
+                    }
+                }));
     }
 
     @Override
@@ -589,7 +594,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                 continue;
 
             // Ignore old entries we don't know about
-            if(!mAdapter.isValid(audioNameTag) && mAdapter.isValid(videoNameTag))
+            if(!mAdapter.isValid(videoNameTag))
                 continue;
 
             // First check if queued
@@ -599,35 +604,40 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
             else if(videoNameTag != null && queued.contains(videoNameTag)) {
                 mAdapter.update(videoNameTag, true, null, -1);
             }
-            else if(workInfo.getState() == WorkInfo.State.SUCCEEDED) {
+            else if(workInfo.getState() == WorkInfo.State.SUCCEEDED ||
+                    workInfo.getState() == WorkInfo.State.CANCELLED)
+            {
                 // Has it finished?
                 String name = null;
+
                 if(audioNameTag != null)
                     name = audioNameTag;
                 else if(videoNameTag != null)
                     name = videoNameTag;
 
-                Data outputData = workInfo.getOutputData();
-                VideoProcessWorker.WorkerMode workerMode = VideoProcessWorker.WorkerMode.EXPORT;
+                if(name != null) {
+                    Data outputData = workInfo.getOutputData();
+                    VideoProcessWorker.WorkerMode workerMode = VideoProcessWorker.WorkerMode.EXPORT;
 
-                boolean isDeleted = outputData.getBoolean(State.PROGRESS_DELETED, false);
-                String workerModeString = outputData.getString(State.PROGRESS_MODE_KEY);
+                    boolean isDeleted = outputData.getBoolean(State.PROGRESS_DELETED, false);
+                    String workerModeString = outputData.getString(State.PROGRESS_MODE_KEY);
 
-                if(workerModeString != null) {
-                    workerMode = VideoProcessWorker.WorkerMode.valueOf(workerModeString);
-                }
+                    if(workerModeString != null) {
+                        workerMode = VideoProcessWorker.WorkerMode.valueOf(workerModeString);
+                    }
 
-                // If we moved a video, refresh the list
-                if(workerMode == VideoProcessWorker.WorkerMode.MOVE) {
-                    VideoEntry entry = mAdapter.getItemFromName(name);
-                    if(entry != null && entry.isInternal())
-                        refresh();
-                }
-                else {
-                    if (isDeleted)
-                        mAdapter.remove(name);
-                    else
-                        mAdapter.update(name, false, null, -1);
+                    // If we moved a video, refresh the list
+                    if(workerMode == VideoProcessWorker.WorkerMode.MOVE) {
+                        VideoEntry entry = mAdapter.getItemFromName(name);
+                        if(entry != null && entry.isInternal())
+                            refresh();
+                    }
+                    else {
+                        if (isDeleted)
+                            mAdapter.remove(name);
+                        else
+                            mAdapter.update(name, false, null, -1);
+                    }
                 }
             }
         }

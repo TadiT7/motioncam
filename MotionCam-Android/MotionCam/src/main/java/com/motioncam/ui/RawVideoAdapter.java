@@ -281,7 +281,13 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
 
         }
 
-        viewHolder.getStatusText().setText(statusText);
+        if(statusText.isEmpty()) {
+            viewHolder.getStatusText().setVisibility(View.GONE);
+        }
+        else {
+            viewHolder.getStatusText().setVisibility(View.VISIBLE);
+            viewHolder.getStatusText().setText(statusText);
+        }
     }
 
     @Override
