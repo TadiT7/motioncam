@@ -154,7 +154,7 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
                 .setTicker(context.getString(R.string.app_name))
                 .setLargeIcon(BitmapFactory.decodeResource(context.getResources(), R.mipmap.icon))
                 .setSmallIcon(R.drawable.ic_processing_notification)
-                .addAction(R.drawable.baseline_cancel_24, "Cancel", cancelIntent)
+                .addAction(R.drawable.baseline_cancel_24, context.getString(R.string.cancel), cancelIntent)
                 .setOngoing(true);
 
         mNativeProcessor = new NativeProcessor();

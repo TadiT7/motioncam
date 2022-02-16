@@ -162,4 +162,5 @@
     <string name="mic_internal">Internal Mic</string>
     <string name="video_recovery_progress">Recovering corrupted video.</string>
     <string name="corrupted_video_warning">This video is corrupted. Some frames may be missing</string>
+    <string name="cancel">Cancel</string>
 </resources>
