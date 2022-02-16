@@ -204,7 +204,7 @@ public class ImageProcessWorker extends Worker implements NativeProcessorProgres
         // Copy to media store
         Uri uri = null;
 
-        if (!inMemory)
+        if (BuildConfig.DEBUG && !inMemory)
             saveToFiles(containerPath, "application/octet-stream", Environment.DIRECTORY_DOCUMENTS);
 
         if (tempFileDng.exists()) {

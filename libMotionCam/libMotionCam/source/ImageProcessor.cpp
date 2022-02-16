@@ -73,7 +73,7 @@ const std::vector<std::vector<float>> WEIGHTS = {
     { 1,  1,   0,   0 }
 };
 
-const float TONEMAP_VARIANCE = 0.2f;
+const float TONEMAP_VARIANCE = 0.25f;
 
 extern "C" int extern_defringe(halide_buffer_t *in, int32_t width, int32_t height, halide_buffer_t *out) {
     if (in->is_bounds_query()) {
@@ -255,6 +255,19 @@ namespace motioncam {
         return std::log2(s / (metadata.exposureTime / (1.0e9))) - std::log2(metadata.iso / 100.0);
     }
 
+    double ImageProcessor::getMinEv(RawContainer& container) {
+        double minEv = 1e5;
+        
+        for(const auto& name : container.getFrames()) {
+            auto frame = container.getFrame(name);
+            auto ev = calcEv(container.getCameraMetadata(), frame->metadata);
+            
+            if(ev < minEv)
+                minEv = ev;
+        }
+        
+        return minEv;
+    }
 
     void ImageProcessor::getNormalisedShadingMap(const RawImageMetadata& metadata,
                                                  const float shadingMapCorrection,
@@ -407,14 +420,14 @@ namespace motioncam {
                     settings.blacks,
                     settings.exposure,
                     settings.whitePoint,
-                    0.25,//settings.contrast,
+                    settings.contrast,
                     settings.brightness,
                     settings.blues,
                     settings.greens,
                     settings.saturation,
-                    2,//settings.sharpen0,
-                    2,//settings.sharpen1,
-                    1,//settings.pop,
+                    settings.sharpen0,
+                    settings.sharpen1,
+                    settings.pop,
                     128.0f,
                     7.0f,
                     (std::min)(0.015f, (std::max)(0.005f, noiseEstimate / 2.0f)),
@@ -553,10 +566,10 @@ namespace motioncam {
     }
 
     float ImageProcessor::getShadowKeyValue(float ev, bool nightMode) {
-        float minKv = 1.03f;
+        const float minKv = 1.03f;
         
-        if(nightMode)
-            minKv = 1.07f;
+//        if(nightMode)
+//            minKv = 1.07f;
         
         return minKv - SHADOW_BIAS / (SHADOW_BIAS + std::log10(std::pow(10.0f, ev) + 1));
     }
@@ -730,9 +743,6 @@ namespace motioncam {
             rawBuffer.metadata.asShot[2],
             cameraToSrgbBuffer,
             outputBuffer);
-
-        outputBuffer.device_sync();
-        outputBuffer.copy_to_host();
         
         return outputBuffer;
     }
@@ -760,16 +770,8 @@ namespace motioncam {
         const int width  = inputBuffers[0].width() / sx;
         const int height = inputBuffers[0].height() / sy;
 
-        const int T = pow(2, EXTEND_EDGE_AMOUNT);
-
-        const int offsetX = static_cast<int>(T * ceil(width / (double) T) - width);
-        const int offsetY = static_cast<int>(T * ceil(height / (double) T) - height);
-
         Halide::Runtime::Buffer<uint8_t> outputBuffer =
-            Halide::Runtime::Buffer<uint8_t>::make_interleaved((width-offsetX)*2, (height-offsetY)*2, 4);
-
-        outputBuffer.translate(0, offsetX);
-        outputBuffer.translate(1, offsetY);
+            Halide::Runtime::Buffer<uint8_t>::make_interleaved(width*2, height*2, 4);
 
         fast_preview2(
             inputBuffers[0],
@@ -792,9 +794,6 @@ namespace motioncam {
             shadingMapScale[2],
             cameraToSrgbBuffer,
             outputBuffer);
-
-        outputBuffer.device_sync();
-        outputBuffer.copy_to_host();
         
         return outputBuffer;
     }
@@ -1129,6 +1128,7 @@ namespace motioncam {
     {
         //Measure measure("calcHistogram()");
         const int SCALE = downscale;
+        
         const int width = buffer.width/2/SCALE;
         const int height = buffer.height/2/SCALE;
 
@@ -1167,8 +1167,8 @@ namespace motioncam {
                       shadingMapBuffer[3],
                       SCALE,
                       SCALE,
-                      width,
-                      height,
+                      buffer.width,
+                      buffer.height,
                       cameraMetadata.getBlackLevel()[0],
                       cameraMetadata.getBlackLevel()[1],
                       cameraMetadata.getBlackLevel()[2],
@@ -1222,35 +1222,15 @@ namespace motioncam {
         // Started
         progressListener.onProgressUpdate(0);
 
-        // Load reference image.
-        if(rawContainer.getFrames().empty()) {
-            progressListener.onError("No frames found");
-            progressListener.onCompleted();
-            return;
-        }
-        
-        // Use oldest frame as reference (TODO: Pick sharpest)
-        auto referenceFrame = rawContainer.getFrames()[0];
-        auto referenceRawBuffer = rawContainer.loadFrame(referenceFrame);
-        
-        if(!referenceRawBuffer) {
-            progressListener.onError("Invalid reference frames");
-            progressListener.onCompleted();
-            return;
-        }
-        
-        // Remove the reference
-        rawContainer.removeFrame(referenceFrame);
-
         // Remove all underexposed images
         if(rawContainer.isHdr()) {
-            auto refEv = calcEv(rawContainer.getCameraMetadata(), referenceRawBuffer->metadata);
+            auto refEv = getMinEv(rawContainer);
             
             for(auto frameName : rawContainer.getFrames()) {
                 auto frame = rawContainer.getFrame(frameName);
                 auto ev = calcEv(rawContainer.getCameraMetadata(), frame->metadata);
                         
-                if(ev - refEv > 0.25f) {
+                if(ev - refEv > 1.0f) {
                     // Load the frame since we intend to remove it from the container
                     auto raw = rawContainer.loadFrame(frameName);
                     if(!raw) {
@@ -1265,6 +1245,26 @@ namespace motioncam {
             }
         }
         
+        // Load reference image.
+        if(rawContainer.getFrames().empty()) {
+            progressListener.onError("No frames found");
+            progressListener.onCompleted();
+            return;
+        }
+
+        // Use oldest frame as reference (TODO: Pick sharpest)
+        auto referenceFrame = rawContainer.getFrames()[0];
+        auto referenceRawBuffer = rawContainer.loadFrame(referenceFrame);
+
+        if(!referenceRawBuffer) {
+            progressListener.onError("Invalid reference frames");
+            progressListener.onCompleted();
+            return;
+        }
+
+        // Remove the reference
+        rawContainer.removeFrame(referenceFrame);
+
         auto referenceBayer = loadRawImage(*referenceRawBuffer, rawContainer.getCameraMetadata());
         PostProcessSettings settings = rawContainer.getPostProcessSettings();
         

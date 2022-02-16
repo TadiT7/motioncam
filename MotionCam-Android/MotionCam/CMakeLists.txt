@@ -367,10 +367,6 @@ add_library(png STATIC IMPORTED)
 set_target_properties(png PROPERTIES IMPORTED_LOCATION
         ${thirdparty-libs}/opencv/thirdparty/libs/${ANDROID_ABI}/liblibpng.a)
 
-add_library(imf STATIC IMPORTED)
-set_target_properties(imf PROPERTIES IMPORTED_LOCATION
-        ${thirdparty-libs}/opencv/thirdparty/libs/${ANDROID_ABI}/libIlmImf.a)
-
 add_library(cpufeatures STATIC IMPORTED)
 set_target_properties(cpufeatures PROPERTIES IMPORTED_LOCATION
         ${thirdparty-libs}/opencv/thirdparty/libs/${ANDROID_ABI}/libcpufeatures.a)
@@ -423,10 +419,6 @@ set_target_properties(opencv-imgcodecs PROPERTIES IMPORTED_LOCATION
 add_library(opencv-photo STATIC IMPORTED)
 set_target_properties(opencv-photo PROPERTIES IMPORTED_LOCATION
         ${thirdparty-libs}/opencv/libs/${ANDROID_ABI}/libopencv_photo.a)
-
-add_library(opencv-objdetect STATIC IMPORTED)
-set_target_properties(opencv-objdetect PROPERTIES IMPORTED_LOCATION
-        ${thirdparty-libs}/opencv/libs/${ANDROID_ABI}/libopencv_objdetect.a)
 
 add_library(opencv-core STATIC IMPORTED)
 set_target_properties(opencv-core PROPERTIES IMPORTED_LOCATION
@@ -604,7 +596,6 @@ set(native-camera-libs
         opencv-ximgproc
         opencv-imgcodecs
         opencv-photo
-        opencv-objdetect
         opencv-core
         pfor
         ittnotify
@@ -613,7 +604,6 @@ set(native-camera-libs
         tiff
         jpeg
         png
-        imf
         cpufeatures
         webp
         openjp2

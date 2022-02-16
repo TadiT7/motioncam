@@ -38,11 +38,14 @@ namespace motioncam {
         
         virtual bool isInMemory() const = 0;
         virtual int getNumSegments() const = 0;
+        virtual bool isCorrupted() const = 0;
         
         virtual void add(const RawImageBuffer& frame, bool flush) = 0;
         virtual void add(const std::vector<std::shared_ptr<RawImageBuffer>>& buffers, bool flush) = 0;
         virtual void commit() = 0;
         virtual void commit(const std::string& outputPath) = 0;
+        
+        virtual void recover() = 0;
         
         static std::unique_ptr<RawContainer> Open(const int fd);
         static std::unique_ptr<RawContainer> Open(const std::string& inputPath);

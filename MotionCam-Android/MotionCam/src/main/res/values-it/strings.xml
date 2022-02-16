@@ -155,6 +155,6 @@
     <string name="clear">Azzera</string>
     <string name="correct_vignette">Correggi vignettatura</string>
     <string name="move_to_export_folder">SPOSTA IN CARTELLA ESPORTA</string>
-    <string name="intro">MotionCam richiede un dispositivo di fascia alta con supporto completo per l'acquisizione RAW.\nQuesta modalità non è supportata da molti dispositivi.\nPer assistenza, visita:\n\n https://github.com/mirsadm/motioncam\n\nSono stati testati i seguenti dispositivi:</string>
+    <string name="intro">MotionCam richiede un dispositivo di fascia alta con supporto completo per l\'acquisizione RAW.\nQuesta modalità non è supportata da molti dispositivi.\nPer assistenza, visita:\n\n https://github.com/mirsadm/motioncam\n\nSono stati testati i seguenti dispositivi:</string>
     <string name="start">Avvia</string>
 </resources>

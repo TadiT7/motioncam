@@ -37,6 +37,15 @@ void DngConverterListener::onCompleted() {
     mEnv->CallVoidMethod(mProgressListenerRef, onCompletedMethod);
 }
 
+void DngConverterListener::onAttemptingRecovery() {
+    struct _jmethodID *onAttemptingRecovery = mEnv->GetMethodID(
+            mEnv->GetObjectClass(mProgressListenerRef),
+            "onAttemptingRecovery",
+            "()V");
+
+    mEnv->CallVoidMethod(mProgressListenerRef, onAttemptingRecovery);
+}
+
 void DngConverterListener::onError(const std::string& error) {
     struct _jmethodID *onErrorMethod = mEnv->GetMethodID(
             mEnv->GetObjectClass(mProgressListenerRef),

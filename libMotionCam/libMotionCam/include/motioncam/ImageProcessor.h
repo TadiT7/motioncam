@@ -176,6 +176,8 @@ namespace motioncam {
 
         static double calcEv(const RawCameraMetadata& cameraMetadata, const RawImageMetadata& metadata);
 
+        static double getMinEv(RawContainer& container);
+        
         static float adjustShadowsForFaces(cv::Mat input, PreviewMetadata& metadata);
         
         static std::vector<cv::Rect2f> detectFaces(const RawImageBuffer& buffer, const RawCameraMetadata& cameraMetadata);

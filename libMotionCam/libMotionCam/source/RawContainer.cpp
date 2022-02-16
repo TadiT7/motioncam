@@ -37,6 +37,10 @@ namespace motioncam {
     }
 
     std::unique_ptr<RawContainer> RawContainer::Open(const int fd) {
+        FILE* file = fdopen(fd, "r");
+        if(file)
+            return determineContainerType(file);
+
         return nullptr;
     }
 

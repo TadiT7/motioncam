@@ -9,6 +9,7 @@
 
 #include "ImageProcessorListener.h"
 #include "DngConverterListener.h"
+#include "JavaUtils.h"
 #include "camera/Logger.h"
 
 #include <android/bitmap.h>
@@ -136,10 +137,10 @@ extern "C" JNIEXPORT jobject JNICALL Java_com_motioncam_processor_NativeProcesso
 {
     jclass nativeClass = env->FindClass("com/motioncam/processor/ContainerMetadata");
 
-    float frameRate = -1;
-    float duration = -1;
-    int numFrames = -1;
-    int numSegments = -1;
+    float frameRate = 0;
+    float duration = 0;
+    int numFrames = 0;
+    int numSegments = 0;
 
     try {
         jsize len = env->GetArrayLength(jfds);
@@ -181,6 +182,9 @@ JNIEXPORT jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_Generate
 
     try {
         auto container = motioncam::RawContainer::Open(fd);
+        if(!container)
+            return JNI_FALSE;
+
         motioncam::PostProcessSettings settings;
 
         auto& cameraMetadata = container->getCameraMetadata();
@@ -194,55 +198,13 @@ JNIEXPORT jboolean JNICALL Java_com_motioncam_processor_NativeProcessor_Generate
                 continue;
 
             auto output = motioncam::ImageProcessor::createFastPreview(*frame, 8, 8, cameraMetadata);
-
             jobject dst = env->CallObjectMethod(listener, callbackMethod, output.width(), output.height(), 0);
 
-            // Get bitmap info
-            AndroidBitmapInfo bitmapInfo;
-
-            int result = AndroidBitmap_getInfo(env, dst, &bitmapInfo);
-
-            if(result != ANDROID_BITMAP_RESULT_SUCCESS) {
-                LOGE("AndroidBitmap_getInfo() failed, error=%d", result);
+            if(!dst)
                 return JNI_FALSE;
-            }
 
-            if( bitmapInfo.format != ANDROID_BITMAP_FORMAT_RGBA_8888    ||
-                bitmapInfo.stride != output.width() * 4                 ||
-                bitmapInfo.width  != output.width()                     ||
-                bitmapInfo.height != output.height())
-            {
-                LOGE("Invalid bitmap format format=%d, stride=%d, width=%d, height=%d, output.width=%d, output.height=%d",
-                     bitmapInfo.format, bitmapInfo.stride, bitmapInfo.width, bitmapInfo.height, output.width(), output.height());
-
+            if(!motioncam::CopyBitmap(env, output, dst))
                 return JNI_FALSE;
-            }
-
-            // Copy pixels
-            size_t size = bitmapInfo.width * bitmapInfo.height * 4;
-            if(output.size_in_bytes() != size) {
-                LOGE("buffer sizes do not match, buffer0=%ld, buffer1=%ld", output.size_in_bytes(), size);
-                return JNI_FALSE;
-            }
-
-            // Copy pixels to bitmap
-            void* pixels = nullptr;
-
-            // Lock
-            result = AndroidBitmap_lockPixels(env, dst, &pixels);
-            if(result != ANDROID_BITMAP_RESULT_SUCCESS) {
-                LOGE("AndroidBitmap_lockPixels() failed, error=%d", result);
-                return JNI_FALSE;
-            }
-
-            std::copy(output.data(), output.data() + size, (uint8_t*) pixels);
-
-            // Unlock
-            result = AndroidBitmap_unlockPixels(env, dst);
-            if(result != ANDROID_BITMAP_RESULT_SUCCESS) {
-                LOGE("AndroidBitmap_unlockPixels() failed, error=%d", result);
-                return JNI_FALSE;
-            }
         }
     }
     catch(std::runtime_error& error) {

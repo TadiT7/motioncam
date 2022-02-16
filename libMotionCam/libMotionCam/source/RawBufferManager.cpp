@@ -9,7 +9,7 @@
 #include <utility>
 
 namespace motioncam {
-    static const bool AlwaysSaveToDisk = true;
+    static const bool AlwaysSaveToDisk = false;
     static const int NumContainersToKeepInMemory = 2;
 
     RawBufferManager::RawBufferManager() :

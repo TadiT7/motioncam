@@ -5,7 +5,6 @@
 #include "motioncam/Util.h"
 
 #include <bitpack.h>
-
 #include <utility>
 
 #define _FILE_OFFSET_BITS 64
@@ -64,9 +63,10 @@ namespace motioncam {
         mExtraData(extraData),
         mBufferStartOffset(0),
         mFile(nullptr),
-        mCameraMetadata(new RawCameraMetadata(cameraMetadata)),
-        mPostProcessSettings(new PostProcessSettings())
+        mCameraMetadata(new RawCameraMetadata(cameraMetadata))
     {
+        mPostProcessSettings = std::unique_ptr<PostProcessSettings>(
+                new PostProcessSettings(mExtraData["postProcessSettings"]));
     }
 
     RawContainerImpl::~RawContainerImpl() {
@@ -147,6 +147,18 @@ namespace motioncam {
         }
     }
 
+    void RawContainerImpl::writeIndex() {
+        if(FSEEK(mFile, 0, SEEK_END) != 0)
+            throw IOException("Failed to write index");
+
+        // Write offsets
+        write(mOffsets.data(), sizeof(ItemOffset), mOffsets.size());
+        
+        // Write index
+        Index index { .indexMagicNumber = INDEX_MAGIC_NUMBER, .numOffsets = static_cast<uint32_t>(mOffsets.size()) };
+        write(&index, sizeof(Index));
+    }
+
     void RawContainerImpl::commit(const std::string& outputPath) {
         if(mMode != Mode::CREATE || mFile != nullptr)
             throw IOException("Can't commit. Container is not in a valid state");
@@ -172,13 +184,8 @@ namespace motioncam {
         mBuffers.clear();
         mFrameList.clear();
         
-        // Write offsets
-        write(mOffsets.data(), sizeof(ItemOffset), mOffsets.size());
+        writeIndex();
         
-        // Write index
-        Index index { .indexMagicNumber = INDEX_MAGIC_NUMBER, .numOffsets = static_cast<uint32_t>(mOffsets.size()) };
-        write(&index, sizeof(Index));
-
         mMode = Mode::CLOSED;
     }
 
@@ -243,7 +250,7 @@ namespace motioncam {
         
         // Check validity of index
         if(index.indexMagicNumber != INDEX_MAGIC_NUMBER) {
-            mOffsets = recover();
+            mMode = Mode::CORRUPTED;
         }
         else {
             mOffsets.resize(index.numOffsets);
@@ -257,17 +264,7 @@ namespace motioncam {
             read(mOffsets.data(), sizeof(ItemOffset), mOffsets.size());
         }
         
-        // Sort offsets so they are in order of timestamps
-        std::sort(mOffsets.begin(), mOffsets.end(), [](const auto& a, const auto&b) {
-            return a.timestamp < b.timestamp;
-        });
-        
-        for(const auto& i : mOffsets) {
-            auto name = GetBufferName(i.timestamp);
-
-            mFrameList.push_back(name);
-            mFrameOffsetMap.insert({ name, i.offset });
-        }
+        reindexOffsets();
     }
 
     void RawContainerImpl::create(const json11::Json& extraData) {
@@ -297,19 +294,48 @@ namespace motioncam {
         write(json.data(), json.size());
     }
 
-    std::vector<ItemOffset> RawContainerImpl::recover() {
+    void RawContainerImpl::reindexOffsets() {
+        // Sort offsets so they are in order of timestamps
+        std::sort(mOffsets.begin(), mOffsets.end(), [](const auto& a, const auto&b) {
+            return a.timestamp < b.timestamp;
+        });
+        
+        mFrameList.clear();
+        mFrameOffsetMap.clear();
+        
+        for(const auto& i : mOffsets) {
+            auto name = GetBufferName(i.timestamp);
+
+            mFrameList.push_back(name);
+            mFrameOffsetMap.insert({ name, i });
+        }
+    }
+
+    void RawContainerImpl::recover() {
+        if(mMode != Mode::CORRUPTED)
+            return;
+        
+        mOffsets = attemptToRecover();
+        
+        reindexOffsets();
+        
+        // Switch to read mode
+        mMode = Mode::READ;
+    }
+
+    std::vector<ItemOffset> RawContainerImpl::attemptToRecover() {
         int64_t currentOffset = mBufferStartOffset;
         std::vector<ItemOffset> offsets;
         
         // Get file size
-        FSEEK(mFile, 0, SEEK_END);
+        if(FSEEK(mFile, 0, SEEK_END) != 0)
+            return offsets;
         
         int64_t fileSize = FTELL(mFile);
         
         while(currentOffset < fileSize) {
-            if(FSEEK(mFile, currentOffset, SEEK_SET) != 0) {
-                throw IOException("Failed to seek to buffer offset");
-            }
+            if(FSEEK(mFile, currentOffset, SEEK_SET) != 0)
+                break;
 
             Item bufferItem{};
             read(&bufferItem, sizeof(Item));
@@ -425,8 +451,8 @@ namespace motioncam {
         // Load the metadata
         if(mFrameOffsetMap.find(frame) == mFrameOffsetMap.end())
             return nullptr;
-
-        int64_t offset = mFrameOffsetMap.at(frame);
+        
+        int64_t offset = mFrameOffsetMap.at(frame).offset;
         
         if(FSEEK(mFile, offset, SEEK_SET) != 0)
             throw IOException("Invalid offset");
@@ -492,7 +518,7 @@ namespace motioncam {
 
     int64_t RawContainerImpl::getFrameTimestamp(const std::string& frame) const {
         if(mFrameOffsetMap.find(frame) != mFrameOffsetMap.end()) {
-            return mFrameOffsetMap.at(frame);
+            return mFrameOffsetMap.at(frame).timestamp;
         }
         
         if(mBuffers.find(frame) != mBuffers.end()) {
@@ -544,6 +570,10 @@ namespace motioncam {
 
     int RawContainerImpl::getNumSegments() const {
         return mNumSegments;
+    }
+
+    bool RawContainerImpl::isCorrupted() const {
+        return mMode == Mode::CORRUPTED;
     }
 
     void RawContainerImpl::write(const void* data, size_t size, size_t items) const {

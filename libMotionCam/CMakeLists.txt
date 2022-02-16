@@ -320,7 +320,6 @@ target_link_libraries(motioncam-static
         opencv_core
         opencv_imgcodecs
         opencv_imgproc
-        opencv_objdetect
         opencv_video
         opencv_highgui
         opencv_features2d

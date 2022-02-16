@@ -368,7 +368,10 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
                 .putString(State.PROGRESS_NAME_KEY, mInputName)
                 .build());
 
-        mNotificationBuilder.setProgress(100, progress, false);
+        mNotificationBuilder
+                .setProgress(100, progress, false)
+                .setContentText(getApplicationContext().getString(R.string.processing_video));
+
         mNotifyManager.notify(NOTIFICATION_ID, mNotificationBuilder.build());
 
         return true;
@@ -376,6 +379,14 @@ public class VideoProcessWorker extends Worker implements NativeDngConverterList
 
     @Override
     public void onCompleted() {
+    }
+
+    @Override
+    public void onAttemptingRecovery() {
+        mNotificationBuilder.setContentText(
+                getApplicationContext().getString(R.string.video_recovery_progress));
+
+        mNotifyManager.notify(NOTIFICATION_ID, mNotificationBuilder.build());
     }
 
     @Override

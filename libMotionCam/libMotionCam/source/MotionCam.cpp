@@ -105,7 +105,8 @@ namespace motioncam {
                                       const bool enableCompression,
                                       const bool applyShadingMap,
                                       const int fromFrameNumber,
-                                      const int toFrameNumber)
+                                      const int toFrameNumber,
+                                      const bool autoRecover)
     {
         std::vector<std::unique_ptr<RawContainer>> c;
         
@@ -113,7 +114,16 @@ namespace motioncam {
             c.push_back( RawContainer::Open(inputPath) );
         }
 
-        convertVideoToDNG(c, progress, denoiseWeights, numThreads, mergeFrames, enableCompression, applyShadingMap, fromFrameNumber, toFrameNumber);
+        convertVideoToDNG(c,
+                          progress,
+                          denoiseWeights,
+                          numThreads,
+                          mergeFrames,
+                          enableCompression,
+                          applyShadingMap,
+                          fromFrameNumber,
+                          toFrameNumber,
+                          autoRecover);
     }
 
     void MotionCam::convertVideoToDNG(std::vector<int>& fds,
@@ -124,7 +134,8 @@ namespace motioncam {
                                       const bool enableCompression,
                                       const bool applyShadingMap,
                                       const int fromFrameNumber,
-                                      const int toFrameNumber)
+                                      const int toFrameNumber,
+                                      const bool autoRecover)
     {
         std::vector<std::unique_ptr<RawContainer>> c;
         
@@ -132,7 +143,16 @@ namespace motioncam {
             c.push_back( RawContainer::Open(fd) );
         }
         
-        convertVideoToDNG(c, progress, denoiseWeights, numThreads, mergeFrames, enableCompression, applyShadingMap, fromFrameNumber, toFrameNumber);
+        convertVideoToDNG(c,
+                          progress,
+                          denoiseWeights,
+                          numThreads,
+                          mergeFrames,
+                          enableCompression,
+                          applyShadingMap,
+                          fromFrameNumber,
+                          toFrameNumber,
+                          autoRecover);
     }
 
     Halide::Runtime::Buffer<uint16_t> getOutputBuffer(int width, int height, bool hasExtendedEdges) {
@@ -147,7 +167,8 @@ namespace motioncam {
                                       const bool enableCompression,
                                       const bool applyShadingMap,
                                       const int fromFrameNumber,
-                                      const int toFrameNumber)
+                                      const int toFrameNumber,
+                                      const bool autoRecover)
     {
         
         if(mImpl->running)
@@ -156,13 +177,33 @@ namespace motioncam {
         if(numThreads <= 0)
             return;
 
+        // If auto recovery is on, try to recover corrupted containers
+        if(autoRecover) {
+            for(auto& container : containers) {
+                if(container->isCorrupted()) {
+                    progress.onAttemptingRecovery();
+                    container->recover();
+                }
+            }
+        }
+        
+        // Check for corrupted containers
+        for(auto& container : containers) {
+            if(container->isCorrupted()) {
+                progress.onError("Container is corrupted");
+                progress.onCompleted();
+                return;
+            }
+        }
+        
         // Get a list of all frames, ordered by timestamp
         std::vector<util::ContainerFrame> orderedFrames;
+        
         util::GetOrderedFrames(containers, orderedFrames);
         
         // If no frames found. return
         if(orderedFrames.empty())
-            return;;
+            return;
         
         // Create processing threads
         mImpl->running = true;
@@ -447,7 +488,7 @@ namespace motioncam {
         ImageProcessor::process(rawContainer, outputFilePath, progressListener);
     }
 
-    void MotionCam::GetMetadata(const std::string& filename, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments) {
+    bool MotionCam::GetMetadata(const std::string& filename, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments) {
         std::vector<std::unique_ptr<RawContainer>> containers;
         
         try {
@@ -459,13 +500,18 @@ namespace motioncam {
             outDurationMs = -1;
             outNumSegments = 0;
 
-            return;
+            return false;
         }
         
-        GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments);
+        return GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments);
     }
 
-    void MotionCam::GetMetadata(const std::vector<std::string>& paths, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments) {
+    bool MotionCam::GetMetadata(const std::vector<std::string>& paths,
+                                float& outDurationMs,
+                                float& outFrameRate,
+                                int& outNumFrames,
+                                int& outNumSegments)
+    {
         std::vector<std::unique_ptr<RawContainer>> containers;
 
         try {
@@ -478,13 +524,18 @@ namespace motioncam {
             outDurationMs = -1;
             outNumSegments = 0;
 
-            return;
+            return false;
         }
 
-        GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments);
+        return GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments);
     }
 
-    void MotionCam::GetMetadata(const std::vector<int>& fds, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments) {
+    bool MotionCam::GetMetadata(const std::vector<int>& fds,
+                                float& outDurationMs,
+                                float& outFrameRate,
+                                int& outNumFrames,
+                                int& outNumSegments)
+    {
         // Try to get metadata from all segments
         std::vector<std::unique_ptr<RawContainer>> containers;
         
@@ -498,14 +549,14 @@ namespace motioncam {
                 outDurationMs = -1;
                 outNumSegments = 0;
 
-                return;
+                return false;
             }
         }
         
-        GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments);
+        return GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments);
     }
 
-    void MotionCam::GetMetadata(
+    bool MotionCam::GetMetadata(
         const std::vector<std::unique_ptr<RawContainer>>& containers,
         float& outDurationMs,
         float& outFrameRate,
@@ -513,17 +564,22 @@ namespace motioncam {
         int& outNumSegments)
     {
         std::vector<util::ContainerFrame> orderedFrames;
+
+        // Set to unknown values
+        outNumFrames = 0;
+        outFrameRate = 0;
+        outDurationMs = -1;
+        outNumSegments = 0;
+        
+        for(const auto& container : containers) {
+            if(container->isCorrupted())
+                return false;
+        }
         
         util::GetOrderedFrames(containers, orderedFrames);
-                
-        if(orderedFrames.empty()) {
-            outNumFrames = 0;
-            outFrameRate = 0;
-            outDurationMs = -1;
-            outNumSegments = 0;
-            
-            return;
-        }
+
+        if(orderedFrames.empty())
+            return false;
                
         double startTime = orderedFrames[0].timestamp / 1e9;
         double endTime = orderedFrames[orderedFrames.size() - 1].timestamp / 1e9;
@@ -542,5 +598,7 @@ namespace motioncam {
         }
         
         outDurationMs = static_cast<float>((endTime - startTime) * 1000.0f);
+        
+        return true;
     }
 }

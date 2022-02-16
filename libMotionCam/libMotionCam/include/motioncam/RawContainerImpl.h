@@ -14,7 +14,8 @@ namespace motioncam {
     enum class Mode : int {
         CREATE,
         READ,
-        CLOSED
+        CLOSED,
+        CORRUPTED
     };
 
     //
@@ -68,8 +69,11 @@ namespace motioncam {
         std::shared_ptr<RawImageBuffer> loadFrame(const std::string& frame);
         void removeFrame(const std::string& frame);
         
+        void recover();
+        
         bool isInMemory() const;
         int getNumSegments() const;
+        bool isCorrupted() const;
         
         void add(const RawImageBuffer& buffer, bool flush);
         void add(const std::vector<std::shared_ptr<RawImageBuffer>>& buffers, bool flush);
@@ -80,13 +84,15 @@ namespace motioncam {
     private:
         void create(const json11::Json& extraData);
         void init();
-        std::vector<ItemOffset> recover();
+        std::vector<ItemOffset> attemptToRecover();
         std::shared_ptr<RawImageBuffer> readMetadata();
         std::shared_ptr<RawImageBuffer> readFrame(const std::string& frame, const bool readData=true);
         void uncompressBuffer(std::vector<uint8_t>& compressedBuffer, const std::shared_ptr<RawImageBuffer>& dst) const;
         void writeBuffer(const RawImageBuffer& buffer);
         void write(const void* data, size_t size, size_t items=1) const;
         void read(void* data, size_t size, size_t items=1) const;
+        void writeIndex();
+        void reindexOffsets();
         
     private:
         Mode mMode;
@@ -97,7 +103,7 @@ namespace motioncam {
         int64_t mBufferStartOffset;
         
         std::vector<ItemOffset> mOffsets;
-        std::map<std::string, int64_t> mFrameOffsetMap;
+        std::map<std::string, ItemOffset> mFrameOffsetMap;
 
         std::vector<std::string> mFrameList;
         std::map<std::string, std::shared_ptr<RawImageBuffer>> mBuffers;

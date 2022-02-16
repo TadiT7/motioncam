@@ -27,7 +27,8 @@ namespace motioncam {
                                const bool enableCompression,
                                const bool applyShadingMap,
                                const int fromFrameNumber,
-                               const int toFrameNumber);
+                               const int toFrameNumber,
+                               const bool autoRecover);
 
         void convertVideoToDNG(const std::vector<std::string>& inputFile,
                                DngProcessorProgress& progress,
@@ -37,7 +38,8 @@ namespace motioncam {
                                const bool enableCompression=true,
                                const bool applyShadingMap=true,
                                const int fromFrameNumber=-1,
-                               const int toFrameNumber=-1);
+                               const int toFrameNumber=-1,
+                               const bool autoRecover=true);
 
         void convertVideoToDNG(std::vector<int>& fds,
                                DngProcessorProgress& progress,
@@ -47,15 +49,16 @@ namespace motioncam {
                                const bool enableCompression=true,
                                const bool applyShadingMap=true,
                                const int fromFrameNumber=-1,
-                               const int toFrameNumber=-1);
+                               const int toFrameNumber=-1,
+                               const bool autoRecover=true);
 
         static void ProcessImage(RawContainer& rawContainer, const std::string& outputFilePath, const ImageProcessorProgress& progressListener);
         static void ProcessImage(const std::string& containerPath, const std::string& outputFilePath, const ImageProcessorProgress& progressListener);
 
-        static void GetMetadata(const std::string& filename, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
-        static void GetMetadata(const std::vector<std::string>& paths, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
-        static void GetMetadata(const std::vector<int>& fds, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
-        static void GetMetadata(
+        static bool GetMetadata(const std::string& filename, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
+        static bool GetMetadata(const std::vector<std::string>& paths, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
+        static bool GetMetadata(const std::vector<int>& fds, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
+        static bool GetMetadata(
             const std::vector<std::unique_ptr<RawContainer>>& containers,
             float& outDurationMs,
             float& outFrameRate,

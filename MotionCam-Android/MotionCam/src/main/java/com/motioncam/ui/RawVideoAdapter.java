@@ -215,13 +215,6 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             viewHolder.getDeleteVideoBtn().setEnabled(false);
             viewHolder.getMoveVideoBtn().setVisibility(View.GONE);
         }
-        // Corrupted?
-        else if(item.entry.getFrameRate() < 0 || item.entry.getNumFrames() < 0) {
-            viewHolder.getFileNameView().setText(R.string.corrupted_video);
-            viewHolder.getQueueVideoBtn().setVisibility(View.INVISIBLE);
-
-            viewHolder.getDeleteVideoBtn().setEnabled(true);
-        }
         // Parts missing?
         else if(item.entry.getNumParts() > 0 && item.entry.getVideoUris().size() != item.entry.getNumParts()) {
             viewHolder.getQueueVideoBtn().setVisibility(View.INVISIBLE);
@@ -239,6 +232,10 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             viewHolder.getQueueVideoBtn().setVisibility(View.VISIBLE);
             viewHolder.getQueueVideoBtn().setText(R.string.convert_to_dng);
             viewHolder.getDeleteVideoBtn().setEnabled(true);
+
+            // Corrupted? Show warning.
+            if(item.entry.getFrameRate() <= 0 || item.entry.getNumFrames() <= 0)
+                statusText = mContext.getString(R.string.corrupted_video_warning);
 
             if(item.entry.isInternal()) {
                 viewHolder.getMoveVideoBtn().setVisibility(View.VISIBLE);

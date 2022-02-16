@@ -2649,7 +2649,6 @@ public:
     std::unique_ptr<EnhanceGenerator> enhance;
     
     void generate();
-    void schedule_for_gpu();
     void schedule_for_cpu();
     
 private:
@@ -2718,16 +2717,16 @@ void PreviewGenerator::generate() {
 
     downscaledInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(0.5f + d[d.size()-1](v_x, v_y, v_c));
 
-    d[d.size()-1].compute_root()
+    inMuxed.compute_at(downscaledInput, v_y)
         .vectorize(v_x, 8)
+        .reorder(v_c, v_x, v_y)
+        .unroll(v_c);
+
+    downscaledInput.compute_root()
+        .vectorize(v_x, 8)
+        .reorder(v_c, v_x, v_y)
         .unroll(v_c)
         .parallel(v_y);
-
-    for(int i = 0; i < iterations - 1; i++) {
-        d[i].compute_at(d[d.size()-1], v_y)
-            .unroll(v_c)
-            .vectorize(v_x, 8);
-    }
 
     Expr c0 = (downscaledInput(v_x, v_y, 0) - blackLevel[0]) / (cast<float>(whiteLevel - blackLevel[0]));
     Expr c1 = (downscaledInput(v_x, v_y, 1) - blackLevel[1]) / (cast<float>(whiteLevel - blackLevel[1]));
@@ -2823,13 +2822,9 @@ void PreviewGenerator::generate() {
         .dim(0).set_stride(4)
         .dim(2).set_stride(1);
     
-    if(get_target().has_gpu_feature())
-        schedule_for_gpu();
-    else
+    if(!auto_schedule) {
         schedule_for_cpu();
-}
-
-void PreviewGenerator::schedule_for_gpu() {   
+    }
 }
 
 void PreviewGenerator::schedule_for_cpu() {
@@ -2877,28 +2872,20 @@ public:
     Output<Buffer<uint8_t>> output{"output", 3};
 
     void generate();
-    void schedule_for_cpu();
 };
 
 void FastPreviewGenerator::generate() {
     Func bayer{"bayer"};
     Func linear{"linear"};
-    Func bayerInput{"bayerInput"};
     Func clamped{"clamped"};
     Func colorCorrected{"colorCorrected"};
     Func colorCorrectInput{"colorCorrectInput"};
     Func toLinear{"toLinear"};
     Func bl{"bl"};
+    Func gammaLut{"gammaLut"};    
 
     // Deinterleave
     deinterleave(bayer, input, stride, pixelFormat, bufferWidth, bufferHeight, sensorArrangement);
-
-    toLinear(v_c) = select(
-        v_c == 0, 1.0f / cast<float>(whiteLevel - blackLevel[0]),
-        v_c == 1, 1.0f / cast<float>(whiteLevel - blackLevel[1]),
-        v_c == 2, 1.0f / cast<float>(whiteLevel - blackLevel[2]),
-                  1.0f / cast<float>(whiteLevel - blackLevel[3])
-    );
 
     bl(v_c) = mux(v_c, {
         blackLevel[0],
@@ -2907,41 +2894,21 @@ void FastPreviewGenerator::generate() {
         blackLevel[3]
     });
 
+    toLinear(v_c) = 1.0f / cast<float>(whiteLevel - bl(v_c));
+
     linear(v_x, v_y, v_c) = (bayer(v_x * sx, v_y * sy, v_c) - bl(v_c)) * toLinear(v_c);
 
-    bayerInput(v_x, v_y, v_c) =
-        select(sensorArrangement == static_cast<int>(SensorArrangement::RGGB),
-                select( v_c == 0, linear(v_x, v_y, 0),
-                        v_c == 1, linear(v_x, v_y, 1),
-                                  linear(v_x, v_y, 3) ),
-
-            sensorArrangement == static_cast<int>(SensorArrangement::GRBG),
-                select( v_c == 0, linear(v_x, v_y, 1),
-                        v_c == 1, linear(v_x, v_y, 0),
-                                  linear(v_x, v_y, 2) ),
-
-            sensorArrangement == static_cast<int>(SensorArrangement::GBRG),
-                select( v_c == 0, linear(v_x, v_y, 2),
-                        v_c == 1, linear(v_x, v_y, 0),
-                                  linear(v_x, v_y, 1) ),
-
-                select( v_c == 0, linear(v_x, v_y, 3),
-                        v_c == 1, linear(v_x, v_y, 1),
-                                  linear(v_x, v_y, 0) ) );
-
-
     colorCorrectInput(v_x, v_y, v_c) =
-        select( v_c == 0, clamp( bayerInput(v_x, v_y, 0), 0.0f, asShotVector[0] ),
-                v_c == 1, clamp( bayerInput(v_x, v_y, 1), 0.0f, asShotVector[1] ),
-                          clamp( bayerInput(v_x, v_y, 2), 0.0f, asShotVector[2] ));
+        select( v_c == 0, clamp( linear(v_x, v_y, 0), 0.0f, asShotVector[0] ),
+                v_c == 1, clamp( 0.5f * (linear(v_x, v_y, 1) + linear(v_x, v_y, 2)), 0.0f, asShotVector[1] ),
+                          clamp( linear(v_x, v_y, 3), 0.0f, asShotVector[2] ));
 
     transform(colorCorrected, colorCorrectInput, cameraToSrgb);
 
-    Func gammaLut{"gammaLut"};    
     Expr h = v_i / 255.0f;
 
     gammaLut(v_i) = saturating_cast<uint8_t>(select(h < 0.0031308f, h * 12.92f, pow(h, 1.0f / 2.4f) * 1.055f - 0.055f) * 255.0f);
-    if(!auto_schedule)
+    if(!get_auto_schedule())
         gammaLut.compute_root().vectorize(v_i, 8);
 
     output(v_x, v_y, v_c) = gammaLut(saturating_cast<uint8_t>(
@@ -2977,15 +2944,18 @@ void FastPreviewGenerator::generate() {
     output.set_estimates({{0, 250}, {0, 150}, {0, 3} } );
 
     if(!get_auto_schedule()) {
-        schedule_for_cpu();
+        linear.compute_at(output, v_y)
+            .reorder(v_c, v_x, v_y)
+            .unroll(v_c)
+            .vectorize(v_x, 8);
+            
+        output.compute_root()
+            .vectorize(v_x, 8)
+            .reorder(v_c, v_x, v_y)
+            .bound(v_c, 0, 4)
+            .unroll(v_c)
+            .parallel(v_y);
     }
- }
-
-void FastPreviewGenerator::schedule_for_cpu() {
-    output.compute_root()
-        .vectorize(v_x, 16)
-        .parallel(v_c)
-        .parallel(v_y);
 }
 
 //
@@ -3078,7 +3048,6 @@ void FastPreviewGenerator2::schedule_for_cpu() {
         .unroll(v_c)
         .parallel(v_y);
 }
-
 
 //
 
@@ -3802,8 +3771,8 @@ void StatsGenerator::generate() {
         blackLevel[3]
     });
 
-    Expr width = bufferWidth / sx;
-    Expr height = bufferHeight / sy;
+    Expr width = bufferWidth / 2 / sx;
+    Expr height = bufferHeight / 2 / sy;
 
     scaled(v_x, v_y, v_c) = cast<int16_t>(bayer(v_x * sx, v_y * sy, v_c));
 
@@ -3977,8 +3946,8 @@ void MeasureImageGenerator::generate() {
 
     wbOffsetFunc(v_c) = mux(v_c, { wbOffset[0], wbOffset[1], wbOffset[1], wbOffset[2] } );
 
-    Expr width = bufferWidth / sx;
-    Expr height = bufferHeight / sy;
+    Expr width = bufferWidth / 2 / sx;
+    Expr height = bufferHeight / 2 / sy;
 
     RDom r(0, width, 0, height);
 
@@ -4034,7 +4003,15 @@ void MeasureImageGenerator::generate() {
     histogram(result16u(r.x, r.y)) += cast<uint32_t>(1);
 
     if(!auto_schedule) {
-        schedule_for_cpu(get_pipeline(), get_target());
+        result16u
+            .compute_root()
+            .reorder(v_x, v_y)
+            .parallel(v_y)
+            .vectorize(v_x, 8);
+
+        histogram
+            .compute_root()
+            .vectorize(v_i, 16);
     }
 
     input.set_estimates({ {0, 18000000} });
@@ -4068,197 +4045,6 @@ void MeasureImageGenerator::generate() {
 }
 
 void MeasureImageGenerator::schedule_for_cpu(::Halide::Pipeline pipeline, ::Halide::Target target) {
-    using ::Halide::Func;
-    using ::Halide::MemoryType;
-    using ::Halide::RVar;
-    using ::Halide::TailStrategy;
-    using ::Halide::Var;
-    Func histogram = pipeline.get_func(34);
-    Func result8u = pipeline.get_func(33);
-    Func gammaLut = pipeline.get_func(32);
-    Func colorCorrected = pipeline.get_func(31);
-    Func colorCorrectInput = pipeline.get_func(30);
-    Func shifted = pipeline.get_func(29);
-    Func outputScale = pipeline.get_func(27);
-    Func originalMaxValues = pipeline.get_func(26);
-    Func sum_1 = pipeline.get_func(25);
-    Func whiteBalanced = pipeline.get_func(24);
-    Func wbOffsetFunc = pipeline.get_func(23);
-    Func shaded = pipeline.get_func(22);
-    Func shadingMapArranged = pipeline.get_func(21);
-    Func shadingMap3 = pipeline.get_func(20);
-    Func shadingMap2 = pipeline.get_func(18);
-    Func shadingMap1 = pipeline.get_func(16);
-    Func shadingMap0 = pipeline.get_func(14);
-    Func maxValues = pipeline.get_func(12);
-    Func sum = pipeline.get_func(11);
-    Func linear = pipeline.get_func(10);
-    Func mirror_image = pipeline.get_func(9);
-    Func clamped_1 = pipeline.get_func(8);
-    Func rggb = pipeline.get_func(7);
-    Func bayer_1 = pipeline.get_func(6);
-    Func bayer_4 = pipeline.get_func(5);
-    Func bayer_3 = pipeline.get_func(4);
-    Func bayer_2 = pipeline.get_func(3);
-    Func bl = pipeline.get_func(1);
-    Func asShotFunc = pipeline.get_func(0);
-    Var c(colorCorrected.get_schedule().dims()[2].var);
-    Var ci("ci");
-    Var i(histogram.get_schedule().dims()[0].var);
-    Var ii("ii");
-    Var x(result8u.get_schedule().dims()[0].var);
-    Var xi("xi");
-    Var xii("xii");
-    Var y(result8u.get_schedule().dims()[1].var);
-    Var yi("yi");
-    Var yii("yii");
-    Var yiii("yiii");
-    RVar r18_x(histogram.update(0).get_schedule().dims()[0].var);
-    RVar r18_y(histogram.update(0).get_schedule().dims()[1].var);
-    histogram
-        .split(i, i, ii, 4, TailStrategy::ShiftInwards)
-        .vectorize(ii)
-        .compute_root()
-        .reorder({ii, i})
-        .parallel(i);
-    histogram.update(0)
-        .reorder({r18_x, r18_y});
-    result8u
-        .split(y, y, yi, 12, TailStrategy::ShiftInwards)
-        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
-        .split(yi, yi, yii, 4, TailStrategy::ShiftInwards)
-        .unroll(yii)
-        .vectorize(xi)
-        .compute_root()
-        .reorder({xi, yii, x, yi, y})
-        .parallel(y);
-    gammaLut
-        .split(x, x, xi, 16, TailStrategy::RoundUp)
-        .vectorize(xi)
-        .compute_root()
-        .reorder({xi, x})
-        .parallel(x);
-    colorCorrected
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 4, TailStrategy::ShiftInwards)
-        .unroll(x)
-        .unroll(c)
-        .vectorize(xi)
-        .compute_at(result8u, yii)
-        .store_at(result8u, x)
-        .reorder({xi, x, y, c});
-    colorCorrectInput
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 8, TailStrategy::RoundUp)
-        .split(xi, xi, xii, 4, TailStrategy::RoundUp)
-        .unroll(xi)
-        .unroll(c)
-        .vectorize(xii)
-        .compute_at(result8u, yii)
-        .reorder({xii, xi, c, x, y});
-    shifted
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 4, TailStrategy::RoundUp)
-        .unroll(x)
-        .unroll(c)
-        .vectorize(xi)
-        .compute_at(colorCorrectInput, x)
-        .reorder({xi, x, y, c});
-    outputScale
-        .split(c, c, ci, 4, TailStrategy::ShiftInwards)
-        .vectorize(ci)
-        .compute_root()
-        .reorder({ci, c});
-    sum_1
-        .split(c, c, ci, 4, TailStrategy::RoundUp)
-        .vectorize(ci)
-        .compute_root()
-        .reorder({ci, c});
-    sum_1.update(0)
-        .split(c, c, ci, 4, TailStrategy::RoundUp)
-        .vectorize(ci)
-        .reorder({ci, r18_x, r18_y, c});
-    wbOffsetFunc
-        .split(c, c, ci, 4, TailStrategy::RoundUp)
-        .vectorize(ci)
-        .compute_root()
-        .reorder({ci, c});
-    shadingMapArranged
-        .split(y, y, yi, 12, TailStrategy::ShiftInwards)
-        .split(yi, yi, yii, 4, TailStrategy::ShiftInwards)
-        .split(x, x, xi, 500, TailStrategy::ShiftInwards)
-        .split(xi, xi, xii, 4, TailStrategy::ShiftInwards)
-        .vectorize(xii)
-        .compute_root()
-        .reorder({xii, xi, yii, c, x, yi, y})
-        .parallel(y);
-    shadingMap3
-        .store_in(MemoryType::Stack)
-        .split(y, y, yi, 8, TailStrategy::GuardWithIf)
-        .vectorize(yi)
-        .compute_at(shadingMapArranged, yi)
-        .reorder({yi, y, x})
-        .reorder_storage(y, x);
-    shadingMap2
-        .store_in(MemoryType::Stack)
-        .split(y, y, yi, 8, TailStrategy::GuardWithIf)
-        .vectorize(yi)
-        .compute_at(shadingMapArranged, x)
-        .reorder({yi, y, x})
-        .reorder_storage(y, x);
-    shadingMap1
-        .store_in(MemoryType::Stack)
-        .split(y, y, yi, 8, TailStrategy::GuardWithIf)
-        .vectorize(yi)
-        .compute_at(shadingMapArranged, x)
-        .reorder({yi, y, x})
-        .reorder_storage(y, x);
-    sum
-        .split(c, c, ci, 4, TailStrategy::RoundUp)
-        .vectorize(ci)
-        .compute_root()
-        .reorder({ci, c});
-    sum.update(0)
-        .split(c, c, ci, 4, TailStrategy::RoundUp)
-        .vectorize(ci)
-        .reorder({ci, r18_x, r18_y, c});
-    bayer_1
-        .split(y, y, yi, 188, TailStrategy::ShiftInwards)
-        .split(yi, yi, yii, 8, TailStrategy::ShiftInwards)
-        .split(yii, yii, yiii, 2, TailStrategy::ShiftInwards)
-        .split(x, x, xi, 8, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_root()
-        .reorder({xi, x, yiii, yii, yi, y})
-        .parallel(y);
-    bayer_4
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_at(bayer_1, yi)
-        .reorder({xi, x, y});
-    bayer_3
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_at(bayer_1, yii)
-        .reorder({xi, x, y});
-    bayer_2
-        .store_in(MemoryType::Stack)
-        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
-        .vectorize(xi)
-        .compute_at(bayer_1, yii)
-        .reorder({xi, x, y});
-    bl
-        .split(c, c, ci, 4, TailStrategy::RoundUp)
-        .vectorize(ci)
-        .compute_root()
-        .reorder({ci, c});
-    asShotFunc
-        .split(c, c, ci, 4, TailStrategy::RoundUp)
-        .vectorize(ci)
-        .compute_root()
-        .reorder({ci, c});
 }
 
 HALIDE_REGISTER_GENERATOR(StatsGenerator, stats_generator)

@@ -2388,6 +2388,22 @@ public class CameraActivity extends AppCompatActivity implements
 
         audioInputsLayout.removeAllViews();
 
+        // Add system default
+        RadioButton audioDeviceBtn = new RadioButton(this);
+        CharSequence name = getString(R.string.mic_system_default);
+
+        audioDeviceBtn.setId(View.generateViewId());
+        audioDeviceBtn.setText(name);
+        audioDeviceBtn.setTextColor(getColor(R.color.white));
+        audioDeviceBtn.setTag("-1");
+        audioDeviceBtn.setOnClickListener(v -> onAudioInputChanged(v));
+        audioDeviceBtn.setChecked(true);
+
+        audioDeviceBtn.setLayoutParams(
+                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        audioInputsLayout.addView(audioDeviceBtn);
+
         for(int i = 0; i < deviceInfoList.length; i++) {
             AudioDeviceInfo deviceInfo = deviceInfoList[i];
 
@@ -2398,13 +2414,12 @@ public class CameraActivity extends AppCompatActivity implements
                 deviceInfo.getType() == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
                 deviceInfo.getType() == AudioDeviceInfo.TYPE_USB_ACCESSORY)
             {
-                RadioButton audioDeviceBtn = new RadioButton(this);
+                audioDeviceBtn = new RadioButton(this);
 
-                CharSequence name =
-                        deviceInfo.getType() == AudioDeviceInfo.TYPE_BUILTIN_MIC ? "Internal Mic" : deviceInfo.getProductName();
+                name = deviceInfo.getType() == AudioDeviceInfo.TYPE_BUILTIN_MIC ? getString(R.string.mic_internal) : deviceInfo.getProductName();
 
                 audioDeviceBtn.setId(View.generateViewId());
-                audioDeviceBtn.setText(deviceInfo.getProductName());
+                audioDeviceBtn.setText(name);
                 audioDeviceBtn.setTextColor(getColor(R.color.white));
                 audioDeviceBtn.setTag(deviceInfo.getId());
                 audioDeviceBtn.setOnClickListener(v -> onAudioInputChanged(v));

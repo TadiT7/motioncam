@@ -501,48 +501,20 @@ namespace motioncam {
             if(saveShadingMap) {
                 // Rearrange the shading map channels to match the sensor layout
                 const auto& rggbShadingMap = imageMetadata.shadingMap();
-                auto shadingMap = rggbShadingMap;
                 
-                switch(cameraMetadata.sensorArrangment) {
-                    // RGGB -> GRBG
-                    case ColorFilterArrangment::GRBG:
-                        shadingMap[0] = rggbShadingMap[1];
-                        shadingMap[1] = rggbShadingMap[0];
-                        shadingMap[2] = rggbShadingMap[3];
-                        shadingMap[3] = rggbShadingMap[2];
-                        break;
-
-                    // RGGB -> BGGR
-                    case ColorFilterArrangment::BGGR:
-                        std::swap(shadingMap[0], shadingMap[3]);
-                        break;
-
-                    // RGGB -> GBRG
-                    case ColorFilterArrangment::GBRG:
-                        shadingMap[0] = rggbShadingMap[2];
-                        shadingMap[1] = rggbShadingMap[3];
-                        shadingMap[2] = rggbShadingMap[0];
-                        shadingMap[3] = rggbShadingMap[1];
-                        break;
-
-                    default:
-                    case ColorFilterArrangment::RGGB:
-                        break;
-                }
-
                 for(int c = 0; c < 4; c++) {
-                    dng_point channelGainMapPoints(shadingMap[c].rows, shadingMap[c].cols);
+                    dng_point channelGainMapPoints(rggbShadingMap[c].rows, rggbShadingMap[c].cols);
 
                     AutoPtr<dng_gain_map> gainMap(new dng_gain_map(host.Allocator(),
                                                                    channelGainMapPoints,
-                                                                   dng_point_real64(1.0 / (shadingMap[c].rows),
-                                                                                    1.0 / (shadingMap[c].cols)),
+                                                                   dng_point_real64(1.0 / (rggbShadingMap[c].rows),
+                                                                                    1.0 / (rggbShadingMap[c].cols)),
                                                                    dng_point_real64(0, 0),
                                                                    1));
 
-                    for(int y = 0; y < shadingMap[c].rows; y++) {
-                        for(int x = 0; x < shadingMap[c].cols; x++) {
-                            gainMap->Entry(y, x, 0) = shadingMap[c].at<float>(y, x);
+                    for(int y = 0; y < rggbShadingMap[c].rows; y++) {
+                        for(int x = 0; x < rggbShadingMap[c].cols; x++) {
+                            gainMap->Entry(y, x, 0) = rggbShadingMap[c].at<float>(y, x);
                         }
                     }
 
@@ -578,27 +550,8 @@ namespace motioncam {
             
             negative->SetColorKeys(colorKeyRed, colorKeyGreen, colorKeyBlue);
             
-            uint32_t phase = 0;
-            
-            switch(cameraMetadata.sensorArrangment) {
-                case ColorFilterArrangment::GRBG:
-                    phase = 0;
-                    break;
-
-                case ColorFilterArrangment::BGGR:
-                    phase = 2;
-                    break;
-                    
-                case ColorFilterArrangment::GBRG:
-                    phase = 3;
-                    break;
-                    
-                default:
-                case ColorFilterArrangment::RGGB:
-                    phase = 1;
-                    break;
-            }
-            
+            uint32_t phase = 1; // We always output RGGB
+                        
             negative->SetBayerMosaic(phase);
             negative->SetColorChannels(3);
                         

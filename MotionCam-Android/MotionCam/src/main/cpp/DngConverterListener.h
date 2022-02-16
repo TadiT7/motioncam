@@ -13,6 +13,7 @@ public:
     int onNeedFd(int frameNumber);
     bool onProgressUpdate(int progress);
     void onCompleted();
+    void onAttemptingRecovery();
     void onError(const std::string& error);
 
 private:

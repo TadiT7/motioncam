@@ -50,6 +50,10 @@ public:
         return true;
     }
     
+    void onAttemptingRecovery() {
+        std::cout << "Attempting to recover file" << std::endl;
+    }
+    
     void onCompleted() {
         std::cout << "DONE" << std::endl;
     }
@@ -153,10 +157,20 @@ int main(int argc, const char* argv[]) {
         else {
             DngOutputListener listener(outputPath);
             motioncam::MotionCam m;
+            
+            float durationMs, frameRate;
+            int numFrames, numSegments;
+            
+            motioncam::MotionCam::GetMetadata(inputs, durationMs, frameRate, numFrames, numSegments);
 
+            std::cout << "Duration: " << durationMs << " ms." << std::endl;
+            std::cout << "Frame Rate: " << frameRate << std::endl;
+            std::cout << "Num Frames: " << numFrames << std::endl;
+            std::cout << "Num Segments: " << numSegments << std::endl;
+            
             std::cout << "Using " << numThreads << " threads" << std::endl;
             std::cout << "Merging " << numFramesToMerge << " frames" << std::endl;
-            
+
             m.convertVideoToDNG(inputs, listener, motioncam::NO_DENOISE_WEIGHTS, numThreads, 0, true, true);
         }
     }

@@ -34,6 +34,9 @@ namespace motioncam {
         
         bool isInMemory() const { return mIsInMemory; };
         int getNumSegments() const;
+        bool isCorrupted() const { return false; };
+        
+        void recover() { };
         
     private:
         void initialise(const std::string& inputPath);

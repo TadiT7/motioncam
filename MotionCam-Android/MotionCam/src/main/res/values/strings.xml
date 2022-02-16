@@ -158,4 +158,8 @@
     <string name="move_to_export_folder">MOVE TO EXPORT FOLDER</string>
     <string name="intro">MotionCam requires a high end device with full support for RAW capture. This mode is not supported by many devices.\n\nFor support please visit:\n\n https://github.com/mirsadm/motioncam\n\nThe following phones have been tested:</string>
     <string name="start">Start</string>
+    <string name="mic_system_default">System Default</string>
+    <string name="mic_internal">Internal Mic</string>
+    <string name="video_recovery_progress">Recovering corrupted video.</string>
+    <string name="corrupted_video_warning">This was is corrupted. Some frames may be missing</string>
 </resources>
