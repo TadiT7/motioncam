@@ -89,7 +89,7 @@ namespace motioncam {
             return;
         
         // Write buffer
-        Item bufferItem { .type = Type::BUFFER, .size = static_cast<uint32_t>(bufferSize) };
+        Item bufferItem { Type::BUFFER, static_cast<uint32_t>(bufferSize) };
         write(&bufferItem, sizeof(Item));
                 
         auto* data = buffer.data->lock(false);
@@ -110,12 +110,12 @@ namespace motioncam {
         auto json = json11::Json(metadata).dump();
         
         // Write the buffer metadata
-        Item metadataItem { .type = Type::METADATA, .size = static_cast<uint32_t>(json.size()) };
+        Item metadataItem { Type::METADATA, static_cast<uint32_t>(json.size()) };
         
         write(&metadataItem, sizeof(Item));
         write(json.data(), json.size());
 
-        mOffsets.push_back( { .offset=offset, .timestamp=buffer.metadata.timestampNs } );
+        mOffsets.push_back( { offset, buffer.metadata.timestampNs } );
     }
 
     void RawContainerImpl::add(const RawImageBuffer& buffer, bool flush) {
@@ -155,7 +155,7 @@ namespace motioncam {
         write(mOffsets.data(), sizeof(ItemOffset), mOffsets.size());
         
         // Write index
-        Index index { .indexMagicNumber = INDEX_MAGIC_NUMBER, .numOffsets = static_cast<uint32_t>(mOffsets.size()) };
+        Index index { INDEX_MAGIC_NUMBER, static_cast<uint32_t>(mOffsets.size()) };
         write(&index, sizeof(Index));
     }
 
@@ -271,7 +271,7 @@ namespace motioncam {
         if(!mFile)
             throw IOException("Invalid file");
         
-        Header h { .version=CONTAINER_VERSION };
+        Header h { CONTAINER_VERSION };
         std::memcpy(h.ident, CONTAINER_ID, sizeof(CONTAINER_ID));
         
         json11::Json::object metadata;
@@ -284,7 +284,7 @@ namespace motioncam {
         auto json = json11::Json(metadata).dump();
         const size_t metadataSize = json.size();
         
-        Item metadataItem { .type = Type::METADATA, .size = static_cast<uint32_t>(metadataSize) };
+        Item metadataItem { Type::METADATA, static_cast<uint32_t>(metadataSize) };
 
         // Write the header
         write(&h, sizeof(Header));
@@ -358,7 +358,7 @@ namespace motioncam {
             // Add buffer
             auto name = GetBufferName(*buffer);
 
-            offsets.push_back( { .offset=currentOffset, .timestamp=static_cast<int64_t>(buffer->metadata.timestampNs) } );
+            offsets.push_back( { currentOffset, static_cast<int64_t>(buffer->metadata.timestampNs) } );
             
             // Keep the buffer metadata
             mBuffers.insert(std::make_pair(name, buffer));
