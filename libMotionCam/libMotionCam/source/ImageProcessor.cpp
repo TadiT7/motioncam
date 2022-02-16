@@ -966,7 +966,7 @@ namespace motioncam {
         rawData->previewBuffer  = Halide::Runtime::Buffer<uint8_t>(halfWidth + extendX, halfHeight + extendY);
         rawData->rawBuffer      = Halide::Runtime::Buffer<uint16_t>(halfWidth + extendX, halfHeight + extendY, 4);
         rawData->metadata       = rawBuffer.metadata;
-                
+        
         deinterleave_raw(inputBufferContext.getHalideBuffer(),
                          rawBuffer.rowStride,
                          static_cast<int>(rawBuffer.pixelFormat),
@@ -1007,7 +1007,7 @@ namespace motioncam {
                       patchSize,
                       noiseBuffer,
                       signalBuffer);
-        
+                
         for(int c = 0; c < 4; c++) {
             cv::Mat noiseImage(noiseBuffer.height(), noiseBuffer.width(), CV_32F, noiseBuffer.data() + c*noiseBuffer.stride(2));
             cv::Mat signalImage(signalBuffer.height(), signalBuffer.width(), CV_32F, signalBuffer.data() + c*signalBuffer.stride(2));
@@ -1287,7 +1287,7 @@ namespace motioncam {
         float shadingMapOffset;
         
         calcHistogram(rawContainer.getCameraMetadata(), *referenceRawBuffer, false, 4, shadingMapOffset);
-
+        
         //
         // Save preview
         //

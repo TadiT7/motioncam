@@ -14,11 +14,10 @@ fi
 NUM_CORES="$(python3 -c 'import multiprocessing as mp; print(mp.cpu_count())')"
 
 ANDROID_ABI="arm64-v8a"
-OPENCV_VERSION="4.5.4"
-LIBEXPAT_VERSION="2.4.1"
-LIBEXIV2_VERSION="0.27.4"
-ZSTD_VERSION="v1.5.0"
-DLIB_VERSION="19.22"
+OPENCV_VERSION="4.5.5"
+LIBEXPAT_VERSION="2.4.4"
+LIBEXIV2_VERSION="0.27.5"
+ZSTD_VERSION="v1.5.2"
 HALIDE_BRANCH=https://github.com/mirsadm/Halide
 PFOR_BRANCH=https://github.com/mirsadm/TurboPFor-Integer-Compression.git # To remove -lrt flag for android cross-compilation
 
@@ -42,7 +41,7 @@ build_opencv() {
 
 	cmake -DCMAKE_BUILD_TYPE=Release -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-${OPENCV_VERSION}/modules -DCMAKE_INSTALL_PREFIX=../build/${ANDROID_ABI} -DCMAKE_SYSTEM_NAME=Android 	\
 		-DANDROID_NATIVE_API_LEVEL=21 -DCMAKE_SYSTEM_VERSION=21 -DANDROID_ABI=${ANDROID_ABI} -DCMAKE_ANDROID_ARCH_ABI=${ANDROID_ABI} -DANDROID_STL=c++_shared 								\
-		-DCMAKE_ANDROID_NDK_TOOLCHAIN_VERSION=clang -DWITH_TBB=ON -DCPU_BASELINE=NEON -DENABLE_NEON=ON -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake 			\
+		-DCMAKE_ANDROID_NDK_TOOLCHAIN_VERSION=clang -DWITH_TBB=ON -DCPU_BASELINE=NEON -DENABLE_NEON=ON -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake \
 		-DWITH_OPENEXR=OFF \
 		-DWITH_LAPACK=OFF \
 		-DWITH_EIGEN=OFF \
@@ -142,7 +141,7 @@ build_opencv() {
 build_expat() {
 	LIBEXPAT_ARCHIVE="libexpat-${LIBEXPAT_VERSION}.tar.gz"
 
-	curl -L https://github.com/libexpat/libexpat/releases/download/R_2_4_1/expat-${LIBEXPAT_VERSION}.tar.gz --output ${LIBEXPAT_ARCHIVE}
+	curl -L https://github.com/libexpat/libexpat/releases/download/R_2_4_4/expat-${LIBEXPAT_VERSION}.tar.gz --output ${LIBEXPAT_ARCHIVE}
 
 	tar -xvf ${LIBEXPAT_ARCHIVE}
 
@@ -177,7 +176,7 @@ build_expat() {
 build_exiv2() {
 	LIBEXIV2_ARCHIVE="libexiv2-${LIBEXPAT_VERSION}.tar.gz"	
 
-	curl -L https://www.exiv2.org/builds/exiv2-${LIBEXIV2_VERSION}-Source.tar.gz --output ${LIBEXIV2_ARCHIVE}
+	curl -L https://github.com/Exiv2/exiv2/releases/download/v${LIBEXIV2_VERSION}/exiv2-${LIBEXIV2_VERSION}-Source.tar.gz --output ${LIBEXIV2_ARCHIVE}
 
 	tar -xvf ${LIBEXIV2_ARCHIVE}
 
@@ -241,41 +240,6 @@ build_zstd() {
 	popd # zstd-src
 
 	touch ".zstd-${ZSTD_VERSION}"
-}
-
-build_dlib() {	
-	DLIB_ARCHIVE="dlib-${DLIB_VERSION}.tar.bz2"	
-
-	curl -L http://dlib.net/files/${DLIB_ARCHIVE} --output ${DLIB_ARCHIVE}
-
-	tar -xvf ${DLIB_ARCHIVE}
-
-	pushd dlib-${DLIB_VERSION}
-
-	mkdir -p build
-	pushd build
-
-	cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../build/${ANDROID_ABI} -DCMAKE_SYSTEM_NAME=Android 												\
-		-DANDROID_NATIVE_API_LEVEL=21 -DCMAKE_SYSTEM_VERSION=21 -DANDROID_ABI=${ANDROID_ABI} -DCMAKE_ANDROID_ARCH_ABI=${ANDROID_ABI} -DANDROID_STL=c++_shared 	\
-		-DBUILD_SHARED_LIBS=OFF -DDLIB_USE_CUDA=NO -DDLIB_USE_BLAS=NO -DDLIB_NO_GUI_SUPPORT=YES -DDLIB_LINK_WITH_SQLITE3=NO -DDLIB_PNG_SUPPORT=NO -DDLIB_JPEG_SUPPORT=NO \
-		-DCMAKE_ANDROID_NDK_TOOLCHAIN_VERSION=clang -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake ..
-
-	make -j${NUM_CORES}
-
-	make install
-
-	INSTALL_DIR="../../../libMotionCam/thirdparty/dlib"
-
-	mkdir -p ${INSTALL_DIR}/lib
-	mkdir -p ${INSTALL_DIR}/include
-
-	cp -a ./${ANDROID_ABI}/include/. ${INSTALL_DIR}/include/.
-	cp -a ./${ANDROID_ABI}/lib/*.a ${INSTALL_DIR}/lib/.
-
-	popd # build
-	popd # dlib-${LIBEXIV2_VERSION}-Source
-
-	touch ".dlib-${DLIB_VERSION}"	
 }
 
 build_halide() {
@@ -384,10 +348,6 @@ if [ ! -f ".zstd-${ZSTD_VERSION}" ]; then
 	build_zstd
 fi
 
-if [ ! -f ".dlib-${DLIB_VERSION}" ]; then
-	build_dlib
-fi
-
 if [ ! -f ".halide" ]; then
 	build_halide
 fi
@@ -400,26 +360,3 @@ fi
 halide_generate
 
 popd # tmp
-
-# Compile utilities
-if [[ "$OSTYPE" == "darwin"* ]]; then
-	export CPLUS_INCLUDE_PATH=/usr/local/include:/usr/local/include/opencv4	
-elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-	export CPLUS_INCLUDE_PATH=/usr/include/opencv4
-fi
-
-pushd ./tools/convert
-
-mkdir -p build
-
-cd build
-
-cmake ../
-
-make -j${NUM_CORES}
-
-popd
-
-mkdir -p ./tools/bin
-
-cp tools/convert/build/convert ./tools/bin/convert

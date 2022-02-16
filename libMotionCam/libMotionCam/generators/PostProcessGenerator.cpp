@@ -2341,10 +2341,10 @@ public:
     Func Lmap{"Lmap"};
     Func LmapTmp0{"LmapTmp0"}, LmapTmp1{"LmapTmp1"}, LmapTmp2{"LmapTmp2"}, LmapTmp3{"LmapTmp3"};
 
-    Func defringeVertical{"defringeVertical"};
-    Func defringeVerticalTransposed{"defringeVerticalTransposed"};
-    Func defringeHorizontal{"defringeHorizontal"};
-    Func defringe{"defringe"};
+    // Func defringeVertical{"defringeVertical"};
+    // Func defringeVerticalTransposed{"defringeVerticalTransposed"};
+    // Func defringeHorizontal{"defringeHorizontal"};
+    // Func defringe{"defringe"};
 
     Func colorCorrected{"colorCorrected"};
     Func hdrTonemapInput{"hdrTonemapInput"};
@@ -2432,15 +2432,15 @@ void PostProcessGenerator::generate()
     tonemap->tonemap_levels.set(TONEMAP_LEVELS);
     tonemap->apply(tonemapInput, hdrTonemapInput, WIDTH * 2, HEIGHT * 2, tonemapVariance, shadows);
 
-    defringeVertical.define_extern("extern_defringe", { (Func) tonemap->output, WIDTH*2, HEIGHT*2 }, UInt(16), 3);
-    defringeVertical.compute_root();
+    // defringeVertical.define_extern("extern_defringe", { (Func) tonemap->output, WIDTH*2, HEIGHT*2 }, UInt(16), 3);
+    // defringeVertical.compute_root();
 
-    defringeVerticalTransposed(v_x, v_y, v_c) = defringeVertical(v_y, v_x, v_c);
+    // defringeVerticalTransposed(v_x, v_y, v_c) = defringeVertical(v_y, v_x, v_c);
 
-    defringeHorizontal.define_extern("extern_defringe", { defringeVerticalTransposed, HEIGHT*2, WIDTH*2 }, UInt(16), 3);
-    defringeHorizontal.compute_root();
+    // defringeHorizontal.define_extern("extern_defringe", { defringeVerticalTransposed, HEIGHT*2, WIDTH*2 }, UInt(16), 3);
+    // defringeHorizontal.compute_root();
 
-    defringe(v_x, v_y, v_c) = defringeHorizontal(v_y, v_x, v_c);
+    // defringe(v_x, v_y, v_c) = defringeHorizontal(v_y, v_x, v_c);
     
     // Finalize output
     enhance = create<EnhanceGenerator>();
@@ -2450,7 +2450,7 @@ void PostProcessGenerator::generate()
     enhance->popRadius.set(25);
 
     enhance->apply(
-        defringe,
+        tonemap->output,
         chromaEps,
         WIDTH*2,
         HEIGHT*2,
@@ -2564,19 +2564,19 @@ void PostProcessGenerator::schedule_for_cpu() {
         .vectorize(v_y, 12)
         .parallel(v_y);
 
-    defringeVerticalTransposed
-        .compute_root()
-        .tile(v_x, v_y, v_xo, v_yo, v_x, v_y, 8, 8)
-        .vectorize(v_x)
-        .parallel(v_yo)
-        .parallel(v_c);
+    // defringeVerticalTransposed
+    //     .compute_root()
+    //     .tile(v_x, v_y, v_xo, v_yo, v_x, v_y, 8, 8)
+    //     .vectorize(v_x)
+    //     .parallel(v_yo)
+    //     .parallel(v_c);
 
-    defringe
-        .compute_root()
-        .tile(v_x, v_y, v_xo, v_yo, v_x, v_y, 8, 8)
-        .vectorize(v_x)
-        .parallel(v_yo)
-        .parallel(v_c);
+    // defringe
+    //     .compute_root()
+    //     .tile(v_x, v_y, v_xo, v_yo, v_x, v_y, 8, 8)
+    //     .vectorize(v_x)
+    //     .parallel(v_yo)
+    //     .parallel(v_c);
 
     hdrTonemapInput
         .compute_root()
@@ -3103,73 +3103,8 @@ public:
     Output<Buffer<uint8_t>> preview{"preview", 2};
 
     void generate();
-    void schedule_for_cpu();
-    void apply_auto_schedule(::Halide::Pipeline pipeline, ::Halide::Target target);
+    void schedule_for_cpu(::Halide::Pipeline pipeline, ::Halide::Target target);
 };
-
-void DeinterleaveRawGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::Halide::Target target) {
-    using ::Halide::Func;
-    using ::Halide::MemoryType;
-    using ::Halide::RVar;
-    using ::Halide::TailStrategy;
-    using ::Halide::Var;
-    Var _0_vi("_0_vi");
-    Var _0_vo("_0_vo");
-    Var i_vi("i_vi");
-    Var i_vo("i_vo");
-    Var x_vi("x_vi");
-    Var x_vo("x_vo");
-
-    Func bayer_1 = pipeline.get_func(6);
-    Func f0 = pipeline.get_func(9);
-    Func mirror_image = pipeline.get_func(2);
-    Func output = pipeline.get_func(8);
-    Func preview = pipeline.get_func(10);
-
-    {
-        Var x = bayer_1.args()[0];
-        Var y = bayer_1.args()[1];
-        bayer_1
-            .compute_root()
-            .split(x, x_vo, x_vi, 16)
-            .vectorize(x_vi)
-            .parallel(y);
-
-        Var _0 = mirror_image.args()[0];
-        mirror_image
-            .compute_at(bayer_1, y)
-            .split(_0, _0_vo, _0_vi, 32)
-            .vectorize(_0_vi);            
-    }
-    {
-        Var i = f0.args()[0];
-        f0
-            .compute_root()
-            .split(i, i_vo, i_vi, 32)
-            .vectorize(i_vi)
-            .parallel(i_vo);
-    }
-    {
-        Var x = output.args()[0];
-        Var y = output.args()[1];
-        Var c = output.args()[2];
-        output
-            .compute_root()
-            .split(x, x_vo, x_vi, 16)
-            .vectorize(x_vi)
-            .parallel(c)
-            .parallel(y);
-    }
-    {
-        Var x = preview.args()[0];
-        Var y = preview.args()[1];
-        preview
-            .compute_root()
-            .split(x, x_vo, x_vi, 32)
-            .vectorize(x_vi)
-            .parallel(y);
-    }
-}
 
 void DeinterleaveRawGenerator::generate() {
     Func bayer{"bayer"};
@@ -3216,25 +3151,72 @@ void DeinterleaveRawGenerator::generate() {
     preview.set_estimates({{0, 2000}, {0, 1500} });
 
     if(!get_auto_schedule()) {
-        schedule_for_cpu();
-        // apply_auto_schedule(get_pipeline(), get_target());
+        schedule_for_cpu(get_pipeline(), get_target());
     }
  }
 
-void DeinterleaveRawGenerator::schedule_for_cpu() {    
-    output
-        .compute_root()
-        .reorder(v_c, v_x, v_y)
-        .split(v_y, v_yo, v_yi, 16)
-        .vectorize(v_x, 16)
-        .parallel(v_yo)
-        .unroll(v_c, 4);
+void DeinterleaveRawGenerator::schedule_for_cpu(::Halide::Pipeline pipeline, ::Halide::Target target) {
+    using ::Halide::Func;
+    using ::Halide::MemoryType;
+    using ::Halide::RVar;
+    using ::Halide::TailStrategy;
+    using ::Halide::Var;
+    Var i_vi("i_vi");
+    Var i_vo("i_vo");
+    Var x_vi("x_vi");
+    Var x_vo("x_vo");
 
-    preview
-        .compute_root()
-        .split(v_y, v_yo, v_yi, 16)
-        .vectorize(v_x, 16)
-        .parallel(v_yo);
+    Func bayer_1 = pipeline.get_func(4);
+    Func gammaLut = pipeline.get_func(9);
+    Func output = pipeline.get_func(8);
+    Func preview = pipeline.get_func(10);
+    Func rggb = pipeline.get_func(5);
+
+    {
+        Var x = bayer_1.args()[0];
+        Var y = bayer_1.args()[1];
+        bayer_1
+            .compute_at(rggb, y)
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi);
+    }
+    {
+        Var i = gammaLut.args()[0];
+        gammaLut
+            .compute_root()
+            .split(i, i_vo, i_vi, 16)
+            .vectorize(i_vi)
+            .parallel(i_vo);
+    }
+    {
+        Var x = output.args()[0];
+        Var y = output.args()[1];
+        Var c = output.args()[2];
+        output
+            .compute_root()
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi)
+            .parallel(c)
+            .parallel(y);
+    }
+    {
+        Var x = preview.args()[0];
+        Var y = preview.args()[1];
+        preview
+            .compute_root()
+            .split(x, x_vo, x_vi, 16)
+            .vectorize(x_vi)
+            .parallel(y);
+    }
+    {
+        Var x = rggb.args()[0];
+        Var y = rggb.args()[1];
+        rggb
+            .compute_root()
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi)
+            .parallel(y);
+    }
 }
 
 //////////////
@@ -3712,7 +3694,6 @@ public:
     Input<int> blockSize{"blockSize"};
 
     void generate();
-    void apply_auto_schedule(::Halide::Pipeline pipeline, ::Halide::Target target);
 
     Var v_x{"x"};
     Var v_y{"y"};
@@ -3739,20 +3720,39 @@ void MeasureNoiseGenerator::generate() {
 
     input.set_estimates({ {0, 18000000} });
     stride.set_estimate(4000);
+    bufferWidth.set_estimate(4000);
+    bufferHeight.set_estimate(3000);
+    sensorArrangement.set_estimate(0);
     pixelFormat.set_estimate(0);
     blockSize.set_estimate(16);
     output.set_estimates({{0, 128}, {0, 96}, {0, 4}});
     snr.set_estimates({{0, 128}, {0, 96}, {0, 4}});
 
     if (!auto_schedule) {
-        // TODO
-        mean.compute_root().vectorize(v_x, 8).parallel(v_y);
-        output.compute_root().vectorize(v_x, 8).parallel(v_y);
-    }
-}
+        mean
+            .compute_root()
+            .bound(v_c, 0, 4)
+            .reorder(v_c, v_x, v_y)
+            .vectorize(v_x, 8)
+            .unroll(v_c)
+            .parallel(v_y);
 
-void MeasureNoiseGenerator::apply_auto_schedule(::Halide::Pipeline pipeline, ::Halide::Target target)
-{
+        output
+            .compute_root()
+            .bound(v_c, 0, 4)
+            .reorder(v_c, v_x, v_y)
+            .vectorize(v_x, 8)
+            .unroll(v_c)
+            .parallel(v_y);
+
+        snr
+            .compute_root()
+            .bound(v_c, 0, 4)
+            .reorder(v_c, v_x, v_y)
+            .vectorize(v_x, 8)
+            .unroll(v_c)
+            .parallel(v_y);
+    }
 }
 
 ///////////////
@@ -3780,6 +3780,7 @@ public:
     Output<Buffer<uint8_t>> blackLevelClipping{"blackLevelClipping", 2};
 
     void generate();
+    void schedule_for_cpu(::Halide::Pipeline pipeline, ::Halide::Target target);
 };
 
 void StatsGenerator::generate() {
@@ -3855,34 +3856,65 @@ void StatsGenerator::generate() {
     blackLevelClipping.set_estimates({{0, 250}, {0, 150} });
 
     if(!get_auto_schedule()) {
-        blackLevelClipping
-            .compute_root()
-            .reorder(v_y, v_x)
-            .split(v_y, v_yo, v_yi, 32)
-            .vectorize(v_yi)
-            .parallel(v_x);
-
-        maxChannel
-            .compute_root()
-            .split(v_x, v_xo, v_xi, 16)
-            .vectorize(v_xi)
-            .parallel(v_y);
-
-        minChannel
-            .compute_root()
-            .split(v_x, v_xo, v_xi, 8)
-            .vectorize(v_xi)
-            .parallel(v_y);
-
-        whiteLevelClipping
-            .compute_root()
-            .reorder(v_y, v_x)
-            .split(v_y, v_yo, v_yi, 32)
-            .vectorize(v_yi)
-            .parallel(v_x);
+        schedule_for_cpu(get_pipeline(), get_target());
     }
 }
 
+void StatsGenerator::schedule_for_cpu(::Halide::Pipeline pipeline, ::Halide::Target target) {
+    using ::Halide::Func;
+    using ::Halide::MemoryType;
+    using ::Halide::RVar;
+    using ::Halide::TailStrategy;
+    using ::Halide::Var;
+    Var x_vi("x_vi");
+    Var x_vo("x_vo");
+    Var y_vi("y_vi");
+    Var y_vo("y_vo");
+
+    Func blackLevelClipping = pipeline.get_func(13);
+    Func maxChannel = pipeline.get_func(9);
+    Func minChannel = pipeline.get_func(12);
+    Func whiteLevelClipping = pipeline.get_func(10);
+
+    {
+        Var x = blackLevelClipping.args()[0];
+        Var y = blackLevelClipping.args()[1];
+        blackLevelClipping
+            .compute_root()
+            .reorder(y, x)
+            .split(y, y_vo, y_vi, 16)
+            .vectorize(y_vi)
+            .parallel(x);
+    }
+    {
+        Var x = maxChannel.args()[0];
+        Var y = maxChannel.args()[1];
+        maxChannel
+            .compute_root()
+            .split(x, x_vo, x_vi, 8)
+            .vectorize(x_vi)
+            .parallel(y);
+    }
+    {
+        Var x = minChannel.args()[0];
+        Var y = minChannel.args()[1];
+        minChannel
+            .compute_root()
+            .split(x, x_vo, x_vi, 4)
+            .vectorize(x_vi)
+            .parallel(y);
+    }
+    {
+        Var x = whiteLevelClipping.args()[0];
+        Var y = whiteLevelClipping.args()[1];
+        whiteLevelClipping
+            .compute_root()
+            .reorder(y, x)
+            .split(y, y_vo, y_vi, 16)
+            .vectorize(y_vi)
+            .parallel(x);
+    }
+}
 
 ///////////////
 
@@ -3917,7 +3949,7 @@ public:
     Output<Buffer<uint32_t>> histogram{"histogram", 1};
 
     void generate();
-    void applySchedule(::Halide::Pipeline pipeline, ::Halide::Target target);
+    void schedule_for_cpu(::Halide::Pipeline pipeline, ::Halide::Target target);
 };
 
 void MeasureImageGenerator::generate() {
@@ -4002,12 +4034,7 @@ void MeasureImageGenerator::generate() {
     histogram(result16u(r.x, r.y)) += cast<uint32_t>(1);
 
     if(!auto_schedule) {
-        // TODO
-        result16u
-            .compute_root()
-            .split(v_x, v_xo, v_xi, 16)
-            .vectorize(v_xi)
-            .parallel(v_y);
+        schedule_for_cpu(get_pipeline(), get_target());
     }
 
     input.set_estimates({ {0, 18000000} });
@@ -4040,9 +4067,199 @@ void MeasureImageGenerator::generate() {
     outputScale.set_estimates({{0, 4}});
 }
 
-void MeasureImageGenerator::applySchedule(::Halide::Pipeline pipeline, ::Halide::Target target) {
+void MeasureImageGenerator::schedule_for_cpu(::Halide::Pipeline pipeline, ::Halide::Target target) {
+    using ::Halide::Func;
+    using ::Halide::MemoryType;
+    using ::Halide::RVar;
+    using ::Halide::TailStrategy;
+    using ::Halide::Var;
+    Func histogram = pipeline.get_func(34);
+    Func result8u = pipeline.get_func(33);
+    Func gammaLut = pipeline.get_func(32);
+    Func colorCorrected = pipeline.get_func(31);
+    Func colorCorrectInput = pipeline.get_func(30);
+    Func shifted = pipeline.get_func(29);
+    Func outputScale = pipeline.get_func(27);
+    Func originalMaxValues = pipeline.get_func(26);
+    Func sum_1 = pipeline.get_func(25);
+    Func whiteBalanced = pipeline.get_func(24);
+    Func wbOffsetFunc = pipeline.get_func(23);
+    Func shaded = pipeline.get_func(22);
+    Func shadingMapArranged = pipeline.get_func(21);
+    Func shadingMap3 = pipeline.get_func(20);
+    Func shadingMap2 = pipeline.get_func(18);
+    Func shadingMap1 = pipeline.get_func(16);
+    Func shadingMap0 = pipeline.get_func(14);
+    Func maxValues = pipeline.get_func(12);
+    Func sum = pipeline.get_func(11);
+    Func linear = pipeline.get_func(10);
+    Func mirror_image = pipeline.get_func(9);
+    Func clamped_1 = pipeline.get_func(8);
+    Func rggb = pipeline.get_func(7);
+    Func bayer_1 = pipeline.get_func(6);
+    Func bayer_4 = pipeline.get_func(5);
+    Func bayer_3 = pipeline.get_func(4);
+    Func bayer_2 = pipeline.get_func(3);
+    Func bl = pipeline.get_func(1);
+    Func asShotFunc = pipeline.get_func(0);
+    Var c(colorCorrected.get_schedule().dims()[2].var);
+    Var ci("ci");
+    Var i(histogram.get_schedule().dims()[0].var);
+    Var ii("ii");
+    Var x(result8u.get_schedule().dims()[0].var);
+    Var xi("xi");
+    Var xii("xii");
+    Var y(result8u.get_schedule().dims()[1].var);
+    Var yi("yi");
+    Var yii("yii");
+    Var yiii("yiii");
+    RVar r18_x(histogram.update(0).get_schedule().dims()[0].var);
+    RVar r18_y(histogram.update(0).get_schedule().dims()[1].var);
+    histogram
+        .split(i, i, ii, 4, TailStrategy::ShiftInwards)
+        .vectorize(ii)
+        .compute_root()
+        .reorder({ii, i})
+        .parallel(i);
+    histogram.update(0)
+        .reorder({r18_x, r18_y});
+    result8u
+        .split(y, y, yi, 12, TailStrategy::ShiftInwards)
+        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
+        .split(yi, yi, yii, 4, TailStrategy::ShiftInwards)
+        .unroll(yii)
+        .vectorize(xi)
+        .compute_root()
+        .reorder({xi, yii, x, yi, y})
+        .parallel(y);
+    gammaLut
+        .split(x, x, xi, 16, TailStrategy::RoundUp)
+        .vectorize(xi)
+        .compute_root()
+        .reorder({xi, x})
+        .parallel(x);
+    colorCorrected
+        .store_in(MemoryType::Stack)
+        .split(x, x, xi, 4, TailStrategy::ShiftInwards)
+        .unroll(x)
+        .unroll(c)
+        .vectorize(xi)
+        .compute_at(result8u, yii)
+        .store_at(result8u, x)
+        .reorder({xi, x, y, c});
+    colorCorrectInput
+        .store_in(MemoryType::Stack)
+        .split(x, x, xi, 8, TailStrategy::RoundUp)
+        .split(xi, xi, xii, 4, TailStrategy::RoundUp)
+        .unroll(xi)
+        .unroll(c)
+        .vectorize(xii)
+        .compute_at(result8u, yii)
+        .reorder({xii, xi, c, x, y});
+    shifted
+        .store_in(MemoryType::Stack)
+        .split(x, x, xi, 4, TailStrategy::RoundUp)
+        .unroll(x)
+        .unroll(c)
+        .vectorize(xi)
+        .compute_at(colorCorrectInput, x)
+        .reorder({xi, x, y, c});
+    outputScale
+        .split(c, c, ci, 4, TailStrategy::ShiftInwards)
+        .vectorize(ci)
+        .compute_root()
+        .reorder({ci, c});
+    sum_1
+        .split(c, c, ci, 4, TailStrategy::RoundUp)
+        .vectorize(ci)
+        .compute_root()
+        .reorder({ci, c});
+    sum_1.update(0)
+        .split(c, c, ci, 4, TailStrategy::RoundUp)
+        .vectorize(ci)
+        .reorder({ci, r18_x, r18_y, c});
+    wbOffsetFunc
+        .split(c, c, ci, 4, TailStrategy::RoundUp)
+        .vectorize(ci)
+        .compute_root()
+        .reorder({ci, c});
+    shadingMapArranged
+        .split(y, y, yi, 12, TailStrategy::ShiftInwards)
+        .split(yi, yi, yii, 4, TailStrategy::ShiftInwards)
+        .split(x, x, xi, 500, TailStrategy::ShiftInwards)
+        .split(xi, xi, xii, 4, TailStrategy::ShiftInwards)
+        .vectorize(xii)
+        .compute_root()
+        .reorder({xii, xi, yii, c, x, yi, y})
+        .parallel(y);
+    shadingMap3
+        .store_in(MemoryType::Stack)
+        .split(y, y, yi, 8, TailStrategy::GuardWithIf)
+        .vectorize(yi)
+        .compute_at(shadingMapArranged, yi)
+        .reorder({yi, y, x})
+        .reorder_storage(y, x);
+    shadingMap2
+        .store_in(MemoryType::Stack)
+        .split(y, y, yi, 8, TailStrategy::GuardWithIf)
+        .vectorize(yi)
+        .compute_at(shadingMapArranged, x)
+        .reorder({yi, y, x})
+        .reorder_storage(y, x);
+    shadingMap1
+        .store_in(MemoryType::Stack)
+        .split(y, y, yi, 8, TailStrategy::GuardWithIf)
+        .vectorize(yi)
+        .compute_at(shadingMapArranged, x)
+        .reorder({yi, y, x})
+        .reorder_storage(y, x);
+    sum
+        .split(c, c, ci, 4, TailStrategy::RoundUp)
+        .vectorize(ci)
+        .compute_root()
+        .reorder({ci, c});
+    sum.update(0)
+        .split(c, c, ci, 4, TailStrategy::RoundUp)
+        .vectorize(ci)
+        .reorder({ci, r18_x, r18_y, c});
+    bayer_1
+        .split(y, y, yi, 188, TailStrategy::ShiftInwards)
+        .split(yi, yi, yii, 8, TailStrategy::ShiftInwards)
+        .split(yii, yii, yiii, 2, TailStrategy::ShiftInwards)
+        .split(x, x, xi, 8, TailStrategy::ShiftInwards)
+        .vectorize(xi)
+        .compute_root()
+        .reorder({xi, x, yiii, yii, yi, y})
+        .parallel(y);
+    bayer_4
+        .store_in(MemoryType::Stack)
+        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
+        .vectorize(xi)
+        .compute_at(bayer_1, yi)
+        .reorder({xi, x, y});
+    bayer_3
+        .store_in(MemoryType::Stack)
+        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
+        .vectorize(xi)
+        .compute_at(bayer_1, yii)
+        .reorder({xi, x, y});
+    bayer_2
+        .store_in(MemoryType::Stack)
+        .split(x, x, xi, 16, TailStrategy::ShiftInwards)
+        .vectorize(xi)
+        .compute_at(bayer_1, yii)
+        .reorder({xi, x, y});
+    bl
+        .split(c, c, ci, 4, TailStrategy::RoundUp)
+        .vectorize(ci)
+        .compute_root()
+        .reorder({ci, c});
+    asShotFunc
+        .split(c, c, ci, 4, TailStrategy::RoundUp)
+        .vectorize(ci)
+        .compute_root()
+        .reorder({ci, c});
 }
-
 
 HALIDE_REGISTER_GENERATOR(StatsGenerator, stats_generator)
 HALIDE_REGISTER_GENERATOR(GenerateEdgesGenerator, generate_edges_generator)
