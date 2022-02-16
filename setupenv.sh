@@ -329,6 +329,8 @@ build_fpor() {
 	cp bitpack.h ${INSTALL_DIR}/${ANDROID_ABI}/include
 
 	popd
+
+	touch ".pfor"
 }
 
 # Build dependencies
