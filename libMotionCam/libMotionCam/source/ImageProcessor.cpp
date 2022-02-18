@@ -1207,7 +1207,7 @@ namespace motioncam {
         float G = 0.5f*(scaleBuffer.data()[1] + scaleBuffer.data()[2]);
         float B = scaleBuffer.data()[3];
                             
-        outShiftAmount = std::min(std::min(R, G), B);
+        outShiftAmount = (std::min)((std::min)(R, G), B);
                     
         return histogram;
     }
@@ -1226,7 +1226,7 @@ namespace motioncam {
         if(rawContainer.isHdr()) {
             auto refEv = getMinEv(rawContainer);
             
-            for(auto frameName : rawContainer.getFrames()) {
+            for(const auto& frameName : rawContainer.getFrames()) {
                 auto frame = rawContainer.getFrame(frameName);
                 auto ev = calcEv(rawContainer.getCameraMetadata(), frame->metadata);
                         
