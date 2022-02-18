@@ -227,7 +227,8 @@ namespace motioncam {
         }
         
         mCameraMetadata = std::unique_ptr<RawCameraMetadata>(new RawCameraMetadata(metadata));
-
+        mNumSegments = util::GetOptionalSetting(metadata, "numSegments", 1);
+        
         // Store extra data
         mExtraData = metadata["extraData"];
         
@@ -271,7 +272,9 @@ namespace motioncam {
         if(!mFile)
             throw IOException("Invalid file");
         
-        Header h { CONTAINER_VERSION };
+        Header h{};
+        
+        h.version = CONTAINER_VERSION;
         std::memcpy(h.ident, CONTAINER_ID, sizeof(CONTAINER_ID));
         
         json11::Json::object metadata;

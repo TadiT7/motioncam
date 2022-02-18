@@ -97,7 +97,7 @@ namespace motioncam {
     private:
         Mode mMode;
         FILE* mFile;
-        const int mNumSegments;
+        int mNumSegments;
         const bool mIsInMemory;
         json11::Json mExtraData;
         int64_t mBufferStartOffset;
