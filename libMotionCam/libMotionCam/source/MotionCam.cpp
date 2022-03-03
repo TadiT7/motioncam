@@ -5,6 +5,9 @@
 #include "motioncam/Logger.h"
 #include "motioncam/RawImageBuffer.h"
 #include "motioncam/RawCameraMetadata.h"
+#include "motioncam/Measure.h"
+
+#include "motioncam/RawEncoder.h"
 
 #include "build_bayer.h"
 #include "build_bayer2.h"
@@ -237,7 +240,7 @@ namespace motioncam {
         for(int frameIdx = startIdx; frameIdx <= endIdx; frameIdx++) {
             auto& container = containers[orderedFrames[frameIdx].containerIndex];
             auto frame = container->loadFrame(orderedFrames[frameIdx].frameName);
-                                    
+            
             if(!frame) {
                 continue;
             }
@@ -245,6 +248,8 @@ namespace motioncam {
             if(frame->width <= 0 || frame->height <= 0) {
                 continue;
             }
+                        
+            //
 
             // Lock orientation to first frame
             if(orientation == ScreenOrientation::INVALID)
@@ -257,34 +262,27 @@ namespace motioncam {
 
             // Construct shading map
             std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer;
-            std::vector<float> shadingMapScale;
 
-            if(applyShadingMap) {
-                float shadingMapMaxScale, shadingMapShift;
+            auto shadingMap = frame->metadata.shadingMap();
+            
+            for(int i = 0; i < 4; i++) {
+                auto buffer = Halide::Runtime::Buffer<float>(reinterpret_cast<float*>(shadingMap[i].data),
+                                                             shadingMap[i].cols,
+                                                             shadingMap[i].rows);
 
-                ImageProcessor::calcHistogram(cameraMetadata, *frame, false, 4, shadingMapShift);
+                buffer = buffer.copy();
                 
-                ImageProcessor::getNormalisedShadingMap(frame->metadata,
-                                                        shadingMapShift,
-                                                        shadingMapBuffer,
-                                                        shadingMapScale,
-                                                        shadingMapMaxScale);
-            }
-            else {
-                auto shadingMap = frame->metadata.shadingMap();
-                
-                for(int i = 0; i < 4; i++) {
-                    auto buffer = Halide::Runtime::Buffer<float>(shadingMap[i].cols, shadingMap[i].rows);
+                if(!applyShadingMap)
                     buffer.fill(1.0f);
-                    
-                    shadingMapBuffer.push_back(buffer);
-                    shadingMapScale.push_back(1.0f);
-                }
+                
+                shadingMapBuffer.push_back(buffer);
             }
 
             std::vector<std::shared_ptr<RawImageBuffer>> nearestBuffers;
             Halide::Runtime::Buffer<uint16_t> bayerBuffer;
             cv::Mat bayerImage;
+            
+            bool overrideBayerOffsets = false;
             
             if(mergeFrames == 0) {
                 auto data = frame->data->lock(false);
@@ -312,12 +310,6 @@ namespace motioncam {
                                  shadingMapBuffer[3],
                                  static_cast<int>(cameraMetadata.sensorArrangment),
                                  EXPANDED_RANGE,
-                                 frame->metadata.asShot[0],
-                                 frame->metadata.asShot[1],
-                                 frame->metadata.asShot[2],
-                                 shadingMapScale[0],
-                                 shadingMapScale[1],
-                                 shadingMapScale[2],
                                  bayerBuffer);
                     
                     // Crop buffer to original size
@@ -326,10 +318,13 @@ namespace motioncam {
                     
                     bayerImage = cv::Mat(bayerBuffer.height(), bayerBuffer.width(), CV_16U, bayerBuffer.data());
                     bayerImage = bayerImage(cv::Rect(x / 2, y / 2, frame->width, frame->height));
+                    
+                    // Using extended range
+                    overrideBayerOffsets = true;
                 }
                 else {
                     bayerBuffer = Halide::Runtime::Buffer<uint16_t>(frame->width, frame->height);
-                    
+                                        
                     build_bayer(inputBuffer,
                                 shadingMapBuffer[0],
                                 shadingMapBuffer[1],
@@ -345,13 +340,6 @@ namespace motioncam {
                                 originalBlackLevel[2],
                                 originalBlackLevel[3],
                                 originalWhiteLevel,
-                                frame->metadata.asShot[0],
-                                frame->metadata.asShot[1],
-                                frame->metadata.asShot[2],
-                                shadingMapScale[0],
-                                shadingMapScale[1],
-                                shadingMapScale[2],
-                                EXPANDED_RANGE,
                                 bayerBuffer);
                     
                     bayerImage = cv::Mat(bayerBuffer.height(), bayerBuffer.width(), CV_16U, bayerBuffer.data());
@@ -374,12 +362,6 @@ namespace motioncam {
                              shadingMapBuffer[3],
                              static_cast<int>(cameraMetadata.sensorArrangment),
                              EXPANDED_RANGE,
-                             frame->metadata.asShot[0],
-                             frame->metadata.asShot[1],
-                             frame->metadata.asShot[2],
-                             shadingMapScale[0],
-                             shadingMapScale[1],
-                             shadingMapScale[2],
                              bayerBuffer);
                 
                 // Crop buffer to original size
@@ -388,6 +370,9 @@ namespace motioncam {
                 
                 bayerImage = cv::Mat(bayerBuffer.height(), bayerBuffer.width(), CV_16U, bayerBuffer.data());
                 bayerImage = bayerImage(cv::Rect(x / 2, y / 2, frame->width, frame->height));
+                
+                // Using extended range
+                overrideBayerOffsets = true;
             }
 
             // Clone the buffer because the halide buffer will go away
@@ -408,10 +393,12 @@ namespace motioncam {
             // Override the black/white levels of the output to match the new bayer image
             auto frameMetadata = frame->metadata;
             
-            frameMetadata.dynamicBlackLevel = { 0, 0, 0, 0 };
-            frameMetadata.dynamicWhiteLevel = EXPANDED_RANGE;
+            if(overrideBayerOffsets) {
+                frameMetadata.dynamicBlackLevel = { 0, 0, 0, 0 };
+                frameMetadata.dynamicWhiteLevel = EXPANDED_RANGE;
             
-            cameraMetadata.updateBayerOffsets(frameMetadata.dynamicBlackLevel, frameMetadata.dynamicWhiteLevel);
+                cameraMetadata.updateBayerOffsets(frameMetadata.dynamicBlackLevel, frameMetadata.dynamicWhiteLevel);
+            }
             
             int fd = -1;
             std::string outputPath;

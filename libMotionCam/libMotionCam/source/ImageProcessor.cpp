@@ -149,12 +149,6 @@ namespace motioncam {
         }
     };
 
-    struct RawData {
-        Halide::Runtime::Buffer<uint16_t> rawBuffer;
-        Halide::Runtime::Buffer<uint8_t> previewBuffer;
-        RawImageMetadata metadata;
-    };
-
     // https://exiv2.org/doc/geotag_8cpp-example.html
     static std::string toExifString(double d, bool isRational, bool isLatitude)
     {

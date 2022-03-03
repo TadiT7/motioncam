@@ -118,6 +118,7 @@ public class CameraActivity extends AppCompatActivity implements
     private static final int CONVERT_VIDEO_ACTIVITY_REQUEST_CODE = 0x20;
 
     private static final int OVERLAY_UPDATE_FREQUENCY_MS = 250;
+    private static final int NUM_COMPRESSION_THREADS = 2;
 
     private static final int[] ALL_FRAME_RATE_OPTIONS = new int[] { 120, 60, 50, 48, 30, 25, 24, 15, 10, 5, 2, 1};
 
@@ -783,11 +784,7 @@ public class CameraActivity extends AppCompatActivity implements
                 .mapToInt(i->i)
                 .toArray();
 
-        int numThreads = mSettings.enableRawVideoCompression ? mSettings.numRawVideoCompressionThreads : 2;
-
-        Log.d(TAG, "streamToFile(enableRawCompression=" + mSettings.enableRawVideoCompression + ", numThreads=" + numThreads + ")");
-
-        mNativeCamera.streamToFile(fds, audioFd, mAudioInputId, mSettings.enableRawVideoCompression, numThreads);
+        mNativeCamera.streamToFile(fds, audioFd, mAudioInputId, NUM_COMPRESSION_THREADS);
         mImageCaptureInProgress.set(true);
 
         mBinding.switchCameraBtn.setEnabled(false);
@@ -1836,9 +1833,7 @@ public class CameraActivity extends AppCompatActivity implements
 
     private void setupCameraPreview(CaptureMode captureMode) {
         // Update orientation in case we've switched front/back cameras
-        NativeCameraBuffer.ScreenOrientation orientation = mSensorEventManager.getOrientation();
-        if(orientation != null)
-            onOrientationChanged(orientation);
+        onOrientationChanged(mSensorEventManager.getOrientation());
 
         if(mNativeCamera != null
                 && mSettings.useDualExposure
@@ -2190,6 +2185,9 @@ public class CameraActivity extends AppCompatActivity implements
 
     @Override
     public void onOrientationChanged(NativeCameraBuffer.ScreenOrientation orientation) {
+        if(orientation == null)
+            return;
+
         Log.i(TAG, "Orientation is " + orientation);
 
         if(mNativeCamera != null) {

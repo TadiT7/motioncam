@@ -430,6 +430,10 @@ add_library(pfor STATIC IMPORTED)
 set_target_properties(pfor PROPERTIES IMPORTED_LOCATION
         ${thirdparty-libs}/pfor/${ANDROID_ABI}/lib/libic.a)
 
+add_library(encoder STATIC IMPORTED)
+set_target_properties(encoder PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/libs/libmotioncam-encoder.a)
+
 #
 # Processing library
 #
@@ -598,6 +602,7 @@ set(native-camera-libs
         opencv-photo
         opencv-core
         pfor
+        encoder
         ittnotify
         tegra-hal
         tbb

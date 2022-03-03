@@ -3,8 +3,8 @@
 #include "motioncam/RawImageBuffer.h"
 #include "motioncam/Exceptions.h"
 #include "motioncam/Util.h"
+#include "motioncam/RawEncoder.h"
 
-#include <bitpack.h>
 #include <utility>
 
 #define _FILE_OFFSET_BITS 64
@@ -389,41 +389,13 @@ namespace motioncam {
     }
 
     void RawContainerImpl::uncompressBuffer(std::vector<uint8_t>& compressedBuffer, const std::shared_ptr<RawImageBuffer>& dst) const {
-        std::vector<uint16_t> rowOutput(2 * dst->width); // Add extra padding
         std::vector<uint8_t> uncompressedBuffer(2 * dst->width * dst->height);
         
-        const uint16_t rowSize = dst->width;
-        auto decodeFunc = &bitnzunpack16;
-        
-        if(dst->compressionType == CompressionType::BITNZPACK_2)
-            decodeFunc = &bitnzunpack16;
-        else
+        if(dst->compressionType != CompressionType::MOTIONCAM)
             throw IOException("Invalid compression type");
-        
-        size_t offset = 0;
-        size_t p = 0;
 
-        // Allocate extra padding on the input
-        compressedBuffer.resize(compressedBuffer.size() + dst->rowStride * 4);
-        
-        // Read the image
-        for(int y = 0; y < dst->height; y++) {
-            size_t readBytes = decodeFunc(compressedBuffer.data() + offset, rowSize, rowOutput.data());
-            
-            // Reshuffle the row
-            for(size_t i = 0; i < rowSize/2; i++) {
-                uncompressedBuffer[p]   = rowOutput[i];
-                uncompressedBuffer[p+1] = rowOutput[i] >> 8;
-
-                uncompressedBuffer[p+2] = rowOutput[i+rowSize/2];
-                uncompressedBuffer[p+3] = rowOutput[i+rowSize/2] >> 8;
-
-                p+=4;
-            }
-            
-            offset += readBytes;
-        }
-        
+        encoder::decode(reinterpret_cast<uint16_t*>(uncompressedBuffer.data()), dst->width, dst->height, compressedBuffer.data());
+                
         dst->data->copyHostData(uncompressedBuffer);
     }
 

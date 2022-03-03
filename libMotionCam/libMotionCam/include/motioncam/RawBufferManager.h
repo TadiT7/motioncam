@@ -76,7 +76,6 @@ namespace motioncam {
         void enableStreaming(const std::vector<int>& fds,
                              const int audioFd,
                              std::shared_ptr<AudioInterface> audioInterface,
-                             const bool enableCompression,
                              const int numThreads,
                              const RawCameraMetadata& metadata);
         

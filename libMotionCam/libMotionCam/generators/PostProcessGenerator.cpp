@@ -3507,11 +3507,6 @@ public:
     Input<float[4]> blackLevel{"blackLevel"};
     Input<float> whiteLevel{"whiteLevel"};
 
-    Input<float[3]> asShot{"asShot"};
-    Input<float[3]> wbOffset{"wbOffset"};
-
-    Input<uint16_t> outputRange{"outputRange"};
-
     Output<Buffer<uint16_t>> output{"output", 2 };
 
     void generate() {
@@ -3519,9 +3514,6 @@ public:
         Func shadingMap0{"shadingMap0"}, shadingMap1{"shadingMap1"}, shadingMap2{"shadingMap2"}, shadingMap3{"shadingMap3"};
         Func shadingMapArranged{"shadingMapArranged"};
         Func shaded{"shaded"};
-        Func whiteBalanced{"whiteBalanced"};
-        Func asShotFunc{"asShotFunc"};
-        Func wbOffsetFunc{"wbOffsetFunc"};
         Func bl{"bl"};
         Func linear{"linear"};
         Func final{"final"};
@@ -3543,19 +3535,13 @@ public:
             shadingMap3(v_x, v_y)
         });
 
-        asShotFunc(v_c) = mux(v_c, { asShot[0], asShot[1], asShot[1], asShot[2] } );
-        
-        wbOffsetFunc(v_c) = mux(v_c, { wbOffset[0], wbOffset[1], wbOffset[1], wbOffset[2] } );
-
         bl(v_c) = mux(v_c, { blackLevel[0], blackLevel[1], blackLevel[2], blackLevel[3] });
 
         linear(v_x, v_y, v_c) = (cast<float>(inputDeinterleaved(v_x, v_y, v_c)) - bl(v_c)) / cast<float>(whiteLevel - bl(v_c));
 
-        shaded(v_x, v_y, v_c) = shadingMapArranged(v_x, v_y, v_c) * clamp(linear(v_x, v_y, v_c), 0.0f, asShotFunc(v_c));
+        shaded(v_x, v_y, v_c) = shadingMapArranged(v_x, v_y, v_c) * linear(v_x, v_y, v_c);
 
-        whiteBalanced(v_x, v_y, v_c) = shaded(v_x, v_y, v_c) * wbOffsetFunc(v_c);
-
-        final(v_x, v_y, v_c) = cast<uint16_t>(clamp((whiteBalanced(v_x, v_y, v_c) * outputRange + 0.5f), 0, outputRange));
+        final(v_x, v_y, v_c) = saturating_cast<uint16_t>(shaded(v_x, v_y, v_c) * whiteLevel + 0.5f);
 
         output(v_x, v_y) =
             select(v_y % 2 == 0,
@@ -3583,9 +3569,6 @@ public:
     Input<int> sensorArrangement{"sensorArrangement"};
     Input<uint16_t> range{"range"};
 
-    Input<float[3]> asShot{"asShot"};
-    Input<float[3]> wbOffset{"wbOffset"};
-
     Output<Buffer<uint16_t>> output{"output", 2 };
 
     void generate();
@@ -3595,11 +3578,8 @@ void BuildBayerGenerator2::generate() {
     Func bayerInput{"bayerInput"};
     Func shadingMapArranged{"shadingMapArranged"};
     Func shadingMap0{"shadingMap0"}, shadingMap1{"shadingMap1"}, shadingMap2{"shadingMap2"}, shadingMap3{"shadingMap3"};
-    Func asShotFunc{"asShotFunc"};
-    Func wbOffsetFunc{"wbOffsetFunc"};
     Func linear{"linear"};
     Func shaded{"shaded"};
-    Func whiteBalanced{"whiteBalanced"};
     Func final{"final"};
 
     Expr width = in0.width();
@@ -3617,10 +3597,6 @@ void BuildBayerGenerator2::generate() {
         shadingMap3(v_x, v_y)
     });
 
-    asShotFunc(v_c) = mux(v_c, { asShot[0], asShot[1], asShot[1], asShot[2] } );
-
-    wbOffsetFunc(v_c) = mux(v_c, { wbOffset[0], wbOffset[1], wbOffset[1], wbOffset[2] } );
-
     bayerInput(v_x, v_y, v_c) = mux(v_c, {
         in0(clamp(v_x, 0, width - 1), clamp(v_y, 0, height - 1)),
         in1(clamp(v_x, 0, width - 1), clamp(v_y, 0, height - 1)),
@@ -3630,11 +3606,9 @@ void BuildBayerGenerator2::generate() {
 
     linear(v_x, v_y, v_c) = bayerInput(v_x, v_y, v_c) / cast<float>(range);
 
-    shaded(v_x, v_y, v_c) = shadingMapArranged(v_x, v_y, v_c) * clamp(linear(v_x, v_y, v_c), 0.0f, asShotFunc(v_c));
+    shaded(v_x, v_y, v_c) = shadingMapArranged(v_x, v_y, v_c) * linear(v_x, v_y, v_c);
 
-    whiteBalanced(v_x, v_y, v_c) = shaded(v_x, v_y, v_c) * wbOffsetFunc(v_c);
-
-    final(v_x, v_y, v_c) = cast<uint16_t>(clamp(whiteBalanced(v_x, v_y, v_c) * range + 0.5f, 0, range));
+    final(v_x, v_y, v_c) = saturating_cast<uint16_t>(shaded(v_x, v_y, v_c) * range + 0.5f);
 
     output(v_x, v_y) =
         select(v_y % 2 == 0,

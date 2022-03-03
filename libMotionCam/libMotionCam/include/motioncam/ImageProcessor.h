@@ -2,6 +2,7 @@
 #define ImageProcessor_hpp
 
 #include "motioncam/ImageProcessorProgress.h"
+#include "motioncam/RawImageMetadata.h"
 
 #include <string>
 #include <vector>
@@ -18,12 +19,17 @@ namespace motioncam {
     class RawContainer;
     class Temperature;
     struct PostProcessSettings;
-    struct RawData;
     struct HdrMetadata;
     struct PreviewMetadata;
     struct RawImageBuffer;
     struct RawCameraMetadata;
     struct RawImageMetadata;
+
+    struct RawData {
+        Halide::Runtime::Buffer<uint16_t> rawBuffer;
+        Halide::Runtime::Buffer<uint8_t> previewBuffer;
+        RawImageMetadata metadata;
+    };
 
     class ImageProgressHelper {
     public:

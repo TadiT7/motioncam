@@ -23,7 +23,6 @@ namespace motioncam {
         void start(const std::vector<int>& fds,
                    const int& audioFd,
                    const std::shared_ptr<AudioInterface>& audioInterface,
-                   const bool enableCompression,
                    const int numThreads,
                    const RawCameraMetadata& cameraMetadata);
         
@@ -36,37 +35,8 @@ namespace motioncam {
         float estimateFps() const;
         size_t writenOutputBytes() const;
 
-        size_t cropAndBin_RAW10(RawImageBuffer& buffer,
-                                uint8_t* data,
-                                const int ystart,
-                                const int yend,
-                                const int xstart,
-                                const int xend,
-                                const int binnedWidth,
-                                const bool doCompress) const;
-
-        size_t cropAndBin_RAW12(RawImageBuffer& buffer,
-                                uint8_t* data,
-                                const int ystart,
-                                const int yend,
-                                const int xstart,
-                                const int xend,
-                                const int binnedWidth,
-                                const bool doCompress) const;
-
-        size_t cropAndBin_RAW16(RawImageBuffer& buffer,
-                                uint8_t* data,
-                                const int ystart,
-                                const int yend,
-                                const int xstart,
-                                const int xend,
-                                const int binnedWidth,
-                                const bool doCompress) const;
-
         void cropAndBin(RawImageBuffer& buffer) const;
-        
         void crop(RawImageBuffer& buffer) const;
-        void cropAndCompress(RawImageBuffer& buffer) const;
 
     private:
         void doProcess();
@@ -84,7 +54,6 @@ namespace motioncam {
         int mCropHeight;
         int mCropWidth;
         bool mBin;
-        bool mEnableCompression;
         
         std::atomic<bool> mRunning;
         std::atomic<uint32_t> mWrittenFrames;

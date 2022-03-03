@@ -711,7 +711,7 @@ void JNICALL Java_com_motioncam_camera_NativeCamera_PrepareHdrCapture(
 extern "C"
 JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCamera_StartStreamToFile(
         JNIEnv *env, jobject thiz,
-        jintArray jfds, jint audioFd, jint audioDeviceId, jboolean enableCompression, jint numThreads)
+        jintArray jfds, jint audioFd, jint audioDeviceId, jint numThreads)
 {
     if(!gActiveCameraDescription) {
         return JNI_FALSE;
@@ -736,7 +736,7 @@ JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCamera_StartStreamToF
     gAudioRecorder = std::make_shared<AudioRecorder>(audioDeviceId);
 
     RawBufferManager::get().enableStreaming(
-            fds, audioFd, gAudioRecorder, enableCompression, numThreads, gActiveCameraDescription->metadata);
+            fds, audioFd, gAudioRecorder, numThreads, gActiveCameraDescription->metadata);
 
     return JNI_TRUE;
 }

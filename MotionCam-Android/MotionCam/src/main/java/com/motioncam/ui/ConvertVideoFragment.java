@@ -5,8 +5,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Bundle;
+import android.provider.DocumentsContract;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,12 +35,13 @@ import androidx.work.WorkManager;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.motioncam.CameraActivity;
 import com.motioncam.R;
+import com.motioncam.Util;
 import com.motioncam.model.SettingsViewModel;
 import com.motioncam.worker.State;
-import com.motioncam.worker.Util;
 import com.motioncam.worker.VideoProcessWorker;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -55,8 +56,10 @@ import java.util.stream.Collectors;
 
 public class ConvertVideoFragment  extends Fragment implements LifecycleObserver, RawVideoAdapter.OnQueueListener {
     private ActivityResultLauncher<Intent> mSelectDocumentLauncher;
+    ViewGroup mContent;
     private RecyclerView mFileList;
     private View mNoFiles;
+    private View mLoading;
     private RawVideoAdapter mAdapter;
     private VideoEntry mSelectedVideo;
     private VideoProcessWorker.WorkerMode mWorkerMode;
@@ -88,11 +91,11 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
         return name.toUpperCase(Locale.ROOT);
     }
 
-    static private boolean isVideo(DocumentFile file) {
-        if(!file.isFile())
+    static private boolean isVideo(Util.DocumentFileEntry file) {
+        if(file.mimeType.equals(DocumentsContract.Document.MIME_TYPE_DIR))
             return false;
 
-        String name = file.getName();
+        String name = file.displayName;
         if(name == null)
             return false;
 
@@ -102,11 +105,11 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
         return name.toLowerCase(Locale.ROOT).endsWith("container");
     }
 
-    static private boolean isAudio(DocumentFile file) {
-        if(!file.isFile())
+    static private boolean isAudio(Util.DocumentFileEntry file) {
+        if(file.mimeType.equals(DocumentsContract.Document.MIME_TYPE_DIR))
             return false;
 
-        String name = file.getName();
+        String name = file.displayName;
         if(name == null)
             return false;
 
@@ -209,7 +212,8 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
             return;
         }
 
-        DocumentFile[] documentFiles = root.listFiles();
+        ArrayList<Util.DocumentFileEntry> documentFiles =
+                Util.listFiles(getContext(), root.getUri());
 
         Uri exportUri = getExportUri();
         DocumentFile exportDocumentFile = null;
@@ -217,12 +221,12 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
         if(exportUri != null)
             exportDocumentFile = DocumentFile.fromTreeUri(requireContext(), exportUri);
 
-        for(DocumentFile documentFile : documentFiles) {
-            String name = normalisedName(documentFile.getName());
+        for(Util.DocumentFileEntry documentFile : documentFiles) {
+            String name = normalisedName(documentFile.displayName);
             if(name == null)
                 continue;
 
-            Uri uri = documentFile.getUri();
+            Uri uri = documentFile.uri;
             VideoEntry entry;
 
             entry = entries.get(name);
@@ -246,7 +250,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
 
             if(isVideo) {
                 entry.addVideoUri(uri);
-                entry.setCreatedAt(documentFile.lastModified());
+                entry.setCreatedAt(documentFile.lastModified);
             }
             else if(isAudio) {
                 entry.setAudioUri(uri);
@@ -307,8 +311,11 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        mContent = view.findViewById(R.id.convertScrollView);
         mFileList = view.findViewById(R.id.fileList);
         mNoFiles = view.findViewById(R.id.noFiles);
+        mLoading = view.findViewById(R.id.loading);
+
         mConvertSettings = view.findViewById(R.id.convertSettings);
         mNumFramesToMerge = 0;
 
@@ -374,18 +381,17 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
     }
 
     private void refresh() {
+        mLoading.setVisibility(View.VISIBLE);
+
         CompletableFuture
                 .supplyAsync(() -> getVideos())
                 .thenAccept((videoFiles) -> requireActivity().runOnUiThread(() ->
                 {
+                    mLoading.setVisibility(View.GONE);
                     if(videoFiles.size() == 0) {
                         mNoFiles.setVisibility(View.VISIBLE);
-                        mFileList.setVisibility(View.GONE);
-                        mConvertSettings.setVisibility(View.GONE);
                     }
                     else {
-                        mFileList.setVisibility(View.VISIBLE);
-                        mConvertSettings.setVisibility(View.VISIBLE);
                         mNoFiles.setVisibility(View.GONE);
 
                         mAdapter = new RawVideoAdapter(requireContext(), videoFiles, this);

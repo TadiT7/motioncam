@@ -440,7 +440,6 @@ namespace motioncam {
     void RawBufferManager::enableStreaming(const std::vector<int>& fds,
                                            const int audioFd,
                                            std::shared_ptr<AudioInterface> audioInterface,
-                                           const bool enableCompression,
                                            const int numThreads,
                                            const RawCameraMetadata& metadata)
     {
@@ -460,7 +459,7 @@ namespace motioncam {
         
         mStreamer->setBin(mBin);
         mStreamer->setCropAmount(mHorizontalCrop, mVerticalCrop);
-        mStreamer->start(fds, audioFd, audioInterface, enableCompression, numThreads, metadata);
+        mStreamer->start(fds, audioFd, audioInterface, numThreads, metadata);
     }
 
     void RawBufferManager::setCropAmount(int horizontal, int vertical) {

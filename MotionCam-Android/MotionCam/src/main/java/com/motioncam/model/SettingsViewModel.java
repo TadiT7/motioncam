@@ -25,8 +25,6 @@ public class SettingsViewModel extends ViewModel {
     public static final String PREFS_KEY_CAPTURE_MODE               = "capture_mode";
     public static final String PREFS_KEY_RAW_VIDEO_TO_DNG           = "raw_video_to_dng";
     public static final String PREFS_KEY_SPLIT_RAW_VIDEO_WRITES     = "split_raw_video_writes";
-    public static final String PREFS_KEY_RAW_VIDEO_COMPRESSION      = "raw_video_compression";
-    public static final String PREFS_KEY_RAW_VIDEO_COMPRESSION_THREADS = "raw_video_compression_threads";
 
     public static final String PREFS_KEY_IGNORE_CAMERA_IDS                  = "ignore_camera_ids";
     public static final String PREFS_KEY_UI_PREVIEW_CONTRAST                = "ui_preview_contrast_amount";
@@ -74,8 +72,6 @@ public class SettingsViewModel extends ViewModel {
     final public MutableLiveData<String> rawVideoTempStorageFolder = new MutableLiveData<>();
     final public MutableLiveData<String> rawVideoTempStorageFolder2 = new MutableLiveData<>();
     final public MutableLiveData<Boolean> splitRawVideoStorage = new MutableLiveData<>();
-    final public MutableLiveData<Boolean> rawVideoCompression = new MutableLiveData<>();
-    final public MutableLiveData<Integer> compressionThreads = new MutableLiveData<>();
 
     public void load(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(CAMERA_SHARED_PREFS, Context.MODE_PRIVATE);
@@ -90,8 +86,6 @@ public class SettingsViewModel extends ViewModel {
         rawVideoTempStorageFolder.setValue(prefs.getString(PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI, null));
         rawVideoTempStorageFolder2.setValue(prefs.getString(PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI_2, null));
         splitRawVideoStorage.setValue(prefs.getBoolean(PREFS_KEY_SPLIT_RAW_VIDEO_WRITES, false));
-        rawVideoCompression.setValue(prefs.getBoolean(PREFS_KEY_RAW_VIDEO_COMPRESSION, true));
-        compressionThreads.setValue(prefs.getInt(PREFS_KEY_RAW_VIDEO_COMPRESSION_THREADS, 2) - 1);
 
         // Capture mode
         String rawModeStr = prefs.getString(PREFS_KEY_CAPTURE_MODE, RawMode.RAW10.name());
@@ -127,8 +121,6 @@ public class SettingsViewModel extends ViewModel {
         editor.putString(PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI, getSetting(rawVideoTempStorageFolder, null));
         editor.putString(PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI_2, getSetting(rawVideoTempStorageFolder2, null));
         editor.putBoolean(PREFS_KEY_SPLIT_RAW_VIDEO_WRITES, getSetting(splitRawVideoStorage, false));
-        editor.putBoolean(PREFS_KEY_RAW_VIDEO_COMPRESSION, getSetting(rawVideoCompression, false));
-        editor.putInt(PREFS_KEY_RAW_VIDEO_COMPRESSION_THREADS, 1 + getSetting(compressionThreads, 2));
 
         // Capture mode
         RawMode rawMode = RawMode.RAW10;
