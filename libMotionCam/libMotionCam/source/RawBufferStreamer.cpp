@@ -156,7 +156,7 @@ namespace motioncam {
     }
 
     void RawBufferStreamer::cropAndBin(RawImageBuffer& buffer) const {
-        Measure m("cropAndBin");
+        //Measure m("cropAndBin");
         
         const int horizontalCrop = static_cast<const int>(4 * (lround(0.5f * (mCropWidth/100.0 * buffer.width)) / 4));
 
@@ -205,7 +205,7 @@ namespace motioncam {
     }
 
     void RawBufferStreamer::crop(RawImageBuffer& buffer) const {
-        Measure m("crop");
+        //Measure m("crop");
 
         const int horizontalCrop = static_cast<const int>(4 * (lround(0.5 * (mCropWidth/100.0 * buffer.width)) / 4));
 

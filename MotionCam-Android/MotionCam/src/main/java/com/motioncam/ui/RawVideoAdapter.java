@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 
 public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHolder> implements
         AsyncNativeCameraOps.ContainerListener
@@ -58,7 +59,6 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
         private final View background;
-        private final TextView fileNameView;
         private final TextView captureTime;
         private final TextView frameRate;
         private final TextView totalFrames;
@@ -74,7 +74,6 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
             super(view);
 
             background = view;
-            fileNameView = view.findViewById(R.id.filename);
             queueVideoBtn = view.findViewById(R.id.queueVideo);
             moveVideoBtn = view.findViewById(R.id.moveVideo);
             deleteVideoBtn = view.findViewById(R.id.deleteVideo);
@@ -89,10 +88,6 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
 
         public View getBackground() {
             return background;
-        }
-
-        public TextView getFileNameView() {
-            return fileNameView;
         }
 
         public TextView getCaptureTime() {
@@ -162,8 +157,6 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
     @Override
     public void onBindViewHolder(ViewHolder viewHolder, final int position) {
         Item item = mItems.get(position);
-
-        viewHolder.getFileNameView().setText(item.entry.getName());
 
         // Buttons
         Date createdDate = new Date(item.entry.getCreatedAt());
@@ -330,6 +323,21 @@ public class RawVideoAdapter extends RecyclerView.Adapter<RawVideoAdapter.ViewHo
         }
 
         return null;
+    }
+
+    public boolean isQueued(VideoEntry entry) {
+        for(Item item : mItems) {
+            if(item.entry.getName().equals(entry.getName()))
+                return item.isQueued;
+        }
+
+        return false;
+    }
+
+    public List<VideoEntry> getItems() {
+        return mItems.stream()
+                .map(e -> e.entry)
+                .collect(Collectors.toList());
     }
 
     public void update(String name, Boolean optionalIsQueued, Boolean optionalIsExported, int progress) {

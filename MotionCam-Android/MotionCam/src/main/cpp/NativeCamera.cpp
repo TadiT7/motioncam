@@ -30,12 +30,12 @@ static const int TYPE_WHITE_LEVEL = 1;
 static const int TYPE_BLACK_LEVEL = 2;
 
 namespace {
-    std::shared_ptr<CaptureSessionManager> gCaptureSessionManager = nullptr;
-    std::shared_ptr<CameraDescription> gActiveCameraDescription = nullptr;
-    std::shared_ptr<CameraSession> gCameraSession = nullptr;
-    std::shared_ptr<motioncam::AudioInterface> gAudioRecorder = nullptr;
+    static std::shared_ptr<CaptureSessionManager> gCaptureSessionManager = nullptr;
+    static std::shared_ptr<CameraDescription> gActiveCameraDescription = nullptr;
+    static std::shared_ptr<CameraSession> gCameraSession = nullptr;
+    static std::shared_ptr<motioncam::AudioInterface> gAudioRecorder = nullptr;
 
-    std::string gLastError;
+    static std::string gLastError;
 }
 
 extern "C" JNIEXPORT

@@ -782,6 +782,8 @@ namespace motioncam {
                 dst->isBinned               = false;
                 dst->rowStride              = rowStride;
                 dst->metadata.timestampNs   = timestamp;
+                dst->compressionType        = CompressionType::UNCOMPRESSED;
+                dst->offset                 = 0;
 
                 if(dst->data->len() != length) {
                     LOGE("Unexpected buffer size!!");

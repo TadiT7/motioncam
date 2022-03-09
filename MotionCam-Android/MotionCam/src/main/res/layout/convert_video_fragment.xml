@@ -90,14 +90,29 @@
 
                 </LinearLayout>
 
-                <Button
-                    android:id="@+id/setExportFolderBtn"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:layout_marginBottom="10dp"
-                    android:text="@string/set_export_folder"
-                    android:backgroundTint="@color/acceptAction"/>
+                    android:layout_marginBottom="10dp">
+
+                    <Button
+                        android:id="@+id/setExportFolderBtn"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/set_export_folder"
+                        android:backgroundTint="@color/acceptAction"/>
+
+                    <Button
+                        android:id="@+id/queueAllBtn"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/queue_all"
+                        android:backgroundTint="@color/acceptAction"/>
+
+                </LinearLayout>
 
                 <TextView
                     android:layout_width="match_parent"
@@ -119,11 +134,11 @@
             <TextView
                 android:id="@+id/noFiles"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:gravity="center"
                 android:padding="10dp"
                 android:visibility="gone"
-                android:textAppearance="@style/MotionCam.TextAppearance.Medium.Bold"
+                android:textAppearance="@style/MotionCam.TextAppearance.Small"
                 android:text="@string/no_videos_available"/>
 
             <androidx.recyclerview.widget.RecyclerView

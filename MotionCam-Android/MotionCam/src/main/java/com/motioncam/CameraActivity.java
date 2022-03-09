@@ -145,7 +145,7 @@ public class CameraActivity extends AppCompatActivity implements
 
     private CameraCapturePreviewAdapter mCameraCapturePreviewAdapter;
 
-    private PostProcessSettings mPostProcessSettings = new PostProcessSettings();
+    private final PostProcessSettings mPostProcessSettings = new PostProcessSettings();
     private PostProcessSettings mEstimatedSettings = new PostProcessSettings();
 
     private float mTemperatureOffset;
@@ -163,7 +163,7 @@ public class CameraActivity extends AppCompatActivity implements
     private GestureDetector mGestureDetector;
     private Handler mMainHandler;
 
-    private AtomicBoolean mImageCaptureInProgress = new AtomicBoolean(false);
+    private final AtomicBoolean mImageCaptureInProgress = new AtomicBoolean(false);
 
     private final ViewPager2.OnPageChangeCallback mCapturedPreviewPagerListener = new ViewPager2.OnPageChangeCallback() {
         @Override
@@ -348,8 +348,8 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.previewFrame.previewControls.setVisibility(View.VISIBLE);
 
         // Setup preset toggles
-        findViewById(R.id.preset4K).setOnClickListener(v -> onVideoPresetSelected(v));
-        findViewById(R.id.preset1080P).setOnClickListener(v -> onVideoPresetSelected(v));
+        findViewById(R.id.preset4K).setOnClickListener(this::onVideoPresetSelected);
+        findViewById(R.id.preset1080P).setOnClickListener(this::onVideoPresetSelected);
 
         mSensorEventManager = new SensorEventManager(this, this);
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
@@ -394,9 +394,8 @@ public class CameraActivity extends AppCompatActivity implements
             final float halfPoint = 50;
             final float max = 100;
 
-            float value = progress > halfPoint ? 1.0f + ((progress - halfPoint) / halfPoint * 0.25f) : progress / max * 2.0f;
-
-            mPostProcessSettings.saturation = value;
+            mPostProcessSettings.saturation =
+                    progress > halfPoint ? 1.0f + ((progress - halfPoint) / halfPoint * 1.0f) : progress / max * 2.0f;
             updatePreviewSettings();
         }
     }
@@ -601,11 +600,7 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private boolean havePermissions() {
-        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-             return true;
-        }
-
-        return false;
+        return ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
     }
 
     private void saveSettings() {
@@ -688,13 +683,13 @@ public class CameraActivity extends AppCompatActivity implements
 
         try {
             if (!outputDirectory.exists() && !outputDirectory.mkdirs()) {
-                Log.e(TAG, "Failed to create " + outputDirectory.toString());
+                Log.e(TAG, "Failed to create " + outputDirectory);
                 return -1;
             }
         }
         catch(Exception e) {
             e.printStackTrace();
-            Log.e(TAG, "Error creating path: " + outputDirectory.toString());
+            Log.e(TAG, "Error creating path: " + outputDirectory);
             return - 1;
         }
 
@@ -779,7 +774,7 @@ public class CameraActivity extends AppCompatActivity implements
         }
 
         // Create list of all fds
-        int fds[] = videoFds
+        int[] fds = videoFds
                 .stream()
                 .mapToInt(i->i)
                 .toArray();
@@ -1013,7 +1008,7 @@ public class CameraActivity extends AppCompatActivity implements
 
             if(fpsTag != null) {
                 try {
-                    int fps = Integer.valueOf(fpsTag);
+                    int fps = Integer.parseInt(fpsTag);
                     if (mSettings.cameraStartupSettings.frameRate == fps) {
                         fpsToggle.setBackgroundColor(getColor(R.color.colorAccent));
                         return true;
@@ -1210,7 +1205,6 @@ public class CameraActivity extends AppCompatActivity implements
         }
         catch(NumberFormatException e) {
             Log.e(TAG, "Invalid aperture value", e);
-            return;
         }
     }
 
@@ -1220,7 +1214,7 @@ public class CameraActivity extends AppCompatActivity implements
             return;
 
         try {
-            mSettings.cameraStartupSettings.frameRate = Integer.valueOf(fpsTag);
+            mSettings.cameraStartupSettings.frameRate = Integer.parseInt(fpsTag);
         }
         catch(NumberFormatException e) {
             Log.e(TAG, "Invalid FPS value", e);
@@ -1284,12 +1278,7 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void onToggleCameraSettings(View v) {
-        if(mBinding.cameraSettings.getVisibility() == View.VISIBLE) {
-            toggleCameraSettings(false);
-        }
-        else {
-            toggleCameraSettings(true);
-        }
+        toggleCameraSettings(mBinding.cameraSettings.getVisibility() != View.VISIBLE);
     }
 
     private void onCaptureModeClicked(View v) {
@@ -1575,7 +1564,7 @@ public class CameraActivity extends AppCompatActivity implements
         fpsToggle.setText(fpsValue);
         fpsToggle.setTag(fpsValue);
         fpsToggle.setTextColor(getColor(R.color.white));
-        fpsToggle.setOnClickListener(v -> toggleFrameRate(v));
+        fpsToggle.setOnClickListener(this::toggleFrameRate);
 
         return fpsToggle;
     }
@@ -1630,7 +1619,7 @@ public class CameraActivity extends AppCompatActivity implements
             apertureBtn.setTag(apertureValue);
             apertureBtn.setLayoutParams(layoutParams);
             apertureBtn.setTextColor(getColor(R.color.white));
-            apertureBtn.setOnClickListener(v -> toggleAperture(v));
+            apertureBtn.setOnClickListener(this::toggleAperture);
 
             apertures.addView(apertureBtn);
         }
@@ -1718,12 +1707,7 @@ public class CameraActivity extends AppCompatActivity implements
         mCameraMetadata = mNativeCameraManager.getMetadata(mSelectedCamera);
         Log.d(TAG, "Selected camera metadata: " + mCameraMetadata.toString());
 
-        if(mCameraMetadata.oisSupport) {
-            findViewById(R.id.oisBtn).setEnabled(true);
-        }
-        else {
-            findViewById(R.id.oisBtn).setEnabled(false);
-        }
+        findViewById(R.id.oisBtn).setEnabled(mCameraMetadata.oisSupport);
 
         ((TextView) findViewById(R.id.isoBtn)).setText("-");
         ((TextView) findViewById(R.id.shutterSpeedBtn)).setText("-");
@@ -1774,9 +1758,8 @@ public class CameraActivity extends AppCompatActivity implements
         if(mActivatingCameraTask != null) {
             try {
                 mActivatingCameraTask.get();
-            } catch (ExecutionException e) {
-                e.printStackTrace();
-            } catch (InterruptedException e) {
+            }
+            catch (ExecutionException | InterruptedException e) {
                 e.printStackTrace();
             }
             mActivatingCameraTask = null;
@@ -2394,7 +2377,7 @@ public class CameraActivity extends AppCompatActivity implements
         audioDeviceBtn.setText(name);
         audioDeviceBtn.setTextColor(getColor(R.color.white));
         audioDeviceBtn.setTag("-1");
-        audioDeviceBtn.setOnClickListener(v -> onAudioInputChanged(v));
+        audioDeviceBtn.setOnClickListener(this::onAudioInputChanged);
         audioDeviceBtn.setChecked(true);
 
         audioDeviceBtn.setLayoutParams(
@@ -2402,16 +2385,13 @@ public class CameraActivity extends AppCompatActivity implements
 
         audioInputsLayout.addView(audioDeviceBtn);
 
-        for(int i = 0; i < deviceInfoList.length; i++) {
-            AudioDeviceInfo deviceInfo = deviceInfoList[i];
-
+        for (AudioDeviceInfo deviceInfo : deviceInfoList) {
             // Pick a few types that'll probably work
-            if( deviceInfo.getType() == AudioDeviceInfo.TYPE_BUILTIN_MIC    ||
-                deviceInfo.getType() == AudioDeviceInfo.TYPE_USB_HEADSET    ||
-                deviceInfo.getType() == AudioDeviceInfo.TYPE_WIRED_HEADSET  ||
-                deviceInfo.getType() == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
-                deviceInfo.getType() == AudioDeviceInfo.TYPE_USB_ACCESSORY)
-            {
+            if (deviceInfo.getType() == AudioDeviceInfo.TYPE_BUILTIN_MIC ||
+                    deviceInfo.getType() == AudioDeviceInfo.TYPE_USB_HEADSET ||
+                    deviceInfo.getType() == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                    deviceInfo.getType() == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                    deviceInfo.getType() == AudioDeviceInfo.TYPE_USB_ACCESSORY) {
                 audioDeviceBtn = new RadioButton(this);
 
                 name = deviceInfo.getType() == AudioDeviceInfo.TYPE_BUILTIN_MIC ? getString(R.string.mic_internal) : deviceInfo.getProductName();
@@ -2420,7 +2400,7 @@ public class CameraActivity extends AppCompatActivity implements
                 audioDeviceBtn.setText(name);
                 audioDeviceBtn.setTextColor(getColor(R.color.white));
                 audioDeviceBtn.setTag(deviceInfo.getId());
-                audioDeviceBtn.setOnClickListener(v -> onAudioInputChanged(v));
+                audioDeviceBtn.setOnClickListener(this::onAudioInputChanged);
 
                 audioDeviceBtn.setLayoutParams(
                         new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -2432,7 +2412,7 @@ public class CameraActivity extends AppCompatActivity implements
 
     private void onAudioInputChanged(View v) {
         Object deviceId = v.getTag();
-        if(deviceId != null && deviceId instanceof Integer) {
+        if(deviceId instanceof Integer) {
             mAudioInputId = (Integer) deviceId;
         }
     }

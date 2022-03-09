@@ -536,12 +536,12 @@ namespace motioncam {
 
     const std::vector<float>& ImageProcessor::estimateDenoiseWeights(const float signalLevel) {
         const float SIGNAL_MAP[] = {
-            0.001f,
+            0.0001f,
+            0.0025f,
             0.005f,
             0.01f,
             0.03f,
             0.05f,
-            0.07f,
         };
                 
         float minDiff = 1e5f;
@@ -1209,7 +1209,8 @@ namespace motioncam {
     void ImageProcessor::process(RawContainer& rawContainer, const std::string& outputPath, const ImageProcessorProgress& progressListener)
     {
         cv::ocl::setUseOpenCL(false);
-                
+        
+        
         // If this is a HDR capture then find the underexposed images.
         std::vector<std::shared_ptr<RawImageBuffer>> underexposedImages;
         

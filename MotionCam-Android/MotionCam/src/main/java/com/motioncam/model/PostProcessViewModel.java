@@ -97,8 +97,8 @@ public class PostProcessViewModel extends ViewModel {
     public float getSaturationSetting() {
         int s = getSetting(saturation, CameraProfile.DEFAULT_SATURATION);
 
-        // Map [0:50] -> [0:0.5] and [51:100] -> [1:1.25]
-        return s > 50 ? 1.0f + ((s - 50) / 50.0f * 0.25f) : s / 100.0f * 2.0f;
+        // Map [0:50] -> [0:0.5] and [51:100] -> [1:2]
+        return s > 50 ? 1.0f + ((s - 50) / 50.0f * 1.0f) : s / 100.0f * 2.0f;
     }
 
     public float getGreensSetting() {

@@ -64,7 +64,6 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
     private VideoEntry mSelectedVideo;
     private VideoProcessWorker.WorkerMode mWorkerMode;
     private int mNumFramesToMerge;
-    private View mConvertSettings;
     private boolean mDeleteAfterExport;
     private boolean mCorrectVignette;
 
@@ -305,7 +304,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
         // Sort the videos by creation time
         return entries.values()
                 .stream()
-                .sorted(Comparator.comparingLong(VideoEntry::getCreatedAt))
+                .sorted(Comparator.comparingLong(VideoEntry::getCreatedAt).reversed())
                 .collect(Collectors.toList());
     }
 
@@ -316,7 +315,6 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
         mNoFiles = view.findViewById(R.id.noFiles);
         mLoading = view.findViewById(R.id.loading);
 
-        mConvertSettings = view.findViewById(R.id.convertSettings);
         mNumFramesToMerge = 0;
 
         final TextView mergeFramesText = view.findViewById(R.id.mergeFrames);
@@ -347,6 +345,7 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
         ((SimpleItemAnimator) mFileList.getItemAnimator()).setSupportsChangeAnimations(false);
 
         view.findViewById(R.id.setExportFolderBtn).setOnClickListener(e -> selectExportFolder());
+        view.findViewById(R.id.queueAllBtn).setOnClickListener(e -> onQueueAll());
 
         if(getContext() != null) {
             WorkManager.getInstance(getContext())
@@ -357,6 +356,12 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                     getActivity().getSharedPreferences(SettingsViewModel.CAMERA_SHARED_PREFS, Context.MODE_PRIVATE);
 
             loadSettings(sharedPrefs);
+        }
+    }
+
+    private void onQueueAll() {
+        for(VideoEntry item : mAdapter.getItems()) {
+            doQueueItem(item);
         }
     }
 
@@ -382,6 +387,8 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
 
     private void refresh() {
         mLoading.setVisibility(View.VISIBLE);
+        mFileList.setAdapter(null);
+        mAdapter = null;
 
         CompletableFuture
                 .supplyAsync(() -> getVideos())
@@ -431,8 +438,6 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                     if(deleteEntry(entry)) {
                         if(mAdapter.remove(entry.getName()) == 0) {
                             mNoFiles.setVisibility(View.VISIBLE);
-                            mFileList.setVisibility(View.GONE);
-                            mConvertSettings.setVisibility(View.GONE);
                         }
                     }
                 })
@@ -476,8 +481,10 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                         requestBuilder.build());
     }
 
-    @Override
-    public void onQueueClicked(VideoEntry entry) {
+    private void doQueueItem(VideoEntry entry) {
+        if(mAdapter == null || mAdapter.isQueued(entry))
+            return;
+
         mSelectedVideo = entry;
         mWorkerMode = VideoProcessWorker.WorkerMode.EXPORT;
 
@@ -500,6 +507,11 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
         }
 
         mAdapter.update(entry.getName(), true, null, -1);
+    }
+
+    @Override
+    public void onQueueClicked(VideoEntry entry) {
+        doQueueItem(entry);
     }
 
     @Override

@@ -2675,10 +2675,13 @@ private:
 };
 
 Func PreviewGenerator::downscale(Func f, Func& downx) {
-    Func downy;
+    Func downy{"downy"};
+    Func in{"in"};
 
-    downx(v_x, v_y, v_c) = (f(v_x*2 - 1, v_y, v_c) + 2.0f*f(v_x*2, v_y, v_c) + f(v_x*2 + 1, v_y, v_c)) / 4.0f;
-    downy(v_x, v_y, v_c) = (downx(v_x, v_y*2 - 1, v_c) + 2.0f*downx(v_x, v_y*2, v_c) + downx(v_x, v_y*2 + 1, v_c)) / 4.0f;
+    in(v_x, v_y, v_c) = cast<int32_t>(f(v_x, v_y, v_c));
+
+    downx(v_x, v_y, v_c) = (in(v_x*2 - 1, v_y, v_c) + 2*in(v_x*2, v_y, v_c) + in(v_x*2 + 1, v_y, v_c)) / 4;
+    downy(v_x, v_y, v_c) = cast<uint16_t>((downx(v_x, v_y*2 - 1, v_c) + 2*downx(v_x, v_y*2, v_c) + downx(v_x, v_y*2 + 1, v_c)) / 4);
 
     return downy;
 }
@@ -2686,18 +2689,6 @@ Func PreviewGenerator::downscale(Func f, Func& downx) {
 void PreviewGenerator::generate() {
     deinterleave(inMuxed, input, stride, pixelFormat, bufferWidth, bufferHeight, sensorArrangement);
     
-    int iterations = (int) (std::log((float)downscaleFactor) / std::log(2.0f));
-    std::vector<Func> d;
-
-    d.push_back(inMuxed);
-
-    for(int i = 0; i < iterations; i++) {
-        Func downscaledTemp{"downscaledTemp" + std::to_string(i)};
-        Func downscaled = downscale(d[d.size()-1], downscaledTemp);
-
-        d.push_back(downscaled);
-    }
-
     Expr width = bufferWidth / 2 / downscaleFactor;
     Expr height = bufferHeight / 2 / downscaleFactor;
 
@@ -2715,18 +2706,7 @@ void PreviewGenerator::generate() {
 
     wbOffsetFunc(v_c) = mux(v_c, { wbOffsetVector[0], wbOffsetVector[1], wbOffsetVector[2] } );
 
-    downscaledInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(0.5f + d[d.size()-1](v_x, v_y, v_c));
-
-    inMuxed.compute_at(downscaledInput, v_y)
-        .vectorize(v_x, 8)
-        .reorder(v_c, v_x, v_y)
-        .unroll(v_c);
-
-    downscaledInput.compute_root()
-        .vectorize(v_x, 8)
-        .reorder(v_c, v_x, v_y)
-        .unroll(v_c)
-        .parallel(v_y);
+    downscaledInput(v_x, v_y, v_c) = inMuxed(v_x*downscaleFactor, v_y*downscaleFactor, v_c);
 
     Expr c0 = (downscaledInput(v_x, v_y, 0) - blackLevel[0]) / (cast<float>(whiteLevel - blackLevel[0]));
     Expr c1 = (downscaledInput(v_x, v_y, 1) - blackLevel[1]) / (cast<float>(whiteLevel - blackLevel[1]));
@@ -2742,6 +2722,22 @@ void PreviewGenerator::generate() {
     transform(SRGB, whiteBalanced, cameraToSrgb);
 
     tonemapInput(v_x, v_y, v_c) = saturating_cast<uint16_t>(SRGB(v_x, v_y, v_c) * pow(2.0f, exposure) * 65535.0f + 0.5f);
+
+    shadingMapFunc.compute_at(tonemapInput, v_y)
+        .vectorize(v_x, 4)
+        .reorder(v_c, v_x, v_y)
+        .unroll(v_c);
+
+    downscaledInput.compute_at(tonemapInput, v_y)
+        .vectorize(v_x, 4)
+        .reorder(v_c, v_x, v_y)
+        .unroll(v_c);
+
+    tonemapInput.compute_root()
+        .reorder(v_c, v_x, v_y)
+        .unroll(v_c)
+        .parallel(v_y)
+        .vectorize(v_x, 4);
 
     tonemap = create<TonemapGenerator>();
 
@@ -2830,13 +2826,6 @@ void PreviewGenerator::generate() {
 void PreviewGenerator::schedule_for_cpu() {
     int vector_size_u8 = natural_vector_size<uint8_t>();
     int vector_size_u16 = natural_vector_size<uint16_t>();    
-
-    tonemapInput
-        .compute_root()
-        .reorder(v_c, v_x, v_y)
-        .unroll(v_c)
-        .parallel(v_y)
-        .vectorize(v_x, vector_size_u16);
 
     output
         .compute_root()
@@ -3541,7 +3530,7 @@ public:
 
         shaded(v_x, v_y, v_c) = shadingMapArranged(v_x, v_y, v_c) * linear(v_x, v_y, v_c);
 
-        final(v_x, v_y, v_c) = saturating_cast<uint16_t>(shaded(v_x, v_y, v_c) * whiteLevel + 0.5f);
+        final(v_x, v_y, v_c) = saturating_cast<uint16_t>(bl(v_c) + shaded(v_x, v_y, v_c)*(whiteLevel - bl(v_c)) + 0.5f);
 
         output(v_x, v_y) =
             select(v_y % 2 == 0,

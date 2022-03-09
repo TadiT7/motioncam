@@ -394,7 +394,11 @@ namespace motioncam {
         if(dst->compressionType != CompressionType::MOTIONCAM)
             throw IOException("Invalid compression type");
 
-        encoder::decode(reinterpret_cast<uint16_t*>(uncompressedBuffer.data()), dst->width, dst->height, compressedBuffer.data());
+        encoder::decode(reinterpret_cast<uint16_t*>(uncompressedBuffer.data()),
+                        dst->width,
+                        dst->height,
+                        compressedBuffer.data(),
+                        compressedBuffer.size());
                 
         dst->data->copyHostData(uncompressedBuffer);
     }

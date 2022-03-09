@@ -28,7 +28,7 @@ namespace motioncam {
                             const int yend,
                             const int rowStride);
     
-        size_t decode(uint16_t* output, const int width, const int height, const uint8_t* input);
+        size_t decode(uint16_t* output, const int width, const int height, const uint8_t* input, const size_t len);
     }
 }
 
