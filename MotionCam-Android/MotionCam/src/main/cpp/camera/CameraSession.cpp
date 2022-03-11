@@ -39,6 +39,7 @@ namespace motioncam {
         ACTION_SET_FOCUS_FOR_VIDEO,
         ACTION_SET_AUTO_FOCUS,
         ACTION_SET_FOCUS_POINT,
+        ACTION_UPDATE_PREVIEW,
         ACTION_ACTIVATE_CAMERA_SETTINGS,
         ACTION_PRECAPTURE_HDR,
         ACTION_CAPTURE_HDR,
@@ -183,6 +184,42 @@ namespace motioncam {
         }
     }
 
+    float clamp(float x, float min, float max) {
+        return std::max(std::min(x, max), min);
+    }
+
+    void generateTonemapCurve(float shadows, float brightness, float contrast, float blackPoint, float whitePoint, int pts, std::vector<float>& output) {
+        output.clear();
+
+        for(int i = 0 ; i < pts; i++) {
+            float x = (i / static_cast<float>(pts));
+
+            float in = shadows * x;
+
+            // Tonemap
+            float a = (in  * (1.0f + x / (shadows*shadows))) / (1.0f + in);
+
+            // Gamma
+            float b;
+            if(a < 0.0031308f)
+                b = a * 12.92;
+            else
+                b = std::pow(a, 1.0f / 2.4f) * 1.055f - 0.055f;
+
+            // Contrast
+            float C = clamp(contrast, 0.0f, 1.0f) + 1.0f;
+            float s = b / std::max(1e-5f, 1.0f - b);
+            float c = 1.0f / (1 + std::pow(std::max(1e-5f, s), -C));
+
+            // Black/white point
+            float u = clamp(c - blackPoint, 0.0f, 1.0f) * (1.0f / (1.0f - blackPoint + 1e-5f));
+            float out = u / whitePoint;
+
+            output.push_back(x);
+            output.push_back(out);
+        }
+    }
+
     CameraSession::CameraSession() :
             mState(CameraCaptureSessionState::CLOSED),
             mLastIso(0),
@@ -190,9 +227,6 @@ namespace motioncam {
             mLastFocusDistance(0),
             mLastFocusState(CameraFocusState::INACTIVE),
             mLastExposureState(CameraExposureState::INACTIVE),
-//            mCameraDescription(std::move(cameraDescription)),
-//            mImageConsumer(std::move(rawImageConsumer)),
-//            mSessionListener(std::move(listener)),
             mScreenOrientation(ScreenOrientation::PORTRAIT),
             mRequestedHdrCaptures(0),
             mRequestHdrCaptureTimestamp(-1),
@@ -282,10 +316,20 @@ namespace motioncam {
     }
 
     void CameraSession::updateRawPreviewSettings(
-            float shadows, float contrast, float saturation, float blacks, float whitePoint, float tempOffset, float tintOffset, bool useVideoPreview)
+            float shadows, float contrast, float saturation, float blackPoint, float whitePoint, float tempOffset, float tintOffset, bool useVideoPreview)
     {
-        if(mImageConsumer)
-            mImageConsumer->updateRawPreviewSettings(shadows, contrast, saturation, blacks, whitePoint, tempOffset, tintOffset, useVideoPreview);
+        if(!mSessionContext)
+            return;
+
+        json11::Json::object data = {
+                { "shadows", shadows },
+                { "contrast", contrast },
+                { "saturation", saturation },
+                { "blackPoint", blackPoint },
+                { "whitePoint", whitePoint }
+        };
+
+        pushEvent(EventAction::ACTION_UPDATE_PREVIEW, data);
     }
 
     void CameraSession::enableRawPreview(std::shared_ptr<RawPreviewListener> listener, const int previewQuality) {
@@ -453,7 +497,7 @@ namespace motioncam {
 
         const uint8_t tonemapMode           = ACAMERA_TONEMAP_MODE_FAST;
         const uint8_t shadingMode           = ACAMERA_SHADING_MODE_HIGH_QUALITY;
-        const uint8_t colorCorrectionMode   = ACAMERA_COLOR_CORRECTION_MODE_HIGH_QUALITY;
+        const uint8_t colorCorrectionMode   = ACAMERA_COLOR_CORRECTION_MODE_FAST;
         const uint8_t lensShadingMapStats   = ACAMERA_STATISTICS_LENS_SHADING_MAP_MODE_ON;
         const uint8_t lensShadingMapApplied = ACAMERA_SENSOR_INFO_LENS_SHADING_APPLIED_FALSE;
         const uint8_t antiBandingMode       = ACAMERA_CONTROL_AE_ANTIBANDING_MODE_AUTO;
@@ -705,6 +749,20 @@ namespace motioncam {
         }
 
         mCameraStateManager->requestResume();
+    }
+
+    void CameraSession::doUpdatePreview(float shadows, float contrast, float blackPoint, float whitePoint) {
+        if (mState == CameraCaptureSessionState::CLOSED) {
+            LOGW("Cannot update preview, invalid state");
+            return;
+        }
+
+        if (mState == CameraCaptureSessionState::ACTIVE) {
+            generateTonemapCurve(shadows, 1.0f, contrast, blackPoint, whitePoint, mCameraDescription->maxTonemapCurvePts, mTonemapCurvePts);
+
+            mCameraStateManager->requestUpdatePreview(std::move(mTonemapCurvePts));
+            mCameraStateManager->activate();
+        }
     }
 
     void CameraSession::doSetAutoExposure() {
@@ -1243,6 +1301,16 @@ namespace motioncam {
 
             case EventAction::ACTION_RESUME_CAPTURE: {
                 doResumeCapture();
+                break;
+            }
+
+            case EventAction::ACTION_UPDATE_PREVIEW: {
+                float shadows = static_cast<float>(eventLoopData->data["shadows"].number_value());
+                float contrast = static_cast<float>(eventLoopData->data["contrast"].number_value());
+                float blackPoint = static_cast<float>(eventLoopData->data["blackPoint"].number_value());
+                float whitePoint = static_cast<float>(eventLoopData->data["whitePoint"].number_value());
+
+                doUpdatePreview(shadows, contrast, blackPoint, whitePoint);
                 break;
             }
 

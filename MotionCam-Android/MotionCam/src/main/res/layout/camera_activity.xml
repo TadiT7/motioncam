@@ -127,13 +127,6 @@
 
             </FrameLayout>
 
-            <com.motioncam.ui.BitmapDrawView
-                android:id="@+id/rawCameraPreview"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:visibility="invisible"
-                tools:viewBindingIgnore="true" />
-
             <ImageView
                 android:id="@+id/focusLockPointFrame"
                 android:layout_width="75dp"
@@ -233,7 +226,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:padding="10dp"
-                        android:progress="0"
+                        android:progress="25"
                         android:progressBackgroundTint="@color/white"
                         android:progressTint="@color/white"
                         android:thumbTint="@color/white" />

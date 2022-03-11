@@ -44,28 +44,15 @@ namespace motioncam {
         void queueMetadata(const ACameraMetadata* metadata, ScreenOrientation screenOrientation, RawType rawType);
 
         void enableRawPreview(std::shared_ptr<RawPreviewListener> listener, const int previewQuality);
-        void updateRawPreviewSettings(
-                float shadowBoost,
-                float contrast,
-                float saturation,
-                float blacks,
-                float whitePoint,
-                float tempOffset,
-                float tintOffset,
-                bool useVideoPreview);
-
         void disableRawPreview();
 
-        void setWhiteBalanceOverride(bool override);
         void getEstimatedSettings(PostProcessSettings& outSettings);
-
-        void setUseVideoPreview(bool useVideoPreview);
 
     private:
         bool copyMetadata(RawImageMetadata& dst, const ACameraMetadata* src);
         void onBufferReady(const std::shared_ptr<RawImageBuffer>& buffer);
 
-        void doSetupBuffers();
+        void doSetupBuffers(const size_t bufferSize);
         void doCopyImage();
         void doMatchMetadata();
         void doPreprocess();
@@ -80,27 +67,15 @@ namespace motioncam {
 
     private:
         std::shared_ptr<CameraSessionListener> mListener;
-        size_t mMaximumMemoryUsageBytes;
+        int mMaximumMemoryUsageBytes;
         std::unique_ptr<std::thread> mConsumerThread;
-        std::unique_ptr<std::thread> mSetupBuffersThread;
         std::unique_ptr<std::thread> mPreprocessThread;
         std::atomic<bool> mRunning;
         std::atomic<bool> mEnableRawPreview;
 
-        std::atomic<float> mShadowBoost;
-        std::atomic<float> mTempOffset;
-        std::atomic<float> mTintOffset;
-        std::atomic<bool> mUseVideoPreview;
-
-        std::mutex mBufferMutex;
-        std::condition_variable mBufferCondition;
-        std::atomic<size_t> mBufferSize;
+        std::atomic<bool> mRequestSetupBuffers;
 
         PostProcessSettings mEstimatedSettings;
-        float mPreviewShadowStep;
-
-        std::atomic<float> mPreviewShadows;
-        std::atomic<float> mShadingMapCorrection;
 
         std::shared_ptr<CameraDescription> mCameraDesc;
         int mRawPreviewQuality;

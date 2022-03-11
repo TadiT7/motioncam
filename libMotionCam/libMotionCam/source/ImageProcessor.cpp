@@ -263,53 +263,52 @@ namespace motioncam {
         return minEv;
     }
 
-    void ImageProcessor::getNormalisedShadingMap(const RawImageMetadata& metadata,
-                                                 const float shadingMapCorrection,
-                                                 std::vector<Halide::Runtime::Buffer<float>>& outShadingMapBuffer,
-                                                 std::vector<float>& outShadingMapScale,
-                                                 float& outShadingMapMaxScale) {
-        
-        outShadingMapBuffer.clear();
-        outShadingMapScale.clear();
-                
-        const auto& shadingMap = metadata.shadingMap();
-        std::vector<float> scale;
-
-        for(int i = 0; i < 4; i++) {
-            cv::Mat m = shadingMap[i].clone();
-            
-            // Normalize shading map
-            double minVal, maxVal;
-            
-            cv::minMaxLoc(m, &minVal, &maxVal);
-            
-            m /= maxVal;
-            
-            scale.push_back(maxVal);
-            outShadingMapBuffer.push_back(ToHalideBuffer<float>(m).copy());
-        }
-        
-        // R G B, assuming both G channels are identical here.
-        outShadingMapScale.resize(3);
-        
-        outShadingMapScale[0] = scale[0];
-        outShadingMapScale[1] = 0.5f*(scale[1] + scale[2]);
-        outShadingMapScale[2] = scale[3];
-        
-        // Get offsets
-        outShadingMapMaxScale = *(std::max_element(scale.begin(), scale.end()));
-        
-        for(size_t i = 0; i < outShadingMapScale.size(); i++) {
-            outShadingMapScale[i] /= outShadingMapMaxScale;
-            outShadingMapScale[i] *= shadingMapCorrection;
-        }
-    }
+//    void ImageProcessor::getNormalisedShadingMap(const RawImageMetadata& metadata,
+//                                                 const float shadingMapCorrection,
+//                                                 std::vector<Halide::Runtime::Buffer<float>>& outShadingMapBuffer,
+//                                                 std::vector<float>& outShadingMapScale,
+//                                                 float& outShadingMapMaxScale) {
+//
+//        outShadingMapBuffer.clear();
+//        outShadingMapScale.clear();
+//
+//        const auto& shadingMap = metadata.shadingMap();
+//        std::vector<float> scale;
+//
+//        for(int i = 0; i < 4; i++) {
+//            cv::Mat m = shadingMap[i].clone();
+//
+//            // Normalize shading map
+//            double minVal, maxVal;
+//
+//            cv::minMaxLoc(m, &minVal, &maxVal);
+//
+//            m /= maxVal;
+//
+//            scale.push_back(maxVal);
+//            outShadingMapBuffer.push_back(ToHalideBuffer<float>(m).copy());
+//        }
+//
+//        // R G B, assuming both G channels are identical here.
+//        outShadingMapScale.resize(3);
+//
+//        outShadingMapScale[0] = scale[0];
+//        outShadingMapScale[1] = 0.5f*(scale[1] + scale[2]);
+//        outShadingMapScale[2] = scale[3];
+//
+//        // Get offsets
+//        outShadingMapMaxScale = *(std::max_element(scale.begin(), scale.end()));
+//
+//        for(size_t i = 0; i < outShadingMapScale.size(); i++) {
+//            outShadingMapScale[i] /= outShadingMapMaxScale;
+//            outShadingMapScale[i] *= shadingMapCorrection;
+//        }
+//    }
 
     cv::Mat ImageProcessor::postProcess(std::vector<Halide::Runtime::Buffer<uint16_t>>& inputBuffers,
                                         const shared_ptr<HdrMetadata>& hdrMetadata,
                                         int offsetX,
                                         int offsetY,
-                                        const float shadingMapOffset,
                                         const float noiseEstimate,
                                         const RawImageMetadata& metadata,
                                         const RawCameraMetadata& cameraMetadata,
@@ -351,15 +350,12 @@ namespace motioncam {
         
         // Get shading map
         std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer;
-        std::vector<float> shadingMapScale;
-        float shadingMapMaxScale;
-                
-        getNormalisedShadingMap(metadata,
-                                shadingMapOffset,
-                                shadingMapBuffer,
-                                shadingMapScale,
-                                shadingMapMaxScale);
-        
+
+        const auto& shadingMap = metadata.shadingMap();
+        for(int i = 0; i < 4; i++) {
+            shadingMapBuffer.push_back(ToHalideBuffer<float>(shadingMap[i]).copy());
+        }
+
         float shadows = settings.shadows;
         float tonemapVariance = TONEMAP_VARIANCE;
         bool useHdr = false;
@@ -397,9 +393,6 @@ namespace motioncam {
                     metadata.asShot[0],
                     metadata.asShot[1],
                     metadata.asShot[2],
-                    shadingMapScale[0],
-                    shadingMapScale[1],
-                    shadingMapScale[2],
                     cameraToSrgbBuffer,
                     shadingMapBuffer[0],
                     shadingMapBuffer[1],
@@ -570,8 +563,7 @@ namespace motioncam {
 
     void ImageProcessor::estimateSettings(const RawImageBuffer& rawBuffer,
                                           const RawCameraMetadata& cameraMetadata,
-                                          PostProcessSettings& outSettings,
-                                          float& outShiftAmount)
+                                          PostProcessSettings& outSettings)
     {
         //Measure measure("estimateSettings()");
         
@@ -584,7 +576,7 @@ namespace motioncam {
 
         cameraProfile.temperatureFromVector(rawBuffer.metadata.asShot, temperature);
 
-        cv::Mat histogram = calcHistogram(cameraMetadata, rawBuffer, false, 8, outShiftAmount);
+        cv::Mat histogram = calcHistogram(cameraMetadata, rawBuffer, false, 8);
 
         outSettings.temperature    = static_cast<float>(temperature.temperature());
         outSettings.tint           = static_cast<float>(temperature.tint());
@@ -756,10 +748,11 @@ namespace motioncam {
         
         Halide::Runtime::Buffer<float> cameraToSrgbBuffer = ToHalideBuffer<float>(cameraToSrgb);
         std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer;
-        std::vector<float> shadingMapScale;
-        float shadingMapMaxScale;
-        
-        getNormalisedShadingMap(metadata, 1.0f, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
+
+        const auto& shadingMap = metadata.shadingMap();
+        for(int i = 0; i < 4; i++) {
+            shadingMapBuffer.push_back(ToHalideBuffer<float>(shadingMap[i]).copy());
+        }
 
         const int width  = inputBuffers[0].width() / sx;
         const int height = inputBuffers[0].height() / sy;
@@ -783,9 +776,6 @@ namespace motioncam {
             metadata.asShot[0],
             metadata.asShot[1],
             metadata.asShot[2],
-            shadingMapScale[0],
-            shadingMapScale[1],
-            shadingMapScale[2],
             cameraToSrgbBuffer,
             outputBuffer);
         
@@ -823,13 +813,11 @@ namespace motioncam {
         
         Halide::Runtime::Buffer<float> cameraToSrgbBuffer = ToHalideBuffer<float>(cameraToSrgb);
         std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer;
-        std::vector<float> shadingMapScale;
-        float shadingMapMaxScale, shadingMapOffset;
-        
-        // Get shading map offset
-        calcHistogram(cameraMetadata, rawBuffer, false, 4, shadingMapOffset);
 
-        getNormalisedShadingMap(rawBuffer.metadata, shadingMapOffset, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
+        const auto& shadingMap = rawBuffer.metadata.shadingMap();
+        for(int i = 0; i < 4; i++) {
+            shadingMapBuffer.push_back(ToHalideBuffer<float>(shadingMap[i]).copy());
+        }
 
         NativeBufferContext inputBufferContext(*rawBuffer.data, false);
 
@@ -894,9 +882,6 @@ namespace motioncam {
             rawBuffer.metadata.asShot[0],
             rawBuffer.metadata.asShot[1],
             rawBuffer.metadata.asShot[2],
-            shadingMapScale[0],
-            shadingMapScale[1],
-            shadingMapScale[2],
             cameraToSrgbBuffer,
             rawBuffer.width,
             rawBuffer.height,
@@ -1117,8 +1102,7 @@ namespace motioncam {
     cv::Mat ImageProcessor::calcHistogram(const RawCameraMetadata& cameraMetadata,
                                           const RawImageBuffer& buffer,
                                           const bool cumulative,
-                                          const int downscale,
-                                          float& outShiftAmount)
+                                          const int downscale)
     {
         //Measure measure("calcHistogram()");
         const int SCALE = downscale;
@@ -1127,11 +1111,12 @@ namespace motioncam {
         const int height = buffer.height/2/SCALE;
 
         std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer;
-        std::vector<float> shadingMapScale;
-        float shadingMapMaxScale;
-        
-        ImageProcessor::getNormalisedShadingMap(buffer.metadata, 1.0f, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
-        
+
+        const auto& shadingMap = buffer.metadata.shadingMap();
+        for(int i = 0; i < 4; i++) {
+            shadingMapBuffer.push_back(ToHalideBuffer<float>(shadingMap[i]).copy());
+        }
+
         cv::Mat cameraToPcs;
         cv::Mat pcsToSrgb;
         cv::Vec3f cameraWhite;
@@ -1149,7 +1134,6 @@ namespace motioncam {
 
         NativeBufferContext inputBufferContext(*buffer.data, false);
         Halide::Runtime::Buffer<uint32_t> histogramBuffer(2u << 7u);
-        Halide::Runtime::Buffer<float> scaleBuffer(4);
                 
         measure_image(inputBufferContext.getHalideBuffer(),
                       buffer.rowStride,
@@ -1171,11 +1155,7 @@ namespace motioncam {
                       buffer.metadata.asShot[0],
                       buffer.metadata.asShot[1],
                       buffer.metadata.asShot[2],
-                      shadingMapScale[0],
-                      shadingMapScale[1],
-                      shadingMapScale[2],
                       cameraToSrgbBuffer,
-                      scaleBuffer,
                       histogramBuffer);
         
         //
@@ -1196,12 +1176,6 @@ namespace motioncam {
                 histogram.at<float>(i) /= (width*height);
             }
         }
-
-        float R = scaleBuffer.data()[0];
-        float G = 0.5f*(scaleBuffer.data()[1] + scaleBuffer.data()[2]);
-        float B = scaleBuffer.data()[3];
-                            
-        outShiftAmount = (std::min)((std::min)(R, G), B);
                     
         return histogram;
     }
@@ -1269,7 +1243,7 @@ namespace motioncam {
             float keyValue = getShadowKeyValue(ev, settings.captureMode == "NIGHT");
             float shiftAmount;
             
-            cv::Mat histogram = calcHistogram(rawContainer.getCameraMetadata(), *referenceRawBuffer, false, 4, shiftAmount);
+            cv::Mat histogram = calcHistogram(rawContainer.getCameraMetadata(), *referenceRawBuffer, false, 4);
                         
             settings.shadows = estimateShadows(histogram, keyValue);
         }
@@ -1277,12 +1251,7 @@ namespace motioncam {
         if(settings.blacks < 0 || settings.whitePoint < 0) {
             estimateBlackWhitePoint(*referenceRawBuffer, rawContainer.getCameraMetadata(), settings, settings.blacks, settings.whitePoint);
         }
-        
-        // Calculate shading map offset
-        float shadingMapOffset;
-        
-        calcHistogram(rawContainer.getCameraMetadata(), *referenceRawBuffer, false, 4, shadingMapOffset);
-        
+                
         //
         // Save preview
         //
@@ -1394,7 +1363,6 @@ namespace motioncam {
             hdrMetadata,
             offsetX,
             offsetY,
-            shadingMapOffset,
             noise,
             referenceRawBuffer->metadata,
             rawContainer.getCameraMetadata(),
@@ -2093,12 +2061,11 @@ namespace motioncam {
 
         // Get shading map
         std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer;
-        std::vector<float> shadingMapScale;
-        float shadingMapMaxScale, shadingMapOffset;
-        
-        calcHistogram(cameraMetadata, underexposed, false, 4, shadingMapOffset);
-        
-        getNormalisedShadingMap(underexposed.metadata, shadingMapOffset, shadingMapBuffer, shadingMapScale, shadingMapMaxScale);
+
+        const auto& shadingMap = underexposed.metadata.shadingMap();
+        for(int i = 0; i < 4; i++) {
+            shadingMapBuffer.push_back(ToHalideBuffer<float>(shadingMap[i]).copy());
+        }
 
         Halide::Runtime::Buffer<float> colorTransformBuffer = ToHalideBuffer<float>(cameraToSrgb);
         Halide::Runtime::Buffer<uint16_t> outputBuffer(underexposedImage->rawBuffer.width()*2, underexposedImage->rawBuffer.height()*2, 3);
@@ -2112,9 +2079,6 @@ namespace motioncam {
                      cameraWhite[0],
                      cameraWhite[1],
                      cameraWhite[2],
-                     shadingMapScale[0],
-                     shadingMapScale[1],
-                     shadingMapScale[2],
                      colorTransformBuffer,
                      underexposedImage->rawBuffer.width(),
                      underexposedImage->rawBuffer.height(),

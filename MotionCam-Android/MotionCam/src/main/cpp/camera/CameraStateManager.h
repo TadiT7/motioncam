@@ -65,6 +65,7 @@ namespace motioncam {
         void requestPause();
         void requestResume();
 
+        void requestUpdatePreview(std::vector<float>&& tonemapPts);
         void requestUserFocus(float x, float y);
         void requestAutoFocus();
         void requestManualFocus(float distance);
@@ -110,6 +111,8 @@ namespace motioncam {
 
         int32_t mUserIso;
         int64_t mUserExposureTime;
+
+        std::vector<float> mTonemapPts;
     };
 }
 

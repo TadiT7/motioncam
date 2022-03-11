@@ -31,7 +31,7 @@
 
 namespace motioncam {
     static const int MINIMUM_BUFFERS = 16;
-    static const int ESTIMATE_SHADOWS_FRAME_INTERVAL = 6;
+    static const int ESTIMATE_SHADOWS_FRAME_INTERVAL = 12;
 
 #ifdef GPU_CAMERA_PREVIEW
     void VERIFY_RESULT(int32_t errCode, const std::string& errString)
@@ -53,14 +53,7 @@ namespace motioncam {
             mEnableRawPreview(false),
             mRawPreviewQuality(4),
             mCopyCaptureColorTransform(true),
-            mShadowBoost(0.0f),
-            mTempOffset(0.0f),
-            mTintOffset(0.0f),
-            mUseVideoPreview(false),
-            mPreviewShadows(4.0f),
-            mPreviewShadowStep(0.0f),
-            mShadingMapCorrection(1.0f),
-            mBufferSize(0),
+            mRequestSetupBuffers(false),
             mFramesSinceEstimatedSettings(0),
             mCameraDesc(std::move(cameraDescription))
     {
@@ -79,11 +72,13 @@ namespace motioncam {
         }
 
         mRunning = true;
-        mBufferSize = 0;
+        mRequestSetupBuffers = true;
+
+        if(mListener)
+            mListener->onMemoryAdjusting();
 
         // Start threads
         mConsumerThread = std::make_unique<std::thread>(&RawImageConsumer::doCopyImage, this);
-        mSetupBuffersThread = std::make_unique<std::thread>(&RawImageConsumer::doSetupBuffers, this);
     }
 
     void RawImageConsumer::stop() {
@@ -96,14 +91,6 @@ namespace motioncam {
         // Stop all threads
         mRunning = false;
 
-        mBufferCondition.notify_one();
-
-        LOGD("Stopping buffers thread");
-
-        if(mSetupBuffersThread && mSetupBuffersThread->joinable())
-            mSetupBuffersThread->join();
-        mSetupBuffersThread = nullptr;
-
         LOGD("Stopping consumer threads thread");
 
         if(mConsumerThread && mConsumerThread->joinable())
@@ -114,14 +101,11 @@ namespace motioncam {
     }
 
     void RawImageConsumer::grow(size_t memoryLimitBytes) {
-        const size_t currentLimitBytes = mMaximumMemoryUsageBytes;
+        if(mListener)
+            mListener->onMemoryAdjusting();
+
         mMaximumMemoryUsageBytes = memoryLimitBytes;
-
-        RawBufferManager::get().setTargetMemory(memoryLimitBytes);
-
-        if(memoryLimitBytes > currentLimitBytes) {
-            mBufferCondition.notify_one();
-        }
+        mRequestSetupBuffers = true;
     }
 
     void RawImageConsumer::queueImage(AImage* image) {
@@ -246,7 +230,7 @@ namespace motioncam {
             return false;
         }
 
-        dst.updateShadingMap(std::move(shadingMap));
+        dst.updateShadingMap(shadingMap);
 
         // Keep Noise profile
         if(ACameraMetadata_getConstEntry(src, ACAMERA_SENSOR_NOISE_PROFILE, &metadataEntry) == ACAMERA_OK) {
@@ -299,45 +283,20 @@ namespace motioncam {
     }
 
     void RawImageConsumer::onBufferReady(const std::shared_ptr<RawImageBuffer>& buffer) {
-        // Skip estimation when in video preview mode
-        if(mUseVideoPreview) {
-            mPreviewShadows = 1.0f;
-            RawBufferManager::get().enqueueReadyBuffer(buffer);
-            return;
-        }
-
         // Estimate settings every few frames
         if(mFramesSinceEstimatedSettings >= ESTIMATE_SHADOWS_FRAME_INTERVAL)
         {
-            // Keep previous value
-            mPreviewShadows = mEstimatedSettings.shadows;
-
-            float shiftAmount;
-
-            motioncam::ImageProcessor::estimateSettings(*buffer, mCameraDesc->metadata, mEstimatedSettings, shiftAmount);
-
-            // Update shadows to include user selected boost
-            float shadowBoost = 0.0f;
-            if(mEnableRawPreview)
-                shadowBoost = mShadowBoost;
-
-            float userShadows = std::pow(2.0f, std::log(mEstimatedSettings.shadows) / std::log(2.0f) + shadowBoost);
-            mEstimatedSettings.shadows = std::max(1.0f, std::min(32.0f, userShadows));
+            motioncam::ImageProcessor::estimateSettings(*buffer, mCameraDesc->metadata, mEstimatedSettings);
 
             // Store noise profile
             if(!buffer->metadata.noiseProfile.empty()) {
                 mEstimatedSettings.noiseSigma = 1024 * sqrt(0.18f * buffer->metadata.noiseProfile[0] + buffer->metadata.noiseProfile[1]);
             }
 
-            mPreviewShadowStep = (1.0f / ESTIMATE_SHADOWS_FRAME_INTERVAL) * (mEstimatedSettings.shadows - mPreviewShadows);
             mFramesSinceEstimatedSettings = 0;
-            mShadingMapCorrection = shiftAmount;
         }
         else {
             ++mFramesSinceEstimatedSettings;
-
-            // Interpolate shadows to make transition smoother
-            mPreviewShadows = mPreviewShadows + mPreviewShadowStep;
         }
 
         RawBufferManager::get().enqueueReadyBuffer(buffer);
@@ -389,7 +348,7 @@ namespace motioncam {
         mPendingMetadata.enqueue_bulk(unmatched.begin(), unmatched.size());
     }
 
-    void RawImageConsumer::doSetupBuffers() {
+    void RawImageConsumer::doSetupBuffers(const size_t bufferSize) {
 #ifdef GPU_CAMERA_PREVIEW
         {
             // Make sure the OpenCL library is loaded/symbols looked up in Halide
@@ -400,25 +359,21 @@ namespace motioncam {
             halide_opencl_set_build_options("-cl-fast-relaxed-math -cl-mad-enable");
         }
 #endif
-        while(mRunning) {
-            std::unique_lock<std::mutex> lock(mBufferMutex);
 
-            mBufferCondition.wait(lock);
+        // Do we need to allocate more buffers?
+        size_t memoryUseBytes = RawBufferManager::get().memoryUseBytes();
 
-            // Do we need to allocate more buffers?
-            size_t memoryUseBytes = RawBufferManager::get().memoryUseBytes();
+        int grow = mMaximumMemoryUsageBytes - memoryUseBytes;
+        if(std::abs(grow) < bufferSize) {
+            mRequestSetupBuffers = false;
+            if(mListener)
+                mListener->onMemoryStable();
 
-            const size_t bufferSize = mBufferSize;
-            if(bufferSize <= 0 || memoryUseBytes >= mMaximumMemoryUsageBytes) {
-                continue;
-            }
+            return;
+        }
 
-            mListener->onMemoryAdjusting();
-
-            while(  mRunning
-                    &&  (  memoryUseBytes + bufferSize < mMaximumMemoryUsageBytes
-                        || RawBufferManager::get().numBuffers() < MINIMUM_BUFFERS) ) {
-
+        if(grow > 0) {
+            if(memoryUseBytes + bufferSize < mMaximumMemoryUsageBytes) {
                 std::shared_ptr<RawImageBuffer> buffer;
 
     #ifdef GPU_CAMERA_PREVIEW
@@ -433,11 +388,16 @@ namespace motioncam {
 
                 LOGI("Memory use: %zu, max: %zu", memoryUseBytes, mMaximumMemoryUsageBytes);
             }
-
-            mListener->onMemoryStable();
         }
+        else if(grow < 0) {
+            // Shrink memory
+            if(memoryUseBytes > mMaximumMemoryUsageBytes) {
+                RawBufferManager::get().removeBuffer();
+                memoryUseBytes = RawBufferManager::get().memoryUseBytes();
 
-        LOGD("Exiting buffer thread");
+                logger::log("Shrunk memory to " + std::to_string(memoryUseBytes));
+            }
+        }
     }
 
 #ifdef GPU_CAMERA_PREVIEW
@@ -476,7 +436,7 @@ namespace motioncam {
     }
 
     void RawImageConsumer::releaseCameraPreviewOutputBuffer(Halide::Runtime::Buffer<uint8_t>& buffer) {
-        cl_int errCode = 0;
+        cl_int errCode;
         cl_context clContext = nullptr;
         cl_command_queue clQueue = nullptr;
 
@@ -520,108 +480,108 @@ namespace motioncam {
 #endif
 
     void RawImageConsumer::doPreprocess() {
-#ifdef GPU_CAMERA_PREVIEW
-        Halide::Runtime::Buffer<uint8_t> outputBuffer;
-        std::shared_ptr<RawImageBuffer> buffer;
-
-        std::chrono::steady_clock::time_point fpsTimestamp = std::chrono::steady_clock::now();
-        std::chrono::steady_clock::time_point previewTimestamp;
-
-        cl_int errCode = -1;
-
-        bool outputCreated = false;
-        int downscaleFactor = mRawPreviewQuality;
-        int processedFrames = 0;
-        double totalPreviewTimeMs = 0;
-
-        while(mEnableRawPreview) {
-            if(!mPreprocessQueue.wait_dequeue_timed(buffer, std::chrono::milliseconds(100))) {
-                continue;
-            }
-
-            if(!outputCreated) {
-                outputBuffer = createCameraPreviewOutputBuffer(*buffer, downscaleFactor);
-                outputCreated = true;
-            }
-
-            Halide::Runtime::Buffer<uint8_t> inputBuffer = wrapCameraPreviewInputBuffer(*buffer);
-
-            previewTimestamp = std::chrono::steady_clock::now();
-
-            if(mUseVideoPreview) {
-                motioncam::CameraPreview::generate(*buffer, mCameraDesc->metadata, downscaleFactor, mShadingMapCorrection, inputBuffer, outputBuffer);
-            }
-            else {
-                motioncam::CameraPreview::generate(
-                        *buffer,
-                        mCameraDesc->metadata,
-                        downscaleFactor,
-                        mShadingMapCorrection,
-                        mCameraDesc->lensFacing == ACAMERA_LENS_FACING_FRONT,
-                        mPreviewShadows,
-                        mEstimatedSettings.contrast,
-                        mEstimatedSettings.saturation,
-                        mEstimatedSettings.blacks,
-                        mEstimatedSettings.whitePoint,
-                        mTempOffset,
-                        mTintOffset,
-                        0.25f,
-                        inputBuffer,
-                        outputBuffer);
-            }
-
-            totalPreviewTimeMs +=
-                    std::chrono::duration <double, std::milli>(std::chrono::steady_clock::now() - previewTimestamp).count();
-
-            unwrapCameraPreviewInputBuffer(inputBuffer);
-
-            cl_context clContext = nullptr;
-            cl_command_queue clQueue = nullptr;
-
-            VERIFY_RESULT(CL_acquire(&clContext, &clQueue), "Failed to acquire CL context");
-
-            auto clOutputBuffer = (cl_mem) halide_opencl_get_cl_mem(nullptr, outputBuffer.raw_buffer());
-            auto data = CL_enqueueMapBuffer(
-                    clQueue, clOutputBuffer, CL_TRUE, CL_MAP_READ, 0, outputBuffer.size_in_bytes(), 0, nullptr, nullptr, &errCode);
-
-            VERIFY_RESULT(errCode, "Failed to map output buffer");
-
-            mPreviewListener->onPreviewGenerated(data, outputBuffer.size_in_bytes(), outputBuffer.width(), outputBuffer.height());
-
-            errCode = CL_enqueueUnmapMemObject(clQueue, clOutputBuffer, data, 0, nullptr, nullptr);
-            VERIFY_RESULT(errCode, "Failed to unmap output buffer");
-
-            VERIFY_RESULT(CL_release(), "Failed to release CL context");
-
-            // Return buffer
-            onBufferReady(buffer);
-
-            processedFrames += 1;
-
-            auto now = std::chrono::steady_clock::now();
-            double durationMs = std::chrono::duration <double, std::milli>(now - fpsTimestamp).count();
-
-            // Print camera FPS + stats
-            if(durationMs > 3000.0f) {
-                double avgProcessTimeMs = totalPreviewTimeMs / processedFrames;
-
-                LOGI("Camera FPS: %d, cameraQuality=%d processTimeMs=%.2f", processedFrames / 3, downscaleFactor, avgProcessTimeMs);
-
-                processedFrames = 0;
-                totalPreviewTimeMs = 0;
-
-                fpsTimestamp = now;
-            }
-        }
-
-        if(outputCreated)
-            releaseCameraPreviewOutputBuffer(outputBuffer);
-
-        while(mPreprocessQueue.try_dequeue(buffer)) {
-            RawBufferManager::get().discardBuffer(buffer);
-        }
-#endif
-        LOGD("Exiting preprocess thread");
+//#ifdef GPU_CAMERA_PREVIEW
+//        Halide::Runtime::Buffer<uint8_t> outputBuffer;
+//        std::shared_ptr<RawImageBuffer> buffer;
+//
+//        std::chrono::steady_clock::time_point fpsTimestamp = std::chrono::steady_clock::now();
+//        std::chrono::steady_clock::time_point previewTimestamp;
+//
+//        cl_int errCode = -1;
+//
+//        bool outputCreated = false;
+//        int downscaleFactor = mRawPreviewQuality;
+//        int processedFrames = 0;
+//        double totalPreviewTimeMs = 0;
+//
+//        while(mEnableRawPreview) {
+//            if(!mPreprocessQueue.wait_dequeue_timed(buffer, std::chrono::milliseconds(100))) {
+//                continue;
+//            }
+//
+//            if(!outputCreated) {
+//                outputBuffer = createCameraPreviewOutputBuffer(*buffer, downscaleFactor);
+//                outputCreated = true;
+//            }
+//
+//            Halide::Runtime::Buffer<uint8_t> inputBuffer = wrapCameraPreviewInputBuffer(*buffer);
+//
+//            previewTimestamp = std::chrono::steady_clock::now();
+//
+//            if(mUseVideoPreview) {
+//                motioncam::CameraPreview::generate(*buffer, mCameraDesc->metadata, downscaleFactor, mShadingMapCorrection, inputBuffer, outputBuffer);
+//            }
+//            else {
+//                motioncam::CameraPreview::generate(
+//                        *buffer,
+//                        mCameraDesc->metadata,
+//                        downscaleFactor,
+//                        mShadingMapCorrection,
+//                        mCameraDesc->lensFacing == ACAMERA_LENS_FACING_FRONT,
+//                        mPreviewShadows,
+//                        mEstimatedSettings.contrast,
+//                        mEstimatedSettings.saturation,
+//                        mEstimatedSettings.blacks,
+//                        mEstimatedSettings.whitePoint,
+//                        mTempOffset,
+//                        mTintOffset,
+//                        0.25f,
+//                        inputBuffer,
+//                        outputBuffer);
+//            }
+//
+//            totalPreviewTimeMs +=
+//                    std::chrono::duration <double, std::milli>(std::chrono::steady_clock::now() - previewTimestamp).count();
+//
+//            unwrapCameraPreviewInputBuffer(inputBuffer);
+//
+//            cl_context clContext = nullptr;
+//            cl_command_queue clQueue = nullptr;
+//
+//            VERIFY_RESULT(CL_acquire(&clContext, &clQueue), "Failed to acquire CL context");
+//
+//            auto clOutputBuffer = (cl_mem) halide_opencl_get_cl_mem(nullptr, outputBuffer.raw_buffer());
+//            auto data = CL_enqueueMapBuffer(
+//                    clQueue, clOutputBuffer, CL_TRUE, CL_MAP_READ, 0, outputBuffer.size_in_bytes(), 0, nullptr, nullptr, &errCode);
+//
+//            VERIFY_RESULT(errCode, "Failed to map output buffer");
+//
+//            mPreviewListener->onPreviewGenerated(data, outputBuffer.size_in_bytes(), outputBuffer.width(), outputBuffer.height());
+//
+//            errCode = CL_enqueueUnmapMemObject(clQueue, clOutputBuffer, data, 0, nullptr, nullptr);
+//            VERIFY_RESULT(errCode, "Failed to unmap output buffer");
+//
+//            VERIFY_RESULT(CL_release(), "Failed to release CL context");
+//
+//            // Return buffer
+//            onBufferReady(buffer);
+//
+//            processedFrames += 1;
+//
+//            auto now = std::chrono::steady_clock::now();
+//            double durationMs = std::chrono::duration <double, std::milli>(now - fpsTimestamp).count();
+//
+//            // Print camera FPS + stats
+//            if(durationMs > 3000.0f) {
+//                double avgProcessTimeMs = totalPreviewTimeMs / processedFrames;
+//
+//                LOGI("Camera FPS: %d, cameraQuality=%d processTimeMs=%.2f", processedFrames / 3, downscaleFactor, avgProcessTimeMs);
+//
+//                processedFrames = 0;
+//                totalPreviewTimeMs = 0;
+//
+//                fpsTimestamp = now;
+//            }
+//        }
+//
+//        if(outputCreated)
+//            releaseCameraPreviewOutputBuffer(outputBuffer);
+//
+//        while(mPreprocessQueue.try_dequeue(buffer)) {
+//            RawBufferManager::get().discardBuffer(buffer);
+//        }
+//#endif
+//        LOGD("Exiting preprocess thread");
     }
 
     void RawImageConsumer::enableRawPreview(std::shared_ptr<RawPreviewListener> listener, const int previewQuality) {
@@ -635,26 +595,6 @@ namespace motioncam {
         mRawPreviewQuality = previewQuality;
         mPreprocessThread = std::make_unique<std::thread>(&RawImageConsumer::doPreprocess, this);
         mEstimatedSettings = PostProcessSettings();
-    }
-
-    void RawImageConsumer::updateRawPreviewSettings(
-            float shadowBoost,
-            float contrast,
-            float saturation,
-            float blacks,
-            float whitePoint,
-            float tempOffset,
-            float tintOffset,
-            bool useVideoPreview)
-    {
-        mShadowBoost = shadowBoost;
-        mEstimatedSettings.contrast = contrast;
-        mEstimatedSettings.saturation = saturation;
-        mEstimatedSettings.blacks = blacks;
-        mEstimatedSettings.whitePoint = whitePoint;
-        mTempOffset = tempOffset;
-        mTintOffset = tintOffset;
-        mUseVideoPreview = useVideoPreview;
     }
 
     void RawImageConsumer::getEstimatedSettings(PostProcessSettings& outSettings) {
@@ -675,13 +615,6 @@ namespace motioncam {
         mPreviewListener = nullptr;
     }
 
-    void RawImageConsumer::setWhiteBalanceOverride(bool override) {
-    }
-
-    void RawImageConsumer::setUseVideoPreview(bool useVideoPreview) {
-        mUseVideoPreview = useVideoPreview;
-    }
-
     void RawImageConsumer::doCopyImage() {
         while(mRunning) {
             std::shared_ptr<AImage> pendingImage = nullptr;
@@ -696,7 +629,7 @@ namespace motioncam {
             if(!pendingImage)
                 continue;
 
-            if(!mBufferSize) {
+            if(mRequestSetupBuffers) {
                 int length = 0;
                 uint8_t* data = nullptr;
 
@@ -705,12 +638,7 @@ namespace motioncam {
                     LOGE("Failed to get size of camera buffer!");
                 }
 
-                {
-                    std::lock_guard<std::mutex> lock(mBufferMutex);
-                    mBufferSize = length;
-                }
-
-                mBufferCondition.notify_one();
+                doSetupBuffers(length);
             }
 
             std::shared_ptr<RawImageBuffer> dst = RawBufferManager::get().dequeueUnusedBuffer();
@@ -829,9 +757,6 @@ namespace motioncam {
 
         while(mImageQueue.try_dequeue(pendingImage)) {
         }
-
-        // Stop setup buffers thread and return all pending buffers
-        std::shared_ptr<std::thread> bufferThread;
 
         // Return all pending buffers
         auto it = mPendingBuffers.begin();

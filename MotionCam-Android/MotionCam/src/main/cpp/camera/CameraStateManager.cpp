@@ -41,6 +41,10 @@ namespace motioncam {
         activate();
     }
 
+    void CameraStateManager::requestUpdatePreview(std::vector<float>&& tonemapPts) {
+        mTonemapPts = std::move(tonemapPts);
+    }
+
     void CameraStateManager::requestUserExposure(int32_t iso, int64_t exposureTime) {
         mUserIso = iso;
         mUserExposureTime = exposureTime;
@@ -302,6 +306,28 @@ namespace motioncam {
         uint8_t afTrigger = ACAMERA_CONTROL_AF_TRIGGER_IDLE;
         uint8_t aeTrigger = ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
 
+        uint8_t tonemapMode = ACAMERA_TONEMAP_MODE_FAST;
+
+        if(!mTonemapPts.empty()) {
+            tonemapMode = ACAMERA_TONEMAP_MODE_CONTRAST_CURVE;
+
+            ACaptureRequest_setEntry_float(mSessionContext.repeatCaptureRequest->captureRequest,
+                                           ACAMERA_TONEMAP_CURVE_RED,
+                                           mTonemapPts.size(),
+                                           mTonemapPts.data());
+
+            ACaptureRequest_setEntry_float(mSessionContext.repeatCaptureRequest->captureRequest,
+                                           ACAMERA_TONEMAP_CURVE_GREEN,
+                                           mTonemapPts.size(),
+                                           mTonemapPts.data());
+
+            ACaptureRequest_setEntry_float(mSessionContext.repeatCaptureRequest->captureRequest,
+                                           ACAMERA_TONEMAP_CURVE_BLUE,
+                                           mTonemapPts.size(),
+                                           mTonemapPts.data());
+        }
+
+        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_TONEMAP_MODE, 1, &tonemapMode);
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_MODE, 1, &mode);
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_TRIGGER, 1, &afTrigger);
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER, 1, &aeTrigger);

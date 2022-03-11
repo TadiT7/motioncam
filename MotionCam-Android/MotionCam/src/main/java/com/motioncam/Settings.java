@@ -133,26 +133,12 @@ public class Settings {
         nativeRawVideoMemoryUseMb = Math.min(nativeRawVideoMemoryUseMb, SettingsViewModel.MAXIMUM_MEMORY_USE_MB);
         this.rawVideoMemoryUseBytes = nativeRawVideoMemoryUseMb * 1024 * 1024;
 
-        this.useDualExposure = prefs.getBoolean(SettingsViewModel.PREFS_KEY_DUAL_EXPOSURE_CONTROLS, false);
         this.rawVideoToDng = prefs.getBoolean(SettingsViewModel.PREFS_KEY_RAW_VIDEO_TO_DNG, true);
 
         this.captureMode = CaptureMode.valueOf(prefs.getString(SettingsViewModel.PREFS_KEY_UI_CAPTURE_MODE, CaptureMode.ZSL.name()));
 
         String captureModeStr = prefs.getString(SettingsViewModel.PREFS_KEY_CAPTURE_MODE, SettingsViewModel.RawMode.RAW10.name());
         this.rawMode = SettingsViewModel.RawMode.valueOf(captureModeStr);
-
-        switch (prefs.getInt(SettingsViewModel.PREFS_KEY_CAMERA_PREVIEW_QUALITY, 0)) {
-            default:
-            case 0: // Low
-                this.cameraPreviewQuality = 4;
-                break;
-            case 1: // Medium
-                this.cameraPreviewQuality = 3;
-                break;
-            case 2: // High
-                this.cameraPreviewQuality = 2;
-                break;
-        }
 
         // Get temp recording uris
         this.useSecondaryRawVideoStorage = prefs.getBoolean(SettingsViewModel.PREFS_KEY_SPLIT_RAW_VIDEO_WRITES, false);

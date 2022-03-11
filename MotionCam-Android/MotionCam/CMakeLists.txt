@@ -522,16 +522,16 @@ add_library( # Sets the name of the library.
         ${native-camera-cpp}
 )
 
-add_library( # Sets the name of the library.
-        native-camera-opencl
-
-        # Sets the library as a shared library.
-        SHARED
-
-        ${native-camera-cpp}
-)
-
-target_compile_definitions(native-camera-opencl PRIVATE GPU_CAMERA_PREVIEW=1)
+#add_library( # Sets the name of the library.
+#        native-camera-opencl
+#
+#        # Sets the library as a shared library.
+#        SHARED
+#
+#        ${native-camera-cpp}
+#)
+#
+#target_compile_definitions(native-camera-opencl PRIVATE GPU_CAMERA_PREVIEW=1)
 
 # Searches for a specified prebuilt library and stores the path as a
 # variable. Because CMake includes system libraries in the search path by
@@ -629,25 +629,25 @@ target_link_libraries(native-camera-host
         ${native-camera-libs}
 )
 
-target_link_libraries(native-camera-opencl
-        halide_runtime_opencl
-        ${native-camera-libs}
-        camera_video_preview2_raw10
-        camera_video_preview3_raw10
-        camera_video_preview4_raw10
-        camera_video_preview2_raw12
-        camera_video_preview3_raw12
-        camera_video_preview4_raw12
-        camera_video_preview2_raw16
-        camera_video_preview3_raw16
-        camera_video_preview4_raw16
-        camera_preview2_raw10
-        camera_preview3_raw10
-        camera_preview4_raw10
-        camera_preview2_raw12
-        camera_preview3_raw12
-        camera_preview4_raw12
-        camera_preview2_raw16
-        camera_preview3_raw16
-        camera_preview4_raw16
-)
+#target_link_libraries(native-camera-opencl
+#        halide_runtime_opencl
+#        ${native-camera-libs}
+#        camera_video_preview2_raw10
+#        camera_video_preview3_raw10
+#        camera_video_preview4_raw10
+#        camera_video_preview2_raw12
+#        camera_video_preview3_raw12
+#        camera_video_preview4_raw12
+#        camera_video_preview2_raw16
+#        camera_video_preview3_raw16
+#        camera_video_preview4_raw16
+#        camera_preview2_raw10
+#        camera_preview3_raw10
+#        camera_preview4_raw10
+#        camera_preview2_raw12
+#        camera_preview3_raw12
+#        camera_preview4_raw12
+#        camera_preview2_raw16
+#        camera_preview3_raw16
+#        camera_preview4_raw16
+#)

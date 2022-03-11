@@ -56,30 +56,6 @@ public class SettingsFragment extends Fragment {
             mViewModel.save(requireContext());
         });
 
-        mViewModel.cameraPreviewQuality.observe(getViewLifecycleOwner(), (value) -> {
-            switch(value) {
-                case 0:
-                    dataBinding.cameraQualityPreviewText.setText(getString(R.string.low));
-                    break;
-
-                case 1:
-                    dataBinding.cameraQualityPreviewText.setText(getString(R.string.medium));
-                    break;
-
-                case 2:
-                    dataBinding.cameraQualityPreviewText.setText(getString(R.string.high));
-                    break;
-            }
-
-            mViewModel.save(requireContext());
-        });
-
-        mViewModel.dualExposureControls.observe(getViewLifecycleOwner(), (value) -> {
-            dataBinding.cameraQualitySeekBar.setEnabled(value);
-
-            mViewModel.save(requireContext());
-        });
-
         mViewModel.autoNightMode.observe(getViewLifecycleOwner(), (value) -> mViewModel.save(requireContext()));
         mViewModel.raw10.observe(getViewLifecycleOwner(), (value) -> mViewModel.save(requireContext()));
         mViewModel.raw16.observe(getViewLifecycleOwner(), (value) -> mViewModel.save(requireContext()));

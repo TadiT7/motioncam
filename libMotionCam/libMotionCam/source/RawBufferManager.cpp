@@ -17,7 +17,6 @@ namespace motioncam {
         mVerticalCrop(0),
         mBin(false),
         mMemoryUseBytes(0),
-        mMemoryTargetBytes(0),
         mNumBuffers(0)
     {
     }
@@ -40,7 +39,6 @@ namespace motioncam {
         ++mNumBuffers;
         
         mMemoryUseBytes += static_cast<int>(buffer->data->len());
-        mMemoryTargetBytes = static_cast<size_t>(mMemoryUseBytes);
     }
 
     int RawBufferManager::numBuffers() const {
@@ -59,6 +57,21 @@ namespace motioncam {
         return mMemoryUseBytes;
     }
 
+    bool RawBufferManager::removeBuffer() {
+        Lock lock(mMutex, "removeBuffer()");
+
+        if(mReadyBuffers.empty())
+            return false;
+
+        auto buffer = mReadyBuffers.front();
+        mReadyBuffers.erase(mReadyBuffers.begin());
+
+        mMemoryUseBytes -= buffer->data->len();
+        --mNumBuffers;
+
+        return true;
+    }
+
     void RawBufferManager::reset() {
         std::shared_ptr<RawImageBuffer> buffer;
         while(mUnusedBuffers.try_dequeue(buffer)) {
@@ -71,11 +84,6 @@ namespace motioncam {
         
         mNumBuffers = 0;
         mMemoryUseBytes = 0;
-        mMemoryTargetBytes = 0;
-    }
-
-    void RawBufferManager::setTargetMemory(size_t memoryUseBytes) {
-        mMemoryTargetBytes = memoryUseBytes;
     }
 
     std::shared_ptr<RawImageBuffer> RawBufferManager::dequeueUnusedBuffer() {
@@ -88,36 +96,11 @@ namespace motioncam {
         {
             Lock lock(mMutex, "dequeueUnusedBuffer()");
 
-            if(mMemoryUseBytes <= mMemoryTargetBytes) {
-                if(!mReadyBuffers.empty()) {
-                    buffer = mReadyBuffers.front();
-                    mReadyBuffers.erase(mReadyBuffers.begin());
+            if(!mReadyBuffers.empty()) {
+                buffer = mReadyBuffers.front();
+                mReadyBuffers.erase(mReadyBuffers.begin());
 
-                    return buffer;
-                }
-            }
-            else {
-                // TODO: Probably not the best place to do this
-                // Shrink memory
-                while(true) {
-                    if(!mReadyBuffers.empty() && mMemoryUseBytes > mMemoryTargetBytes) {
-                        buffer = mReadyBuffers.front();
-                        mReadyBuffers.erase(mReadyBuffers.begin());
-
-                        mMemoryUseBytes -= buffer->data->len();
-                        --mNumBuffers;
-
-                        logger::log("Shrinking memory to " + std::to_string(mMemoryUseBytes));
-                    }
-                    else {
-                        if(!mReadyBuffers.empty()) {
-                            buffer = mReadyBuffers.front();
-                            mReadyBuffers.erase(mReadyBuffers.begin());
-
-                            return buffer;
-                        }
-                    }
-                }
+                return buffer;
             }
         }
                 

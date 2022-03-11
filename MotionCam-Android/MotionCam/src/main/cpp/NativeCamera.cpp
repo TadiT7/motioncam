@@ -451,9 +451,8 @@ JNIEXPORT jstring JNICALL Java_com_motioncam_camera_NativeCamera_EstimatePostPro
         return nullptr;
 
     auto imageBuffer = lockedBuffer->getBuffers().front();
-    float shadingMapCorrection;
 
-    ImageProcessor::estimateSettings(*imageBuffer, gActiveCameraDescription->metadata, settings, shadingMapCorrection);
+    ImageProcessor::estimateSettings(*imageBuffer, gActiveCameraDescription->metadata, settings);
 
     json11::Json::object settingsJson;
 
@@ -485,9 +484,8 @@ jfloat JNICALL Java_com_motioncam_camera_NativeCamera_EstimateShadows(JNIEnv *en
         return -1;
 
     auto imageBuffer = lockedBuffer->getBuffers().front();
-    float shiftAmount;
 
-    cv::Mat histogram = motioncam::ImageProcessor::calcHistogram(gActiveCameraDescription->metadata, *imageBuffer, false, 4, shiftAmount);
+    cv::Mat histogram = motioncam::ImageProcessor::calcHistogram(gActiveCameraDescription->metadata, *imageBuffer, false, 4);
 
     float ev = motioncam::ImageProcessor::calcEv(gActiveCameraDescription->metadata, imageBuffer->metadata);
     float keyValue = 1.03f - bias / (bias + std::log10(std::pow(10.0f, ev) + 1));
