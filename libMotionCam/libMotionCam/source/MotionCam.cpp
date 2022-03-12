@@ -426,7 +426,11 @@ namespace motioncam {
         startIdx = std::min((int)orderedFrames.size() - 1, std::max(0, startIdx));
         endIdx = std::min((int)orderedFrames.size() - 1, std::max(0, endIdx));
 
-        ScreenOrientation orientation = ScreenOrientation::INVALID;
+        // Use orientation from first frame
+        auto& firstFrameContainer = containers[orderedFrames[startIdx].containerIndex];
+        auto firstFrame = firstFrameContainer->getFrame(orderedFrames[startIdx].frameName);
+        
+        ScreenOrientation orientation = firstFrame->metadata.screenOrientation;
         
         for(int frameIdx = startIdx; frameIdx <= endIdx; frameIdx++) {
             auto newJob = createFrameExportJob(containers,
@@ -435,7 +439,7 @@ namespace motioncam {
                                                frameIdx,
                                                orientation,
                                                denoiseWeights,
-                                               4,//mergeFrames,
+                                               mergeFrames,
                                                enableCompression,
                                                applyShadingMap);
             

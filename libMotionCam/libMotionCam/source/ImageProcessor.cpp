@@ -2095,36 +2095,36 @@ namespace motioncam {
         // Shift image to the right if we've underexposed too much
         //
 
-        cv::Mat RGB[3];
-
-        RGB[0] = cv::Mat(outputBuffer.height(), outputBuffer.width(), CV_16U, outputBuffer.data() + 0*outputBuffer.stride(2));
-        RGB[1] = cv::Mat(outputBuffer.height(), outputBuffer.width(), CV_16U, outputBuffer.data() + 1*outputBuffer.stride(2));
-        RGB[2] = cv::Mat(outputBuffer.height(), outputBuffer.width(), CV_16U, outputBuffer.data() + 2*outputBuffer.stride(2));
-
-        const vector<int> histBins      = { 1024 };
-        const vector<float> histRange   = { 0, 65536 };
-        const vector<int> channels      = { 0 };
-
-        int p[3] = { 0, 0, 0 };
-
-        for(int c = 0; c < 3; c++) {
-            const vector<cv::Mat> inputImages = { RGB[c] };
-            cv::Mat histogram;
-
-            cv::calcHist(inputImages, channels, cv::Mat(), histogram, histBins, histRange);
-
-            histogram /= (outputBuffer.width()*outputBuffer.height());
-
-            float sum = 0;
-
-            for(int x = histogram.rows - 1; x >= 0; x--) {
-                if( sum > 1e-5f )
-                    break;
-
-                p[c] = x + 1;
-                sum += histogram.at<float>(x);
-            }
-        }
+//        cv::Mat RGB[3];
+//
+//        RGB[0] = cv::Mat(outputBuffer.height(), outputBuffer.width(), CV_16U, outputBuffer.data() + 0*outputBuffer.stride(2));
+//        RGB[1] = cv::Mat(outputBuffer.height(), outputBuffer.width(), CV_16U, outputBuffer.data() + 1*outputBuffer.stride(2));
+//        RGB[2] = cv::Mat(outputBuffer.height(), outputBuffer.width(), CV_16U, outputBuffer.data() + 2*outputBuffer.stride(2));
+//
+//        const vector<int> histBins      = { 1024 };
+//        const vector<float> histRange   = { 0, 65536 };
+//        const vector<int> channels      = { 0 };
+//
+//        int p[3] = { 0, 0, 0 };
+//
+//        for(int c = 0; c < 3; c++) {
+//            const vector<cv::Mat> inputImages = { RGB[c] };
+//            cv::Mat histogram;
+//
+//            cv::calcHist(inputImages, channels, cv::Mat(), histogram, histBins, histRange);
+//
+//            histogram /= (outputBuffer.width()*outputBuffer.height());
+//
+//            float sum = 0;
+//
+//            for(int x = histogram.rows - 1; x >= 0; x--) {
+//                if( sum > 1e-5f )
+//                    break;
+//
+//                p[c] = x + 1;
+//                sum += histogram.at<float>(x);
+//            }
+//        }
         
         //
         // Return HDR metadata
