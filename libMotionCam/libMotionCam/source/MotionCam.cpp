@@ -216,9 +216,7 @@ namespace motioncam {
         std::vector<std::shared_ptr<RawImageBuffer>> nearestBuffers;
         Halide::Runtime::Buffer<uint16_t> bayerBuffer;
         cv::Mat bayerImage;
-        
-        bool overrideBayerOffsets = false;
-        
+                
         if(mergeFrames == 0) {
             auto data = frame->data->lock(false);
             auto inputBuffer = Halide::Runtime::Buffer<uint8_t>(data, (int) frame->data->len());
@@ -246,9 +244,6 @@ namespace motioncam {
                              static_cast<int>(cameraMetadata.sensorArrangment),
                              EXPANDED_RANGE,
                              bayerBuffer);
-                                
-                // Using extended range
-                overrideBayerOffsets = true;
             }
             else {
                 bayerBuffer = Halide::Runtime::Buffer<uint16_t>(frame->width, frame->height);
@@ -268,6 +263,7 @@ namespace motioncam {
                             originalBlackLevel[2],
                             originalBlackLevel[3],
                             originalWhiteLevel,
+                            EXPANDED_RANGE,
                             bayerBuffer);
                 
                 bayerImage = cv::Mat(bayerBuffer.height(), bayerBuffer.width(), CV_16U, bayerBuffer.data());
@@ -293,9 +289,6 @@ namespace motioncam {
                          bayerBuffer);
             
             bayerImage = cv::Mat(bayerBuffer.height(), bayerBuffer.width(), CV_16U, bayerBuffer.data());
-            
-            // Using extended range
-            overrideBayerOffsets = true;
         }
 
         // Release previous frames
@@ -326,12 +319,10 @@ namespace motioncam {
         // Override the black/white levels of the output to match the new bayer image
         auto frameMetadata = frame->metadata;
         
-        if(overrideBayerOffsets) {
-            frameMetadata.dynamicBlackLevel = { 0, 0, 0, 0 };
-            frameMetadata.dynamicWhiteLevel = EXPANDED_RANGE;
-        
-            cameraMetadata.updateBayerOffsets(frameMetadata.dynamicBlackLevel, frameMetadata.dynamicWhiteLevel);
-        }
+        frameMetadata.dynamicBlackLevel = { 0, 0, 0, 0 };
+        frameMetadata.dynamicWhiteLevel = EXPANDED_RANGE;
+    
+        cameraMetadata.updateBayerOffsets(frameMetadata.dynamicBlackLevel, frameMetadata.dynamicWhiteLevel);
         
         int fd = -1;
         std::string outputPath;

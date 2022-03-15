@@ -786,8 +786,8 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.cameraSettingsBtn.setVisibility(View.GONE);
         toggleCameraSettings(false);
 
-//        // Disable overlay
-//        setExposureOverlay(false);
+        // Disable overlay
+        setExposureOverlay(false);
 
         // Update recording time
         mRecordingTimer = new Timer();

@@ -3476,6 +3476,8 @@ public:
     Input<float[4]> blackLevel{"blackLevel"};
     Input<float> whiteLevel{"whiteLevel"};
 
+    Input<uint16_t> outputRange{"outputRange"};
+
     Output<Buffer<uint16_t>> output{"output", 2 };
 
     void generate() {
@@ -3510,7 +3512,7 @@ public:
 
         shaded(v_x, v_y, v_c) = shadingMapArranged(v_x, v_y, v_c) * linear(v_x, v_y, v_c);
 
-        final(v_x, v_y, v_c) = saturating_cast<uint16_t>(bl(v_c) + shaded(v_x, v_y, v_c)*(whiteLevel - bl(v_c)) + 0.5f);
+        final(v_x, v_y, v_c) = saturating_cast<uint16_t>(round(shaded(v_x, v_y, v_c)*outputRange));
 
         output(v_x, v_y) =
             select(v_y % 2 == 0,

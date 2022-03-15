@@ -181,7 +181,7 @@ namespace motioncam {
                 }
             }
 
-            LOGD("mode=USER_REGION, px=%d, py=%d", px, py);
+            LOGD("focusModeode=USER_REGION, px=%d, py=%d", px, py);
         }
         else if(mCameraFocusMode == CameraMode::AUTO) {
             afMode = mFocusForVideo ? ACAMERA_CONTROL_AF_MODE_CONTINUOUS_VIDEO : ACAMERA_CONTROL_AF_MODE_CONTINUOUS_PICTURE;
@@ -213,7 +213,7 @@ namespace motioncam {
                 ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_REGIONS, 5, &aeRegion[0]);
             }
 
-            LOGD("mode=AUTO, afMode=CONTINUOUS");
+            LOGD("focusMode=AUTO, afMode=CONTINUOUS");
         }
         else if(mCameraFocusMode == CameraMode::MANUAL) {
             // For sufficiently small enough values, assume infinity
@@ -224,7 +224,7 @@ namespace motioncam {
             ACaptureRequest_setEntry_float(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_LENS_FOCUS_DISTANCE, 1, &mFocusDistance);
             afMode = ACAMERA_CONTROL_AF_MODE_OFF;
 
-            LOGD("mode=MANUAL, afMode=OFF, focusDistance=%.4f", mFocusDistance);
+            LOGD("focusMode=MANUAL, afMode=OFF, focusDistance=%.4f", mFocusDistance);
         }
 
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_MODE, 1, &afMode);
@@ -274,15 +274,19 @@ namespace motioncam {
 
             int frameRate = mFrameRate < 0 ? 30 : mFrameRate;
             auto sensorFrameDuration = static_cast<int64_t>((1.0 / frameRate) * 1e9);
+            int32_t frameDuration[2] = { frameRate, frameRate };
 
             ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_SENSOR_SENSITIVITY, 1, &mUserIso);
             ACaptureRequest_setEntry_i64(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_SENSOR_EXPOSURE_TIME, 1, &mUserExposureTime);
             ACaptureRequest_setEntry_i64(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_SENSOR_FRAME_DURATION, 1, &sensorFrameDuration);
 
+            // This still need to be set for whatever reason.
+            ACaptureRequest_setEntry_i32(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_TARGET_FPS_RANGE, 2, &frameDuration[0]);
+
             if(mRequestedAperture > 0)
                 ACaptureRequest_setEntry_float(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_LENS_APERTURE, 1, &mRequestedAperture);
 
-            LOGD("userIso=%d, userExposure=%.4f", mUserIso, mUserExposureTime/1.0e9f);
+            LOGD("userIso=%d, userExposure=%.4f frameRate=%d", mUserIso, mUserExposureTime/1.0e9f, frameRate);
         }
 
         uint8_t awbLock = mAwbLock ? ACAMERA_CONTROL_AWB_LOCK_ON : ACAMERA_CONTROL_AWB_LOCK_OFF;
@@ -332,33 +336,14 @@ namespace motioncam {
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_TRIGGER, 1, &afTrigger);
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER, 1, &aeTrigger);
 
-        // Kick off focus trigger if touch to focus
-        if(mCameraFocusMode == CameraMode::AUTO || mCameraFocusMode == CameraMode::AUTO_USER_REGION) {
-            afTrigger = ACAMERA_CONTROL_AF_TRIGGER_IDLE;
-            aeTrigger = ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
+        ACameraCaptureSession_setRepeatingRequest(
+                mSessionContext.captureSession.get(),
+                &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->callbacks,
+                1,
+                &mSessionContext.repeatCaptureRequest->captureRequest,
+                &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->sequenceId);
 
-            ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_TRIGGER, 1, &afTrigger);
-            ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER, 1, &aeTrigger);
-
-            ACameraCaptureSession_setRepeatingRequest(
-                    mSessionContext.captureSession.get(),
-                    &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->callbacks,
-                    1,
-                    &mSessionContext.repeatCaptureRequest->captureRequest,
-                    &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->sequenceId);
-
-            return true;
-        }
-        else {
-            ACameraCaptureSession_setRepeatingRequest(
-                    mSessionContext.captureSession.get(),
-                    &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->callbacks,
-                    1,
-                    &mSessionContext.repeatCaptureRequest->captureRequest,
-                    &mSessionContext.captureCallbacks.at(CaptureEvent::REPEAT)->sequenceId);
-
-            return true;
-        }
+        return true;
     }
 
     void CameraStateManager::onCameraSessionStateChanged(const CameraCaptureSessionState state) {
