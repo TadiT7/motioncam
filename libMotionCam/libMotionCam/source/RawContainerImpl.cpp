@@ -58,11 +58,11 @@ namespace motioncam {
                                        const int numSegments,
                                        const json11::Json& extraData) :
         mMode(Mode::CREATE),
+        mFile(nullptr),
         mNumSegments(numSegments),
         mIsInMemory(true),
         mExtraData(extraData),
         mBufferStartOffset(0),
-        mFile(nullptr),
         mCameraMetadata(new RawCameraMetadata(cameraMetadata))
     {
         mPostProcessSettings = std::unique_ptr<PostProcessSettings>(
@@ -482,16 +482,27 @@ namespace motioncam {
         
         // Finally crop shading map
         auto shadingMap = buffer->metadata.shadingMap();
-        
-        util::CropShadingMap(shadingMap,
-                             buffer->width,
-                             buffer->height,
-                             buffer->originalWidth,
-                             buffer->originalHeight,
-                             buffer->isBinned);
-        
-        buffer->metadata.updateShadingMap(shadingMap);
-        
+
+        if(shadingMap.empty()) {
+            std::vector<cv::Mat> emptyShadingMap;
+            cv::Mat m(24, 18, CV_32F, cv::Scalar(1.0f));
+
+            for(int i = 0; i < 4; i++)
+                emptyShadingMap.push_back(m.clone());
+
+            buffer->metadata.updateShadingMap(emptyShadingMap);
+        }
+        else {
+            util::CropShadingMap(shadingMap,
+                                 buffer->width,
+                                 buffer->height,
+                                 buffer->originalWidth,
+                                 buffer->originalHeight,
+                                 buffer->isBinned);
+
+            buffer->metadata.updateShadingMap(shadingMap);
+        }
+
         return buffer;
     }
 
