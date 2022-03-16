@@ -37,7 +37,8 @@ namespace motioncam {
             maxAfRegions(0),
             maxAeRegions(0),
             maxAwbRegions(0),
-            sensorOrientation(0)
+            sensorOrientation(0),
+            maxTonemapCurvePts(0)
         {
         }
 
@@ -67,6 +68,7 @@ namespace motioncam {
         int maxAwbRegions;
 
         int sensorOrientation;
+        uint32_t maxTonemapCurvePts;
     };
 }
 

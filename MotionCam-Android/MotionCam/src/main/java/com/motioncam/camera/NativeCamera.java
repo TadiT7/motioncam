@@ -330,8 +330,8 @@ public class NativeCamera implements Closeable, NativeCameraSessionListener, Nat
         ActivateCameraSettings();
     }
 
-    public void streamToFile(int[] fds, int audioFd, int audioDeviceId, boolean enableCompression, int numThreads) {
-        StartStreamToFile(fds, audioFd, audioDeviceId, enableCompression, numThreads);
+    public void streamToFile(int[] fds, int audioFd, int audioDeviceId, int numThreads) {
+        StartStreamToFile(fds, audioFd, audioDeviceId, numThreads);
     }
 
     public void adjustMemory(long maxMemoryBytes) {
@@ -475,7 +475,7 @@ public class NativeCamera implements Closeable, NativeCameraSessionListener, Nat
 
     private native boolean UpdateOrientation(int orientation);
 
-    private native boolean StartStreamToFile(int[] videoFds, int audioFd, int audioDeviceId, boolean enableCompression, int numThreads);
+    private native boolean StartStreamToFile(int[] videoFds, int audioFd, int audioDeviceId, int numThreads);
     private native void EndStream();
 
     private native void PrepareHdrCapture(int iso, long exposure);

@@ -491,6 +491,7 @@
 		45A2A56E2783366B00D5D6F0 /* bitpack.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = bitpack.h; path = pfor/host/include/bitpack.h; sourceTree = "<group>"; };
 		45A340A1260B887700405A85 /* CameraPreview.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CameraPreview.cpp; sourceTree = "<group>"; };
 		45A340A2260B887700405A85 /* CameraPreview.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CameraPreview.h; sourceTree = "<group>"; };
+		45A9C06B27CFB20C008B9D7F /* RawEncoder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RawEncoder.h; sourceTree = "<group>"; };
 		45AD8088230DCFA800D6AA04 /* ImageProcessor.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ImageProcessor.cpp; sourceTree = "<group>"; };
 		45AD8089230DCFA800D6AA04 /* ImageProcessor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ImageProcessor.h; sourceTree = "<group>"; };
 		45B9265226F88BF000DF6EC3 /* libopencv_objdetect.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libopencv_objdetect.dylib; path = ../../../../../usr/local/lib/libopencv_objdetect.dylib; sourceTree = "<group>"; };
@@ -693,6 +694,7 @@
 				45565E2F246592590021A442 /* RawContainer.h */,
 				4537C38727BA908C0098333D /* RawContainerImpl_Legacy.h */,
 				4537C37A27B9BD810098333D /* RawContainerImpl.h */,
+				45A9C06B27CFB20C008B9D7F /* RawEncoder.h */,
 				4537C37C27BA65F70098333D /* RawImageBuffer.h */,
 				450E1E57214D290200C1B27A /* RawImageMetadata.h */,
 				450E1E67214D290300C1B27A /* Settings.h */,
@@ -1419,6 +1421,7 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/libMotionCam/halide/host",
 					"$(PROJECT_DIR)/thirdparty/pfor/host/lib",
+					"$(PROJECT_DIR)/libMotionCam",
 				);
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -1457,6 +1460,7 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/libMotionCam/halide/host",
 					"$(PROJECT_DIR)/thirdparty/pfor/host/lib",
+					"$(PROJECT_DIR)/libMotionCam",
 				);
 				MTL_FAST_MATH = YES;
 				OTHER_LDFLAGS = "";

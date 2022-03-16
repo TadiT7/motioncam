@@ -131,6 +131,7 @@ namespace motioncam {
 
         void doOnInternalError(const std::string& e);
 
+        void doUpdatePreview(float shadows, float contrast, float blackPoint, float whitePoint);
         void doSetAutoExposure();
         void doSetManualExposure(int32_t iso, int64_t exposureTime);
         void doSetFocusPoint(double focusX, double focusY, double exposureX, double exposureY);
@@ -183,6 +184,8 @@ namespace motioncam {
         std::shared_ptr<CameraCaptureSessionContext> mSessionContext;
         std::shared_ptr<CameraSessionListener> mSessionListener;
         std::unique_ptr<CameraStateManager> mCameraStateManager;
+
+        std::vector<float> mTonemapCurvePts;
     };
 }
 

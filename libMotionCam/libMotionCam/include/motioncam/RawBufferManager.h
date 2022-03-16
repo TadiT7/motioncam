@@ -40,11 +40,11 @@ namespace motioncam {
         };
         
         void addBuffer(std::shared_ptr<RawImageBuffer>& buffer);
+        bool removeBuffer();
         void recordingStats(size_t& outMemoryUseBytes, float& outFps, size_t& outOutputSizeBytes);
         size_t memoryUseBytes() const;
         int numBuffers() const;
         void reset();
-        void setTargetMemory(size_t memoryUseBytes);
 
         std::shared_ptr<RawImageBuffer> dequeueUnusedBuffer();
         void enqueueReadyBuffer(const std::shared_ptr<RawImageBuffer>& buffer);
@@ -76,7 +76,6 @@ namespace motioncam {
         void enableStreaming(const std::vector<int>& fds,
                              const int audioFd,
                              std::shared_ptr<AudioInterface> audioInterface,
-                             const bool enableCompression,
                              const int numThreads,
                              const RawCameraMetadata& metadata);
         
@@ -93,7 +92,6 @@ namespace motioncam {
         bool mBin;
 
         std::atomic<size_t> mMemoryUseBytes;
-        std::atomic<size_t> mMemoryTargetBytes;
         std::atomic<int> mNumBuffers;
                 
         std::recursive_mutex mMutex;

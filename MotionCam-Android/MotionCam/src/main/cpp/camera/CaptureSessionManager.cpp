@@ -375,6 +375,11 @@ namespace motioncam {
                 cameraDescription.tonemapModes.push_back(static_cast<acamera_metadata_enum_android_tonemap_mode_t>(entry.data.u8[n]));
             }
         }
+
+        // ACAMERA_TONEMAP_MAX_CURVE_POINTS
+        if(ACameraMetadata_getConstEntry(cameraChars.get(), ACAMERA_TONEMAP_MAX_CURVE_POINTS, &entry) == ACAMERA_OK) {
+            cameraDescription.maxTonemapCurvePts = entry.data.i32[0];
+        }
     }
 
     void CaptureSessionManager::enumerateCameras() {

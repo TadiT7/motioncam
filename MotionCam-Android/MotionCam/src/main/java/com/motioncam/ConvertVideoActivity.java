@@ -7,6 +7,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.motioncam.ui.ConvertVideoFragment;
 
 public class ConvertVideoActivity extends AppCompatActivity {
+    static {
+        System.loadLibrary("native-camera-host");
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

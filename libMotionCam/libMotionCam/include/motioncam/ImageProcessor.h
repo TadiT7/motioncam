@@ -2,6 +2,7 @@
 #define ImageProcessor_hpp
 
 #include "motioncam/ImageProcessorProgress.h"
+#include "motioncam/RawImageMetadata.h"
 
 #include <string>
 #include <vector>
@@ -18,12 +19,17 @@ namespace motioncam {
     class RawContainer;
     class Temperature;
     struct PostProcessSettings;
-    struct RawData;
     struct HdrMetadata;
     struct PreviewMetadata;
     struct RawImageBuffer;
     struct RawCameraMetadata;
     struct RawImageMetadata;
+
+    struct RawData {
+        Halide::Runtime::Buffer<uint16_t> rawBuffer;
+        Halide::Runtime::Buffer<uint8_t> previewBuffer;
+        RawImageMetadata metadata;
+    };
 
     class ImageProgressHelper {
     public:
@@ -76,15 +82,13 @@ namespace motioncam {
         static cv::Mat calcHistogram(const RawCameraMetadata& cameraMetadata,
                                      const RawImageBuffer& reference,
                                      const bool cumulative,
-                                     const int downscale,
-                                     float& outShiftAmount);
+                                     const int downscale);
 
         static float getShadowKeyValue(float ev, bool nightMode);
         
         static void estimateSettings(const RawImageBuffer& rawBuffer,
                                      const RawCameraMetadata& cameraMetadata,
-                                     PostProcessSettings& outSettings,
-                                     float& outShiftAmount);
+                                     PostProcessSettings& outSettings);
         
         static void estimateBlackWhitePoint(const RawImageBuffer& rawBuffer,
                                             const RawCameraMetadata& cameraMetadata,
@@ -157,7 +161,6 @@ namespace motioncam {
                                    const std::shared_ptr<HdrMetadata>& hdrMetadata,
                                    int offsetX,
                                    int offsetY,
-                                   const float shadingMapOffset,
                                    const float noiseEstimate,
                                    const RawImageMetadata& metadata,
                                    const RawCameraMetadata& cameraMetadata,
@@ -182,11 +185,11 @@ namespace motioncam {
         
         static std::vector<cv::Rect2f> detectFaces(const RawImageBuffer& buffer, const RawCameraMetadata& cameraMetadata);
         
-        static void getNormalisedShadingMap(const RawImageMetadata& metadata,
-                                            const float shadingMapCorrection,
-                                            std::vector<Halide::Runtime::Buffer<float>>& outShadingMapBuffer,
-                                            std::vector<float>& outShadingMapScale,
-                                            float& outShadingMapMaxScale);
+//        static void getNormalisedShadingMap(const RawImageMetadata& metadata,
+//                                            const float shadingMapCorrection,
+//                                            std::vector<Halide::Runtime::Buffer<float>>& outShadingMapBuffer,
+//                                            std::vector<float>& outShadingMapScale,
+//                                            float& outShadingMapMaxScale);
     };
 }
 

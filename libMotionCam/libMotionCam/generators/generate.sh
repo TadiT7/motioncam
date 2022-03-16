@@ -209,12 +209,12 @@ mkdir -p ../halide/host
 
 build_denoise host host
 build_postprocess host host
-build_camera_preview host host
+# build_camera_preview host host
 build_runtime host host
 
 mkdir -p ../halide/arm64-v8a
 
 build_denoise arm-64-android arm64-v8a
 build_postprocess arm-64-android arm64-v8a
-build_camera_preview arm-64-android-opencl-cl_half arm64-v8a
+# build_camera_preview arm-64-android-opencl-cl_half arm64-v8a
 build_runtime arm-64-android arm64-v8a

@@ -112,66 +112,16 @@
                         android:progress="@={viewModel.rawVideoMemoryUseMb}" />
                 </LinearLayout>
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="5dp"
-                    android:text="@string/raw_video_compression"
-                    android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold" />
-
-                <CheckBox
-                    android:id="@+id/rawVideoCompressionBtn"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textAppearance="@style/MotionCam.TextAppearance.Small"
-                    android:textColor="@color/white"
-                    android:checked="@={viewModel.rawVideoCompression}"
-                    android:text="@string/enable_raw_video_compression">
-                </CheckBox>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="10dp"
-                    android:text="@string/raw_video_compression_desc"
-                    android:textAppearance="@style/MotionCam.TextAppearance.Small"
-                    android:textColor="@color/silver" />
-
                 <LinearLayout
                     android:id="@+id/rawVideoCompressionLayout"
                     android:orientation="vertical"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content">
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="5dp"
-                        android:text="@string/number_of_compression_threads"
-                        android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold" />
-
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:id="@+id/compressionThreadsText"
-                            android:layout_width="@dimen/preview_settings_value_width"
-                            android:layout_height="match_parent"
-                            android:gravity="end|center_vertical"
-                            android:textAppearance="@style/MotionCam.TextAppearance.Small" />
-
-                        <SeekBar
-                            android:id="@+id/compressionThreads"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:max="3"
-                            android:paddingTop="@dimen/seekBarPadding"
-                            android:paddingBottom="@dimen/seekBarPadding"
-                            android:progress="@={viewModel.compressionThreads}" />
-                    </LinearLayout>
+                        android:orientation="horizontal"/>
 
                 </LinearLayout>
 
@@ -334,95 +284,6 @@
                         android:paddingBottom="@dimen/seekBarPadding"
                     android:progress="@={viewModel.jpegQuality}" />
 
-                </LinearLayout>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="5dp"
-                    android:text="@string/automatic_night_mode"
-                    android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/automatically_switch_to_night_mode"
-                    android:textAppearance="@style/MotionCam.TextAppearance.Small"
-                    android:textColor="@color/silver" />
-
-                <CheckBox
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/enable_automatic_night_mode"
-                    android:textAppearance="@style/MotionCam.TextAppearance.Small"
-                    android:textColor="@color/white"
-                    android:paddingTop="@dimen/seekBarPadding"
-                    android:paddingBottom="@dimen/seekBarPadding"
-                    android:layout_marginBottom="10dp"
-                    android:checked="@={viewModel.autoNightMode}"/>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="5dp"
-                    android:text="@string/dual_exposure"
-                    android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/dual_exposure_help"
-                    android:textAppearance="@style/MotionCam.TextAppearance.Small"
-                    android:textColor="@color/silver" />
-
-                <CheckBox
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/enable_dual_exposure"
-                    android:textAppearance="@style/MotionCam.TextAppearance.Small"
-                    android:textColor="@color/white"
-                    android:paddingTop="@dimen/seekBarPadding"
-                    android:paddingBottom="@dimen/seekBarPadding"
-                    android:layout_marginBottom="10dp"
-                    android:checked="@={viewModel.dualExposureControls}"/>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="5dp"
-                    android:text="@string/camera_preview_quality"
-                    android:textAppearance="@style/MotionCam.TextAppearance.Small.Bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/camera_preview_quality_description"
-                    android:textAppearance="@style/MotionCam.TextAppearance.Small"
-                    android:textColor="@color/silver" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="10dp"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:id="@+id/cameraQualityPreviewText"
-                        android:layout_width="@dimen/preview_settings_value_width"
-                        android:layout_height="match_parent"
-                        android:gravity="end|center_vertical"
-                        android:textAppearance="@style/MotionCam.TextAppearance.Small" />
-
-                    <SeekBar
-                        android:id="@+id/cameraQualitySeekBar"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:max="2"
-                        android:paddingTop="@dimen/seekBarPadding"
-                        android:paddingBottom="@dimen/seekBarPadding"
-                        android:theme="@style/Widget.AppCompat.SeekBar.Discrete"
-                        android:progress="@={viewModel.cameraPreviewQuality}" />
                 </LinearLayout>
 
                 <TextView

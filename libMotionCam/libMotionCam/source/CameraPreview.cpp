@@ -47,13 +47,13 @@ namespace motioncam {
         // Setup buffers
         std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer;
         std::vector<float> shadingMapScale;
-        float shadingMapMaxScale;
-        
-        ImageProcessor::getNormalisedShadingMap(rawBuffer.metadata,
-                                                shadingMapCorrection,
-                                                shadingMapBuffer,
-                                                shadingMapScale,
-                                                shadingMapMaxScale);
+//        float shadingMapMaxScale;
+//        
+//        ImageProcessor::getNormalisedShadingMap(rawBuffer.metadata,
+//                                                shadingMapCorrection,
+//                                                shadingMapBuffer,
+//                                                shadingMapScale,
+//                                                shadingMapMaxScale);
 
         for(int i = 0; i < 4; i++) {
             shadingMapBuffer[i].set_host_dirty();
@@ -170,13 +170,13 @@ namespace motioncam {
         // Setup buffers
         std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer;
         std::vector<float> shadingMapScale;
-        float shadingMapMaxScale;
-        
-        ImageProcessor::getNormalisedShadingMap(rawBuffer.metadata,
-                                                shadingMapCorrection,
-                                                shadingMapBuffer,
-                                                shadingMapScale,
-                                                shadingMapMaxScale);
+//        float shadingMapMaxScale;
+//
+//        ImageProcessor::getNormalisedShadingMap(rawBuffer.metadata,
+//                                                shadingMapCorrection,
+//                                                shadingMapBuffer,
+//                                                shadingMapScale,
+//                                                shadingMapMaxScale);
 
         for(int i = 0; i < 4; i++) {
             shadingMapBuffer[i].set_host_dirty();

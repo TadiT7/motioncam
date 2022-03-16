@@ -47,6 +47,7 @@ namespace motioncam {
         P4NZENC,
         BITNZPACK,
         BITNZPACK_2,
+        MOTIONCAM,
         INVALID
     };
 }

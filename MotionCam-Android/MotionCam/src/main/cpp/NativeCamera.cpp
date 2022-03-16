@@ -30,12 +30,12 @@ static const int TYPE_WHITE_LEVEL = 1;
 static const int TYPE_BLACK_LEVEL = 2;
 
 namespace {
-    std::shared_ptr<CaptureSessionManager> gCaptureSessionManager = nullptr;
-    std::shared_ptr<CameraDescription> gActiveCameraDescription = nullptr;
-    std::shared_ptr<CameraSession> gCameraSession = nullptr;
-    std::shared_ptr<motioncam::AudioInterface> gAudioRecorder = nullptr;
+    static std::shared_ptr<CaptureSessionManager> gCaptureSessionManager = nullptr;
+    static std::shared_ptr<CameraDescription> gActiveCameraDescription = nullptr;
+    static std::shared_ptr<CameraSession> gCameraSession = nullptr;
+    static std::shared_ptr<motioncam::AudioInterface> gAudioRecorder = nullptr;
 
-    std::string gLastError;
+    static std::string gLastError;
 }
 
 extern "C" JNIEXPORT
@@ -451,9 +451,8 @@ JNIEXPORT jstring JNICALL Java_com_motioncam_camera_NativeCamera_EstimatePostPro
         return nullptr;
 
     auto imageBuffer = lockedBuffer->getBuffers().front();
-    float shadingMapCorrection;
 
-    ImageProcessor::estimateSettings(*imageBuffer, gActiveCameraDescription->metadata, settings, shadingMapCorrection);
+    ImageProcessor::estimateSettings(*imageBuffer, gActiveCameraDescription->metadata, settings);
 
     json11::Json::object settingsJson;
 
@@ -485,9 +484,8 @@ jfloat JNICALL Java_com_motioncam_camera_NativeCamera_EstimateShadows(JNIEnv *en
         return -1;
 
     auto imageBuffer = lockedBuffer->getBuffers().front();
-    float shiftAmount;
 
-    cv::Mat histogram = motioncam::ImageProcessor::calcHistogram(gActiveCameraDescription->metadata, *imageBuffer, false, 4, shiftAmount);
+    cv::Mat histogram = motioncam::ImageProcessor::calcHistogram(gActiveCameraDescription->metadata, *imageBuffer, false, 4);
 
     float ev = motioncam::ImageProcessor::calcEv(gActiveCameraDescription->metadata, imageBuffer->metadata);
     float keyValue = 1.03f - bias / (bias + std::log10(std::pow(10.0f, ev) + 1));
@@ -711,7 +709,7 @@ void JNICALL Java_com_motioncam_camera_NativeCamera_PrepareHdrCapture(
 extern "C"
 JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCamera_StartStreamToFile(
         JNIEnv *env, jobject thiz,
-        jintArray jfds, jint audioFd, jint audioDeviceId, jboolean enableCompression, jint numThreads)
+        jintArray jfds, jint audioFd, jint audioDeviceId, jint numThreads)
 {
     if(!gActiveCameraDescription) {
         return JNI_FALSE;
@@ -736,7 +734,7 @@ JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCamera_StartStreamToF
     gAudioRecorder = std::make_shared<AudioRecorder>(audioDeviceId);
 
     RawBufferManager::get().enableStreaming(
-            fds, audioFd, gAudioRecorder, enableCompression, numThreads, gActiveCameraDescription->metadata);
+            fds, audioFd, gAudioRecorder, numThreads, gActiveCameraDescription->metadata);
 
     return JNI_TRUE;
 }

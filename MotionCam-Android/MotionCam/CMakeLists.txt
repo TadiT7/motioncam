@@ -157,77 +157,77 @@ add_library(fast_preview2 STATIC IMPORTED)
 set_target_properties(fast_preview2 PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/fast_preview2.a)
 
-add_library(camera_video_preview2_raw10 STATIC IMPORTED)
-set_target_properties(camera_video_preview2_raw10 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview2_raw10.a)
-
-add_library(camera_video_preview3_raw10 STATIC IMPORTED)
-set_target_properties(camera_video_preview3_raw10 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview3_raw10.a)
-
-add_library(camera_video_preview4_raw10 STATIC IMPORTED)
-set_target_properties(camera_video_preview4_raw10 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview4_raw10.a)
-
-add_library(camera_video_preview2_raw12 STATIC IMPORTED)
-set_target_properties(camera_video_preview2_raw12 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview2_raw12.a)
-
-add_library(camera_video_preview3_raw12 STATIC IMPORTED)
-set_target_properties(camera_video_preview3_raw12 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview3_raw12.a)
-
-add_library(camera_video_preview4_raw12 STATIC IMPORTED)
-set_target_properties(camera_video_preview4_raw12 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview4_raw12.a)
-
-add_library(camera_video_preview2_raw16 STATIC IMPORTED)
-set_target_properties(camera_video_preview2_raw16 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview2_raw16.a)
-
-add_library(camera_video_preview3_raw16 STATIC IMPORTED)
-set_target_properties(camera_video_preview3_raw16 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview3_raw16.a)
-
-add_library(camera_video_preview4_raw16 STATIC IMPORTED)
-set_target_properties(camera_video_preview4_raw16 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview4_raw16.a)
-
-add_library(camera_preview2_raw10 STATIC IMPORTED)
-set_target_properties(camera_preview2_raw10 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview2_raw10.a)
-
-add_library(camera_preview3_raw10 STATIC IMPORTED)
-set_target_properties(camera_preview3_raw10 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview3_raw10.a)
-
-add_library(camera_preview4_raw10 STATIC IMPORTED)
-set_target_properties(camera_preview4_raw10 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview4_raw10.a)
-
-add_library(camera_preview2_raw12 STATIC IMPORTED)
-set_target_properties(camera_preview2_raw12 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview2_raw12.a)
-
-add_library(camera_preview3_raw12 STATIC IMPORTED)
-set_target_properties(camera_preview3_raw12 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview3_raw12.a)
-
-add_library(camera_preview4_raw12 STATIC IMPORTED)
-set_target_properties(camera_preview4_raw12 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview4_raw12.a)
-
-add_library(camera_preview2_raw16 STATIC IMPORTED)
-set_target_properties(camera_preview2_raw16 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview2_raw16.a)
-
-add_library(camera_preview3_raw16 STATIC IMPORTED)
-set_target_properties(camera_preview3_raw16 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview3_raw16.a)
-
-add_library(camera_preview4_raw16 STATIC IMPORTED)
-set_target_properties(camera_preview4_raw16 PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview4_raw16.a)
+#add_library(camera_video_preview2_raw10 STATIC IMPORTED)
+#set_target_properties(camera_video_preview2_raw10 PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview2_raw10.a)
+#
+#add_library(camera_video_preview3_raw10 STATIC IMPORTED)
+#set_target_properties(camera_video_preview3_raw10 PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview3_raw10.a)
+#
+#add_library(camera_video_preview4_raw10 STATIC IMPORTED)
+#set_target_properties(camera_video_preview4_raw10 PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview4_raw10.a)
+#
+#add_library(camera_video_preview2_raw12 STATIC IMPORTED)
+#set_target_properties(camera_video_preview2_raw12 PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview2_raw12.a)
+#
+#add_library(camera_video_preview3_raw12 STATIC IMPORTED)
+#set_target_properties(camera_video_preview3_raw12 PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview3_raw12.a)
+#
+#add_library(camera_video_preview4_raw12 STATIC IMPORTED)
+#set_target_properties(camera_video_preview4_raw12 PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview4_raw12.a)
+#
+#add_library(camera_video_preview2_raw16 STATIC IMPORTED)
+#set_target_properties(camera_video_preview2_raw16 PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview2_raw16.a)
+#
+#add_library(camera_video_preview3_raw16 STATIC IMPORTED)
+#set_target_properties(camera_video_preview3_raw16 PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview3_raw16.a)
+#
+#add_library(camera_video_preview4_raw16 STATIC IMPORTED)
+#set_target_properties(camera_video_preview4_raw16 PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_video_preview4_raw16.a)
+#
+#add_library(camera_preview2_raw10 STATIC IMPORTED)
+#set_target_properties(camera_preview2_raw10 PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview2_raw10.a)
+#
+#add_library(camera_preview3_raw10 STATIC IMPORTED)
+#set_target_properties(camera_preview3_raw10 PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview3_raw10.a)
+#
+#add_library(camera_preview4_raw10 STATIC IMPORTED)
+#set_target_properties(camera_preview4_raw10 PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview4_raw10.a)
+#
+#add_library(camera_preview2_raw12 STATIC IMPORTED)
+#set_target_properties(camera_preview2_raw12 PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview2_raw12.a)
+#
+#add_library(camera_preview3_raw12 STATIC IMPORTED)
+#set_target_properties(camera_preview3_raw12 PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview3_raw12.a)
+#
+#add_library(camera_preview4_raw12 STATIC IMPORTED)
+#set_target_properties(camera_preview4_raw12 PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview4_raw12.a)
+#
+#add_library(camera_preview2_raw16 STATIC IMPORTED)
+#set_target_properties(camera_preview2_raw16 PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview2_raw16.a)
+#
+#add_library(camera_preview3_raw16 STATIC IMPORTED)
+#set_target_properties(camera_preview3_raw16 PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview3_raw16.a)
+#
+#add_library(camera_preview4_raw16 STATIC IMPORTED)
+#set_target_properties(camera_preview4_raw16 PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/camera_preview4_raw16.a)
 
 add_library(linear_image STATIC IMPORTED)
 set_target_properties(linear_image PROPERTIES IMPORTED_LOCATION
@@ -337,9 +337,9 @@ add_library(halide_runtime_host STATIC IMPORTED)
 set_target_properties(halide_runtime_host PROPERTIES IMPORTED_LOCATION
         ${libmotioncam-src}/halide/${ANDROID_ABI}/halide_runtime_host.a)
 
-add_library(halide_runtime_opencl STATIC IMPORTED)
-set_target_properties(halide_runtime_opencl PROPERTIES IMPORTED_LOCATION
-        ${libmotioncam-src}/halide/${ANDROID_ABI}/halide_runtime_opencl.a)
+#add_library(halide_runtime_opencl STATIC IMPORTED)
+#set_target_properties(halide_runtime_opencl PROPERTIES IMPORTED_LOCATION
+#        ${libmotioncam-src}/halide/${ANDROID_ABI}/halide_runtime_opencl.a)
 
 #
 # OpenCV
@@ -430,6 +430,10 @@ add_library(pfor STATIC IMPORTED)
 set_target_properties(pfor PROPERTIES IMPORTED_LOCATION
         ${thirdparty-libs}/pfor/${ANDROID_ABI}/lib/libic.a)
 
+add_library(encoder STATIC IMPORTED)
+set_target_properties(encoder PROPERTIES IMPORTED_LOCATION
+        ${libmotioncam-src}/libs/libmotioncam-encoder.a)
+
 #
 # Processing library
 #
@@ -518,16 +522,16 @@ add_library( # Sets the name of the library.
         ${native-camera-cpp}
 )
 
-add_library( # Sets the name of the library.
-        native-camera-opencl
-
-        # Sets the library as a shared library.
-        SHARED
-
-        ${native-camera-cpp}
-)
-
-target_compile_definitions(native-camera-opencl PRIVATE GPU_CAMERA_PREVIEW=1)
+#add_library( # Sets the name of the library.
+#        native-camera-opencl
+#
+#        # Sets the library as a shared library.
+#        SHARED
+#
+#        ${native-camera-cpp}
+#)
+#
+#target_compile_definitions(native-camera-opencl PRIVATE GPU_CAMERA_PREVIEW=1)
 
 # Searches for a specified prebuilt library and stores the path as a
 # variable. Because CMake includes system libraries in the search path by
@@ -598,6 +602,7 @@ set(native-camera-libs
         opencv-photo
         opencv-core
         pfor
+        encoder
         ittnotify
         tegra-hal
         tbb
@@ -624,25 +629,25 @@ target_link_libraries(native-camera-host
         ${native-camera-libs}
 )
 
-target_link_libraries(native-camera-opencl
-        halide_runtime_opencl
-        ${native-camera-libs}
-        camera_video_preview2_raw10
-        camera_video_preview3_raw10
-        camera_video_preview4_raw10
-        camera_video_preview2_raw12
-        camera_video_preview3_raw12
-        camera_video_preview4_raw12
-        camera_video_preview2_raw16
-        camera_video_preview3_raw16
-        camera_video_preview4_raw16
-        camera_preview2_raw10
-        camera_preview3_raw10
-        camera_preview4_raw10
-        camera_preview2_raw12
-        camera_preview3_raw12
-        camera_preview4_raw12
-        camera_preview2_raw16
-        camera_preview3_raw16
-        camera_preview4_raw16
-)
+#target_link_libraries(native-camera-opencl
+#        halide_runtime_opencl
+#        ${native-camera-libs}
+#        camera_video_preview2_raw10
+#        camera_video_preview3_raw10
+#        camera_video_preview4_raw10
+#        camera_video_preview2_raw12
+#        camera_video_preview3_raw12
+#        camera_video_preview4_raw12
+#        camera_video_preview2_raw16
+#        camera_video_preview3_raw16
+#        camera_video_preview4_raw16
+#        camera_preview2_raw10
+#        camera_preview3_raw10
+#        camera_preview4_raw10
+#        camera_preview2_raw12
+#        camera_preview3_raw12
+#        camera_preview4_raw12
+#        camera_preview2_raw16
+#        camera_preview3_raw16
+#        camera_preview4_raw16
+#)

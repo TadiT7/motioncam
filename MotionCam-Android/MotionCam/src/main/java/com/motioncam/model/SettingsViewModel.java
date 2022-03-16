@@ -19,14 +19,10 @@ public class SettingsViewModel extends ViewModel {
     public static final String PREFS_KEY_RAW_VIDEO_MEMORY_USE_MBYTES = "raw_video_memory_use_megabytes";
     public static final String PREFS_KEY_JPEG_QUALITY               = "jpeg_quality";
     public static final String PREFS_KEY_SAVE_DNG                   = "save_dng";
-    public static final String PREFS_KEY_CAMERA_PREVIEW_QUALITY     = "camera_preview_quality";
     public static final String PREFS_KEY_AUTO_NIGHT_MODE            = "auto_night_mode";
-    public static final String PREFS_KEY_DUAL_EXPOSURE_CONTROLS     = "dual_exposure_controls";
     public static final String PREFS_KEY_CAPTURE_MODE               = "capture_mode";
     public static final String PREFS_KEY_RAW_VIDEO_TO_DNG           = "raw_video_to_dng";
     public static final String PREFS_KEY_SPLIT_RAW_VIDEO_WRITES     = "split_raw_video_writes";
-    public static final String PREFS_KEY_RAW_VIDEO_COMPRESSION      = "raw_video_compression";
-    public static final String PREFS_KEY_RAW_VIDEO_COMPRESSION_THREADS = "raw_video_compression_threads";
 
     public static final String PREFS_KEY_IGNORE_CAMERA_IDS                  = "ignore_camera_ids";
     public static final String PREFS_KEY_UI_PREVIEW_CONTRAST                = "ui_preview_contrast_amount";
@@ -63,7 +59,6 @@ public class SettingsViewModel extends ViewModel {
 
     final public MutableLiveData<Integer> memoryUseMb = new MutableLiveData<>();
     final public MutableLiveData<Integer> rawVideoMemoryUseMb = new MutableLiveData<>();
-    final public MutableLiveData<Integer> cameraPreviewQuality = new MutableLiveData<>();
     final public MutableLiveData<Boolean> raw10 = new MutableLiveData<>();
     final public MutableLiveData<Boolean> raw12 = new MutableLiveData<>();
     final public MutableLiveData<Boolean> raw16 = new MutableLiveData<>();
@@ -74,24 +69,18 @@ public class SettingsViewModel extends ViewModel {
     final public MutableLiveData<String> rawVideoTempStorageFolder = new MutableLiveData<>();
     final public MutableLiveData<String> rawVideoTempStorageFolder2 = new MutableLiveData<>();
     final public MutableLiveData<Boolean> splitRawVideoStorage = new MutableLiveData<>();
-    final public MutableLiveData<Boolean> rawVideoCompression = new MutableLiveData<>();
-    final public MutableLiveData<Integer> compressionThreads = new MutableLiveData<>();
 
     public void load(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(CAMERA_SHARED_PREFS, Context.MODE_PRIVATE);
 
         memoryUseMb.setValue(prefs.getInt(PREFS_KEY_MEMORY_USE_MBYTES, MINIMUM_MEMORY_USE_MB) - MINIMUM_MEMORY_USE_MB);
         rawVideoMemoryUseMb.setValue(prefs.getInt(PREFS_KEY_RAW_VIDEO_MEMORY_USE_MBYTES, MINIMUM_MEMORY_USE_MB*2) - MINIMUM_MEMORY_USE_MB);
-        cameraPreviewQuality.setValue(prefs.getInt(PREFS_KEY_CAMERA_PREVIEW_QUALITY, 0));
         jpegQuality.setValue(prefs.getInt(PREFS_KEY_JPEG_QUALITY, CameraProfile.DEFAULT_JPEG_QUALITY));
         autoNightMode.setValue(prefs.getBoolean(PREFS_KEY_AUTO_NIGHT_MODE, true));
-        dualExposureControls.setValue(prefs.getBoolean(PREFS_KEY_DUAL_EXPOSURE_CONTROLS, false));
         rawVideoToDng.setValue(prefs.getBoolean(PREFS_KEY_RAW_VIDEO_TO_DNG, true));
         rawVideoTempStorageFolder.setValue(prefs.getString(PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI, null));
         rawVideoTempStorageFolder2.setValue(prefs.getString(PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI_2, null));
         splitRawVideoStorage.setValue(prefs.getBoolean(PREFS_KEY_SPLIT_RAW_VIDEO_WRITES, false));
-        rawVideoCompression.setValue(prefs.getBoolean(PREFS_KEY_RAW_VIDEO_COMPRESSION, true));
-        compressionThreads.setValue(prefs.getInt(PREFS_KEY_RAW_VIDEO_COMPRESSION_THREADS, 2) - 1);
 
         // Capture mode
         String rawModeStr = prefs.getString(PREFS_KEY_CAPTURE_MODE, RawMode.RAW10.name());
@@ -119,16 +108,12 @@ public class SettingsViewModel extends ViewModel {
 
         editor.putInt(PREFS_KEY_MEMORY_USE_MBYTES, MINIMUM_MEMORY_USE_MB + getSetting(memoryUseMb, MINIMUM_MEMORY_USE_MB));
         editor.putInt(PREFS_KEY_RAW_VIDEO_MEMORY_USE_MBYTES, MINIMUM_MEMORY_USE_MB + getSetting(rawVideoMemoryUseMb, MINIMUM_MEMORY_USE_MB));
-        editor.putInt(PREFS_KEY_CAMERA_PREVIEW_QUALITY, getSetting(cameraPreviewQuality, 0));
         editor.putInt(PREFS_KEY_JPEG_QUALITY, getSetting(jpegQuality, 95));
         editor.putBoolean(PREFS_KEY_AUTO_NIGHT_MODE, getSetting(autoNightMode, true));
-        editor.putBoolean(PREFS_KEY_DUAL_EXPOSURE_CONTROLS, getSetting(dualExposureControls, false));
         editor.putBoolean(PREFS_KEY_RAW_VIDEO_TO_DNG, getSetting(rawVideoToDng, true));
         editor.putString(PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI, getSetting(rawVideoTempStorageFolder, null));
         editor.putString(PREFS_KEY_RAW_VIDEO_TEMP_OUTPUT_URI_2, getSetting(rawVideoTempStorageFolder2, null));
         editor.putBoolean(PREFS_KEY_SPLIT_RAW_VIDEO_WRITES, getSetting(splitRawVideoStorage, false));
-        editor.putBoolean(PREFS_KEY_RAW_VIDEO_COMPRESSION, getSetting(rawVideoCompression, false));
-        editor.putInt(PREFS_KEY_RAW_VIDEO_COMPRESSION_THREADS, 1 + getSetting(compressionThreads, 2));
 
         // Capture mode
         RawMode rawMode = RawMode.RAW10;

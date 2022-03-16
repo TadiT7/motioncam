@@ -2,6 +2,7 @@
 #define RawContainerImpl_Legacy_hpp
 
 #include "motioncam/RawContainer.h"
+#include <opencv2/opencv.hpp>
 
 namespace motioncam {
     namespace util {

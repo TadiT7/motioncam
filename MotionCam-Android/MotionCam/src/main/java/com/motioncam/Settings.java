@@ -91,8 +91,6 @@ public class Settings {
     boolean useSecondaryRawVideoStorage;
     Uri rawVideoRecordingTempUri;
     Uri rawVideoRecordingTempUri2;
-    boolean enableRawVideoCompression;
-    int numRawVideoCompressionThreads;
 
     private CameraStartupSettings loadCameraStartupSettings(SharedPreferences prefs) {
         boolean enableUserExposure = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_CAMERA_STARTUP_USE_USER_EXPOSURE, false);
@@ -135,26 +133,12 @@ public class Settings {
         nativeRawVideoMemoryUseMb = Math.min(nativeRawVideoMemoryUseMb, SettingsViewModel.MAXIMUM_MEMORY_USE_MB);
         this.rawVideoMemoryUseBytes = nativeRawVideoMemoryUseMb * 1024 * 1024;
 
-        this.useDualExposure = prefs.getBoolean(SettingsViewModel.PREFS_KEY_DUAL_EXPOSURE_CONTROLS, false);
         this.rawVideoToDng = prefs.getBoolean(SettingsViewModel.PREFS_KEY_RAW_VIDEO_TO_DNG, true);
 
         this.captureMode = CaptureMode.valueOf(prefs.getString(SettingsViewModel.PREFS_KEY_UI_CAPTURE_MODE, CaptureMode.ZSL.name()));
 
         String captureModeStr = prefs.getString(SettingsViewModel.PREFS_KEY_CAPTURE_MODE, SettingsViewModel.RawMode.RAW10.name());
         this.rawMode = SettingsViewModel.RawMode.valueOf(captureModeStr);
-
-        switch (prefs.getInt(SettingsViewModel.PREFS_KEY_CAMERA_PREVIEW_QUALITY, 0)) {
-            default:
-            case 0: // Low
-                this.cameraPreviewQuality = 4;
-                break;
-            case 1: // Medium
-                this.cameraPreviewQuality = 3;
-                break;
-            case 2: // High
-                this.cameraPreviewQuality = 2;
-                break;
-        }
 
         // Get temp recording uris
         this.useSecondaryRawVideoStorage = prefs.getBoolean(SettingsViewModel.PREFS_KEY_SPLIT_RAW_VIDEO_WRITES, false);
@@ -171,8 +155,6 @@ public class Settings {
         if (exportUriString != null && !exportUriString.isEmpty())
             this.rawVideoExportUri = Uri.parse(exportUriString);
 
-        this.enableRawVideoCompression = prefs.getBoolean(SettingsViewModel.PREFS_KEY_RAW_VIDEO_COMPRESSION, true);
-        this.numRawVideoCompressionThreads = prefs.getInt(SettingsViewModel.PREFS_KEY_RAW_VIDEO_COMPRESSION_THREADS, 2);
         this.cameraStartupSettings = loadCameraStartupSettings(prefs);
     }
 
@@ -216,8 +198,6 @@ public class Settings {
                 ", useSecondaryRawVideoStorage=" + useSecondaryRawVideoStorage +
                 ", rawVideoRecordingTempUri=" + rawVideoRecordingTempUri +
                 ", rawVideoRecordingTempUri2=" + rawVideoRecordingTempUri2 +
-                ", enableRawVideoCompression=" + enableRawVideoCompression +
-                ", numRawVideoCompressionThreads=" + numRawVideoCompressionThreads +
                 '}';
     }
 }
