@@ -312,7 +312,7 @@ namespace motioncam {
 
         uint8_t tonemapMode = ACAMERA_TONEMAP_MODE_FAST;
 
-        if(!mTonemapPts.empty()) {
+        if(!mTonemapPts.empty() && !mFocusForVideo) {
             tonemapMode = ACAMERA_TONEMAP_MODE_CONTRAST_CURVE;
 
             ACaptureRequest_setEntry_float(mSessionContext.repeatCaptureRequest->captureRequest,

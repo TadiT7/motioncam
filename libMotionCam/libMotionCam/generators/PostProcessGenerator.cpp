@@ -3401,8 +3401,7 @@ void LinearImageGenerator::generate() {
 
     linearScale(v_c) = 1.0f / (whiteLevel - b(v_c));
 
-    scaled(v_x, v_y, v_c) = cast<uint16_t>(0.5f +
-        clamp((cast<float>(warped(v_x, v_y, v_c)) - b(v_c)) * linearScale(v_c) * range, 0, range));
+    scaled(v_x, v_y, v_c) = cast<uint16_t>(round(clamp((cast<float>(warped(v_x, v_y, v_c)) - b(v_c)) * linearScale(v_c) * range, 0, range)));
 
     inDemosaic[0](v_x, v_y) = scaled(v_x, v_y, 0);
     inDemosaic[1](v_x, v_y) = scaled(v_x, v_y, 1);

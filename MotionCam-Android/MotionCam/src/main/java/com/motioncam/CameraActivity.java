@@ -125,8 +125,8 @@ public class CameraActivity extends AppCompatActivity implements
     private static final int OVERLAY_UPDATE_FREQUENCY_MS = 250;
     private static final int NUM_COMPRESSION_THREADS = 2;
 
-    private static final float DEFAULT_SHADOWS_VALUE = 2.0f;
-    private static final int DEFAULT_SHADOWS_VALUE_PROGRESS = 25;
+    private static final float DEFAULT_SHADOWS_VALUE = 4.0f;
+    private static final int DEFAULT_SHADOWS_VALUE_PROGRESS = 40;
 
     private static final int[] ALL_FRAME_RATE_OPTIONS = new int[] { 120, 60, 50, 48, 30, 25, 24, 15, 10, 5, 2, 1};
 
@@ -570,7 +570,6 @@ public class CameraActivity extends AppCompatActivity implements
 
         mSensorEventManager.enable();
 
-        //mBinding.rawCameraPreview.setBitmap(null);
         mBinding.main.transitionToStart();
 
         // Release URIs we are not using anymore
@@ -1076,20 +1075,24 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.previewFrame.settingsLayout.setVisibility(View.GONE);
         mBinding.cameraSettings.findViewById(R.id.cameraVideoSettings).setVisibility(View.VISIBLE);
         mBinding.cameraSettings.findViewById(R.id.cameraPhotoSettings).setVisibility(View.GONE);
+        mBinding.shadowsLayout.setVisibility(View.GONE);
 
         if(mNativeCamera != null) {
             setupCameraPreview();
+
+            mSettings.cameraStartupSettings.focusForVideo = true;
 
             mNativeCamera.setFrameRate(mSettings.cameraStartupSettings.frameRate);
             mNativeCamera.setVideoCropPercentage(mSettings.widthVideoCrop, mSettings.heightVideoCrop);
             mNativeCamera.setVideoBin(mSettings.videoBin);
             mNativeCamera.adjustMemory(mSettings.rawVideoMemoryUseBytes);
+            mNativeCamera.setFocusForVideo(true);
 
             mNativeCamera.activateCameraSettings();
         }
     }
 
-    private void restoreFromRawVideoCapture(CaptureMode captureMode) {
+    private void restoreFromRawVideoCapture() {
         if(mNativeCamera == null) {
             return;
         }
@@ -1098,9 +1101,13 @@ public class CameraActivity extends AppCompatActivity implements
 
         mBinding.cameraSettings.findViewById(R.id.cameraVideoSettings).setVisibility(View.GONE);
         mBinding.cameraSettings.findViewById(R.id.cameraPhotoSettings).setVisibility(View.VISIBLE);
+        mBinding.shadowsLayout.setVisibility(View.VISIBLE);
 
         mBinding.previewFrame.settingsLayout.setVisibility(View.VISIBLE);
 
+        mSettings.cameraStartupSettings.focusForVideo = false;
+
+        mNativeCamera.setFocusForVideo(false);
         mNativeCamera.setFrameRate(-1);
         mNativeCamera.adjustMemory(mSettings.memoryUseBytes);
 
@@ -1150,7 +1157,7 @@ public class CameraActivity extends AppCompatActivity implements
 
         // If previous capture mode was raw video, reset frame rate
         if(mSettings.captureMode == CaptureMode.RAW_VIDEO && captureMode != CaptureMode.RAW_VIDEO) {
-            restoreFromRawVideoCapture(captureMode);
+            restoreFromRawVideoCapture();
         }
 
         mSettings.captureMode = captureMode;
@@ -2189,7 +2196,7 @@ public class CameraActivity extends AppCompatActivity implements
     }
 
     private void onShadowsSeekBarChanged(int progress, boolean fromUser) {
-        mPostProcessSettings.shadows = (float) Math.pow(2.0f, progress / 25.0f);
+        mPostProcessSettings.shadows = (float) Math.pow(2.0f, progress / 20.0f);
 
         updatePreviewSettings();
     }
