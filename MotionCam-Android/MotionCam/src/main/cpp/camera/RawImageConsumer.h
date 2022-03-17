@@ -38,7 +38,7 @@ namespace motioncam {
         void start();
         void stop();
 
-        void grow(size_t memoryLimitBytes);
+        void grow(uint64_t memoryLimitBytes);
 
         void queueImage(AImage* image);
         void queueMetadata(const ACameraMetadata* metadata, ScreenOrientation screenOrientation, RawType rawType);
@@ -67,7 +67,7 @@ namespace motioncam {
 
     private:
         std::shared_ptr<CameraSessionListener> mListener;
-        int mMaximumMemoryUsageBytes;
+        uint64_t mMaximumMemoryUsageBytes;
         std::unique_ptr<std::thread> mConsumerThread;
         std::unique_ptr<std::thread> mPreprocessThread;
         std::atomic<bool> mRunning;

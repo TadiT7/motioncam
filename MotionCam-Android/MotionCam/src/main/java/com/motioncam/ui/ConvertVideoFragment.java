@@ -647,8 +647,11 @@ public class ConvertVideoFragment  extends Fragment implements LifecycleObserver
                     // If we moved a video, refresh the list
                     if(workerMode == VideoProcessWorker.WorkerMode.MOVE) {
                         VideoEntry entry = mAdapter.getItemFromName(name);
-                        if(entry != null && entry.isInternal())
+                        if(entry != null && entry.isInternal()) {
                             refresh();
+                            // Break out of the loop, adapter will be gone
+                            break;
+                        }
                     }
                     else {
                         if (isDeleted)

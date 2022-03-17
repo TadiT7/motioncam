@@ -46,7 +46,7 @@ namespace motioncam {
     RawImageConsumer::RawImageConsumer(
             std::shared_ptr<CameraDescription> cameraDescription,
             std::shared_ptr<CameraSessionListener> listener,
-            const size_t maxMemoryUsageBytes) :
+            const uint64_t maxMemoryUsageBytes) :
             mListener(std::move(listener)),
             mMaximumMemoryUsageBytes(maxMemoryUsageBytes),
             mRunning(false),
@@ -100,7 +100,7 @@ namespace motioncam {
         LOGD("Raw image consumer has stopped");
     }
 
-    void RawImageConsumer::grow(size_t memoryLimitBytes) {
+    void RawImageConsumer::grow(uint64_t memoryLimitBytes) {
         if(mListener)
             mListener->onMemoryAdjusting();
 
@@ -363,7 +363,7 @@ namespace motioncam {
         // Do we need to allocate more buffers?
         size_t memoryUseBytes = RawBufferManager::get().memoryUseBytes();
 
-        int grow = mMaximumMemoryUsageBytes - memoryUseBytes;
+        int64_t grow = mMaximumMemoryUsageBytes - memoryUseBytes;
         if(std::abs(grow) < bufferSize) {
             mRequestSetupBuffers = false;
             if(mListener)
@@ -372,30 +372,31 @@ namespace motioncam {
             return;
         }
 
-        if(grow > 0) {
-            if(memoryUseBytes + bufferSize < mMaximumMemoryUsageBytes) {
+        // Grow or shrink by 4 buffers at a time
+        for(int i = 0; i < 4; i++) {
+            if(grow > 0 && memoryUseBytes + bufferSize < mMaximumMemoryUsageBytes) {
                 std::shared_ptr<RawImageBuffer> buffer;
 
-    #ifdef GPU_CAMERA_PREVIEW
+#ifdef GPU_CAMERA_PREVIEW
                 buffer = std::make_shared<RawImageBuffer>(std::make_unique<NativeClBuffer>(bufferSize));
-    #else
+#else
                 buffer = std::make_shared<RawImageBuffer>(std::make_unique<NativeHostBuffer>(bufferSize));
-    #endif
-
+#endif
                 RawBufferManager::get().addBuffer(buffer);
 
                 memoryUseBytes = RawBufferManager::get().memoryUseBytes();
 
                 LOGI("Memory use: %zu, max: %zu", memoryUseBytes, mMaximumMemoryUsageBytes);
             }
-        }
-        else if(grow < 0) {
-            // Shrink memory
-            if(memoryUseBytes > mMaximumMemoryUsageBytes) {
+            else if(grow < 0 && memoryUseBytes > mMaximumMemoryUsageBytes) {
+                // Shrink memory
                 RawBufferManager::get().removeBuffer();
                 memoryUseBytes = RawBufferManager::get().memoryUseBytes();
 
                 logger::log("Shrunk memory to " + std::to_string(memoryUseBytes));
+            }
+            else {
+                break;
             }
         }
     }

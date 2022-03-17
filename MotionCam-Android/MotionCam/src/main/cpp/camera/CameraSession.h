@@ -58,7 +58,7 @@ namespace motioncam {
                 float shadows, float contrast, float saturation, float blacks, float whitePoint, float tempOffset, float tintOffset, bool useVideoPreview);
         void enableRawPreview(std::shared_ptr<RawPreviewListener> listener, const int previewQuality);
         void disableRawPreview();
-        void growMemory(size_t memoryBytes);
+        void growMemory(uint64_t memoryBytes);
         void getEstimatedPostProcessSettings(PostProcessSettings& outSettings);
 
         void setAutoExposure();

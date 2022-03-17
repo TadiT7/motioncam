@@ -342,7 +342,7 @@ namespace motioncam {
             mImageConsumer->disableRawPreview();
     }
 
-    void CameraSession::growMemory(size_t memoryBytes) {
+    void CameraSession::growMemory(uint64_t memoryBytes) {
         if(mImageConsumer)
             mImageConsumer->grow(memoryBytes);
     }
