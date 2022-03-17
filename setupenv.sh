@@ -212,6 +212,7 @@ build_exiv2() {
 build_zstd() {
 	if [ ! -d "zstd-src" ]; then
 		git clone https://github.com/facebook/zstd zstd-src
+		git pull
 	fi
 
 	pushd zstd-src
@@ -245,6 +246,7 @@ build_zstd() {
 build_halide() {
 	if [ ! -d "halide-src" ]; then
 		git clone ${HALIDE_BRANCH} halide-src
+		git pull
 	fi
 
 	pushd halide-src
@@ -280,6 +282,7 @@ halide_generate() {
 build_fpor() {
 	if [ ! -d "pfor-src" ]; then
 		git clone ${PFOR_BRANCH} pfor-src
+		git pull
 	fi
 
 	pushd pfor-src
