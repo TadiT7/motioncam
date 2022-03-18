@@ -455,7 +455,6 @@ add_library( # Sets the name of the library.
         ${libmotioncam-src}/source/Color.cpp
         ${libmotioncam-src}/source/ImageOps.cpp
         ${libmotioncam-src}/source/ImageProcessor.cpp
-        ${libmotioncam-src}/source/CameraPreview.cpp
         ${libmotioncam-src}/source/Logger.cpp
         ${libmotioncam-src}/source/Measure.cpp
         ${libmotioncam-src}/source/RawBufferManager.cpp
