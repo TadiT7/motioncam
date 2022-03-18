@@ -169,7 +169,7 @@ void PostProcessBase::deinterleave(Func& result, Func in, Expr stride, Expr rawF
         v_c == 2, bayer(v_x*2,      v_y*2 + 1),
                   bayer(v_x*2 + 1,  v_y*2 + 1));
 
-    result = BoundaryConditions::mirror_image(interleaved, { { 0, width }, { 0, height } } );
+    result = BoundaryConditions::mirror_image(interleaved, { { 0, width / 2 }, { 0, height / 2 } } );
 }
 
 Func PostProcessBase::deinterleaveRaw10(Func in, Expr stride) {
