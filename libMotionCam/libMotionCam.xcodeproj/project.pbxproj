@@ -11,7 +11,6 @@
 		4521E0032732E69800DEBD25 /* measure_image.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFBD2732E68700DEBD25 /* measure_image.a */; };
 		4521E0042732E69800DEBD25 /* deinterleave_raw.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFBE2732E68800DEBD25 /* deinterleave_raw.a */; };
 		4521E0062732E69800DEBD25 /* preview_reverse_portrait2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFC02732E68800DEBD25 /* preview_reverse_portrait2.a */; };
-		4521E0072732E69800DEBD25 /* halide_runtime_opencl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFC12732E68800DEBD25 /* halide_runtime_opencl.a */; };
 		4521E0082732E69800DEBD25 /* generate_edges.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4521DFC22732E68800DEBD25 /* generate_edges.a */; };
 		4521E0092732E69800DEBD25 /* preview_landscape2.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFC32732E68900DEBD25 /* preview_landscape2.h */; };
 		4521E00B2732E69800DEBD25 /* preview_reverse_portrait4.h in Headers */ = {isa = PBXBuildFile; fileRef = 4521DFC52732E68900DEBD25 /* preview_reverse_portrait4.h */; };
@@ -66,7 +65,6 @@
 		45448526278ED44D0034AD17 /* fast_preview2.h in Headers */ = {isa = PBXBuildFile; fileRef = 45448524278ED44D0034AD17 /* fast_preview2.h */; };
 		455C31342775E70D006F41A7 /* generate_stats.h in Headers */ = {isa = PBXBuildFile; fileRef = 455C31322775E70D006F41A7 /* generate_stats.h */; };
 		455C31352775E70D006F41A7 /* generate_stats.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 455C31332775E70D006F41A7 /* generate_stats.a */; };
-		45684CB52720AC24004E7A12 /* CameraPreview.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45A340A1260B887700405A85 /* CameraPreview.cpp */; };
 		45684CB62720AC24004E7A12 /* CameraProfile.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45FA2E6D1FF8118A00BE34C3 /* CameraProfile.cpp */; };
 		45684CB72720AC24004E7A12 /* Color.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45FA2E771FF8333000BE34C3 /* Color.cpp */; };
 		45684CB82720AC24004E7A12 /* ImageOps.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 455EE73D20556B550090DFAC /* ImageOps.cpp */; };
@@ -169,42 +167,6 @@
 		45C6A3DE276B3B6300042058 /* AudioInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = 45C6A3DD276B3B6300042058 /* AudioInterface.h */; };
 		45C6A3E2276B438200042058 /* tinywav.c in Sources */ = {isa = PBXBuildFile; fileRef = 45C6A3E0276B438200042058 /* tinywav.c */; };
 		45C6A3E3276B438200042058 /* tinywav.h in Headers */ = {isa = PBXBuildFile; fileRef = 45C6A3E1276B438200042058 /* tinywav.h */; };
-		45DFA079276FE7A80068AFA6 /* camera_video_preview4_raw10.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45DFA055276FE7A50068AFA6 /* camera_video_preview4_raw10.a */; };
-		45DFA07A276FE7A80068AFA6 /* camera_video_preview4_raw10.h in Headers */ = {isa = PBXBuildFile; fileRef = 45DFA056276FE7A50068AFA6 /* camera_video_preview4_raw10.h */; };
-		45DFA07B276FE7A80068AFA6 /* camera_preview3_raw10.h in Headers */ = {isa = PBXBuildFile; fileRef = 45DFA057276FE7A50068AFA6 /* camera_preview3_raw10.h */; };
-		45DFA07C276FE7A80068AFA6 /* camera_preview4_raw16.h in Headers */ = {isa = PBXBuildFile; fileRef = 45DFA058276FE7A50068AFA6 /* camera_preview4_raw16.h */; };
-		45DFA07D276FE7A80068AFA6 /* camera_video_preview4_raw12.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45DFA059276FE7A50068AFA6 /* camera_video_preview4_raw12.a */; };
-		45DFA07E276FE7A80068AFA6 /* camera_video_preview4_raw16.h in Headers */ = {isa = PBXBuildFile; fileRef = 45DFA05A276FE7A50068AFA6 /* camera_video_preview4_raw16.h */; };
-		45DFA07F276FE7A80068AFA6 /* camera_video_preview2_raw10.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45DFA05B276FE7A50068AFA6 /* camera_video_preview2_raw10.a */; };
-		45DFA080276FE7A80068AFA6 /* camera_video_preview2_raw12.h in Headers */ = {isa = PBXBuildFile; fileRef = 45DFA05C276FE7A50068AFA6 /* camera_video_preview2_raw12.h */; };
-		45DFA081276FE7A80068AFA6 /* camera_preview4_raw16.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45DFA05D276FE7A50068AFA6 /* camera_preview4_raw16.a */; };
-		45DFA082276FE7A80068AFA6 /* camera_preview3_raw10.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45DFA05E276FE7A50068AFA6 /* camera_preview3_raw10.a */; };
-		45DFA083276FE7A80068AFA6 /* camera_preview2_raw10.h in Headers */ = {isa = PBXBuildFile; fileRef = 45DFA05F276FE7A50068AFA6 /* camera_preview2_raw10.h */; };
-		45DFA084276FE7A80068AFA6 /* camera_preview3_raw12.h in Headers */ = {isa = PBXBuildFile; fileRef = 45DFA060276FE7A50068AFA6 /* camera_preview3_raw12.h */; };
-		45DFA085276FE7A80068AFA6 /* camera_preview3_raw16.h in Headers */ = {isa = PBXBuildFile; fileRef = 45DFA061276FE7A60068AFA6 /* camera_preview3_raw16.h */; };
-		45DFA086276FE7A80068AFA6 /* camera_video_preview2_raw16.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45DFA062276FE7A60068AFA6 /* camera_video_preview2_raw16.a */; };
-		45DFA087276FE7A80068AFA6 /* camera_preview4_raw12.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45DFA063276FE7A60068AFA6 /* camera_preview4_raw12.a */; };
-		45DFA088276FE7A80068AFA6 /* camera_video_preview2_raw16.h in Headers */ = {isa = PBXBuildFile; fileRef = 45DFA064276FE7A60068AFA6 /* camera_video_preview2_raw16.h */; };
-		45DFA089276FE7A80068AFA6 /* camera_video_preview3_raw16.h in Headers */ = {isa = PBXBuildFile; fileRef = 45DFA065276FE7A60068AFA6 /* camera_video_preview3_raw16.h */; };
-		45DFA08A276FE7A80068AFA6 /* camera_preview2_raw12.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45DFA066276FE7A60068AFA6 /* camera_preview2_raw12.a */; };
-		45DFA08B276FE7A80068AFA6 /* camera_video_preview3_raw10.h in Headers */ = {isa = PBXBuildFile; fileRef = 45DFA067276FE7A60068AFA6 /* camera_video_preview3_raw10.h */; };
-		45DFA08C276FE7A80068AFA6 /* camera_preview4_raw10.h in Headers */ = {isa = PBXBuildFile; fileRef = 45DFA068276FE7A60068AFA6 /* camera_preview4_raw10.h */; };
-		45DFA08D276FE7A80068AFA6 /* camera_preview2_raw16.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45DFA069276FE7A60068AFA6 /* camera_preview2_raw16.a */; };
-		45DFA08E276FE7A80068AFA6 /* camera_preview3_raw12.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45DFA06A276FE7A60068AFA6 /* camera_preview3_raw12.a */; };
-		45DFA08F276FE7A80068AFA6 /* camera_preview4_raw12.h in Headers */ = {isa = PBXBuildFile; fileRef = 45DFA06B276FE7A70068AFA6 /* camera_preview4_raw12.h */; };
-		45DFA090276FE7A80068AFA6 /* camera_preview2_raw10.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45DFA06C276FE7A70068AFA6 /* camera_preview2_raw10.a */; };
-		45DFA091276FE7A80068AFA6 /* camera_preview4_raw10.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45DFA06D276FE7A70068AFA6 /* camera_preview4_raw10.a */; };
-		45DFA092276FE7A80068AFA6 /* camera_video_preview4_raw12.h in Headers */ = {isa = PBXBuildFile; fileRef = 45DFA06E276FE7A70068AFA6 /* camera_video_preview4_raw12.h */; };
-		45DFA093276FE7A80068AFA6 /* camera_preview3_raw16.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45DFA06F276FE7A70068AFA6 /* camera_preview3_raw16.a */; };
-		45DFA094276FE7A80068AFA6 /* camera_preview2_raw12.h in Headers */ = {isa = PBXBuildFile; fileRef = 45DFA070276FE7A70068AFA6 /* camera_preview2_raw12.h */; };
-		45DFA095276FE7A80068AFA6 /* camera_video_preview3_raw10.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45DFA071276FE7A70068AFA6 /* camera_video_preview3_raw10.a */; };
-		45DFA096276FE7A80068AFA6 /* camera_video_preview4_raw16.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45DFA072276FE7A70068AFA6 /* camera_video_preview4_raw16.a */; };
-		45DFA097276FE7A80068AFA6 /* camera_video_preview3_raw16.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45DFA073276FE7A70068AFA6 /* camera_video_preview3_raw16.a */; };
-		45DFA098276FE7A80068AFA6 /* camera_video_preview3_raw12.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45DFA074276FE7A70068AFA6 /* camera_video_preview3_raw12.a */; };
-		45DFA099276FE7A80068AFA6 /* camera_preview2_raw16.h in Headers */ = {isa = PBXBuildFile; fileRef = 45DFA075276FE7A80068AFA6 /* camera_preview2_raw16.h */; };
-		45DFA09A276FE7A80068AFA6 /* camera_video_preview2_raw10.h in Headers */ = {isa = PBXBuildFile; fileRef = 45DFA076276FE7A80068AFA6 /* camera_video_preview2_raw10.h */; };
-		45DFA09B276FE7A80068AFA6 /* camera_video_preview2_raw12.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45DFA077276FE7A80068AFA6 /* camera_video_preview2_raw12.a */; };
-		45DFA09C276FE7A80068AFA6 /* camera_video_preview3_raw12.h in Headers */ = {isa = PBXBuildFile; fileRef = 45DFA078276FE7A80068AFA6 /* camera_video_preview3_raw12.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -234,7 +196,6 @@
 		4521DFBD2732E68700DEBD25 /* measure_image.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = measure_image.a; sourceTree = "<group>"; };
 		4521DFBE2732E68800DEBD25 /* deinterleave_raw.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = deinterleave_raw.a; sourceTree = "<group>"; };
 		4521DFC02732E68800DEBD25 /* preview_reverse_portrait2.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = preview_reverse_portrait2.a; sourceTree = "<group>"; };
-		4521DFC12732E68800DEBD25 /* halide_runtime_opencl.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = halide_runtime_opencl.a; sourceTree = "<group>"; };
 		4521DFC22732E68800DEBD25 /* generate_edges.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = generate_edges.a; sourceTree = "<group>"; };
 		4521DFC32732E68900DEBD25 /* preview_landscape2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = preview_landscape2.h; sourceTree = "<group>"; };
 		4521DFC52732E68900DEBD25 /* preview_reverse_portrait4.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = preview_reverse_portrait4.h; sourceTree = "<group>"; };
@@ -489,8 +450,6 @@
 		45A2A510278105A400D5D6F0 /* libic.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libic.a; path = pfor/host/lib/libic.a; sourceTree = "<group>"; };
 		45A2A568278254EA00D5D6F0 /* vp4.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vp4.h; path = pfor/host/include/vp4.h; sourceTree = "<group>"; };
 		45A2A56E2783366B00D5D6F0 /* bitpack.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = bitpack.h; path = pfor/host/include/bitpack.h; sourceTree = "<group>"; };
-		45A340A1260B887700405A85 /* CameraPreview.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CameraPreview.cpp; sourceTree = "<group>"; };
-		45A340A2260B887700405A85 /* CameraPreview.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CameraPreview.h; sourceTree = "<group>"; };
 		45A9C06B27CFB20C008B9D7F /* RawEncoder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RawEncoder.h; sourceTree = "<group>"; };
 		45AD8088230DCFA800D6AA04 /* ImageProcessor.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ImageProcessor.cpp; sourceTree = "<group>"; };
 		45AD8089230DCFA800D6AA04 /* ImageProcessor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ImageProcessor.h; sourceTree = "<group>"; };
@@ -501,42 +460,6 @@
 		45C6A3DD276B3B6300042058 /* AudioInterface.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AudioInterface.h; sourceTree = "<group>"; };
 		45C6A3E0276B438200042058 /* tinywav.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tinywav.c; sourceTree = "<group>"; };
 		45C6A3E1276B438200042058 /* tinywav.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tinywav.h; sourceTree = "<group>"; };
-		45DFA055276FE7A50068AFA6 /* camera_video_preview4_raw10.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_video_preview4_raw10.a; sourceTree = "<group>"; };
-		45DFA056276FE7A50068AFA6 /* camera_video_preview4_raw10.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_video_preview4_raw10.h; sourceTree = "<group>"; };
-		45DFA057276FE7A50068AFA6 /* camera_preview3_raw10.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_preview3_raw10.h; sourceTree = "<group>"; };
-		45DFA058276FE7A50068AFA6 /* camera_preview4_raw16.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_preview4_raw16.h; sourceTree = "<group>"; };
-		45DFA059276FE7A50068AFA6 /* camera_video_preview4_raw12.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_video_preview4_raw12.a; sourceTree = "<group>"; };
-		45DFA05A276FE7A50068AFA6 /* camera_video_preview4_raw16.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_video_preview4_raw16.h; sourceTree = "<group>"; };
-		45DFA05B276FE7A50068AFA6 /* camera_video_preview2_raw10.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_video_preview2_raw10.a; sourceTree = "<group>"; };
-		45DFA05C276FE7A50068AFA6 /* camera_video_preview2_raw12.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_video_preview2_raw12.h; sourceTree = "<group>"; };
-		45DFA05D276FE7A50068AFA6 /* camera_preview4_raw16.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_preview4_raw16.a; sourceTree = "<group>"; };
-		45DFA05E276FE7A50068AFA6 /* camera_preview3_raw10.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_preview3_raw10.a; sourceTree = "<group>"; };
-		45DFA05F276FE7A50068AFA6 /* camera_preview2_raw10.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_preview2_raw10.h; sourceTree = "<group>"; };
-		45DFA060276FE7A50068AFA6 /* camera_preview3_raw12.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_preview3_raw12.h; sourceTree = "<group>"; };
-		45DFA061276FE7A60068AFA6 /* camera_preview3_raw16.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_preview3_raw16.h; sourceTree = "<group>"; };
-		45DFA062276FE7A60068AFA6 /* camera_video_preview2_raw16.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_video_preview2_raw16.a; sourceTree = "<group>"; };
-		45DFA063276FE7A60068AFA6 /* camera_preview4_raw12.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_preview4_raw12.a; sourceTree = "<group>"; };
-		45DFA064276FE7A60068AFA6 /* camera_video_preview2_raw16.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_video_preview2_raw16.h; sourceTree = "<group>"; };
-		45DFA065276FE7A60068AFA6 /* camera_video_preview3_raw16.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_video_preview3_raw16.h; sourceTree = "<group>"; };
-		45DFA066276FE7A60068AFA6 /* camera_preview2_raw12.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_preview2_raw12.a; sourceTree = "<group>"; };
-		45DFA067276FE7A60068AFA6 /* camera_video_preview3_raw10.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_video_preview3_raw10.h; sourceTree = "<group>"; };
-		45DFA068276FE7A60068AFA6 /* camera_preview4_raw10.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_preview4_raw10.h; sourceTree = "<group>"; };
-		45DFA069276FE7A60068AFA6 /* camera_preview2_raw16.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_preview2_raw16.a; sourceTree = "<group>"; };
-		45DFA06A276FE7A60068AFA6 /* camera_preview3_raw12.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_preview3_raw12.a; sourceTree = "<group>"; };
-		45DFA06B276FE7A70068AFA6 /* camera_preview4_raw12.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_preview4_raw12.h; sourceTree = "<group>"; };
-		45DFA06C276FE7A70068AFA6 /* camera_preview2_raw10.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_preview2_raw10.a; sourceTree = "<group>"; };
-		45DFA06D276FE7A70068AFA6 /* camera_preview4_raw10.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_preview4_raw10.a; sourceTree = "<group>"; };
-		45DFA06E276FE7A70068AFA6 /* camera_video_preview4_raw12.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_video_preview4_raw12.h; sourceTree = "<group>"; };
-		45DFA06F276FE7A70068AFA6 /* camera_preview3_raw16.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_preview3_raw16.a; sourceTree = "<group>"; };
-		45DFA070276FE7A70068AFA6 /* camera_preview2_raw12.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_preview2_raw12.h; sourceTree = "<group>"; };
-		45DFA071276FE7A70068AFA6 /* camera_video_preview3_raw10.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_video_preview3_raw10.a; sourceTree = "<group>"; };
-		45DFA072276FE7A70068AFA6 /* camera_video_preview4_raw16.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_video_preview4_raw16.a; sourceTree = "<group>"; };
-		45DFA073276FE7A70068AFA6 /* camera_video_preview3_raw16.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_video_preview3_raw16.a; sourceTree = "<group>"; };
-		45DFA074276FE7A70068AFA6 /* camera_video_preview3_raw12.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_video_preview3_raw12.a; sourceTree = "<group>"; };
-		45DFA075276FE7A80068AFA6 /* camera_preview2_raw16.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_preview2_raw16.h; sourceTree = "<group>"; };
-		45DFA076276FE7A80068AFA6 /* camera_video_preview2_raw10.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_video_preview2_raw10.h; sourceTree = "<group>"; };
-		45DFA077276FE7A80068AFA6 /* camera_video_preview2_raw12.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = camera_video_preview2_raw12.a; sourceTree = "<group>"; };
-		45DFA078276FE7A80068AFA6 /* camera_video_preview3_raw12.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = camera_video_preview3_raw12.h; sourceTree = "<group>"; };
 		45FA2E6D1FF8118A00BE34C3 /* CameraProfile.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CameraProfile.cpp; sourceTree = "<group>"; };
 		45FA2E731FF82F6200BE34C3 /* Temperature.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Temperature.cpp; sourceTree = "<group>"; };
 		45FA2E771FF8333000BE34C3 /* Color.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Color.cpp; sourceTree = "<group>"; };
@@ -602,56 +525,37 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				45DFA091276FE7A80068AFA6 /* camera_preview4_raw10.a in Frameworks */,
-				45DFA081276FE7A80068AFA6 /* camera_preview4_raw16.a in Frameworks */,
 				4521E0392732E69900DEBD25 /* linear_image.a in Frameworks */,
 				4521E01F2732E69800DEBD25 /* measure_noise.a in Frameworks */,
 				4521E03A2732E69900DEBD25 /* fast_preview.a in Frameworks */,
 				4576A6532740582300657DFC /* fuse_denoise_7x7.a in Frameworks */,
-				45DFA082276FE7A80068AFA6 /* camera_preview3_raw10.a in Frameworks */,
 				4521E0112732E69800DEBD25 /* preview_reverse_landscape2.a in Frameworks */,
 				4521E0032732E69800DEBD25 /* measure_image.a in Frameworks */,
-				45DFA090276FE7A80068AFA6 /* camera_preview2_raw10.a in Frameworks */,
 				4521E0362732E69900DEBD25 /* preview_landscape2.a in Frameworks */,
-				45DFA098276FE7A80068AFA6 /* camera_video_preview3_raw12.a in Frameworks */,
-				45DFA095276FE7A80068AFA6 /* camera_video_preview3_raw10.a in Frameworks */,
-				45DFA097276FE7A80068AFA6 /* camera_video_preview3_raw16.a in Frameworks */,
 				455C31352775E70D006F41A7 /* generate_stats.a in Frameworks */,
 				4521E0402732E69900DEBD25 /* forward_transform.a in Frameworks */,
 				4521E0082732E69800DEBD25 /* generate_edges.a in Frameworks */,
 				4521E03E2732E69900DEBD25 /* preview_reverse_portrait4.a in Frameworks */,
 				45A2A511278105A400D5D6F0 /* libic.a in Frameworks */,
-				45DFA079276FE7A80068AFA6 /* camera_video_preview4_raw10.a in Frameworks */,
 				4521E03B2732E69900DEBD25 /* preview_reverse_landscape8.a in Frameworks */,
 				4521E0482732E69900DEBD25 /* preview_reverse_landscape4.a in Frameworks */,
 				4576A647273E910400657DFC /* fuse_denoise_5x5.a in Frameworks */,
 				45448525278ED44D0034AD17 /* fast_preview2.a in Frameworks */,
 				4521E01C2732E69800DEBD25 /* postprocess.a in Frameworks */,
-				45DFA09B276FE7A80068AFA6 /* camera_video_preview2_raw12.a in Frameworks */,
 				4521E02D2732E69900DEBD25 /* inverse_transform.a in Frameworks */,
-				4521E0072732E69800DEBD25 /* halide_runtime_opencl.a in Frameworks */,
 				4521E0062732E69800DEBD25 /* preview_reverse_portrait2.a in Frameworks */,
 				45684DD22720B9C7004E7A12 /* CoreServices.framework in Frameworks */,
 				4521E02C2732E69900DEBD25 /* preview_portrait8.a in Frameworks */,
 				4521E0412732E69900DEBD25 /* build_bayer.a in Frameworks */,
 				4576A64F273EB24800657DFC /* hdr_mask.a in Frameworks */,
-				45DFA07F276FE7A80068AFA6 /* camera_video_preview2_raw10.a in Frameworks */,
 				4521E0322732E69900DEBD25 /* preview_portrait2.a in Frameworks */,
-				45DFA07D276FE7A80068AFA6 /* camera_video_preview4_raw12.a in Frameworks */,
 				4521E0202732E69800DEBD25 /* preview_reverse_portrait8.a in Frameworks */,
-				45DFA087276FE7A80068AFA6 /* camera_preview4_raw12.a in Frameworks */,
-				45DFA096276FE7A80068AFA6 /* camera_video_preview4_raw16.a in Frameworks */,
 				4521E01B2732E69800DEBD25 /* fuse_image.a in Frameworks */,
 				4521E01D2732E69800DEBD25 /* preview_portrait4.a in Frameworks */,
 				458A354A275BC3F300E57813 /* build_bayer2.a in Frameworks */,
 				4521E0102732E69800DEBD25 /* preview_landscape4.a in Frameworks */,
-				45DFA093276FE7A80068AFA6 /* camera_preview3_raw16.a in Frameworks */,
-				45DFA086276FE7A80068AFA6 /* camera_video_preview2_raw16.a in Frameworks */,
-				45DFA08D276FE7A80068AFA6 /* camera_preview2_raw16.a in Frameworks */,
 				4521E0042732E69800DEBD25 /* deinterleave_raw.a in Frameworks */,
-				45DFA08A276FE7A80068AFA6 /* camera_preview2_raw12.a in Frameworks */,
 				4521E0252732E69900DEBD25 /* halide_runtime_host.a in Frameworks */,
-				45DFA08E276FE7A80068AFA6 /* camera_preview3_raw12.a in Frameworks */,
 				4521E00F2732E69800DEBD25 /* preview_landscape8.a in Frameworks */,
 				4576A648273E910400657DFC /* fuse_denoise_3x3.a in Frameworks */,
 			);
@@ -673,7 +577,6 @@
 			children = (
 				45C6A3DD276B3B6300042058 /* AudioInterface.h */,
 				452B6CC126A02FD100992FB4 /* BlueNoiseLUT.h */,
-				45A340A2260B887700405A85 /* CameraPreview.h */,
 				450E1E66214D290300C1B27A /* CameraProfile.h */,
 				450E1E60214D290200C1B27A /* Color.h */,
 				4521DFBB2732B1C600DEBD25 /* DngProcessorProgress.h */,
@@ -920,42 +823,6 @@
 				4521DFDD2732E69100DEBD25 /* build_bayer.h */,
 				458A3548275BC3F300E57813 /* build_bayer2.a */,
 				458A3549275BC3F300E57813 /* build_bayer2.h */,
-				45DFA06C276FE7A70068AFA6 /* camera_preview2_raw10.a */,
-				45DFA05F276FE7A50068AFA6 /* camera_preview2_raw10.h */,
-				45DFA066276FE7A60068AFA6 /* camera_preview2_raw12.a */,
-				45DFA070276FE7A70068AFA6 /* camera_preview2_raw12.h */,
-				45DFA069276FE7A60068AFA6 /* camera_preview2_raw16.a */,
-				45DFA075276FE7A80068AFA6 /* camera_preview2_raw16.h */,
-				45DFA05E276FE7A50068AFA6 /* camera_preview3_raw10.a */,
-				45DFA057276FE7A50068AFA6 /* camera_preview3_raw10.h */,
-				45DFA06A276FE7A60068AFA6 /* camera_preview3_raw12.a */,
-				45DFA060276FE7A50068AFA6 /* camera_preview3_raw12.h */,
-				45DFA06F276FE7A70068AFA6 /* camera_preview3_raw16.a */,
-				45DFA061276FE7A60068AFA6 /* camera_preview3_raw16.h */,
-				45DFA06D276FE7A70068AFA6 /* camera_preview4_raw10.a */,
-				45DFA068276FE7A60068AFA6 /* camera_preview4_raw10.h */,
-				45DFA063276FE7A60068AFA6 /* camera_preview4_raw12.a */,
-				45DFA06B276FE7A70068AFA6 /* camera_preview4_raw12.h */,
-				45DFA05D276FE7A50068AFA6 /* camera_preview4_raw16.a */,
-				45DFA058276FE7A50068AFA6 /* camera_preview4_raw16.h */,
-				45DFA05B276FE7A50068AFA6 /* camera_video_preview2_raw10.a */,
-				45DFA076276FE7A80068AFA6 /* camera_video_preview2_raw10.h */,
-				45DFA077276FE7A80068AFA6 /* camera_video_preview2_raw12.a */,
-				45DFA05C276FE7A50068AFA6 /* camera_video_preview2_raw12.h */,
-				45DFA062276FE7A60068AFA6 /* camera_video_preview2_raw16.a */,
-				45DFA064276FE7A60068AFA6 /* camera_video_preview2_raw16.h */,
-				45DFA071276FE7A70068AFA6 /* camera_video_preview3_raw10.a */,
-				45DFA067276FE7A60068AFA6 /* camera_video_preview3_raw10.h */,
-				45DFA074276FE7A70068AFA6 /* camera_video_preview3_raw12.a */,
-				45DFA078276FE7A80068AFA6 /* camera_video_preview3_raw12.h */,
-				45DFA073276FE7A70068AFA6 /* camera_video_preview3_raw16.a */,
-				45DFA065276FE7A60068AFA6 /* camera_video_preview3_raw16.h */,
-				45DFA055276FE7A50068AFA6 /* camera_video_preview4_raw10.a */,
-				45DFA056276FE7A50068AFA6 /* camera_video_preview4_raw10.h */,
-				45DFA059276FE7A50068AFA6 /* camera_video_preview4_raw12.a */,
-				45DFA06E276FE7A70068AFA6 /* camera_video_preview4_raw12.h */,
-				45DFA072276FE7A70068AFA6 /* camera_video_preview4_raw16.a */,
-				45DFA05A276FE7A50068AFA6 /* camera_video_preview4_raw16.h */,
 				4521DFBE2732E68800DEBD25 /* deinterleave_raw.a */,
 				4521DFF92732E69600DEBD25 /* deinterleave_raw.h */,
 				4521DFF42732E69500DEBD25 /* fast_preview.a */,
@@ -977,7 +844,6 @@
 				455C31332775E70D006F41A7 /* generate_stats.a */,
 				455C31322775E70D006F41A7 /* generate_stats.h */,
 				4521DFDF2732E69100DEBD25 /* halide_runtime_host.a */,
-				4521DFC12732E68800DEBD25 /* halide_runtime_opencl.a */,
 				4576A64D273EB24800657DFC /* hdr_mask.a */,
 				4576A64E273EB24800657DFC /* hdr_mask.h */,
 				4521DFE72732E69300DEBD25 /* inverse_transform.a */,
@@ -1049,7 +915,6 @@
 		45FA2E3F1FF7D5A200BE34C3 /* source */ = {
 			isa = PBXGroup;
 			children = (
-				45A340A1260B887700405A85 /* CameraPreview.cpp */,
 				45FA2E6D1FF8118A00BE34C3 /* CameraProfile.cpp */,
 				45FA2E771FF8333000BE34C3 /* Color.cpp */,
 				455EE73D20556B550090DFAC /* ImageOps.cpp */,
@@ -1186,22 +1051,15 @@
 				4521E0182732E69800DEBD25 /* generate_edges.h in Headers */,
 				4521E03F2732E69900DEBD25 /* deinterleave_raw.h in Headers */,
 				4521E0232732E69900DEBD25 /* build_bayer.h in Headers */,
-				45DFA099276FE7A80068AFA6 /* camera_preview2_raw16.h in Headers */,
 				4521E0422732E69900DEBD25 /* inverse_transform.h in Headers */,
 				4521E0312732E69900DEBD25 /* measure_noise.h in Headers */,
-				45DFA07C276FE7A80068AFA6 /* camera_preview4_raw16.h in Headers */,
-				45DFA084276FE7A80068AFA6 /* camera_preview3_raw12.h in Headers */,
-				45DFA08F276FE7A80068AFA6 /* camera_preview4_raw12.h in Headers */,
 				4521E0372732E69900DEBD25 /* fast_preview.h in Headers */,
-				45DFA08B276FE7A80068AFA6 /* camera_video_preview3_raw10.h in Headers */,
 				4521E0092732E69800DEBD25 /* preview_landscape2.h in Headers */,
 				4576A64A273E910400657DFC /* fuse_denoise_3x3.h in Headers */,
 				4521E0172732E69800DEBD25 /* preview_portrait2.h in Headers */,
-				45DFA085276FE7A80068AFA6 /* camera_preview3_raw16.h in Headers */,
 				4537C37B27B9BD810098333D /* RawContainerImpl.h in Headers */,
 				45A2A50F2781059E00D5D6F0 /* vint.h in Headers */,
 				4521E0292732E69900DEBD25 /* preview_reverse_landscape2.h in Headers */,
-				45DFA088276FE7A80068AFA6 /* camera_video_preview2_raw16.h in Headers */,
 				45C6A3DE276B3B6300042058 /* AudioInterface.h in Headers */,
 				4521E0332732E69900DEBD25 /* preview_landscape4.h in Headers */,
 				4521E03C2732E69900DEBD25 /* linear_image.h in Headers */,
@@ -1211,29 +1069,18 @@
 				4521E00B2732E69800DEBD25 /* preview_reverse_portrait4.h in Headers */,
 				455C31342775E70D006F41A7 /* generate_stats.h in Headers */,
 				4521E0272732E69900DEBD25 /* postprocess.h in Headers */,
-				45DFA08C276FE7A80068AFA6 /* camera_preview4_raw10.h in Headers */,
-				45DFA07A276FE7A80068AFA6 /* camera_video_preview4_raw10.h in Headers */,
-				45DFA07E276FE7A80068AFA6 /* camera_video_preview4_raw16.h in Headers */,
 				45A2A569278254EA00D5D6F0 /* vp4.h in Headers */,
-				45DFA09C276FE7A80068AFA6 /* camera_video_preview3_raw12.h in Headers */,
-				45DFA092276FE7A80068AFA6 /* camera_video_preview4_raw12.h in Headers */,
 				458A354B275BC3F300E57813 /* build_bayer2.h in Headers */,
 				4521E02B2732E69900DEBD25 /* measure_image.h in Headers */,
 				4521E01A2732E69800DEBD25 /* preview_portrait8.h in Headers */,
-				45DFA09A276FE7A80068AFA6 /* camera_video_preview2_raw10.h in Headers */,
 				4521E03D2732E69900DEBD25 /* forward_transform.h in Headers */,
-				45DFA094276FE7A80068AFA6 /* camera_preview2_raw12.h in Headers */,
 				4521E0442732E69900DEBD25 /* fuse_image.h in Headers */,
-				45DFA080276FE7A80068AFA6 /* camera_video_preview2_raw12.h in Headers */,
 				4521E0212732E69800DEBD25 /* preview_reverse_landscape4.h in Headers */,
 				45448526278ED44D0034AD17 /* fast_preview2.h in Headers */,
 				4576A6542740582300657DFC /* fuse_denoise_7x7.h in Headers */,
 				4576A650273EB24800657DFC /* hdr_mask.h in Headers */,
-				45DFA083276FE7A80068AFA6 /* camera_preview2_raw10.h in Headers */,
-				45DFA07B276FE7A80068AFA6 /* camera_preview3_raw10.h in Headers */,
 				4521E0132732E69800DEBD25 /* preview_landscape8.h in Headers */,
 				4521E0462732E69900DEBD25 /* preview_reverse_portrait2.h in Headers */,
-				45DFA089276FE7A80068AFA6 /* camera_video_preview3_raw16.h in Headers */,
 				4537C38827BA908C0098333D /* RawContainerImpl_Legacy.h in Headers */,
 				4521E02E2732E69900DEBD25 /* preview_reverse_portrait8.h in Headers */,
 				4576A64C273E910400657DFC /* fuse_denoise_5x5.h in Headers */,
@@ -1374,7 +1221,6 @@
 				45684DCD2720B93B004E7A12 /* miniz_zip.c in Sources */,
 				45684DCE2720B93D004E7A12 /* miniz_tinfl.c in Sources */,
 				45684DCF2720B93F004E7A12 /* miniz_tdef.c in Sources */,
-				45684CB52720AC24004E7A12 /* CameraPreview.cpp in Sources */,
 				45684CB62720AC24004E7A12 /* CameraProfile.cpp in Sources */,
 				45684CB72720AC24004E7A12 /* Color.cpp in Sources */,
 				45684CB82720AC24004E7A12 /* ImageOps.cpp in Sources */,
@@ -1429,7 +1275,6 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PUBLIC_HEADERS_FOLDER_PATH = ./libMotionCam/include;
 				RUN_CLANG_STATIC_ANALYZER = YES;
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				USER_HEADER_SEARCH_PATHS = ./libMotionCam/include;
 			};
@@ -1467,7 +1312,6 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PUBLIC_HEADERS_FOLDER_PATH = ./libMotionCam/include;
 				RUN_CLANG_STATIC_ANALYZER = YES;
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				USER_HEADER_SEARCH_PATHS = ./libMotionCam/include;
 			};

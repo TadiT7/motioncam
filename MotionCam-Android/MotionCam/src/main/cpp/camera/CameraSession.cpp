@@ -35,6 +35,7 @@ namespace motioncam {
         ACTION_SET_AE_LOCK,
         ACTION_SET_OIS,
         ACTION_SET_LENS_APERTURE,
+        ACTION_SET_TORCH,
         ACTION_SET_FOCUS_DISTANCE,
         ACTION_SET_FOCUS_FOR_VIDEO,
         ACTION_SET_AUTO_FOCUS,
@@ -406,6 +407,11 @@ namespace motioncam {
     void CameraSession::setLensAperture(float lensAperture) {
         json11::Json::object data = { { "value", lensAperture } };
         pushEvent(EventAction::ACTION_SET_LENS_APERTURE, data);
+    }
+
+    void CameraSession::setTorch(bool enable) {
+        json11::Json::object data = { { "value", enable } };
+        pushEvent(EventAction::ACTION_SET_TORCH, data);
     }
 
     void CameraSession::activateCameraSettings() {
@@ -1007,6 +1013,10 @@ namespace motioncam {
         mCameraStateManager->requestAperture(lensAperture);
     }
 
+    void CameraSession::doEnableTorch(bool enable) {
+        mCameraStateManager->requestTorch(enable);
+    }
+
     void CameraSession::doActivateCameraSettings() {
         mCameraStateManager->activate();
     }
@@ -1364,6 +1374,12 @@ namespace motioncam {
             case EventAction::ACTION_SET_LENS_APERTURE: {
                 float value = eventLoopData->data["value"].number_value();
                 doSetLensAperture(value);
+                break;
+            }
+
+            case EventAction::ACTION_SET_TORCH: {
+                bool value = eventLoopData->data["value"].bool_value();
+                doEnableTorch(value);
                 break;
             }
 

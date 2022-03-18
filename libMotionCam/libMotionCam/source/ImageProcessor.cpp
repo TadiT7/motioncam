@@ -737,7 +737,9 @@ namespace motioncam {
                                                                        const int sx,
                                                                        const int sy,
                                                                        const RawImageMetadata& metadata,
-                                                                       const RawCameraMetadata& cameraMetadata) {
+                                                                       const RawCameraMetadata& cameraMetadata,
+                                                                       const int offsetX,
+                                                                       const int offsetY) {
         cv::Mat cameraToPcs;
         cv::Mat pcsToSrgb;
         cv::Vec3f cameraWhite;
@@ -758,8 +760,11 @@ namespace motioncam {
         const int height = inputBuffers[0].height() / sy;
 
         Halide::Runtime::Buffer<uint8_t> outputBuffer =
-            Halide::Runtime::Buffer<uint8_t>::make_interleaved(width*2, height*2, 4);
+            Halide::Runtime::Buffer<uint8_t>::make_interleaved((width - offsetX)*2 - offsetX, (height - offsetY)*2, 4);
 
+        outputBuffer.translate(0, offsetX);
+        outputBuffer.translate(1, offsetY);
+        
         fast_preview2(
             inputBuffers[0],
             inputBuffers[1],
@@ -1241,7 +1246,6 @@ namespace motioncam {
         if(settings.shadows < 0) {
             float ev = calcEv(rawContainer.getCameraMetadata(), referenceRawBuffer->metadata);
             float keyValue = getShadowKeyValue(ev, settings.captureMode == "NIGHT");
-            float shiftAmount;
             
             cv::Mat histogram = calcHistogram(rawContainer.getCameraMetadata(), *referenceRawBuffer, false, 4);
                         

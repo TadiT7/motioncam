@@ -195,26 +195,24 @@ function build_runtime() {
 	ARCH=$2
 
 	echo "[$ARCH] Building halide_runtime_base"
-	./tmp/camera_preview_generator -r halide_runtime -e static_library,h -o ../halide/${ARCH} target=${TARGET}
+	./tmp/postprocess_generator -r halide_runtime -e static_library,h -o ../halide/${ARCH} target=${TARGET}
 
 	mv ../halide/${ARCH}/halide_runtime.a ../halide/${ARCH}/halide_runtime_host.a
 
-	echo "[$ARCH] Building halide_runtime_opencl"
-	./tmp/camera_preview_generator -r halide_runtime -e static_library,h -o ../halide/${ARCH} target=${TARGET}-opencl-cl_half
+	# echo "[$ARCH] Building halide_runtime_opencl"
+	# ./tmp/postprocess_generator -r halide_runtime -e static_library,h -o ../halide/${ARCH} target=${TARGET}-opencl-cl_half
 
-	mv ../halide/${ARCH}/halide_runtime.a ../halide/${ARCH}/halide_runtime_opencl.a
+	# mv ../halide/${ARCH}/halide_runtime.a ../halide/${ARCH}/halide_runtime_opencl.a
 }
 
 mkdir -p ../halide/host
 
 build_denoise host host
 build_postprocess host host
-# build_camera_preview host host
 build_runtime host host
 
 mkdir -p ../halide/arm64-v8a
 
 build_denoise arm-64-android arm64-v8a
 build_postprocess arm-64-android arm64-v8a
-# build_camera_preview arm-64-android-opencl-cl_half arm64-v8a
 build_runtime arm-64-android arm64-v8a

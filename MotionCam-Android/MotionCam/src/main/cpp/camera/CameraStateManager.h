@@ -75,6 +75,7 @@ namespace motioncam {
         void requestAELock(bool lock);
         void requestOis(bool ois);
         void requestAperture(float aperture);
+        void requestTorch(bool enable);
 
         void requestUserExposure(int32_t iso, int64_t exposureTime);
         void requestExposureMode(CameraMode mode);
@@ -103,6 +104,7 @@ namespace motioncam {
         bool mAELock;
         bool mOis;
         bool mFocusForVideo;
+        bool mTorch;
 
         float mRequestedFocusX;
         float mRequestedFocusY;

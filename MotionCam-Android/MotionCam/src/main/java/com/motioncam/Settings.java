@@ -73,6 +73,7 @@ public class Settings {
 
     boolean useDualExposure;
     boolean exposureOverlay;
+    boolean torch;
     boolean rawVideoToDng;
     boolean saveDng;
     boolean autoNightMode;
@@ -116,6 +117,7 @@ public class Settings {
     }
 
     void load(SharedPreferences prefs) {
+        this.torch = false;
         this.jpegQuality = prefs.getInt(SettingsViewModel.PREFS_KEY_JPEG_QUALITY, CameraProfile.DEFAULT_JPEG_QUALITY);
         this.saveDng = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_SAVE_RAW, false);
         this.exposureOverlay = prefs.getBoolean(SettingsViewModel.PREFS_KEY_UI_EXPOSURE_OVERLAY, false);

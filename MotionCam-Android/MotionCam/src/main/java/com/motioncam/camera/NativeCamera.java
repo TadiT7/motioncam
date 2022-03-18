@@ -326,6 +326,10 @@ public class NativeCamera implements Closeable, NativeCameraSessionListener, Nat
         SetLensAperture(aperture);
     }
 
+    public void setTorch(boolean enable) {
+        SetEnableTorch(enable);
+    }
+
     public void activateCameraSettings() {
         ActivateCameraSettings();
     }
@@ -463,6 +467,7 @@ public class NativeCamera implements Closeable, NativeCameraSessionListener, Nat
     private native boolean SetOIS(boolean on);
     private native boolean SetFocusForVideo(boolean focusForVideo);
     private native boolean SetLensAperture(float lensAperture);
+    private native boolean SetEnableTorch(boolean enable);
     private native boolean SetManualFocus(float focusDistance);
     private native boolean SetFocusPoint(float focusX, float focusY, float exposureX, float exposureY);
     private native boolean SetAutoFocus();

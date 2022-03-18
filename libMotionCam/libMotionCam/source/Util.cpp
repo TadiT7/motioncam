@@ -550,8 +550,27 @@ namespace motioncam {
             
             negative->SetColorKeys(colorKeyRed, colorKeyGreen, colorKeyBlue);
             
-            uint32_t phase = 1; // We always output RGGB
+            uint32_t phase;
                         
+            switch(cameraMetadata.sensorArrangment) {
+                case ColorFilterArrangment::GRBG:
+                    phase = 0;
+                    break;
+
+                default:
+                case ColorFilterArrangment::RGGB:
+                    phase = 1;
+                    break;
+
+                case ColorFilterArrangment::BGGR:
+                    phase = 2;
+                    break;
+                    
+                case ColorFilterArrangment::GBRG:
+                    phase = 3;
+                    break;
+            }
+            
             negative->SetBayerMosaic(phase);
             negative->SetColorChannels(3);
                         
@@ -1064,7 +1083,7 @@ namespace motioncam {
                 originalWidth /= 2;
                 originalHeight /= 2;
             }
-
+            
             const int dstOriginalWidth = 80;
             const int dstOriginalHeight = (dstOriginalWidth * originalHeight) / originalWidth;
             
@@ -1072,8 +1091,10 @@ namespace motioncam {
             const int dstHeight = (dstWidth * height) / width;
             
             for(size_t i = 0; i < shadingMap.size(); i++) {
+                cv::Mat tmp;
+                
                 cv::resize(shadingMap[i],
-                           shadingMap[i],
+                           tmp,
                            cv::Size(dstOriginalWidth, dstOriginalHeight),
                            0, 0,
                            cv::INTER_LINEAR);
@@ -1081,13 +1102,13 @@ namespace motioncam {
                 int x = (dstOriginalWidth - dstWidth) / 2;
                 int y = (dstOriginalHeight - dstHeight) / 2;
 
-                shadingMap[i] = shadingMap[i](cv::Rect(x, y, dstOriginalWidth - x*2, dstOriginalHeight - y*2));
+                tmp = tmp(cv::Rect(x, y, dstOriginalWidth - x*2, dstOriginalHeight - y*2));
 
                 // Shrink the shading map back to a reasonable size
                 int shadingMapWidth = 32;
                 int shadingMapHeight = (shadingMapWidth * shadingMap[i].rows) / shadingMap[i].cols;
 
-                cv::resize(shadingMap[i],
+                cv::resize(tmp,
                            shadingMap[i],
                            cv::Size(shadingMapWidth, shadingMapHeight),
                            0, 0,

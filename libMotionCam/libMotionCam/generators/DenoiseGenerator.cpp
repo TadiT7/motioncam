@@ -485,13 +485,13 @@ void ForwardTransformGenerator::schedule_for_cpu() {
         .vectorize(v_x, 4);
 
     for(int level = 0; level < levels; level++) {
-        int outerTileX = 32;
+        int outerTileX = 16;
         int outerTileY = 16;
 
-        int innerTileX = 16;
+        int innerTileX = 8;
         int innerTileY = 8;
         
-        if(level > 3) {
+        if(level > 2) {
             int outerTileX = 8;
             int outerTileY = 8;
 

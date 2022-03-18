@@ -23,6 +23,7 @@ namespace motioncam {
             mOis(true),
             mFocusDistance(-1),
             mFocusForVideo(false),
+            mTorch(false),
             mRequestedAperture(-1)
     {
     }
@@ -80,6 +81,11 @@ namespace motioncam {
     void CameraStateManager::requestAperture(float aperture) {
         LOGD("requestAperture(%.2f)", aperture);
         mRequestedAperture = aperture;
+    }
+
+    void CameraStateManager::requestTorch(bool enable) {
+        LOGD("requestTorch(%d)", enable);
+        mTorch = enable;
     }
 
     void CameraStateManager::requestManualFocus(float distance) {
@@ -309,7 +315,7 @@ namespace motioncam {
         uint8_t mode = ACAMERA_CONTROL_MODE_AUTO;
         uint8_t afTrigger = ACAMERA_CONTROL_AF_TRIGGER_IDLE;
         uint8_t aeTrigger = ACAMERA_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
-
+        uint8_t flashMode = mTorch ? ACAMERA_FLASH_MODE_TORCH : ACAMERA_FLASH_MODE_OFF;
         uint8_t tonemapMode = ACAMERA_TONEMAP_MODE_FAST;
 
         if(!mTonemapPts.empty() && !mFocusForVideo) {
@@ -331,6 +337,7 @@ namespace motioncam {
                                            mTonemapPts.data());
         }
 
+        ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_FLASH_MODE, 1, &flashMode);
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_TONEMAP_MODE, 1, &tonemapMode);
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_MODE, 1, &mode);
         ACaptureRequest_setEntry_u8(mSessionContext.repeatCaptureRequest->captureRequest, ACAMERA_CONTROL_AF_TRIGGER, 1, &afTrigger);

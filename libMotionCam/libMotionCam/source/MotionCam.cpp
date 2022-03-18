@@ -175,6 +175,7 @@ namespace motioncam {
         std::shared_ptr<RawImageBuffer> frame;
         
         auto& container = containers[orderedFrames[frameIdx].containerIndex];
+        
         try {
             frame = container->loadFrame(orderedFrames[frameIdx].frameName);
         }
@@ -232,7 +233,7 @@ namespace motioncam {
             if(weightSum > 1e-5f) {
                 auto denoiseBuffers = ImageProcessor::denoise(frame, nearestBuffers, denoiseWeights, container->getCameraMetadata());
                 bayerBuffer = Halide::Runtime::Buffer<uint16_t>(denoiseBuffers[0].width() * 2, denoiseBuffers[0].height() * 2);
-
+                
                 build_bayer2(denoiseBuffers[0],
                              denoiseBuffers[1],
                              denoiseBuffers[2],
@@ -265,9 +266,9 @@ namespace motioncam {
                             originalWhiteLevel,
                             EXPANDED_RANGE,
                             bayerBuffer);
-                
-                bayerImage = cv::Mat(bayerBuffer.height(), bayerBuffer.width(), CV_16U, bayerBuffer.data());
             }
+            
+            bayerImage = cv::Mat(bayerBuffer.height(), bayerBuffer.width(), CV_16U, bayerBuffer.data());
         }
         else {
             // Get number of nearest buffers
@@ -306,12 +307,12 @@ namespace motioncam {
         // Crop buffer to original size
         int x = (bayerBuffer.width() - frame->width) / 2;
         int y = (bayerBuffer.height() - frame->height) / 2;
-        
+
         // Align to bayer pattern
         x = 2 * (x / 2);
         y = 2 * (y / 2);
 
-        bayerImage = bayerImage(cv::Rect(x, y, frame->width, frame->height));
+        bayerImage = bayerImage(cv::Rect(x, y, bayerBuffer.width() - x*2, bayerBuffer.height() - y*2));
 
         // Clone the buffer because the halide buffer will go away
         bayerImage = bayerImage.clone();
@@ -424,16 +425,24 @@ namespace motioncam {
         ScreenOrientation orientation = firstFrame->metadata.screenOrientation;
         
         for(int frameIdx = startIdx; frameIdx <= endIdx; frameIdx++) {
-            auto newJob = createFrameExportJob(containers,
-                                               progress,
-                                               orderedFrames,
-                                               frameIdx,
-                                               orientation,
-                                               denoiseWeights,
-                                               mergeFrames,
-                                               enableCompression,
-                                               applyShadingMap);
-            
+            std::shared_ptr<Job> newJob;
+
+            try {
+                newJob = createFrameExportJob(containers,
+                                              progress,
+                                              orderedFrames,
+                                              frameIdx,
+                                              orientation,
+                                              denoiseWeights,
+                                              mergeFrames,
+                                              enableCompression,
+                                              applyShadingMap);
+            }
+            catch(std::runtime_error& e) {
+                logger::log(std::string("convert error: ") + e.what());
+                continue;
+            }
+
             if(!newJob) {
                 progress.onError("Frame " + std::to_string(frameIdx) + " is corrupted");
                 continue;

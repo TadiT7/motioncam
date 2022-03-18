@@ -912,8 +912,20 @@ Java_com_motioncam_camera_NativeCamera_SetLensAperture(JNIEnv *env, jobject thiz
     gCameraSession->setLensAperture(lensAperture);
 
     return JNI_TRUE;
-
 }
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_motioncam_camera_NativeCamera_SetEnableTorch(JNIEnv *env, jobject thiz, jboolean enable) {
+    if(!gCameraSession) {
+        return JNI_FALSE;
+    }
+
+    gCameraSession->setTorch(enable);
+
+    return JNI_TRUE;
+}
+
 extern "C"
 JNIEXPORT jboolean JNICALL Java_com_motioncam_camera_NativeCamera_ActivateCameraSettings(JNIEnv *env, jobject thiz) {
     if(!gCameraSession) {

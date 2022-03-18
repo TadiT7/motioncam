@@ -70,7 +70,9 @@ namespace motioncam {
                                                                   const int sx,
                                                                   const int sy,
                                                                   const RawImageMetadata& metadata,
-                                                                  const RawCameraMetadata& cameraMetadata);
+                                                                  const RawCameraMetadata& cameraMetadata,
+                                                                  const int offsetX,
+                                                                  const int offsetY);
 
         static void generateStats(const RawImageBuffer& rawBuffer,
                                   const int sx,

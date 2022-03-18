@@ -71,6 +71,8 @@ namespace motioncam {
         void setFocusDistance(float focusDistance);
         void setFocusForVideo(bool focusForVideo);
         void setLensAperture(float lensAperture);
+        void setTorch(bool enable);
+
         void activateCameraSettings();
 
         void captureHdr(
@@ -143,6 +145,7 @@ namespace motioncam {
         void doSetFocusDistance(float focusDistance);
         void doSetFocusForVideo(bool focusForVideo);
         void doSetLensAperture(float lensAperture);
+        void doEnableTorch(bool enable);
         void doActivateCameraSettings();
         void doSetAWBLock(bool lock);
         void doSave(int numImages);

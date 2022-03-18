@@ -124,6 +124,7 @@ public class CameraActivity extends AppCompatActivity implements
 
     private static final int OVERLAY_UPDATE_FREQUENCY_MS = 250;
     private static final int NUM_COMPRESSION_THREADS = 2;
+    private static final int NUM_COMPRESSION_HIGH_FPS_THREADS = 3;
 
     private static final float DEFAULT_SHADOWS_VALUE = 4.0f;
     private static final int DEFAULT_SHADOWS_VALUE_PROGRESS = 40;
@@ -321,6 +322,9 @@ public class CameraActivity extends AppCompatActivity implements
         mBinding.cameraSettings.findViewById(R.id.exposureOverlayBtn)
                 .setOnClickListener(v -> setExposureOverlay(!mSettings.exposureOverlay));
 
+        mBinding.cameraSettings.findViewById(R.id.torchBtn)
+                .setOnClickListener(v -> setTorch(!mSettings.torch));
+
         mBinding.cameraSettings.findViewById(R.id.hdrBtn)
                 .setOnClickListener(v -> setHdr(!mSettings.hdr));
 
@@ -336,7 +340,7 @@ public class CameraActivity extends AppCompatActivity implements
         findViewById(R.id.manualControlPlusBtn).setOnClickListener(v -> mCameraStateManager.onManualControlPlus());
         findViewById(R.id.manualControlMinusBtn).setOnClickListener(v -> mCameraStateManager.onManualControlMinus());
 
-        //
+        // Prevent focus being set
         mBinding.manualControlsFrame.setOnClickListener((v) -> {
         });
 
@@ -773,7 +777,10 @@ public class CameraActivity extends AppCompatActivity implements
                 .mapToInt(i->i)
                 .toArray();
 
-        mNativeCamera.streamToFile(fds, audioFd, mAudioInputId, NUM_COMPRESSION_THREADS);
+        // Use more threads for higher frame rates
+        int compressionThreads = mSettings.cameraStartupSettings.frameRate > 30 ? NUM_COMPRESSION_HIGH_FPS_THREADS : NUM_COMPRESSION_THREADS;
+
+        mNativeCamera.streamToFile(fds, audioFd, mAudioInputId, compressionThreads);
         mImageCaptureInProgress.set(true);
 
         mBinding.switchCameraBtn.setEnabled(false);
@@ -1261,6 +1268,15 @@ public class CameraActivity extends AppCompatActivity implements
             mBinding.cameraOverlayClipHigh.setVisibility(View.GONE);
             mBinding.cameraOverlayClipLow.setVisibility(View.GONE);
         }
+    }
+
+    private void setTorch(boolean enable) {
+        if(mNativeCamera != null) {
+            mNativeCamera.setTorch(enable);
+            mNativeCamera.activateCameraSettings();
+        }
+
+        mSettings.torch = enable;
     }
 
     private void setSaveRaw(boolean saveRaw) {

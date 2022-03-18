@@ -413,7 +413,7 @@ namespace motioncam {
                              buffer->second->originalWidth,
                              buffer->second->originalHeight,
                              buffer->second->isBinned);
-        
+
         buffer->second->metadata.updateShadingMap(shadingMap);
         
         return buffer->second;
