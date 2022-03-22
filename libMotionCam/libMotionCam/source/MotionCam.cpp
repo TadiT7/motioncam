@@ -107,6 +107,7 @@ namespace motioncam {
                                       const int mergeFrames,
                                       const bool enableCompression,
                                       const bool applyShadingMap,
+                                      const bool noClipShadingMap,
                                       const int fromFrameNumber,
                                       const int toFrameNumber,
                                       const bool autoRecover)
@@ -124,6 +125,7 @@ namespace motioncam {
                           mergeFrames,
                           enableCompression,
                           applyShadingMap,
+                          noClipShadingMap,
                           fromFrameNumber,
                           toFrameNumber,
                           autoRecover);
@@ -136,6 +138,7 @@ namespace motioncam {
                                       const int mergeFrames,
                                       const bool enableCompression,
                                       const bool applyShadingMap,
+                                      const bool noClipShadingMap,
                                       const int fromFrameNumber,
                                       const int toFrameNumber,
                                       const bool autoRecover)
@@ -153,6 +156,7 @@ namespace motioncam {
                           mergeFrames,
                           enableCompression,
                           applyShadingMap,
+                          noClipShadingMap,
                           fromFrameNumber,
                           toFrameNumber,
                           autoRecover);
@@ -170,7 +174,8 @@ namespace motioncam {
                                               const std::vector<float>& denoiseWeights,
                                               const int mergeFrames,
                                               const bool enableCompression,
-                                              const bool applyShadingMap)
+                                              const bool applyShadingMap,
+                                              const bool noClipShadingMap)
     {
         std::shared_ptr<RawImageBuffer> frame;
         
@@ -200,16 +205,28 @@ namespace motioncam {
         std::vector<Halide::Runtime::Buffer<float>> shadingMapBuffer;
 
         auto shadingMap = frame->metadata.shadingMap();
+        double shadingMapMax[4] = { 1, 1, 1, 1 };
         
-        for(int i = 0; i < 4; i++) {
-            auto buffer = Halide::Runtime::Buffer<float>(reinterpret_cast<float*>(shadingMap[i].data),
-                                                         shadingMap[i].cols,
-                                                         shadingMap[i].rows);
+        // Normalise shading map if requested
+        if(noClipShadingMap) {
+            for(int i = 0; i < 4; i++) {
+                double minVal;
+                
+                cv::minMaxIdx(shadingMap[i], &minVal, &shadingMapMax[i]);
+            }
+        }
+        
+        double shadingMapScale = std::min(std::min(std::min(shadingMapMax[0], shadingMapMax[1]), shadingMapMax[2]), shadingMapMax[3]);
 
+        for(int i = 0; i < 4; i++) {
+            cv::Mat m = shadingMap[i] / shadingMapScale;
+                        
+            auto buffer = Halide::Runtime::Buffer<float>(reinterpret_cast<float*>(m.data), m.cols, m.rows);
             buffer = buffer.copy();
             
-            if(!applyShadingMap)
+            if(!applyShadingMap) {
                 buffer.fill(1.0f);
+            }
             
             shadingMapBuffer.push_back(buffer);
         }
@@ -354,6 +371,7 @@ namespace motioncam {
                                       const int mergeFrames,
                                       const bool enableCompression,
                                       const bool applyShadingMap,
+                                      const bool noClipShadingMap,
                                       const int fromFrameNumber,
                                       const int toFrameNumber,
                                       const bool autoRecover)
@@ -436,7 +454,8 @@ namespace motioncam {
                                               denoiseWeights,
                                               mergeFrames,
                                               enableCompression,
-                                              applyShadingMap);
+                                              applyShadingMap,
+                                              noClipShadingMap);
             }
             catch(std::runtime_error& e) {
                 logger::log(std::string("convert error: ") + e.what());

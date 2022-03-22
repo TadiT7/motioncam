@@ -26,6 +26,7 @@ namespace motioncam {
                                const int mergeFrames,
                                const bool enableCompression,
                                const bool applyShadingMap,
+                               const bool noClipShadingMap,
                                const int fromFrameNumber,
                                const int toFrameNumber,
                                const bool autoRecover);
@@ -37,6 +38,7 @@ namespace motioncam {
                                const int mergeFrames=0,
                                const bool enableCompression=true,
                                const bool applyShadingMap=true,
+                               const bool noClipShadingMap=true,
                                const int fromFrameNumber=-1,
                                const int toFrameNumber=-1,
                                const bool autoRecover=true);
@@ -48,6 +50,7 @@ namespace motioncam {
                                const int mergeFrames=0,
                                const bool enableCompression=true,
                                const bool applyShadingMap=true,
+                               const bool noClipShadingMap=true,
                                const int fromFrameNumber=-1,
                                const int toFrameNumber=-1,
                                const bool autoRecover=true);
