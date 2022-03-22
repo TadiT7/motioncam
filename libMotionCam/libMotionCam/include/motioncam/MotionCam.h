@@ -55,15 +55,34 @@ namespace motioncam {
         static void ProcessImage(RawContainer& rawContainer, const std::string& outputFilePath, const ImageProcessorProgress& progressListener);
         static void ProcessImage(const std::string& containerPath, const std::string& outputFilePath, const ImageProcessorProgress& progressListener);
 
-        static bool GetMetadata(const std::string& filename, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
-        static bool GetMetadata(const std::vector<std::string>& paths, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
-        static bool GetMetadata(const std::vector<int>& fds, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments);
+        static bool GetMetadata(const std::string& filename,
+                                float& outDurationMs,
+                                float& outFrameRate,
+                                int& outNumFrames,
+                                int& outNumSegments,
+                                int& outDroppedFrames);
+        
+        static bool GetMetadata(const std::vector<std::string>& paths,
+                                float& outDurationMs,
+                                float& outFrameRate,
+                                int& outNumFrames,
+                                int& outNumSegments,
+                                int& outDroppedFrames);
+        
+        static bool GetMetadata(const std::vector<int>& fds,
+                                float& outDurationMs,
+                                float& outFrameRate,
+                                int& outNumFrames,
+                                int& outNumSegments,
+                                int& outDroppedFrames);
+        
         static bool GetMetadata(
             const std::vector<std::unique_ptr<RawContainer>>& containers,
             float& outDurationMs,
             float& outFrameRate,
             int& outNumFrames,
-            int& outNumSegments);
+            int& outNumSegments,
+            int& outDroppedFrames);
 
     private:
         void writeDNG();

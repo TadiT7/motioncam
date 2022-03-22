@@ -34,6 +34,7 @@ namespace motioncam {
         bool isRunning() const;
         float estimateFps() const;
         size_t writenOutputBytes() const;
+        int droppedFrames() const;
 
         void cropAndBin(RawImageBuffer& buffer) const;
         void crop(RawImageBuffer& buffer) const;
@@ -56,9 +57,10 @@ namespace motioncam {
         bool mBin;
         
         std::atomic<bool> mRunning;
-        std::atomic<uint32_t> mWrittenFrames;
-        std::atomic<uint32_t> mAcceptedFrames;
+        std::atomic<int> mWrittenFrames;
+        std::atomic<int> mAcceptedFrames;
         std::atomic<size_t> mWrittenBytes;
+        std::atomic<int> mDroppedFrames;
         std::chrono::steady_clock::time_point mStartTime;
         
         moodycamel::BlockingConcurrentQueue<std::shared_ptr<RawImageBuffer>> mUnprocessedBuffers;

@@ -346,4 +346,8 @@ namespace motioncam {
     size_t RawBufferStreamer::writenOutputBytes() const {
         return mWrittenBytes;
     }
+
+    int RawBufferStreamer::droppedFrames() const {
+        return mDroppedFrames;
+    }
 }

@@ -498,7 +498,13 @@ namespace motioncam {
         ImageProcessor::process(rawContainer, outputFilePath, progressListener);
     }
 
-    bool MotionCam::GetMetadata(const std::string& filename, float& outDurationMs, float& outFrameRate, int& outNumFrames, int& outNumSegments) {
+    bool MotionCam::GetMetadata(const std::string& filename,
+                                float& outDurationMs,
+                                float& outFrameRate,
+                                int& outNumFrames,
+                                int& outNumSegments,
+                                int& outDroppedFrames)
+    {
         std::vector<std::unique_ptr<RawContainer>> containers;
         
         try {
@@ -509,18 +515,20 @@ namespace motioncam {
             outNumFrames = -1;
             outDurationMs = -1;
             outNumSegments = 0;
-
+            outDroppedFrames = 0;
+            
             return false;
         }
         
-        return GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments);
+        return GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments, outDroppedFrames);
     }
 
     bool MotionCam::GetMetadata(const std::vector<std::string>& paths,
                                 float& outDurationMs,
                                 float& outFrameRate,
                                 int& outNumFrames,
-                                int& outNumSegments)
+                                int& outNumSegments,
+                                int& outDroppedFrames)
     {
         std::vector<std::unique_ptr<RawContainer>> containers;
 
@@ -533,18 +541,20 @@ namespace motioncam {
             outNumFrames = -1;
             outDurationMs = -1;
             outNumSegments = 0;
+            outDroppedFrames = 0;
 
             return false;
         }
 
-        return GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments);
+        return GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments, outDroppedFrames);
     }
 
     bool MotionCam::GetMetadata(const std::vector<int>& fds,
                                 float& outDurationMs,
                                 float& outFrameRate,
                                 int& outNumFrames,
-                                int& outNumSegments)
+                                int& outNumSegments,
+                                int& outDroppedFrames)
     {
         // Try to get metadata from all segments
         std::vector<std::unique_ptr<RawContainer>> containers;
@@ -558,12 +568,13 @@ namespace motioncam {
                 outNumFrames = -1;
                 outDurationMs = -1;
                 outNumSegments = 0;
+                outDroppedFrames = 0;
 
                 return false;
             }
         }
         
-        return GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments);
+        return GetMetadata(containers, outDurationMs, outFrameRate, outNumFrames, outNumSegments, outDroppedFrames);
     }
 
     bool MotionCam::GetMetadata(
@@ -571,7 +582,8 @@ namespace motioncam {
         float& outDurationMs,
         float& outFrameRate,
         int& outNumFrames,
-        int& outNumSegments)
+        int& outNumSegments,
+        int& outDroppedFrames)
     {
         std::vector<util::ContainerFrame> orderedFrames;
 
@@ -580,6 +592,7 @@ namespace motioncam {
         outFrameRate = 0;
         outDurationMs = -1;
         outNumSegments = 0;
+        outDroppedFrames = 0;
         
         for(const auto& container : containers) {
             if(container->isCorrupted())
@@ -590,10 +603,27 @@ namespace motioncam {
 
         if(orderedFrames.empty())
             return false;
-               
+        
+        // Estimate dropped frames by calculating the (not completetely correct) median
+        // of frame offsets. Run through the offsets again and find outliers.
+        std::vector<int64_t> frameOffsets;
+        
+        for(size_t i = 1; i < orderedFrames.size(); i++) {
+            auto d = (orderedFrames[i].timestamp - orderedFrames[i - 1].timestamp) / (1000*1000);
+            frameOffsets.push_back(d);
+        }
+        
+        std::nth_element(frameOffsets.begin(), frameOffsets.begin() + frameOffsets.size() / 2, frameOffsets.end());
+        
+        auto median = frameOffsets[frameOffsets.size()/2];
+        
+        for(auto& offset : frameOffsets) {
+            outDroppedFrames += (std::round(offset / (float) median) - 1);
+        }
+        
         double startTime = orderedFrames[0].timestamp / 1e9;
         double endTime = orderedFrames[orderedFrames.size() - 1].timestamp / 1e9;
-        
+                
         if(endTime - startTime <= 0)
             outFrameRate = 0;
         else
